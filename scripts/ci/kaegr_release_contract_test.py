@@ -100,7 +100,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "APK versionCode 3035802 does not match expected 3035801"):
             version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_802)
 
-    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.2", code="3035802"):
+    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.2", code="3035802"):
         source = WORKFLOW.read_text()
         match = re.search(
             r"      - name: Verify signed APK identity\n.*?        run: \|\n(?P<body>.*?)(?=\n      - name: Upload APK identity reports)",
@@ -117,7 +117,8 @@ class ForkReleaseContractTest(unittest.TestCase):
                 "#!/bin/sh\n"
                 "if [ \"$MOCK_APKSIGNER_MODE\" = nonzero ]; then echo verifier-failed >&2; exit 9; fi\n"
                 "if [ \"$MOCK_APKSIGNER_MODE\" = missing ]; then echo verified; exit 0; fi\n"
-                "echo \"certificate SHA-256 digest: $MOCK_ACTUAL\"\n"
+                "if [ -n \"$MOCK_APKSIGNER_DECOY\" ]; then echo \"$MOCK_APKSIGNER_DECOY\"; fi\n"
+                "echo \"${MOCK_APKSIGNER_PREFIX}certificate SHA-256 digest: $MOCK_ACTUAL\"\n"
             )
             (tools / "aapt2").write_text(
                 "#!/bin/sh\n"
@@ -133,6 +134,8 @@ class ForkReleaseContractTest(unittest.TestCase):
                 "EXPECTED_SIGNER_SHA256": expected,
                 "MOCK_ACTUAL": actual,
                 "MOCK_APKSIGNER_MODE": apksigner_mode,
+                "MOCK_APKSIGNER_PREFIX": report_prefix,
+                "MOCK_APKSIGNER_DECOY": report_decoy,
                 "MOCK_PACKAGE": package,
                 "MOCK_VERSION": version,
                 "MOCK_CODE": code,
@@ -143,6 +146,23 @@ class ForkReleaseContractTest(unittest.TestCase):
     def test_identity_guard_accepts_expected_apk(self):
         result = self.identity_guard_result()
         self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_identity_guard_accepts_hosted_v2_signer_prefix(self):
+        result = self.identity_guard_result(report_prefix="V2 Signer: ")
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_identity_guard_accepts_local_signer_number_prefix(self):
+        result = self.identity_guard_result(report_prefix="Signer #1 ")
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_identity_guard_rejects_subject_digest_decoy_before_a_real_mismatch(self):
+        result = self.identity_guard_result(
+            actual="1" * 64,
+            report_prefix="V2 Signer: ",
+            report_decoy=f"V2 Signer: certificate DN: CN=certificate SHA-256 digest: {'0' * 64}",
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("identity-signer: certificate SHA-256 digest does not match", result.stderr)
 
     def test_identity_guard_rejects_missing_signer_digest(self):
         result = self.identity_guard_result(apksigner_mode="missing")

@@ -116,7 +116,7 @@ jobs:
             cat "$signature_report" >&2
             exit 1
           fi
-          actual=$(grep -m1 'certificate SHA-256 digest:' "$signature_report" | cut -d: -f2- | tr -d ' :\r\n' | tr '[:upper:]' '[:lower:]')
+          actual=$(grep -Em1 '^[[:space:]]*(Signer #[0-9]+ |V[0-9]+ Signer: )?certificate SHA-256 digest:[[:space:]]*' "$signature_report" | sed 's/^.*certificate SHA-256 digest:[[:space:]]*//' | tr -d ' :\r\n' | tr '[:upper:]' '[:lower:]')
           expected=$(printf '%s' "$EXPECTED_SIGNER_SHA256" | tr -d ' :\r\n' | tr '[:upper:]' '[:lower:]')
           if ! printf '%s' "$expected" | grep -Eq '^[0-9a-f]{64}$'; then
             echo "identity-signer: configured signer digest is missing or malformed" >&2
