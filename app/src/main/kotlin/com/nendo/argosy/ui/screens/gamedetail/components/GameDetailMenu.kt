@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -79,7 +80,8 @@ data class MenuLayoutState(
     val hasSaveSync: Boolean = false,
     val hasRelated: Boolean = false,
     val hasPerGameSettings: Boolean = false,
-    val hasDocuments: Boolean = false
+    val hasDocuments: Boolean = false,
+    val hasStream: Boolean = false
 )
 
 sealed class MenuItem(
@@ -87,6 +89,7 @@ sealed class MenuItem(
     val visibleWhen: (MenuLayoutState) -> Boolean = { true }
 ) {
     data object Play : MenuItem("play")
+    data object Stream : MenuItem("stream", visibleWhen = { it.hasStream })
     data object Saves : MenuItem("saves", visibleWhen = { it.hasSaveSync })
     data object Favorite : MenuItem("favorite")
     data object Privacy : MenuItem("privacy", visibleWhen = { it.hasSocialAccount })
@@ -103,7 +106,7 @@ sealed class MenuItem(
     companion object {
         val ALL: List<MenuItem>
             get() = listOf(
-                Play, Saves, Favorite, Privacy, PerGameSettings, Options, Details,
+                Play, Stream, Saves, Favorite, Privacy, PerGameSettings, Options, Details,
                 Description, Screenshots, Documents, Reviews, Achievements, RelatedGames
             )
     }
@@ -180,6 +183,16 @@ fun GameDetailMenu(
                         isAwaitingServer = displayState.isAwaitingServer,
                         isFocused = isFocused,
                         downloadSizeBytes = displayState.downloadSizeBytes,
+                        isCompact = isCompact,
+                        onClick = { onFocusChange(focusIndex); onItemClick(item) }
+                    )
+                }
+
+                MenuItem.Stream -> {
+                    IconTextMenuItem(
+                        label = stringResource(R.string.kaegr_gamedetail_menu_stream),
+                        icon = Icons.Default.Cast,
+                        isFocused = isFocused,
                         isCompact = isCompact,
                         onClick = { onFocusChange(focusIndex); onItemClick(item) }
                     )

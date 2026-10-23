@@ -4,6 +4,8 @@ import android.content.Intent
 import androidx.annotation.StringRes
 import com.nendo.argosy.core.game.AchievementUi
 import com.nendo.argosy.data.model.ArtSlot
+import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.stream.MoonlightStream
 import com.nendo.argosy.domain.model.SyncProgress
 import com.nendo.argosy.domain.model.SyncState
 import com.nendo.argosy.ui.common.savechannel.SaveChannelState
@@ -118,13 +120,15 @@ data class GameDetailUi(
     val titleId: String? = null,
     val igdbId: Long? = null,
     val steamAppId: Long? = null,
-    val rommFileName: String? = null
+    val rommFileName: String? = null,
+    val rommId: Long? = null
 )
 
 sealed class LaunchEvent {
     data class LaunchIntent(val intent: Intent) : LaunchEvent()
     data object NavigateBack : LaunchEvent()
     data class OpenSaveTimeline(val gameId: Long) : LaunchEvent()
+    data class StreamIntent(val intent: Intent, val moonlightPackage: String) : LaunchEvent()
 }
 
 enum class GameDownloadStatus {
@@ -350,6 +354,7 @@ data class GameDetailUiState(
     val hasSiblingGroup: Boolean = false,
     val hasSocialAccount: Boolean = false,
     val isPrivate: Boolean = false,
+    val streamSettings: StreamSettings = StreamSettings(),
     val perGameSettings: com.nendo.argosy.ui.screens.gamedetail.delegates.PerGameSettingsState =
         com.nendo.argosy.ui.screens.gamedetail.delegates.PerGameSettingsState()
 ) {
@@ -382,7 +387,14 @@ data class GameDetailUiState(
                 hasRelated = relatedGames.isNotEmpty(),
                 hasPerGameSettings = game != null && !game.isSteamGame && !game.isAndroidApp &&
                     downloadStatus == GameDownloadStatus.DOWNLOADED,
-                hasDocuments = documents.isNotEmpty()
+                hasDocuments = documents.isNotEmpty(),
+                hasStream = game != null && MoonlightStream.canStream(
+                    streamSettings,
+                    game.rommId,
+                    game.platformSlug,
+                    game.isSteamGame,
+                    game.isAndroidApp
+                )
             )
         }
 }

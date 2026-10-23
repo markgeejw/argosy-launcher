@@ -273,6 +273,7 @@ class GameDetailViewModel @Inject constructor(
                 pickerModalDelegate.menuWrapMode = prefs.menuWrapMode
                 moreOptionsDelegate.menuWrapMode = prefs.menuWrapMode
                 perGameSettingsDelegate.menuWrapMode = prefs.menuWrapMode
+                _uiState.update { it.copy(streamSettings = prefs.streamSettings) }
             }
         }
 
@@ -2132,6 +2133,12 @@ class GameDetailViewModel @Inject constructor(
 
     fun showLaunchError(message: NotificationText) = notificationManager.showError(message)
 
+    fun streamGame() {
+        val state = _uiState.value
+        val event = state.game?.let { streamLaunchEvent(it, state.streamSettings) } ?: return
+        viewModelScope.launch { _launchEvents.emit(event) }
+    }
+
     // --- Navigation ---
 
     fun navigateToPreviousGame() {
@@ -2173,6 +2180,7 @@ class GameDetailViewModel @Inject constructor(
         val state = menuLayoutState()
         when (menuLayout.itemAtFocusIndex(_uiState.value.menuFocusIndex, state)) {
             MenuItem.Play -> primaryAction()
+            MenuItem.Stream -> streamGame()
             MenuItem.Saves -> syncSavesNow()
             MenuItem.Favorite -> toggleFavorite()
             MenuItem.Privacy -> togglePrivacy()

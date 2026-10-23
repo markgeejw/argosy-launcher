@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kaegr_gamedetail_menu_stream" translatable="false">Stream</string>
+    <string name="kaegr_gamedetail_footer_stream" translatable="false">Stream from gamer</string>
+    <string name="kaegr_stream_no_client" translatable="false">Streaming app not installed: %1$s</string>
+</resources>

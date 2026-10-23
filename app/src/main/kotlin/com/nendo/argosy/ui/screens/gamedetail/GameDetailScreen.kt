@@ -161,6 +161,16 @@ fun GameDetailScreen(
                         )
                     }
                 }
+                is LaunchEvent.StreamIntent -> {
+                    if (!tryStartStream { context.startActivity(event.intent) }) {
+                        viewModel.showLaunchError(
+                            NotificationText.Res(
+                                R.string.kaegr_stream_no_client,
+                                listOf(event.moonlightPackage)
+                            )
+                        )
+                    }
+                }
                 is LaunchEvent.NavigateBack -> onBack()
                 is LaunchEvent.OpenSaveTimeline -> onOpenSaveTimeline(event.gameId)
             }
@@ -602,6 +612,7 @@ private fun GameDetailContent(
                                 onItemClick = { item ->
                                     when (item) {
                                         MenuItem.Play -> viewModel.primaryAction()
+                                        MenuItem.Stream -> viewModel.streamGame()
                                         MenuItem.Saves -> viewModel.syncSavesNow()
                                         MenuItem.Favorite -> viewModel.toggleFavorite()
                                         MenuItem.Privacy -> viewModel.togglePrivacy()
@@ -794,6 +805,7 @@ private fun GameDetailContent(
                     stringResource(R.string.gamedetail_footer_menu_make_private)
                 val configureHint = stringResource(R.string.gamedetail_footer_configure)
                 val optionsHint = stringResource(R.string.gamedetail_footer_options)
+                val streamHint = stringResource(R.string.kaegr_gamedetail_footer_stream)
                 val viewScreenshotHint = stringResource(R.string.gamedetail_footer_view_screenshot)
                 val viewAllAchievementsHint =
                     stringResource(R.string.gamedetail_footer_view_all_achievements)
@@ -829,6 +841,7 @@ private fun GameDetailContent(
                                 uiState.downloadStatus == GameDownloadStatus.FAILED -> playRetryFailedHint
                                 else -> playFallbackHint
                             })
+                            MenuItem.Stream -> add(InputButton.A to streamHint)
                             MenuItem.Saves -> add(InputButton.A to if (uiState.isSyncingSaves) savesSyncingHint else savesSyncHint)
                             MenuItem.Favorite -> add(InputButton.A to if (game.isFavorite) menuUnfavoriteHint else menuFavoriteHint)
                             MenuItem.Privacy -> add(InputButton.A to if (uiState.isPrivate) menuMakePublicHint else menuMakePrivateHint)

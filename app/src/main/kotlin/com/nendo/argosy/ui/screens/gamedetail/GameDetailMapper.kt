@@ -92,6 +92,7 @@ fun GameEntity.toGameDetailUi(
         titleId = displayTitleId,
         igdbId = igdbId,
         steamAppId = steamAppId,
-        rommFileName = rommFileName
+        rommFileName = rommFileName,
+        rommId = rommId
     )
 }
