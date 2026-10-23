@@ -11,6 +11,9 @@ import com.nendo.argosy.core.emulator.LibretroSettingDef
 import com.nendo.argosy.libretro.frame.FrameRegistry
 import com.nendo.argosy.ui.screens.settings.sections.AboutItem
 import com.nendo.argosy.ui.screens.settings.sections.PresentationItem
+import com.nendo.argosy.ui.screens.settings.sections.StreamingItem
+import com.nendo.argosy.ui.screens.settings.sections.streamingItemAtFocusIndex
+import com.nendo.argosy.ui.screens.settings.sections.streamingMaxFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.presentationItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.presentationMaxFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.AmbientLedItem
@@ -186,6 +189,7 @@ internal fun routeConfirm(vm: SettingsViewModel): InputResult {
                 MainSettingsItem.Social -> vm.navigateToSection(SettingsSection.SOCIAL)
                 MainSettingsItem.Steam -> vm.navigateToSection(SettingsSection.STEAM_SETTINGS)
                 MainSettingsItem.Jellyfin -> vm.navigateToSection(SettingsSection.JELLYFIN)
+                MainSettingsItem.Streaming -> vm.navigateToSection(SettingsSection.STREAMING)
                 null -> {}
             }
             InputResult.HANDLED
@@ -316,8 +320,26 @@ internal fun routeConfirm(vm: SettingsViewModel): InputResult {
         SettingsSection.CORE_OPTIONS -> InputResult.HANDLED
         SettingsSection.SOCIAL -> vm.handleSocialConfirm(state)
         SettingsSection.MANAGED_INSTALLERS -> routeInstallersConfirm(vm, state)
+        SettingsSection.STREAMING -> routeStreamingConfirm(vm, state)
     }
 }
+
+private fun routeStreamingConfirm(vm: SettingsViewModel, state: SettingsUiState): InputResult =
+    when (val item = streamingItemAtFocusIndex(state.focusedIndex)) {
+        StreamingItem.Host -> {
+            vm.openStreamHostModal()
+            InputResult.handled(SoundType.OPEN_MODAL)
+        }
+        StreamingItem.Client -> {
+            vm.cycleStreamClient(1)
+            InputResult.handled(SoundType.TOGGLE)
+        }
+        is StreamingItem.Platform -> {
+            vm.toggleStreamPlatform(item.slug)
+            InputResult.handled(SoundType.TOGGLE)
+        }
+        is StreamingItem.Header, null -> InputResult.HANDLED
+    }
 
 private fun routeInstallersConfirm(vm: SettingsViewModel, state: SettingsUiState): InputResult {
     val installers = state.managedInstallers
@@ -1400,6 +1422,7 @@ private fun computeMaxFocusIndex(
     SettingsSection.LAUNCH_TARGETS -> launchTargetsLayout(state.launchTargets).maxFocusIndex
     SettingsSection.NAVIGATION -> navigationMaxFocusIndex(state.controls)
     SettingsSection.MANAGED_INSTALLERS -> installersMaxFocusIndex(state.managedInstallers)
+    SettingsSection.STREAMING -> streamingMaxFocusIndex()
     SettingsSection.PLATFORMS -> emulatorsMaxFocusIndex(state.emulators.platforms)
     SettingsSection.BUILTIN_EMULATOR -> when {
         !state.emulators.builtinLibretroEnabled -> BuiltinEmulatorItem.ENABLE.focusIndex

@@ -140,7 +140,20 @@ internal class LightSectionsInput(
             SettingsSection.ABOUT -> handleAboutLeftRight(direction)
             SettingsSection.BUILTIN_EMULATOR -> handleBuiltinEmulatorLeftRight(direction)
             SettingsSection.CORE_MANAGEMENT -> handleCoreManagementLeftRight(direction)
+            SettingsSection.STREAMING -> handleStreamingLeftRight(direction)
             else -> InputResult.UNHANDLED
+        }
+    }
+
+    private fun handleStreamingLeftRight(direction: Int): InputResult {
+        val state = viewModel.uiState.value
+        return if (com.nendo.argosy.ui.screens.settings.sections.streamingItemAtFocusIndex(state.focusedIndex) ==
+            com.nendo.argosy.ui.screens.settings.sections.StreamingItem.Client
+        ) {
+            viewModel.cycleStreamClient(direction)
+            InputResult.HANDLED
+        } else {
+            InputResult.UNHANDLED
         }
     }
 

@@ -133,6 +133,7 @@ enum class SettingsSection {
     PERMISSIONS,
     DRIVERS,
     MANAGED_INSTALLERS,
+    STREAMING,
     ABOUT
 }
 
@@ -1915,6 +1916,8 @@ data class SettingsUiState(
     val launchTargets: LaunchTargetsState = LaunchTargetsState(),
     val controls: ControlsState = ControlsState(),
     val managedInstallers: ManagedInstallersState = ManagedInstallersState(),
+    val streaming: com.nendo.argosy.ui.screens.settings.delegates.StreamingState =
+        com.nendo.argosy.ui.screens.settings.delegates.StreamingState(),
     val sounds: SoundState = SoundState(),
     val ambientAudio: AmbientAudioState = AmbientAudioState(),
     val emulators: EmulatorState = EmulatorState(),

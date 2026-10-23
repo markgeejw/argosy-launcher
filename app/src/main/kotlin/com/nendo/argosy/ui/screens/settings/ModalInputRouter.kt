@@ -51,6 +51,7 @@ internal class ModalInputRouter(private val viewModel: SettingsViewModel) {
         interceptScreenRoleModal(state, method)?.let { return it }
         interceptInstallerVariantPicker(state, method)?.let { return it }
         interceptInstallerAddModal(state, method)?.let { return it }
+        interceptStreamHostModal(state, method)?.let { return it }
 
         return null
     }
@@ -101,6 +102,22 @@ internal class ModalInputRouter(private val viewModel: SettingsViewModel) {
             InputMethod.CONFIRM -> { viewModel.confirmInstallerAdd(); InputResult.HANDLED }
             InputMethod.BACK -> {
                 viewModel.dismissInstallerAddModal()
+                InputResult.handled(SoundType.CLOSE_MODAL)
+            }
+            else -> InputResult.HANDLED
+        }
+    }
+
+    private fun interceptStreamHostModal(state: SettingsUiState, method: InputMethod): InputResult? {
+        if (!state.streaming.showHostModal) return null
+        return when (method) {
+            InputMethod.UP -> { viewModel.moveStreamHostRow(TextEntryRow.FIELD); InputResult.HANDLED }
+            InputMethod.DOWN -> { viewModel.moveStreamHostRow(TextEntryRow.BUTTONS); InputResult.HANDLED }
+            InputMethod.LEFT -> { viewModel.moveStreamHostButton(-1); InputResult.HANDLED }
+            InputMethod.RIGHT -> { viewModel.moveStreamHostButton(1); InputResult.HANDLED }
+            InputMethod.CONFIRM -> { viewModel.confirmStreamHost(); InputResult.HANDLED }
+            InputMethod.BACK -> {
+                viewModel.dismissStreamHostModal()
                 InputResult.handled(SoundType.CLOSE_MODAL)
             }
             else -> InputResult.HANDLED

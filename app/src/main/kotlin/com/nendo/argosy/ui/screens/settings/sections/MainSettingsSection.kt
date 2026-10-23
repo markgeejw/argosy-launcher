@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -152,6 +153,12 @@ internal sealed class MainSettingsItem(
         R.string.settings_main_jellyfin_title,
         "connections"
     )
+    data object Streaming : MainSettingsItem(
+        "streaming",
+        Icons.Default.Cast,
+        R.string.kaegr_settings_main_streaming_title,
+        "connections"
+    )
     data object Social :
         MainSettingsItem("social", Icons.Default.Group, R.string.settings_main_social_title, "connections")
 
@@ -180,7 +187,7 @@ internal sealed class MainSettingsItem(
                 Header("libraryHeader", "library", R.string.settings_main_section_library),
                 Platforms, Storage, PlayTime,
                 Header("connectionsHeader", "connections", R.string.settings_main_section_connections),
-                RomM, Steam, Jellyfin, Social,
+                RomM, Steam, Jellyfin, Streaming, Social,
                 Header("systemHeader", "system", R.string.settings_main_section_system),
                 Permissions, ManagedInstallers, DeviceSettings, About
             )
@@ -287,6 +294,11 @@ fun MainSettingsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
                 ?: context.getString(R.string.settings_main_jellyfin_subtitle_signed_in)
             else -> context.getString(R.string.settings_main_jellyfin_subtitle_signed_out)
         }
+        MainSettingsItem.Streaming -> context.getString(
+            R.string.kaegr_settings_main_streaming_subtitle,
+            uiState.streaming.settings.host,
+            context.getString(streamingClientNameRes(uiState.streaming.settings.moonlightPackage))
+        )
         MainSettingsItem.Social -> when (uiState.social.authStatus) {
             SocialAuthStatus.CONNECTED -> context.getString(
                 R.string.settings_main_social_subtitle_linked,
@@ -332,6 +344,7 @@ fun MainSettingsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
             MainSettingsItem.Drivers -> viewModel.navigateToSection(SettingsSection.DRIVERS)
             MainSettingsItem.Steam -> viewModel.navigateToSection(SettingsSection.STEAM_SETTINGS)
             MainSettingsItem.Jellyfin -> viewModel.navigateToSection(SettingsSection.JELLYFIN)
+            MainSettingsItem.Streaming -> viewModel.navigateToSection(SettingsSection.STREAMING)
             MainSettingsItem.Social -> viewModel.navigateToSection(SettingsSection.SOCIAL)
             MainSettingsItem.Permissions -> viewModel.navigateToSection(SettingsSection.PERMISSIONS)
             MainSettingsItem.About -> viewModel.navigateToSection(SettingsSection.ABOUT)

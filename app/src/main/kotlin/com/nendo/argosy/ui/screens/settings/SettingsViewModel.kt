@@ -130,6 +130,7 @@ class SettingsViewModel @Inject constructor(
     val displayDelegate: DisplaySettingsDelegate,
     val controlsDelegate: ControlsSettingsDelegate,
     val installerDelegate: com.nendo.argosy.ui.screens.settings.delegates.ManagedInstallerSettingsDelegate,
+    val streamingDelegate: com.nendo.argosy.ui.screens.settings.delegates.StreamingSettingsDelegate,
     val soundsDelegate: SoundSettingsDelegate,
     val ambientAudioDelegate: AmbientAudioSettingsDelegate,
     val emulatorDelegate: EmulatorSettingsDelegate,
@@ -1007,6 +1008,16 @@ class SettingsViewModel @Inject constructor(
     fun handlePlatformItemTap(index: Int) = routeHandlePlatformItemTap(this, index)
 
     fun navigateToSection(section: SettingsSection) = routeNavigateToSection(this, section)
+
+    fun openStreamHostModal() = streamingDelegate.openHostModal()
+    fun dismissStreamHostModal() = streamingDelegate.dismissHostModal()
+    fun updateStreamHostDraft(text: String) = streamingDelegate.updateHostDraft(text)
+    fun moveStreamHostRow(row: com.nendo.argosy.ui.components.TextEntryRow) = streamingDelegate.moveHostRow(row)
+    fun moveStreamHostButton(delta: Int) = streamingDelegate.moveHostButton(delta)
+    fun confirmStreamHost() = streamingDelegate.confirmHost(viewModelScope)
+    fun submitStreamHost() = streamingDelegate.submitHost(viewModelScope)
+    fun cycleStreamClient(delta: Int) = streamingDelegate.cycleClient(viewModelScope, delta)
+    fun toggleStreamPlatform(slug: String) = streamingDelegate.togglePlatform(viewModelScope, slug)
 
     fun setFocusIndex(index: Int) { _uiState.update { it.copy(focusedIndex = index) } }
 

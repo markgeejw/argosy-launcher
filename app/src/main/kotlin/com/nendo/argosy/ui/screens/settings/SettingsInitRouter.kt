@@ -55,6 +55,11 @@ internal fun routeObserveDelegateStates(vm: SettingsViewModel) {
         vm._uiState.update { it.copy(managedInstallers = installers) }
     }.launchIn(vm.viewModelScope)
 
+    vm.streamingDelegate.state.onEach { streaming ->
+        vm._uiState.update { it.copy(streaming = streaming) }
+    }.launchIn(vm.viewModelScope)
+    vm.streamingDelegate.observe(vm.viewModelScope)
+
     vm.soundsDelegate.state.onEach { sounds ->
         vm._uiState.update { it.copy(sounds = sounds) }
     }.launchIn(vm.viewModelScope)

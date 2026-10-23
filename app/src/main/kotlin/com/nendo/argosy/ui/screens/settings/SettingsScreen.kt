@@ -95,6 +95,7 @@ import com.nendo.argosy.ui.screens.settings.sections.rommFocusIndexOf
 import com.nendo.argosy.ui.screens.settings.sections.DriversSection
 import com.nendo.argosy.ui.screens.settings.sections.AmbientLedSection
 import com.nendo.argosy.ui.screens.settings.sections.AudioSection
+import com.nendo.argosy.ui.screens.settings.sections.StreamingSection
 import com.nendo.argosy.ui.screens.settings.sections.BoxArtSection
 import com.nendo.argosy.ui.screens.settings.sections.DisplaysSection
 import com.nendo.argosy.ui.screens.settings.sections.ScreensSection
@@ -699,6 +700,7 @@ fun SettingsScreen(
                         SettingsSection.AMBIENT_LED -> AmbientLedSection(uiState, viewModel)
                         SettingsSection.NAVIGATION -> NavigationSection(uiState, viewModel)
                         SettingsSection.MANAGED_INSTALLERS -> ManagedInstallersSection(uiState, viewModel)
+                        SettingsSection.STREAMING -> StreamingSection(uiState, viewModel)
                         SettingsSection.BUILTIN_EMULATOR -> BuiltinEmulatorSection(uiState, viewModel)
                         SettingsSection.PLATFORMS -> EmulatorsSection(
                             uiState = uiState,
@@ -1509,6 +1511,7 @@ private fun settingsSectionTitle(uiState: SettingsUiState): String = when (uiSta
     SettingsSection.AMBIENT_LED -> stringResource(R.string.settings_shell_header_ambient_led)
     SettingsSection.NAVIGATION -> stringResource(R.string.settings_shell_header_navigation)
     SettingsSection.MANAGED_INSTALLERS -> stringResource(R.string.settings_shell_header_installers)
+    SettingsSection.STREAMING -> stringResource(R.string.kaegr_settings_shell_header_streaming)
     SettingsSection.PLATFORMS -> stringResource(R.string.settings_shell_header_platforms)
     SettingsSection.BUILTIN_EMULATOR -> stringResource(R.string.settings_shell_header_builtin_emulator)
     SettingsSection.PLATFORM_DETAIL -> {

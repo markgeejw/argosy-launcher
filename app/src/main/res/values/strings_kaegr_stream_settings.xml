@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kaegr_settings_main_streaming_title" translatable="false">Streaming</string>
+    <string name="kaegr_settings_main_streaming_subtitle" translatable="false">%1$s through %2$s</string>
+    <string name="kaegr_settings_shell_header_streaming" translatable="false">Streaming</string>
+    <string name="kaegr_settings_streaming_section_connection" translatable="false">Gamer</string>
+    <string name="kaegr_settings_streaming_section_platforms" translatable="false">Platforms</string>
+    <string name="kaegr_settings_streaming_host_title" translatable="false">Host</string>
+    <string name="kaegr_settings_streaming_host_subtitle" translatable="false">Computer name as paired in the streaming app</string>
+    <string name="kaegr_settings_streaming_host_label" translatable="false">Host name</string>
+    <string name="kaegr_settings_streaming_host_save" translatable="false">Save</string>
+    <string name="kaegr_settings_streaming_host_cancel" translatable="false">Cancel</string>
+    <string name="kaegr_settings_streaming_client_title" translatable="false">Streaming app</string>
+    <string name="kaegr_stream_client_moonlight" translatable="false">Moonlight</string>
+    <string name="kaegr_stream_client_artemis" translatable="false">Artemis (experimental)</string>
+</resources>
