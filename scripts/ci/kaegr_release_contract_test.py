@@ -49,6 +49,11 @@ class ForkReleaseContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "versionCode 35801 does not match expected 35802"):
             version_guard.validate("2.24.0-kaegr.2", 35_801, "v2.24.0-kaegr.2")
 
+    def test_version_guard_rejects_an_unmapped_upstream_version(self):
+        for upstream in ("2.24.1", "2.25.0", "3.0.0"):
+            with self.subTest(upstream=upstream), self.assertRaises(ValueError):
+                version_guard.validate(f"{upstream}-kaegr.1", 35_801, f"v{upstream}-kaegr.1")
+
     def test_version_guard_rejects_the_wrong_universal_apk_code(self):
         with self.assertRaisesRegex(ValueError, "APK versionCode 3035802 does not match expected 3035801"):
             version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_802)
