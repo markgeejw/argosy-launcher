@@ -22,7 +22,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertIn('applicationId = "com.nendo.argosy.kaegr"', gradle)
         self.assertIn('namespace = "com.nendo.argosy"', gradle)
-        self.assertIn('versionName = "2.24.0-kaegr.1"', gradle)
+        self.assertIn('versionName = "2.24.0-kaegr.2"', gradle)
         debug_strings = (ROOT / "app/src/debug/res/values/strings.xml").read_text()
         self.assertIn("Argosy kaegr DBG", debug_strings)
 
@@ -42,6 +42,24 @@ class ForkReleaseContractTest(unittest.TestCase):
         self.assertNotIn("storePassword=android", source)
         gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertNotIn('signingConfigs.getByName("debug")', gradle)
+
+    def test_release_runs_lint_and_each_unit_variant_before_writing_signing_material(self):
+        source = WORKFLOW.read_text()
+        lint_start = source.index("      - name: Run full lint")
+        debug_test_start = source.index("      - name: Run debug unit tests")
+        release_test_start = source.index("      - name: Run release unit tests")
+        signing_start = source.index("      - name: Write signing config")
+        build_start = source.index("      - name: Build signed release")
+        self.assertLess(lint_start, debug_test_start)
+        self.assertLess(debug_test_start, release_test_start)
+        self.assertLess(release_test_start, signing_start)
+        self.assertLess(signing_start, build_start)
+        for command in ["./gradlew lint", "./gradlew testDebugUnitTest", "./gradlew testReleaseUnitTest", "./gradlew assembleRelease"]:
+            self.assertIn(command, source)
+        self.assertEqual(1, source.count("./gradlew testDebugUnitTest"))
+        self.assertEqual(1, source.count("./gradlew testReleaseUnitTest"))
+        self.assertEqual(4, source.count("-Pkotlin.compiler.execution.strategy=in-process"))
+        self.assertEqual(4, source.count("-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g"))
 
     def test_release_selects_tag_for_push_or_dispatch_and_checks_out_that_tag(self):
         source = WORKFLOW.read_text()
@@ -82,7 +100,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "APK versionCode 3035802 does not match expected 3035801"):
             version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_802)
 
-    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.1", code="3035801"):
+    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.2", code="3035802"):
         source = WORKFLOW.read_text()
         match = re.search(
             r"      - name: Verify signed APK identity\n.*?        run: \|\n(?P<body>.*?)(?=\n      - name: Upload APK identity reports)",
@@ -118,7 +136,7 @@ class ForkReleaseContractTest(unittest.TestCase):
                 "MOCK_PACKAGE": package,
                 "MOCK_VERSION": version,
                 "MOCK_CODE": code,
-                "RELEASE_TAG": "v2.24.0-kaegr.1",
+                "RELEASE_TAG": "v2.24.0-kaegr.2",
             }
             return subprocess.run(["sh", str(script)], cwd=ROOT, env=env, text=True, capture_output=True)
 
@@ -155,8 +173,8 @@ class ForkReleaseContractTest(unittest.TestCase):
     def test_identity_guard_rejects_wrong_package_version_and_code(self):
         for values, label in [
             ({"package": "com.example.other"}, "identity-package:"),
-            ({"version": "2.24.0-kaegr.2"}, "identity-version:"),
-            ({"code": "3035802"}, "identity-version:"),
+            ({"version": "2.24.0-kaegr.1"}, "identity-version:"),
+            ({"code": "3035801"}, "identity-version:"),
         ]:
             with self.subTest(values=values):
                 result = self.identity_guard_result(**values)

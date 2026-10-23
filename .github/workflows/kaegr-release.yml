@@ -51,6 +51,24 @@ jobs:
           --source app/build.gradle.kts
           --tag "$RELEASE_TAG"
 
+      - name: Run full lint
+        run: >-
+          ./gradlew lint -PquayPassDark
+          -Pkotlin.compiler.execution.strategy=in-process
+          -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+
+      - name: Run debug unit tests
+        run: >-
+          ./gradlew testDebugUnitTest -PquayPassDark
+          -Pkotlin.compiler.execution.strategy=in-process
+          -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+
+      - name: Run release unit tests
+        run: >-
+          ./gradlew testReleaseUnitTest -PquayPassDark
+          -Pkotlin.compiler.execution.strategy=in-process
+          -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+
       - name: Write signing config
         env:
           KEYSTORE_BASE64: ${{ secrets.KAEGR_KEYSTORE_BASE64 }}
@@ -74,9 +92,9 @@ jobs:
             echo "keyPassword=$KEYSTORE_PASSWORD"
           } > keystore.properties
 
-      - name: Test and build
+      - name: Build signed release
         run: >-
-          ./gradlew testDebugUnitTest assembleRelease -PquayPassDark
+          ./gradlew assembleRelease -PquayPassDark
           -Pkotlin.compiler.execution.strategy=in-process
           -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
 
