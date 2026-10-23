@@ -187,6 +187,18 @@ fun NavigationPreference(
     }
 }
 
+internal class CyclePreferenceCallbacks(
+    val onOpen: () -> Unit,
+    val onPrev: () -> Unit,
+    val onNext: () -> Unit
+)
+
+internal fun cyclePreferenceCallbacks(
+    onOpen: () -> Unit,
+    onPrev: (() -> Unit)? = null,
+    onNext: (() -> Unit)? = null
+): CyclePreferenceCallbacks = CyclePreferenceCallbacks(onOpen, onPrev ?: onOpen, onNext ?: onOpen)
+
 @Composable
 fun CyclePreference(
     title: String,
@@ -202,7 +214,8 @@ fun CyclePreference(
     options: List<String>? = null,
     onSelect: ((Int) -> Unit)? = null,
     pickerRequestToken: Int = 0,
-    onPickerVisibilityChange: ((Boolean) -> Unit)? = null
+    onPickerVisibilityChange: ((Boolean) -> Unit)? = null,
+    onNext: (() -> Unit)? = null
 ) {
     val valueColor = when {
         isFocused -> MaterialTheme.colorScheme.onPrimaryContainer
@@ -210,6 +223,7 @@ fun CyclePreference(
         else -> MaterialTheme.colorScheme.primary
     }
     val hasPicker = options != null && onSelect != null
+    val callbacks = cyclePreferenceCallbacks(onClick, onPrev, onNext)
     var pickerVisible by remember { mutableStateOf(false) }
     var consumedPickerToken by remember { mutableIntStateOf(pickerRequestToken) }
     LaunchedEffect(pickerRequestToken) {
@@ -223,10 +237,10 @@ fun CyclePreference(
 
     val modifier = if (showResetButton && onReset != null) {
         preferenceModifier(isFocused).then(
-            Modifier.clickableNoFocus(onClick = onClick, onLongClick = onReset)
+            Modifier.clickableNoFocus(onClick = callbacks.onOpen, onLongClick = onReset)
         )
     } else {
-        preferenceModifier(isFocused, onClick = onClick)
+        preferenceModifier(isFocused, onClick = callbacks.onOpen)
     }
 
     Row(
@@ -259,11 +273,11 @@ fun CyclePreference(
                 EnumValueControl(
                     value = value,
                     focused = isFocused,
-                    onPrev = onPrev ?: onClick,
-                    onNext = onClick,
+                    onPrev = callbacks.onPrev,
+                    onNext = callbacks.onNext,
                     selectedIndex = options?.indexOf(value)?.takeIf { it >= 0 },
                     optionCount = options?.size,
-                    onOpen = if (hasPicker) ({ pickerVisible = true }) else onClick,
+                    onOpen = if (hasPicker) ({ pickerVisible = true }) else callbacks.onOpen,
                     valueColor = if (isFocused) null else valueColor
                 )
             }

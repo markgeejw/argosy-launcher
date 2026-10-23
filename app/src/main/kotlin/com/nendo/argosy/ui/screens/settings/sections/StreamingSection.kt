@@ -116,6 +116,7 @@ fun StreamingSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     isFocused = isFocused(item),
                     onClick = { focus(item); viewModel.requestEnumPicker(item.key) },
                     onPrev = { viewModel.cycleStreamClient(-1) },
+                    onNext = { viewModel.cycleStreamClient(1) },
                     options = clientOptions,
                     onSelect = { index -> streamingClientPackageAt(index)?.let(viewModel::setStreamClient) },
                     pickerRequestToken = if (uiState.enumPickerKey == item.key) uiState.enumPickerToken else 0
