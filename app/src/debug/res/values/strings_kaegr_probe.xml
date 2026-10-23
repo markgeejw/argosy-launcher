@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kaegr_probe_title" translatable="false">Streaming probe</string>
+    <string name="kaegr_probe_host" translatable="false">Exact paired computer name</string>
+    <string name="kaegr_probe_client" translatable="false">Client package</string>
+    <string name="kaegr_probe_id" translatable="false">Real Sunshine app ID</string>
+    <string name="kaegr_probe_app" translatable="false">App title</string>
+    <string name="kaegr_probe_launch" translatable="false">Test stream</string>
+    <string name="kaegr_probe_invalid" translatable="false">Enter the paired host, client, real app ID and title</string>
+    <string name="kaegr_probe_failed" translatable="false">The configured client could not be started</string>
+</resources>
