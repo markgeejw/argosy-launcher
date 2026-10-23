@@ -331,8 +331,8 @@ private fun routeStreamingConfirm(vm: SettingsViewModel, state: SettingsUiState)
             InputResult.handled(SoundType.OPEN_MODAL)
         }
         StreamingItem.Client -> {
-            vm.cycleStreamClient(1)
-            InputResult.handled(SoundType.TOGGLE)
+            vm.requestEnumPicker(item.key)
+            InputResult.handled(SoundType.OPEN_MODAL)
         }
         is StreamingItem.Platform -> {
             vm.toggleStreamPlatform(item.slug)

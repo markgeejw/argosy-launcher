@@ -81,9 +81,13 @@ class StreamingSettingsDelegate @Inject constructor(
     fun cycleClient(scope: CoroutineScope, delta: Int) {
         val clients = StreamSettings.CLIENTS
         val current = clients.indexOf(_state.value.settings.moonlightPackage).coerceAtLeast(0)
-        val next = clients[(current + delta).mod(clients.size)]
-        _state.update { it.copy(settings = it.settings.copy(moonlightPackage = next)) }
-        scope.launch { repository.setStreamMoonlightPackage(next) }
+        setClient(scope, clients[(current + delta).mod(clients.size)])
+    }
+
+    fun setClient(scope: CoroutineScope, packageName: String) {
+        if (packageName !in StreamSettings.CLIENTS) return
+        _state.update { it.copy(settings = it.settings.copy(moonlightPackage = packageName)) }
+        scope.launch { repository.setStreamMoonlightPackage(packageName) }
     }
 
     fun togglePlatform(scope: CoroutineScope, slug: String) {

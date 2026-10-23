@@ -63,6 +63,8 @@ internal fun streamingItemAtFocusIndex(index: Int): StreamingItem? = streamingLa
 
 internal fun streamingMaxFocusIndex(): Int = streamingLayout.maxFocusIndex(Unit)
 
+internal fun streamingClientPackageAt(index: Int): String? = StreamSettings.CLIENTS.getOrNull(index)
+
 @androidx.annotation.StringRes
 internal fun streamingClientNameRes(packageName: String): Int = when (packageName) {
     "com.limelight.noir" -> R.string.kaegr_stream_client_artemis
@@ -104,13 +106,21 @@ fun StreamingSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                 isFocused = isFocused(item),
                 onClick = { focus(item); viewModel.openStreamHostModal() }
             )
-            StreamingItem.Client -> CyclePreference(
-                title = stringResource(R.string.kaegr_settings_streaming_client_title),
-                value = stringResource(streamingClientNameRes(state.settings.moonlightPackage)),
-                isFocused = isFocused(item),
-                onClick = { focus(item); viewModel.cycleStreamClient(1) },
-                onPrev = { viewModel.cycleStreamClient(-1) }
-            )
+            StreamingItem.Client -> {
+                val clientOptions = remember(context) {
+                    StreamSettings.CLIENTS.map { context.getString(streamingClientNameRes(it)) }
+                }
+                CyclePreference(
+                    title = stringResource(R.string.kaegr_settings_streaming_client_title),
+                    value = stringResource(streamingClientNameRes(state.settings.moonlightPackage)),
+                    isFocused = isFocused(item),
+                    onClick = { focus(item); viewModel.requestEnumPicker(item.key) },
+                    onPrev = { viewModel.cycleStreamClient(-1) },
+                    options = clientOptions,
+                    onSelect = { index -> streamingClientPackageAt(index)?.let(viewModel::setStreamClient) },
+                    pickerRequestToken = if (uiState.enumPickerKey == item.key) uiState.enumPickerToken else 0
+                )
+            }
             is StreamingItem.Platform -> SwitchPreference(
                 title = PlatformDefinitions.getBySlug(item.slug)?.name ?: item.slug,
                 isEnabled = item.slug in state.settings.platforms,

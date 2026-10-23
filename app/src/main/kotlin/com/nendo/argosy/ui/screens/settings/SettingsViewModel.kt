@@ -1017,6 +1017,7 @@ class SettingsViewModel @Inject constructor(
     fun confirmStreamHost() = streamingDelegate.confirmHost(viewModelScope)
     fun submitStreamHost() = streamingDelegate.submitHost(viewModelScope)
     fun cycleStreamClient(delta: Int) = streamingDelegate.cycleClient(viewModelScope, delta)
+    fun setStreamClient(packageName: String) = streamingDelegate.setClient(viewModelScope, packageName)
     fun toggleStreamPlatform(slug: String) = streamingDelegate.togglePlatform(viewModelScope, slug)
 
     fun setFocusIndex(index: Int) { _uiState.update { it.copy(focusedIndex = index) } }

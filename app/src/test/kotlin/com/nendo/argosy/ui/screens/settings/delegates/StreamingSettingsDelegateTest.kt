@@ -99,6 +99,16 @@ class StreamingSettingsDelegateTest {
     }
 
     @Test
+    fun `selecting a client writes only the selected package`() = runTest {
+        val delegate = delegate()
+        advanceUntilIdle()
+
+        delegate.setClient(this, "com.limelight.noir")
+
+        assertEquals("com.limelight.noir", delegate.state.value.settings.moonlightPackage)
+    }
+
+    @Test
     fun `rapid client edits use the pending selection`() = runTest {
         val delegate = delegate()
         advanceUntilIdle()
