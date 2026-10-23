@@ -31,11 +31,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.nendo.argosy"
+        applicationId = "com.nendo.argosy.kaegr"
         minSdk = 26
         targetSdk = 35
-        versionCode = 358
-        versionName = "2.24.0"
+        versionCode = 35801
+        versionName = "2.24.0-kaegr.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -336,9 +336,11 @@ dependencies {
     androidTestImplementation(libs.room.testing)
 }
 
+val quayPassDark = project.hasProperty("quayPassDark")
+
 val verifyQuayPassReleaseConfig = tasks.register("verifyQuayPassReleaseConfig") {
     doLast {
-        if (envString("QUAYPASS_SERVER_PUBKEYS").isBlank()) {
+        if (envString("QUAYPASS_SERVER_PUBKEYS").isBlank() && !quayPassDark) {
             throw GradleException(
                 "QUAYPASS_SERVER_PUBKEYS is empty. A release build cannot verify QuayPass " +
                     "credentials and would ship the feature permanently dark. Set it in .env " +

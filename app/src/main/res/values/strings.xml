@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Product name. Never translated. -->
-    <string name="app_name" translatable="false">Argosy Launcher</string>
+    <string name="app_name" translatable="false">Argosy kaegr</string>
     <!-- Names the second-screen home in the system's secondary-home picker, where it would
          otherwise be indistinguishable from the main launcher entry. "Argosy" is the product
          name and stays as is; translate only the word describing the companion screen. -->
