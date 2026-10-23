@@ -56,7 +56,11 @@ import com.nendo.argosy.ui.screens.settings.menu.SettingsLayout
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.util.LogLevel
 
-internal data class AboutLayoutState(val hasLogPath: Boolean, val hasChangelog: Boolean)
+internal data class AboutLayoutState(
+    val hasLogPath: Boolean,
+    val hasChangelog: Boolean,
+    val systemizeAvailable: Boolean
+)
 
 internal sealed class AboutItem(
     val key: String,
@@ -64,7 +68,7 @@ internal sealed class AboutItem(
     val visibleWhen: (AboutLayoutState) -> Boolean = { true }
 ) {
     val isFocusable: Boolean get() = when (this) {
-        is Header, VersionInfo, SectionSpacer, SystemSpacer, BackupSpacer -> false
+        is Header, VersionInfo, SectionSpacer, SystemSpacer, BackupSpacer, SystemizeUnavailable -> false
         else -> true
     }
 
@@ -81,7 +85,16 @@ internal sealed class AboutItem(
     data object ExportSettings : AboutItem("exportSettings", "backup")
     data object ImportSettings : AboutItem("importSettings", "backup")
     data object SystemSpacer : AboutItem("systemSpacer", "system")
-    data object SystemizeHelper : AboutItem("systemizeHelper", "system")
+    data object SystemizeHelper : AboutItem(
+        key = "systemizeHelper",
+        section = "system",
+        visibleWhen = { it.systemizeAvailable }
+    )
+    data object SystemizeUnavailable : AboutItem(
+        key = "systemizeUnavailable",
+        section = "system",
+        visibleWhen = { !it.systemizeAvailable }
+    )
     data object RestartApp : AboutItem("restartApp", "system")
     data object SectionSpacer : AboutItem("spacer", "debug")
     data object FileLogging : AboutItem("fileLogging", "debug")
@@ -106,7 +119,7 @@ internal sealed class AboutItem(
             get() = listOf(
                 VersionHeader, VersionInfo, CheckUpdates, ChangelogPreview, BetaUpdates,
                 BackupSpacer, BackupHeader, ExportSettings, ImportSettings,
-                SystemSpacer, SystemHeader, SystemizeHelper, RestartApp,
+                SystemSpacer, SystemHeader, SystemizeHelper, SystemizeUnavailable, RestartApp,
                 SectionSpacer, DebugHeader, FileLogging, LogLevel, SaveDebugLogging
             )
     }
@@ -128,14 +141,30 @@ private val aboutLayout = SettingsLayout<AboutItem, AboutLayoutState>(
     }
 )
 
-internal fun aboutSections(hasLogPath: Boolean, hasChangelog: Boolean) =
-    aboutLayout.buildSections(AboutLayoutState(hasLogPath, hasChangelog))
+private fun isSystemizeAvailable() = com.nendo.argosy.data.model.RootScript.SYSTEMIZE
+    .isAvailableForPackage(com.nendo.argosy.BuildConfig.APPLICATION_ID)
 
-internal fun aboutMaxFocusIndex(hasLogPath: Boolean, hasChangelog: Boolean): Int =
-    aboutLayout.maxFocusIndex(AboutLayoutState(hasLogPath, hasChangelog))
+internal fun aboutSections(
+    hasLogPath: Boolean,
+    hasChangelog: Boolean,
+    systemizeAvailable: Boolean = isSystemizeAvailable()
+) = aboutLayout.buildSections(AboutLayoutState(hasLogPath, hasChangelog, systemizeAvailable))
 
-internal fun aboutItemAtFocusIndex(focusIndex: Int, hasLogPath: Boolean, hasChangelog: Boolean): AboutItem? =
-    aboutLayout.itemAtFocusIndex(focusIndex, AboutLayoutState(hasLogPath, hasChangelog))
+internal fun aboutMaxFocusIndex(
+    hasLogPath: Boolean,
+    hasChangelog: Boolean,
+    systemizeAvailable: Boolean = isSystemizeAvailable()
+): Int = aboutLayout.maxFocusIndex(AboutLayoutState(hasLogPath, hasChangelog, systemizeAvailable))
+
+internal fun aboutItemAtFocusIndex(
+    focusIndex: Int,
+    hasLogPath: Boolean,
+    hasChangelog: Boolean,
+    systemizeAvailable: Boolean = isSystemizeAvailable()
+): AboutItem? = aboutLayout.itemAtFocusIndex(
+    focusIndex,
+    AboutLayoutState(hasLogPath, hasChangelog, systemizeAvailable)
+)
 
 internal fun aboutHasChangelog(updateCheck: UpdateCheckState): Boolean =
     updateCheck.updateAvailable && updateCheck.latestBody != null
@@ -148,11 +177,14 @@ fun AboutSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val hasLogPath = uiState.fileLoggingPath != null
     val hasChangelog = aboutHasChangelog(updateCheck)
+    val systemizeAvailable = isSystemizeAvailable()
     var showLicensesDialog by remember { mutableStateOf(false) }
 
-    val layoutState = remember(hasLogPath, hasChangelog) { AboutLayoutState(hasLogPath, hasChangelog) }
-    val visibleItems = remember(hasLogPath, hasChangelog) { aboutLayout.visibleItems(layoutState) }
-    val sections = remember(hasLogPath, hasChangelog, context) {
+    val layoutState = remember(hasLogPath, hasChangelog, systemizeAvailable) {
+        AboutLayoutState(hasLogPath, hasChangelog, systemizeAvailable)
+    }
+    val visibleItems = remember(hasLogPath, hasChangelog, systemizeAvailable) { aboutLayout.visibleItems(layoutState) }
+    val sections = remember(hasLogPath, hasChangelog, systemizeAvailable, context) {
         aboutLayout.buildSections(layoutState, context)
     }
 
@@ -292,6 +324,15 @@ fun AboutSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     subtitle = stringResource(R.string.settings_about_systemize_subtitle),
                     isFocused = isFocused(item),
                     onClick = { viewModel.applyRootScript(com.nendo.argosy.data.model.RootScript.SYSTEMIZE) }
+                )
+
+                AboutItem.SystemizeUnavailable -> ActionPreference(
+                    icon = Icons.Default.HealthAndSafety,
+                    title = stringResource(R.string.settings_about_systemize_title),
+                    subtitle = stringResource(R.string.settings_about_systemize_unavailable),
+                    isFocused = false,
+                    isEnabled = false,
+                    onClick = {}
                 )
 
                 AboutItem.RestartApp -> ActionPreference(

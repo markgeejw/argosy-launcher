@@ -17,19 +17,23 @@ object RootScriptRunner {
     val canRunDirectly: Boolean
         get() = RootShell.isAvailable
 
-    fun write(context: Context, script: RootScript): RootScriptResult = try {
-        val target = File("${StoragePathUtils.primaryExternalRoot}/${script.fileName}")
-        copyAsset(context, script, target)
-        RootScriptResult.Written(script, target.absolutePath, vendorSteps(context, script))
-    } catch (e: Exception) {
-        RootScriptResult.Error(
-            script,
-            e.message ?: context.getString(R.string.settings_root_script_write_failed),
-            duringRun = false
-        )
+    fun write(context: Context, script: RootScript): RootScriptResult {
+        if (!script.isAvailableForPackage(context.packageName)) return unavailable(context, script, duringRun = false)
+        return try {
+            val target = File("${StoragePathUtils.primaryExternalRoot}/${script.fileName}")
+            copyAsset(context, script, target)
+            RootScriptResult.Written(script, target.absolutePath, vendorSteps(context, script))
+        } catch (e: Exception) {
+            RootScriptResult.Error(
+                script,
+                e.message ?: context.getString(R.string.settings_root_script_write_failed),
+                duringRun = false
+            )
+        }
     }
 
     fun run(context: Context, script: RootScript): RootScriptResult {
+        if (!script.isAvailableForPackage(context.packageName)) return unavailable(context, script, duringRun = true)
         return try {
             val dir = File(context.cacheDir, WORK_DIR).apply { mkdirs() }
             dir.setExecutable(true, false)
@@ -48,6 +52,12 @@ object RootScriptRunner {
     }
 
     fun reboot(): Boolean = RootShell.execute("svc power reboot || reboot").isSuccess
+
+    private fun unavailable(context: Context, script: RootScript, duringRun: Boolean) = RootScriptResult.Error(
+        script,
+        context.getString(R.string.settings_root_script_unavailable),
+        duringRun
+    )
 
     private fun runError(context: Context, script: RootScript, error: Throwable) = RootScriptResult.Error(
         script,

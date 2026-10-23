@@ -1,7 +1,11 @@
 package com.nendo.argosy.data.model
 
 enum class RootScript(val assetPath: String, val fileName: String, val needsReboot: Boolean) {
-    SYSTEMIZE("root-scripts/systemize-argosy.sh", "argosy-systemize.sh", needsReboot = true)
+    SYSTEMIZE("root-scripts/systemize-argosy.sh", "argosy-systemize.sh", needsReboot = true);
+
+    fun isAvailableForPackage(packageName: String): Boolean = when (this) {
+        SYSTEMIZE -> packageName == "com.nendo.argosy" || packageName == "com.nendo.argosy.debug"
+    }
 }
 
 data class VendorSteps(val deviceLabel: String, val steps: List<String>)

@@ -1325,6 +1325,7 @@
     <!-- Second line of that row. "Rooted" describes a device whose owner has full system access.
          "RAM" is the device's working memory. -->
     <string name="settings_about_systemize_subtitle">Argosy can be force-closed when a demanding emulator uses most of the RAM. This makes Argosy a system app so it is no longer killed. Needs root.</string>
+    <string name="settings_about_systemize_unavailable">Unavailable in Argosy kaegr because this helper targets the official Argosy installation.</string>
     <!-- Row that closes and reopens the app. Verb. -->
     <string name="settings_about_restart_title">Restart Argosy</string>
     <!-- Second line of that row. -->
@@ -4611,6 +4612,7 @@
 
     <!-- Fallback error detail when the script file could not be written. -->
     <string name="settings_root_script_write_failed">Could not write the script</string>
+    <string name="settings_root_script_unavailable">This root helper is unavailable in Argosy kaegr because it targets the official Argosy installation.</string>
     <!-- Fallback error detail when the device's root runner did not run the script. -->
     <string name="settings_root_script_run_failed">The device did not run the script</string>
     <!-- Shown while the script runs. -->
