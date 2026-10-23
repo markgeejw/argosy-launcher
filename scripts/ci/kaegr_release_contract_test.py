@@ -1,8 +1,13 @@
 import importlib.util
+import os
 import pathlib
+import re
+import subprocess
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+WORKFLOW = ROOT / ".github/workflows/kaegr-release.yml"
 VERSION_GUARD_SPEC = importlib.util.spec_from_file_location(
     "verify_kaegr_release_version", ROOT / "scripts/ci/verify_kaegr_release_version.py"
 )
@@ -28,16 +33,35 @@ class ForkReleaseContractTest(unittest.TestCase):
         self.assertNotIn('repos/nendotools/argosy-launcher/releases', source)
 
     def test_release_fails_closed_and_checks_signature(self):
-        path = ROOT / ".github/workflows/kaegr-release.yml"
-        self.assertTrue(path.exists())
-        source = path.read_text()
-        for required in ["v*-kaegr.*", "KAEGR_KEYSTORE_BASE64", "KAEGR_KEYSTORE_PASSWORD", "KAEGR_KEY_ALIAS", "KAEGR_SIGNER_SHA256", "keytool -list", "apksigner", "aapt2", "if: always()", "-PquayPassDark", "--draft --prerelease --verify-tag"]:
+        self.assertTrue(WORKFLOW.exists())
+        source = WORKFLOW.read_text()
+        for required in ["v*-kaegr.*", "workflow_dispatch:", "release_tag:", "KAEGR_KEYSTORE_BASE64", "KAEGR_KEYSTORE_PASSWORD", "KAEGR_KEY_ALIAS", "KAEGR_SIGNER_SHA256", "keytool -list", "apksigner", "aapt2", "if: always()", "-PquayPassDark", "--draft --prerelease --verify-tag"]:
             self.assertIn(required, source)
-        for required in ["verify_kaegr_release_version.py", "--apk-badging"]:
+        for required in ["verify_kaegr_release_version.py", "--apk-badging", "identity-signer:", "identity-signature:", "identity-badging:", "identity-version:", "identity-package:"]:
             self.assertIn(required, source)
         self.assertNotIn("storePassword=android", source)
         gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertNotIn('signingConfigs.getByName("debug")', gradle)
+
+    def test_release_selects_tag_for_push_or_dispatch_and_checks_out_that_tag(self):
+        source = WORKFLOW.read_text()
+        self.assertIn("RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}", source)
+        self.assertIn("ref: refs/tags/${{ inputs.release_tag || github.ref_name }}", source)
+        self.assertIn('git rev-parse "refs/tags/$RELEASE_TAG^{}"', source)
+        self.assertIn('git rev-parse HEAD', source)
+        self.assertLess(source.index("Verify checked out release tag"), source.index("Write signing config"))
+        self.assertIn('gh release create "$RELEASE_TAG" "$apk"', source)
+        self.assertIn("--repo markgeejw/argosy-launcher", source)
+
+    def test_identity_reports_are_public_artifacts_and_draft_waits_for_the_guard(self):
+        source = WORKFLOW.read_text()
+        self.assertIn("Upload APK identity reports", source)
+        self.assertIn("${{ runner.temp }}/apk-signature.txt", source)
+        self.assertIn("${{ runner.temp }}/apk-badging.txt", source)
+        artifact_start = source.index("      - name: Upload APK identity reports")
+        draft_start = source.index("      - name: Prepare draft prerelease")
+        self.assertLess(artifact_start, draft_start)
+        self.assertNotIn("if: always()", source[draft_start:])
 
     def test_version_guard_accepts_the_current_fork_version(self):
         self.assertEqual(
@@ -57,6 +81,87 @@ class ForkReleaseContractTest(unittest.TestCase):
     def test_version_guard_rejects_the_wrong_universal_apk_code(self):
         with self.assertRaisesRegex(ValueError, "APK versionCode 3035802 does not match expected 3035801"):
             version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_802)
+
+    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.1", code="3035801"):
+        source = WORKFLOW.read_text()
+        match = re.search(
+            r"      - name: Verify signed APK identity\n.*?        run: \|\n(?P<body>.*?)(?=\n      - name: Upload APK identity reports)",
+            source,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        body = "\n".join(line.removeprefix("          ") for line in match.group("body").splitlines())
+        with tempfile.TemporaryDirectory() as temp:
+            temp_path = pathlib.Path(temp)
+            tools = temp_path / "android" / "build-tools" / "35.0.0"
+            tools.mkdir(parents=True)
+            (tools / "apksigner").write_text(
+                "#!/bin/sh\n"
+                "if [ \"$MOCK_APKSIGNER_MODE\" = nonzero ]; then echo verifier-failed >&2; exit 9; fi\n"
+                "if [ \"$MOCK_APKSIGNER_MODE\" = missing ]; then echo verified; exit 0; fi\n"
+                "echo \"certificate SHA-256 digest: $MOCK_ACTUAL\"\n"
+            )
+            (tools / "aapt2").write_text(
+                "#!/bin/sh\n"
+                "echo \"package: name='$MOCK_PACKAGE' versionCode='$MOCK_CODE' versionName='$MOCK_VERSION'\"\n"
+            )
+            for tool in (tools / "apksigner", tools / "aapt2"):
+                tool.chmod(0o755)
+            script = temp_path / "identity-guard.sh"
+            script.write_text("#!/bin/sh\nset -e\n" + body + "\n")
+            env = os.environ | {
+                "ANDROID_HOME": str(temp_path / "android"),
+                "RUNNER_TEMP": str(temp_path),
+                "EXPECTED_SIGNER_SHA256": expected,
+                "MOCK_ACTUAL": actual,
+                "MOCK_APKSIGNER_MODE": apksigner_mode,
+                "MOCK_PACKAGE": package,
+                "MOCK_VERSION": version,
+                "MOCK_CODE": code,
+                "RELEASE_TAG": "v2.24.0-kaegr.1",
+            }
+            return subprocess.run(["sh", str(script)], cwd=ROOT, env=env, text=True, capture_output=True)
+
+    def test_identity_guard_accepts_expected_apk(self):
+        result = self.identity_guard_result()
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_identity_guard_rejects_missing_signer_digest(self):
+        result = self.identity_guard_result(apksigner_mode="missing")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("identity-signer: apksigner report has no certificate", result.stderr)
+
+    def test_identity_guard_rejects_malformed_configured_pin(self):
+        result = self.identity_guard_result(expected="not-a-digest")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("identity-signer: configured signer digest is missing or malformed", result.stderr)
+
+    def test_identity_guard_rejects_malformed_actual_digest(self):
+        result = self.identity_guard_result(actual="not-a-digest")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("identity-signer: apksigner reported a malformed certificate", result.stderr)
+
+    def test_identity_guard_rejects_signer_mismatch(self):
+        result = self.identity_guard_result(actual="1" * 64)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("identity-signer: certificate SHA-256 digest does not match", result.stderr)
+
+    def test_identity_guard_reports_apksigner_failure(self):
+        result = self.identity_guard_result(apksigner_mode="nonzero")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("identity-signature: apksigner failed", result.stderr)
+        self.assertIn("verifier-failed", result.stderr)
+
+    def test_identity_guard_rejects_wrong_package_version_and_code(self):
+        for values, label in [
+            ({"package": "com.example.other"}, "identity-package:"),
+            ({"version": "2.24.0-kaegr.2"}, "identity-version:"),
+            ({"code": "3035802"}, "identity-version:"),
+        ]:
+            with self.subTest(values=values):
+                result = self.identity_guard_result(**values)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(label, result.stderr)
 
 
 if __name__ == "__main__":
