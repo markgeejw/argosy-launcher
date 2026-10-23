@@ -31,7 +31,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         path = ROOT / ".github/workflows/kaegr-release.yml"
         self.assertTrue(path.exists())
         source = path.read_text()
-        for required in ["v*-kaegr.*", "KAEGR_KEYSTORE_BASE64", "KAEGR_KEYSTORE_PASSWORD", "KAEGR_KEY_ALIAS", "KAEGR_SIGNER_SHA256", "keytool -list", "apksigner", "aapt2", "if: always()", "-PquayPassDark"]:
+        for required in ["v*-kaegr.*", "KAEGR_KEYSTORE_BASE64", "KAEGR_KEYSTORE_PASSWORD", "KAEGR_KEY_ALIAS", "KAEGR_SIGNER_SHA256", "keytool -list", "apksigner", "aapt2", "if: always()", "-PquayPassDark", "--draft --prerelease --verify-tag"]:
             self.assertIn(required, source)
         for required in ["verify_kaegr_release_version.py", "--apk-badging"]:
             self.assertIn(required, source)
