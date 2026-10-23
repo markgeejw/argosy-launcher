@@ -102,11 +102,13 @@ class SettingsBackupKeysTest {
         "file_logging_enabled", "file_log_level", "save_debug_logging_enabled"
     )
 
+    private val streamingTarget = setOf("stream_host", "stream_moonlight_package", "stream_platforms")
+
     private val excluded: Set<String> =
         credentialsAndIdentity + presenceSharingAndServiceAccounts + syncWatermarksAndResume +
             oneShotAndVersionMarkers + liveSessionState + saveAndStateSafetyGates +
             filesystemLocations + hardwareAndUnit + perDeviceScreenChoices + localRowIdsAndSets +
-            derivedAndGenerated + diagnostics
+            derivedAndGenerated + diagnostics + streamingTarget
 
     private val credentialShapes = listOf(
         "token", "credential", "password", "api_key", "username", "user_name", "user_id", "device_id",

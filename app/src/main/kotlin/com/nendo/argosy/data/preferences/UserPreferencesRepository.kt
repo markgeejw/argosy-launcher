@@ -2,6 +2,7 @@ package com.nendo.argosy.data.preferences
 
 import com.nendo.argosy.data.cache.GradientPreset
 import com.nendo.argosy.data.emulator.LaunchOrigin
+import com.nendo.argosy.data.model.stream.StreamSettings
 import com.nendo.argosy.core.input.SoundConfig
 import com.nendo.argosy.ui.theme.generated.ComponentDefaults
 import com.nendo.argosy.core.input.SoundType
@@ -35,7 +36,8 @@ class UserPreferencesRepository @Inject constructor(
     private val appPrefs: AppPreferencesRepository,
     private val builtinPrefs: BuiltinEmulatorPreferencesRepository,
     private val sessionPrefs: SessionPreferencesRepository,
-    private val jellyfinPrefs: JellyfinPreferencesRepository
+    private val jellyfinPrefs: JellyfinPreferencesRepository,
+    private val streamPrefs: StreamPreferencesRepository
 ) {
     private val shareScope = com.nendo.argosy.util.SafeCoroutineScope(Dispatchers.Default, "UserPreferences")
 
@@ -50,10 +52,12 @@ class UserPreferencesRepository @Inject constructor(
             PreferencesSources(display, sync, controls, storage, app)
         },
         builtinPrefs.isBuiltinLibretroEnabled(),
-        jellyfinPrefs.preferences
-    ) { sources, builtinEnabled, jellyfin ->
+        jellyfinPrefs.preferences,
+        streamPrefs.settings
+    ) { sources, builtinEnabled, jellyfin, streaming ->
         val (display, sync, controls, storage, app) = sources
         UserPreferences(
+            streamSettings = streaming,
             firstRunComplete = app.firstRunComplete,
             rommBaseUrl = sync.rommBaseUrl,
             rommUsername = sync.rommUsername,
@@ -462,6 +466,9 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setSyncScreenshotsEnabled(enabled: Boolean) = syncPrefs.setSyncScreenshotsEnabled(enabled)
     suspend fun setUploadScreenshotsEnabled(enabled: Boolean) = syncPrefs.setUploadScreenshotsEnabled(enabled)
     suspend fun setBoxArtCacheEnabled(enabled: Boolean) = syncPrefs.setBoxArtCacheEnabled(enabled)
+    suspend fun setStreamHost(host: String) = streamPrefs.setHost(host)
+    suspend fun setStreamMoonlightPackage(packageName: String) = streamPrefs.setMoonlightPackage(packageName)
+    suspend fun setStreamPlatformEnabled(slug: String, enabled: Boolean) = streamPrefs.setPlatformEnabled(slug, enabled)
     suspend fun setSaveSyncEnabled(enabled: Boolean) = syncPrefs.setSaveSyncEnabled(enabled)
     suspend fun setSecureSaves(enabled: Boolean) = syncPrefs.setSecureSaves(enabled)
     suspend fun setStateCacheEnabled(enabled: Boolean) = syncPrefs.setStateCacheEnabled(enabled)
@@ -800,6 +807,7 @@ data class BuiltinEmulatorSettings(
 }
 
 data class UserPreferences(
+    val streamSettings: StreamSettings = StreamSettings(),
     val firstRunComplete: Boolean = false,
     val rommBaseUrl: String? = null,
     val rommUsername: String? = null,
