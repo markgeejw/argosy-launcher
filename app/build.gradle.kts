@@ -92,10 +92,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
         debug {
@@ -354,9 +352,8 @@ val verifyReleaseSigningConfig = tasks.register("verifyReleaseSigningConfig") {
     doLast {
         if (!keystorePropertiesFile.exists()) {
             throw GradleException(
-                "keystore.properties is missing. A release build would fall back to the debug " +
-                    "signing key, and an APK signed with that key cannot install over an " +
-                    "existing release. Restore the file before building a release."
+                "keystore.properties is missing. A release build requires the configured " +
+                    "release signing key. Restore the file before building a release."
             )
         }
     }

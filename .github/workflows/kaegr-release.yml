@@ -24,13 +24,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Check the tag matches versionName
-        run: |
-          version=$(grep -oP '^\s*versionName = "\K[^"]+' app/build.gradle.kts)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "tag $GITHUB_REF_NAME does not match versionName $version" >&2
-            exit 1
-          fi
+      - name: Check the fork release version
+        run: >-
+          python3 scripts/ci/verify_kaegr_release_version.py
+          --source app/build.gradle.kts
+          --tag "$GITHUB_REF_NAME"
 
       - name: Write signing config
         env:
@@ -73,6 +71,10 @@ jobs:
           expected=$(printf '%s' "$EXPECTED_SIGNER_SHA256" | tr -d ' :\r\n' | tr '[:upper:]' '[:lower:]')
           test "$actual" = "$expected"
           "$tools/aapt2" dump badging "$apk" > "$RUNNER_TEMP/apk-badging.txt"
+          python3 scripts/ci/verify_kaegr_release_version.py \
+            --source app/build.gradle.kts \
+            --tag "$GITHUB_REF_NAME" \
+            --apk-badging "$RUNNER_TEMP/apk-badging.txt"
           grep -q "package: name='com.nendo.argosy.kaegr'" "$RUNNER_TEMP/apk-badging.txt"
           grep -q "versionName='${GITHUB_REF_NAME#v}'" "$RUNNER_TEMP/apk-badging.txt"
 
