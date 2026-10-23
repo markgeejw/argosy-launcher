@@ -112,6 +112,13 @@ On supported devices (Odin, AYN, Retroid), Quick Settings also includes **Perfor
 
 Updates are handled in-app after initial install.
 
+## kaegr Fork Builds
+
+- Fork builds use package `com.nendo.argosy.kaegr`, so they can be installed alongside upstream Argosy.
+- Updates are retrieved from the fork release channel.
+- Build a debug APK with `./gradlew :app:assembleDebug`.
+- Configure streaming in Settings > Streaming. Moonlight is the default client; Artemis is experimental. Switch games are enabled for streaming by default.
+
 ## Requirements
 
 - Android 8.0 (Oreo) or higher
