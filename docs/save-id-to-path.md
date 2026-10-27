@@ -52,9 +52,13 @@ and are discovered, never constructed.
 
 The extdata id rule for retail titles: take the low 8 hex of the title id,
 shift it right by 8 bits, render 8 lowercase hex digits. `00113200` becomes
-`00001132`, `00175e00` becomes `0000175e`. `N3dsFolderHandler.extdataIdFor`
-is the one place that encodes it. Some titles keep every byte of progress in
-extdata and never create `data` (Fantasy Life writes
+`00001132`, `00175e00` becomes `0000175e`. Exact full title-id overrides are
+`0004000000055e00` -> `0000055d`, `000400000011c400` -> `000011c5`, and
+`00040000001b5100` -> `00001b50`; `000400000008d300` has no extdata. A
+short low id is normalized with the base `00040000` category before this exact
+lookup; a supplied category is retained. All other titles use the derived rule.
+`N3dsFolderHandler.extdataIdFor` encodes the derived rule. Some titles keep every
+byte of progress in extdata and never create `data` (Fantasy Life writes
 `extdata/00000000/00001132/user/fl_ext0.fsd` and nothing under
 `title/00040000/00113200`), which is why either directory alone counts as a
 save and `NoSaveFound` means neither exists.
@@ -98,23 +102,20 @@ whichever the archive carries, and refuses an archive with a root it cannot
 place. A legacy single-root `data` archive restores exactly as it always has.
 
 A restore never deletes a component the archive does not carry. Placement
-(`N3dsFolderHandler.unpackArchive`) replaces each component whose root is in
-the archive and leaves the other alone, so a legacy `data`-only archive
-restored over a title with extdata on disk keeps that extdata. The clear that
-precedes a restore (`SaveSyncApiClient.clearSavesBeforeRestore`) asks the
-handler `pathsClearedBeforeRestore` with the archive's root names: 3DS keeps
-every component absent from the archive and, when the archive has not been
-read yet (a server restore), clears nothing and lets placement do it. PSP and
-PS2 clear every match either way, as they always have. `clearSavesForTitle`
-without an archive remains the full clear used by "clear active save" and the
-account-switch teardown, which has already verified the archive holds the
-whole unit.
+(`N3dsFolderHandler.unpackArchive`) verifies every archive root has a 3DS
+destination before replacing any component, then replaces each component whose
+root is in the archive and leaves the other alone. A legacy `data`-only archive
+restored over a title with extdata on disk keeps that extdata. 3DS defers every
+pre-restore clear to this validated placement; an archive with an unplaceable
+root leaves the existing unit unchanged. PSP and PS2 clear every match either
+way, as they always have. `clearSavesForTitle` without an archive remains the
+full clear used by "clear active save" and the account-switch teardown, which
+has already verified the archive holds the whole unit.
 Every door that zips or unpacks a 3DS unit asks the handler for its named
 roots rather than the folder's own name: upload, the local cache, the cache
 restore, the hardcore downgrade and `downloadSaveById` all go through
 `FolderSaveHandler.namedArchiveRoots` / `placeArchive`. `N3dsSaveCaseRepair`
-reconciles the title tree only; extdata is written lowercase by both sides and
-has never split on case.
+reconciles the title tree only; extdata directory case is outside its scope.
 
 ### PS2 (`Ps2FolderHandler`)
 

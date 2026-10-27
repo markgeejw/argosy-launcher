@@ -115,12 +115,50 @@ class N3dsExtdataUnitTest {
     }
 
     @Test
-    fun `the extdata id is the low title id shifted right by eight bits`() {
-        val otherRoot = File(tempDir, "other/Nintendo 3DS")
-        val ext = File(otherRoot, "$id0/$id1/extdata/00000000/0000175e").apply { mkdirs() }
-        File(ext, "progress.bin").writeBytes(byteArrayOf(1))
+    fun `native extdata ids use exact title overrides and retain the derived fallback`() {
+        val cases = listOf(
+            "0004000000055E00" to "0000055d",
+            "000400000011C400" to "000011c5",
+            "00040000001B5100" to "00001b50",
+            "00040000000FC500" to "00000fc5",
+            "0004000000175E00" to "0000175e"
+        )
 
-        assertEquals(ext.absolutePath, handler.findSaveFolderBySaveId(otherRoot.absolutePath, "0004000000175E00"))
+        cases.forEachIndexed { index, (titleId, nativeExtdataId) ->
+            val root = File(tempDir, "case$index/Nintendo 3DS")
+            val ext = File(root, "$id0/$id1/extdata/00000000/$nativeExtdataId").apply { mkdirs() }
+            File(ext, "progress.bin").writeBytes(byteArrayOf(1))
+
+            assertEquals(ext.absolutePath, handler.findSaveFolderBySaveId(root.absolutePath, titleId))
+        }
+    }
+
+    @Test
+    fun `native extdata override is isolated to its exact title category`() {
+        val root = File(tempDir, "category/Nintendo 3DS")
+        val derived = File(root, "$id0/$id1/extdata/00000000/0000055e").apply { mkdirs() }
+        File(derived, "progress.bin").writeBytes(byteArrayOf(1))
+
+        assertEquals(derived.absolutePath, handler.findSaveFolderBySaveId(root.absolutePath, "0004000E00055E00"))
+    }
+
+    @Test
+    fun `base category native overrides also apply to a short low id`() {
+        val root = File(tempDir, "short_id/Nintendo 3DS")
+        val native = File(root, "$id0/$id1/extdata/00000000/0000055d").apply { mkdirs() }
+        File(native, "progress.bin").writeBytes(byteArrayOf(1))
+
+        assertEquals(native.absolutePath, handler.findSaveFolderBySaveId(root.absolutePath, "00055E00"))
+    }
+
+    @Test
+    fun `known no extdata does not discover the derived directory`() {
+        val root = File(tempDir, "no_extdata/Nintendo 3DS")
+        val derived = File(root, "$id0/$id1/extdata/00000000/000008d3").apply { mkdirs() }
+        File(derived, "progress.bin").writeBytes(byteArrayOf(1))
+
+        assertNull(handler.findSaveFolderBySaveId(root.absolutePath, "000400000008D300"))
+        assertNull(handler.findSaveFolderBySaveId(root.absolutePath, "0008D300"))
     }
 
     @Test
@@ -267,15 +305,15 @@ class N3dsExtdataUnitTest {
     }
 
     @Test
-    fun `the pre-restore clear keeps components the archive does not carry`() {
+    fun `pre-restore clear is deferred to validated placement`() {
         val data = writeTitleData(sdRoot)
         val ext = writeExtdata(sdRoot)
         val unit = listOf(data.absolutePath, ext.absolutePath)
 
-        assertEquals(listOf(data.absolutePath), handler.pathsClearedBeforeRestore(unit, setOf("data")))
-        assertEquals(listOf(ext.absolutePath), handler.pathsClearedBeforeRestore(unit, setOf("extdata")))
-        assertEquals(unit, handler.pathsClearedBeforeRestore(unit, setOf("data", "extdata")))
-        assertTrue("an unread archive defers the clear to placement", handler.pathsClearedBeforeRestore(unit, null).isEmpty())
+        assertTrue(handler.pathsClearedBeforeRestore(unit, setOf("data")).isEmpty())
+        assertTrue(handler.pathsClearedBeforeRestore(unit, setOf("extdata")).isEmpty())
+        assertTrue(handler.pathsClearedBeforeRestore(unit, setOf("data", "extdata")).isEmpty())
+        assertTrue(handler.pathsClearedBeforeRestore(unit, null).isEmpty())
     }
 
     @Test
@@ -292,6 +330,95 @@ class N3dsExtdataUnitTest {
 
         assertEquals(listOf<Byte>(3, 3), File(destData, "00000001").readBytes().toList())
         assertEquals(listOf<Byte>(5, 5), File(extdata(destRoot), "user/fl_ext0.fsd").readBytes().toList())
+    }
+
+    @Test
+    fun `native extdata cache placement preserves a stale derived directory`() = runTest {
+        val titleId = "0004000000055E00"
+        val nativeExtdataId = "0000055d"
+        val legacyExtdataId = "0000055e"
+        val nativeLowId = titleId.takeLast(8).lowercase()
+        val sourceData = File(sdRoot, "$id0/$id1/title/$baseCategory/$nativeLowId/data").apply {
+            mkdirs()
+            File(this, "save.bin").writeBytes(byteArrayOf(3))
+        }
+        val sourceExtdata = File(sdRoot, "$id0/$id1/extdata/00000000/$nativeExtdataId").apply {
+            mkdirs()
+            File(this, "progress.bin").writeBytes(byteArrayOf(5))
+        }
+        val zip = File(tempDir, "native_cached.zip")
+        assertEquals(sourceData.absolutePath, handler.findSaveFolderBySaveId(sdRoot.absolutePath, titleId))
+        val roots = handler.namedArchiveRoots(sourceData.absolutePath, titleId) ?: error("3DS must name its roots")
+        assertEquals(listOf(sourceData.absolutePath, sourceExtdata.absolutePath), roots.map { it.folder.path })
+        assertTrue(archiver.zipNamedFolders(roots, zip))
+
+        val destRoot = File(tempDir, "native_dest/Nintendo 3DS")
+        val staleExtdata = File(destRoot, "$id0/$id1/extdata/00000000/$legacyExtdataId").apply {
+            mkdirs()
+            File(this, "old.bin").writeBytes(byteArrayOf(9))
+        }
+
+        assertTrue(handler.placeArchive(zip, staleExtdata, titleId))
+
+        val correctedData = File(destRoot, "$id0/$id1/title/$baseCategory/$nativeLowId/data")
+        val correctedExtdata = File(destRoot, "$id0/$id1/extdata/00000000/$nativeExtdataId")
+        val correctedPaths = listOf(correctedData.absolutePath, correctedExtdata.absolutePath)
+        assertEquals(
+            correctedPaths,
+            handler.sourcePathsFor(staleExtdata.absolutePath, saveContext(staleExtdata.absolutePath).copy(saveId = titleId))
+        )
+        assertEquals(
+            correctedPaths,
+            handler.namedArchiveRoots(staleExtdata.absolutePath, titleId)?.map { it.folder.path }
+        )
+        assertTrue(handler.pathsClearedBeforeRestore(correctedPaths, setOf("data", "extdata")).isEmpty())
+        assertEquals(listOf<Byte>(3), File(correctedData, "save.bin").readBytes().toList())
+        assertEquals(listOf<Byte>(5), File(correctedExtdata, "progress.bin").readBytes().toList())
+        assertEquals(listOf<Byte>(9), File(staleExtdata, "old.bin").readBytes().toList())
+    }
+
+    @Test
+    fun `known none mixed archive preserves data and stale derived extdata`() = runTest {
+        val titleId = "000400000008D300"
+        val nativeLowId = titleId.takeLast(8).lowercase()
+        val legacyExtdataId = "000008d3"
+        val sourceData = File(tempDir, "known_none_source/$id0/$id1/title/$baseCategory/$nativeLowId/data").apply {
+            mkdirs()
+            File(this, "server.bin").writeBytes(byteArrayOf(1))
+        }
+        val sourceExtdata = File(tempDir, "known_none_source/$id0/$id1/extdata/00000000/$legacyExtdataId").apply {
+            mkdirs()
+            File(this, "server.bin").writeBytes(byteArrayOf(2))
+        }
+        val archive = File(tempDir, "known_none_mixed.zip")
+        assertTrue(archiver.zipNamedFolders(listOf(ArchiveRoot("data", sourceData), ArchiveRoot("extdata", sourceExtdata)), archive))
+        val archiveBytes = archive.readBytes()
+
+        val destRoot = File(tempDir, "known_none_dest/Nintendo 3DS")
+        val destData = File(destRoot, "$id0/$id1/title/$baseCategory/$nativeLowId/data").apply {
+            mkdirs()
+            File(this, "local.bin").writeBytes(byteArrayOf(3))
+        }
+        val staleExtdata = File(destRoot, "$id0/$id1/extdata/00000000/$legacyExtdataId").apply {
+            mkdirs()
+            File(this, "local.bin").writeBytes(byteArrayOf(4))
+        }
+        val context = saveContext(destData.absolutePath).copy(saveId = titleId)
+
+        assertTrue(
+            handler.pathsClearedBeforeRestore(
+                listOf(destData.absolutePath),
+                archiver.peekRootEntryNames(archive)
+            ).isEmpty()
+        )
+        assertFalse(handler.placeArchive(archive, destData, titleId))
+        val result = handler.extractDownload(archive, context)
+
+        assertFalse(result.success)
+        assertEquals(setOf("data", "extdata"), archiver.peekRootEntryNames(archive))
+        assertEquals(archiveBytes.toList(), archive.readBytes().toList())
+        assertEquals(listOf<Byte>(3), File(destData, "local.bin").readBytes().toList())
+        assertEquals(listOf<Byte>(4), File(staleExtdata, "local.bin").readBytes().toList())
     }
 
     @Test

@@ -497,21 +497,24 @@ private class N3dsFolderHandler(
         private const val EXTDATA_ID_SHIFT = 8
         private const val HEX_RADIX = 16
 
-        /**
-         * The extdata directory a retail title writes: its low title id shifted right by 8 bits,
-         * rendered as 8 lowercase hex under `extdata/00000000/`. `00113200` becomes `00001132`.
-         * Null when the low id is not hex, in which case no extdata location exists to derive.
-         */
+        private val nativeExtdataIds: Map<String, String?> = mapOf(
+            "0004000000055e00" to "0000055d",
+            "000400000011c400" to "000011c5",
+            "00040000001b5100" to "00001b50",
+            "000400000008d300" to null
+        )
+
         fun extdataIdFor(lowId: String): String? = lowId.toLongOrNull(HEX_RADIX)?.let {
             java.lang.Long.toHexString(it shr EXTDATA_ID_SHIFT).padStart(ID_HEX_LENGTH, '0')
         }
     }
 
-    /**
-     * Category, low id and the extdata id the low id derives, all lowercase because that is the
-     * case the emulator writes and internal storage is case-sensitive.
-     */
-    private data class TitleKey(val category: String, val lowId: String, val extdataId: String?)
+    private data class TitleKey(
+        val category: String,
+        val lowId: String,
+        val extdataId: String?,
+        val legacyExtdataId: String?
+    )
 
     /**
      * The two directories one title's save can occupy under an id1 root. [titleData] is where
@@ -646,15 +649,8 @@ private class N3dsFolderHandler(
         PreparedSave(outputFile, isTemporary = true, roots.map { it.folder.path })
     }
 
-    /**
-     * A pre-restore clear may only remove a component the archive is about to replace. With the
-     * archive unread nothing is cleared here, because [unpackArchive] clears each component it
-     * places; with it read, only components whose root the archive carries go.
-     */
-    override fun pathsClearedBeforeRestore(paths: List<String>, archiveRoots: Set<String>?): List<String> {
-        if (archiveRoots == null) return emptyList()
-        return paths.filter { componentRootOf(it) in archiveRoots }
-    }
+    override fun pathsClearedBeforeRestore(paths: List<String>, archiveRoots: Set<String>?): List<String> =
+        emptyList()
 
     /**
      * A `data` root lands in the title tree and an `extdata` root in the extdata tree whichever
@@ -674,6 +670,10 @@ private class N3dsFolderHandler(
             unit.extdata?.let { put(EXTDATA_DIR, it) }
         }
         val archiveRoots = saveArchiver.peekRootEntryNames(tempFile)
+        if (!destinations.keys.containsAll(archiveRoots)) {
+            Logger.error(TAG, "unpackArchive: archive holds roots with no destination | roots=$archiveRoots, known=${destinations.keys}")
+            return false
+        }
         Logger.debug(TAG, "unpackArchive: placing roots | roots=$archiveRoots, titleData=${unit.titleData}, extdata=${unit.extdata}")
 
         destinations.filterKeys { it in archiveRoots }.values.filter(::isDir).forEach { component ->
@@ -683,22 +683,21 @@ private class N3dsFolderHandler(
         return saveArchiver.unzipRootsTo(tempFile, destinations.mapValues { fal.getTransformedFile(it.value) })
     }
 
-    private fun componentRootOf(path: String): String? {
-        val segments = path.trimEnd('/').split('/')
-        val n = segments.size
-        return when {
-            n >= 4 && segments[n - 1].equals(TITLE_DATA_ROOT, ignoreCase = true) &&
-                segments[n - 4].equals(TITLE_DIR, ignoreCase = true) -> TITLE_DATA_ROOT
-            n >= 3 && segments[n - 3].equals(EXTDATA_DIR, ignoreCase = true) -> EXTDATA_DIR
-            else -> null
-        }
-    }
-
     private fun titleKeyFor(saveId: String): TitleKey {
         val flat = saveId.replace("/", "").trim().lowercase()
         val category = if (flat.length >= FULL_ID_HEX_LENGTH) flat.take(ID_HEX_LENGTH) else BASE_CATEGORY
         val lowId = flat.takeLast(ID_HEX_LENGTH)
-        return TitleKey(category, lowId, extdataIdFor(lowId))
+        val derivedExtdataId = extdataIdFor(lowId)
+        val normalizedTitleId = "$category$lowId"
+        val nativeExtdataId = if (
+            flat.length in setOf(ID_HEX_LENGTH, FULL_ID_HEX_LENGTH) &&
+            normalizedTitleId in nativeExtdataIds
+        ) {
+            nativeExtdataIds.getValue(normalizedTitleId)
+        } else {
+            derivedExtdataId
+        }
+        return TitleKey(category, lowId, nativeExtdataId, derivedExtdataId)
     }
 
     private fun titleDataPath(id1Root: String, category: String, lowId: String): String =
@@ -784,14 +783,16 @@ private class N3dsFolderHandler(
             return SaveUnit(trimmed, extdataPath(id1Root, key))
         }
 
-        val atExtdata = key.extdataId != null && n >= 4 &&
-            segments[n - 1].equals(key.extdataId, ignoreCase = true) &&
+        val atExtdata = (key.extdataId != null || key.legacyExtdataId != null) && n >= 4 &&
+            (segments[n - 1].equals(key.extdataId, ignoreCase = true) ||
+                (key.legacyExtdataId != key.extdataId &&
+                    segments[n - 1].equals(key.legacyExtdataId, ignoreCase = true))) &&
             segments[n - 2] == EXTDATA_HIGH &&
             segments[n - 3].equals(EXTDATA_DIR, ignoreCase = true)
         if (atExtdata) {
             val id1Root = segments.dropLast(3).joinToString("/")
             val titleData = existingTitleData(id1Root, key) ?: titleDataPath(id1Root, key.category, key.lowId)
-            return SaveUnit(titleData, trimmed)
+            return SaveUnit(titleData, extdataPath(id1Root, key))
         }
         return null
     }
