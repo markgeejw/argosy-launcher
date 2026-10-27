@@ -22,7 +22,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertIn('applicationId = "com.nendo.argosy.kaegr"', gradle)
         self.assertIn('namespace = "com.nendo.argosy"', gradle)
-        self.assertIn('versionName = "2.24.0-kaegr.2"', gradle)
+        self.assertIn('versionName = "2.24.0-kaegr.3"', gradle)
         debug_strings = (ROOT / "app/src/debug/res/values/strings.xml").read_text()
         self.assertIn("Argosy kaegr DBG", debug_strings)
 
@@ -100,7 +100,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "APK versionCode 3035802 does not match expected 3035801"):
             version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_802)
 
-    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.2", code="3035802"):
+    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.3", code="3035803"):
         source = WORKFLOW.read_text()
         match = re.search(
             r"      - name: Verify signed APK identity\n.*?        run: \|\n(?P<body>.*?)(?=\n      - name: Upload APK identity reports)",
@@ -139,7 +139,7 @@ class ForkReleaseContractTest(unittest.TestCase):
                 "MOCK_PACKAGE": package,
                 "MOCK_VERSION": version,
                 "MOCK_CODE": code,
-                "RELEASE_TAG": "v2.24.0-kaegr.2",
+                "RELEASE_TAG": "v2.24.0-kaegr.3",
             }
             return subprocess.run(["sh", str(script)], cwd=ROOT, env=env, text=True, capture_output=True)
 
