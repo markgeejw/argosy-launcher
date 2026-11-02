@@ -114,6 +114,13 @@ internal fun playTimeListMaxFocusIndex(info: PlayTimeListLayoutInfo): Int =
 
 internal fun playTimeListSections(info: PlayTimeListLayoutInfo) = info.layout.buildSections(Unit)
 
+internal fun playTimeListFocusedGameId(state: SettingsUiState): Long? {
+    if (playTimeListKindOf(state.currentSection) != PlayTimeListKind.GAMES) return null
+    val info = createPlayTimeListLayoutInfo(state, PlayTimeListKind.GAMES)
+    val row = info.layout.itemAtFocusIndex(state.focusedIndex, Unit) as? PlayTimeListItem.Row ?: return null
+    return row.entry.key.toLongOrNull()
+}
+
 @Composable
 fun PlayTimeListSection(uiState: SettingsUiState, viewModel: SettingsViewModel, kind: PlayTimeListKind) {
     val playTime = uiState.playTime
@@ -186,7 +193,15 @@ fun PlayTimeListSection(uiState: SettingsUiState, viewModel: SettingsViewModel, 
                         }
                         PlayTimeListKind.DEVICES -> null
                     },
-                    onClick = { viewModel.setFocusIndex(layout.focusIndexOf(item, Unit)) }
+                    onClick = {
+                        val focusIndex = layout.focusIndexOf(item, Unit)
+                        val gameId = if (kind == PlayTimeListKind.GAMES) entry.key.toLongOrNull() else null
+                        if (gameId != null && uiState.focusedIndex == focusIndex) {
+                            viewModel.requestPlayTimeGameDelete(gameId)
+                        } else {
+                            viewModel.setFocusIndex(focusIndex)
+                        }
+                    }
                 )
             }
         }

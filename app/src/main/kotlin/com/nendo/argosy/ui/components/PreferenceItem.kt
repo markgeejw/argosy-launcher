@@ -34,6 +34,7 @@ import com.nendo.argosy.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -551,7 +552,8 @@ fun SwitchPreference(
     onLabelClick: (() -> Unit)? = null,
     isCustom: Boolean = false,
     showResetButton: Boolean = false,
-    onReset: (() -> Unit)? = null
+    onReset: (() -> Unit)? = null,
+    subtitleColor: Color? = null
 ) {
     Row(
         modifier = preferenceModifier(isFocused),
@@ -598,7 +600,7 @@ fun SwitchPreference(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = preferenceSecondaryColor(isFocused)
+                        color = subtitleColor ?: preferenceSecondaryColor(isFocused)
                     )
                 }
             }
@@ -675,6 +677,8 @@ fun InfoPreference(
     }
 }
 
+private val clockwiseArrowIcons = setOf(Icons.Default.Refresh)
+
 @Composable
 fun ActionPreference(
     title: String,
@@ -717,7 +721,7 @@ fun ActionPreference(
                 val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "spin")
                 val rotation by transition.animateFloat(
                     initialValue = 0f,
-                    targetValue = 360f,
+                    targetValue = if (icon in clockwiseArrowIcons) 360f else -360f,
                     animationSpec = androidx.compose.animation.core.infiniteRepeatable(
                         animation = androidx.compose.animation.core.tween(
                             durationMillis = 1200,

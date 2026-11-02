@@ -9,7 +9,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val DOWNLOAD_COMPLETE_MARKER = ".download_complete"
-private const val DOWNLOAD_IN_PROGRESS_MARKER = ".download_in_progress"
 
 /**
  * Single source of truth for "is this game's payload present on disk." Routes every
@@ -32,13 +31,6 @@ class DownloadFileStatusRepository @Inject constructor(
         if (localPath.isNullOrBlank()) return false
         return withContext(Dispatchers.IO) {
             fileAccessLayer.exists(joinMarker(localPath, DOWNLOAD_COMPLETE_MARKER))
-        }
-    }
-
-    suspend fun isDownloadInProgress(localPath: String?): Boolean {
-        if (localPath.isNullOrBlank()) return false
-        return withContext(Dispatchers.IO) {
-            fileAccessLayer.exists(joinMarker(localPath, DOWNLOAD_IN_PROGRESS_MARKER))
         }
     }
 

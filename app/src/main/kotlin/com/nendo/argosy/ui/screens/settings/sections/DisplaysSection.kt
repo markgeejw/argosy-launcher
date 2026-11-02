@@ -73,12 +73,22 @@ internal sealed class DisplaysItem(
     data object ScreenDimmer : DisplaysItem("screenDimmer", "screenSafety")
     data object DimAfter : DisplaysItem("dimAfter", "screenSafety")
     data object DimLevel : DisplaysItem("dimLevel", "screenSafety")
+    data object LidSleep : DisplaysItem(
+        key = "lidSleep",
+        section = "screenSafety",
+        visibleWhen = { it.display.lidSleepSupported }
+    )
 
     data object DualScreenEnabled : DisplaysItem("dualScreenEnabled", "displays")
     data object DisplayRoles : DisplaysItem(
         key = "displayRoles",
         section = "displays",
         visibleWhen = { it.dualScreenEnabled && !it.display.secondaryDisplayUnsupported }
+    )
+    data object DualScreenMatchSize : DisplaysItem(
+        key = "dualScreenMatchSize",
+        section = "displays",
+        visibleWhen = { it.dualScreenEnabled && it.display.dualScreenMatchSizeAvailable }
     )
     data object ScreenLayout : DisplaysItem(
         key = "screenLayout",
@@ -128,9 +138,9 @@ internal sealed class DisplaysItem(
         val ALL: List<DisplaysItem>
             get() = listOf(
                 ScreenSafetyHeader,
-                ScreenDimmer, DimAfter, DimLevel,
+                ScreenDimmer, DimAfter, DimLevel, LidSleep,
                 DisplaysSpacer, DisplaysHeader,
-                DualScreenEnabled, DisplayRoles, ScreenLayout,
+                DualScreenEnabled, DisplayRoles, DualScreenMatchSize, ScreenLayout,
                 AmbientLedSettings,
                 DisplayTargetsSpacer, DisplayTargetsHeader,
                 GamesTarget, AppsTarget, ByPlatformAndApp
@@ -228,7 +238,9 @@ fun DisplaysSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
         display.ambientLedAvailable,
         display.hasPhysicalSecondaryDisplay,
         display.dualScreenEnabled,
-        display.secondaryDisplayUnsupported
+        display.secondaryDisplayUnsupported,
+        display.lidSleepSupported,
+        display.lidSleepEnabled
     ) {
         DisplaysLayoutState(
             display,
@@ -312,6 +324,14 @@ fun DisplaysSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                 onAdjust = { viewModel.adjustScreenDimmerLevel(if (it < 0) -1 else 1) }
             )
 
+            DisplaysItem.LidSleep -> SwitchPreference(
+                title = stringResource(R.string.settings_displays_lid_sleep_title),
+                subtitle = stringResource(R.string.settings_displays_lid_sleep_subtitle),
+                isEnabled = display.lidSleepEnabled,
+                isFocused = isFocused(item),
+                onToggle = { viewModel.setLidSleepEnabled(it) }
+            )
+
             DisplaysItem.DualScreenEnabled -> SwitchPreference(
                 title = stringResource(R.string.settings_displays_dual_screen_title),
                 subtitle = if (display.secondaryDisplayUnsupported) {
@@ -337,6 +357,14 @@ fun DisplaysSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                 },
                 onSelect = { viewModel.setDisplayRoleOverride(DisplayRoleOverride.entries[it]) },
                 pickerRequestToken = pickerToken(item)
+            )
+
+            DisplaysItem.DualScreenMatchSize -> SwitchPreference(
+                title = stringResource(R.string.settings_displays_match_screen_size_title),
+                subtitle = stringResource(R.string.settings_displays_match_screen_size_subtitle),
+                isEnabled = display.dualScreenMatchSize,
+                isFocused = isFocused(item),
+                onToggle = { viewModel.setDualScreenMatchSize(it) }
             )
 
             DisplaysItem.ScreenLayout -> NavigationPreference(

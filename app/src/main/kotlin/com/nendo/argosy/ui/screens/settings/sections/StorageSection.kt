@@ -63,6 +63,7 @@ import com.nendo.argosy.ui.components.volumeMeterCategoryColors
 import com.nendo.argosy.ui.primitives.FocusIndicators
 import com.nendo.argosy.ui.primitives.argosyFocusIndicators
 import com.nendo.argosy.ui.screens.settings.ConnectionStatus
+import com.nendo.argosy.ui.screens.settings.SettingsSection
 import com.nendo.argosy.ui.screens.settings.SettingsUiState
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
 import com.nendo.argosy.ui.screens.settings.components.SectionHeader
@@ -555,7 +556,7 @@ fun StorageSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                 secondaryStat = stringResource(R.string.settings_storage_steam_tile_subtitle),
                 isFocused = isFocused(item),
                 isWorking = walkProgress[StorageCategory.STEAM].isActiveWalk(),
-                onClick = { openFrom(item) { viewModel.navigateToStorageCachesForSteam() } }
+                onClick = { openFrom(item) { viewModel.navigateToSection(SettingsSection.STEAM_SETTINGS) } }
             )
 
             StorageItem.GlobalRomPath -> ActionPreference(

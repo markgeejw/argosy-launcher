@@ -231,9 +231,4 @@ interface MediaItemDao {
     @Query("DELETE FROM media_items WHERE ownerUserId = :ownerUserId")
     suspend fun deleteByOwner(ownerUserId: String)
 
-    @Query("SELECT localPath FROM media_items WHERE ownerUserId != :ownerUserId AND localPath IS NOT NULL")
-    suspend fun otherOwnerLocalPaths(ownerUserId: String): List<String>
-
-    @Query("DELETE FROM media_items WHERE ownerUserId != :ownerUserId")
-    suspend fun deleteOtherOwners(ownerUserId: String)
 }

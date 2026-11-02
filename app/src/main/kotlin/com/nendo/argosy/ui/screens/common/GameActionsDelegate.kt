@@ -9,6 +9,9 @@ import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.remote.romm.RomMResult
 import com.nendo.argosy.domain.usecase.download.DownloadGameUseCase
 import com.nendo.argosy.domain.usecase.download.DownloadResult
+import com.nendo.argosy.domain.usecase.download.FilePickerFlowUseCase
+import com.nendo.argosy.domain.usecase.storage.GameStorageBreakdownUseCase
+import com.nendo.argosy.ui.common.GameConfirm
 import com.nendo.argosy.domain.usecase.game.DeleteGameUseCase
 import com.nendo.argosy.domain.usecase.game.RemoveServerRemovedGameUseCase
 import com.nendo.argosy.ui.input.SoundFeedbackManager
@@ -31,7 +34,9 @@ class GameActionsDelegate @Inject constructor(
     private val romMRepository: RomMRepository,
     private val playStoreService: PlayStoreService,
     private val imageCacheManager: ImageCacheManager,
-    private val artSourceRecorder: ArtSourceRecorder
+    private val artSourceRecorder: ArtSourceRecorder,
+    private val storageBreakdown: GameStorageBreakdownUseCase,
+    private val filePickerFlowUseCase: FilePickerFlowUseCase
 ) {
     suspend fun toggleFavorite(gameId: Long): Boolean? {
         val game = gameRepository.getById(gameId) ?: return null
@@ -56,9 +61,18 @@ class GameActionsDelegate @Inject constructor(
         gameRepository.updateHidden(gameId, false)
     }
 
-    suspend fun deleteLocalFile(gameId: Long) {
+    suspend fun deleteLocalFile(gameId: Long, withSoundtrack: Boolean) {
         deleteGameUseCase(gameId)
+        if (withSoundtrack) filePickerFlowUseCase.purgeSoundtrack(gameId)
     }
+
+    suspend fun deleteDownloadConfirm(gameId: Long): GameConfirm.DeleteDownload? =
+        storageBreakdown.deleteSummary(gameId)?.let {
+            GameConfirm.DeleteDownload(gameId, it.title, it.hasSoundtrack, it.unsyncedSaves)
+        }
+
+    suspend fun hideConfirm(gameId: Long): GameConfirm.Hide? =
+        gameRepository.getById(gameId)?.let { GameConfirm.Hide(gameId, it.title) }
 
     suspend fun removeFromLibrary(gameId: Long): Boolean =
         removeServerRemovedGame(gameId) || deleteGameUseCase.removeFromLibrary(gameId)

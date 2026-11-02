@@ -2,13 +2,14 @@ package com.nendo.argosy.ui.components.friends
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.nendo.argosy.data.social.Friend
 
 @Composable
 fun QuickFriendsModals(
     state: QuickFriendsState,
     controller: QuickFriendsController,
-    onOpenProfile: (userId: String) -> Unit,
-    onEditAvatar: () -> Unit
+    onOpenProfile: ((userId: String) -> Unit)?,
+    onEditAvatar: (() -> Unit)?
 ) {
     val dismiss: () -> Unit = { controller.dismissModal() }
     when (val modal = state.modal) {
@@ -19,7 +20,7 @@ fun QuickFriendsModals(
             } else {
                 ProfileOptionsModal(
                     user = user,
-                    onViewProfile = { onOpenProfile(user.id) },
+                    onViewProfile = onOpenProfile?.let { open -> { open(user.id) } },
                     onEditAvatar = onEditAvatar,
                     onShowFriendCode = { controller.showFriendCode() },
                     onDismiss = dismiss
@@ -33,7 +34,7 @@ fun QuickFriendsModals(
             } else {
                 FriendOptionsModal(
                     friend = friend,
-                    onViewProfile = { onOpenProfile(it.id) },
+                    onViewProfile = onOpenProfile?.let { open -> { friend: Friend -> open(friend.id) } },
                     onToggleFavorite = { controller.toggleFavorite(it.id) },
                     onDismiss = dismiss
                 )

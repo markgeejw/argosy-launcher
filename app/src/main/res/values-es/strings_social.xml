@@ -25,6 +25,7 @@
 
     <string name="social_profile_hint_avatar">Avatar</string>
     <string name="social_profile_hint_view_game">Ver juego</string>
+    <string name="social_profile_unavailable_offline">Este perfil se cargará cuando vuelvas a estar en línea</string>
     <string name="social_profile_hint_settings">Ajustes</string>
 
     <string name="social_tabbar_feed">Feed</string>

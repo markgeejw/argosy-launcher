@@ -10,6 +10,7 @@ import android.content.Intent
 object GameHubLauncher : SteamLauncher {
     override val packageName = "com.xiaoji.egggame"
     override val displayName = "GameHub"
+    override val registryId = "gamehub"
 
     override fun createLaunchIntent(steamAppId: Long): Intent = Intent().apply {
         component = ComponentName(

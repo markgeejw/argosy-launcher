@@ -1,9 +1,12 @@
 package com.nendo.argosy.ui.screens.library
 
-import android.content.Intent
+import com.nendo.argosy.R
+import com.nendo.argosy.core.notification.NotificationText
+import com.nendo.argosy.core.notification.NotificationType
 import com.nendo.argosy.data.preferences.UserPreferences
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +17,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -30,9 +35,9 @@ class LibraryGameStartTest {
         mockk<com.nendo.argosy.ui.screens.common.CollectionModalDelegate>(relaxed = true)
     private val gradientExtractionDelegate =
         mockk<com.nendo.argosy.ui.screens.common.GradientExtractionDelegate>(relaxed = true)
-    private val gameStartRouter =
-        mockk<com.nendo.argosy.ui.screens.common.GameStartRouter>(relaxed = true)
-    private val gameIntent = mockk<Intent>(relaxed = true)
+    private val gameStart = slot<com.nendo.argosy.ui.screens.common.GameStart>()
+    private val notificationManager =
+        mockk<com.nendo.argosy.core.notification.NotificationManager>(relaxed = true)
 
     @Before
     fun setUp() {
@@ -43,9 +48,9 @@ class LibraryGameStartTest {
         every { gameLaunchDelegate.memcardPickerState } returns MutableStateFlow(null)
         every {
             gameLaunchDelegate.launchGame(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any(), capture(gameStart), any()
             )
-        } answers { arg<(Intent) -> Unit>(8).invoke(gameIntent) }
+        } returns Unit
         every { collectionModalDelegate.state } returns MutableStateFlow(
             com.nendo.argosy.ui.screens.common.CollectionModalDelegate.State()
         )
@@ -63,7 +68,7 @@ class LibraryGameStartTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `a launch reaches the game starter with nothing collecting the screen events`() =
+    fun `a launch hands the delegate the game to start with no display override`() =
         runTest(dispatcher) {
             val viewModel = viewModel()
             advanceUntilIdle()
@@ -71,7 +76,33 @@ class LibraryGameStartTest {
             viewModel.launchGame(5L)
             advanceUntilIdle()
 
-            verify(exactly = 1) { gameStartRouter.start(5L, gameIntent, null, any()) }
+            assertEquals(5L, gameStart.captured.gameId)
+            assertNull(gameStart.captured.overrideDisplayId)
+        }
+
+    @Test
+    fun `a game window that fails to open shows the launch failed notice`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.launchGame(5L)
+            advanceUntilIdle()
+            gameStart.captured.onFailure!!.invoke(SecurityException("denied"))
+
+            verify(exactly = 1) {
+                notificationManager.show(
+                    title = any(),
+                    subtitle = NotificationText.Res(R.string.notif_gamelaunch_launch_failed),
+                    type = NotificationType.ERROR,
+                    imagePath = any(),
+                    platformSlug = any(),
+                    duration = any(),
+                    key = any(),
+                    immediate = any(),
+                    accentColor = any()
+                )
+            }
         }
 
     private fun viewModel() = LibraryViewModel(
@@ -81,7 +112,7 @@ class LibraryGameStartTest {
         mediaRepository = mediaRepository,
         collectionRepository = mockk(relaxed = true),
         gameNavigationContext = mockk(relaxed = true),
-        notificationManager = mockk(relaxed = true),
+        notificationManager = notificationManager,
         preferencesRepository = preferences,
         homeTileRepository = mockk(relaxed = true),
         customGridShapeStore = mockk(relaxed = true),
@@ -100,16 +131,15 @@ class LibraryGameStartTest {
         gradientExtractionDelegate = gradientExtractionDelegate,
         downloadIndicatorSource = mockk(relaxed = true),
         emulatorDetector = mockk(relaxed = true),
-        steamContentManager = mockk(relaxed = true),
-        steamDownloadPromptController = mockk(relaxed = true),
+        steamLauncherLinkController = mockk(relaxed = true),
         downloadFileStatusRepository = mockk(relaxed = true),
-        gameStartRouter = gameStartRouter,
         siblingChoice = mockk(relaxed = true),
         socialRepository = mockk(relaxed = true),
         saveListStatusRepository = mockk(relaxed = true),
         libraryDefaultPlatformMigration = mockk(relaxed = true),
         showcaseSource = mockk(relaxed = true),
         reorderPlatforms = mockk(relaxed = true),
-        quickNavigation = mockk { io.mockk.every { enabled } returns MutableStateFlow(true) }
+        quickNavigation = mockk { io.mockk.every { enabled } returns MutableStateFlow(true) },
+        launchProgressTracker = mockk { io.mockk.every { launchLive } returns MutableStateFlow(false) }
     )
 }

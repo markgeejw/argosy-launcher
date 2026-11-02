@@ -53,6 +53,18 @@ object DosboxPureManifest : CoreOptionManifest {
             )
         ),
         CoreOptionDef(
+            key = "dosbox_pure_bootos_ramdisk",
+            displayName = "OS Disk Modifications (restart required)",
+            values = listOf("false", "true", "diff"),
+            defaultValue = "false",
+            description = "Where changes to an installed operating system's C: drive go. With Save Difference Per Content the disk image must never be modified again",
+            valueLabels = mapOf(
+                "false" to "Keep (default)",
+                "true" to "Discard",
+                "diff" to "Save Difference Per Content"
+            )
+        ),
+        CoreOptionDef(
             key = "dosbox_pure_menu_transparency",
             displayName = "Menu Transparency",
             values = listOf("10", "20", "30", "40", "50", "60", "70", "80", "90", "100"),

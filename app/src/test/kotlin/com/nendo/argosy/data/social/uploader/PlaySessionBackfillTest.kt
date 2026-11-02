@@ -1,7 +1,9 @@
 package com.nendo.argosy.data.social.uploader
 
 import com.nendo.argosy.data.local.dao.PendingRomMPlaySession
+import com.nendo.argosy.data.local.dao.PlayRecordDeletionDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
+import com.nendo.argosy.data.local.entity.PlayRecordDeletionEntity
 import com.nendo.argosy.data.local.entity.PlaySessionEntity
 import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.remote.romm.ConnectionState
@@ -38,17 +40,27 @@ class PlaySessionBackfillTest {
     private val pull: PlaySessionPull = mockk {
         coEvery { run() } returns PlaySessionPull.Summary(0, 0)
     }
-    private val backfill = PlaySessionBackfill(playSessionDao, uploader, syncPreferencesRepository, connectionManager, pull)
+    private val playRecordDeletionDao: PlayRecordDeletionDao = mockk {
+        coEvery { getForOwner(any()) } returns emptyList()
+    }
+    private val backfill = PlaySessionBackfill(
+        playSessionDao,
+        playRecordDeletionDao,
+        uploader,
+        syncPreferencesRepository,
+        connectionManager,
+        pull
+    )
 
-    private fun pending(id: Long) = PendingRomMPlaySession(
+    private fun pending(id: Long, gameId: Long = 1L, start: Instant = Instant.parse("2026-05-15T12:00:00Z")) = PendingRomMPlaySession(
         session = PlaySessionEntity(
             id = id,
             userId = null,
-            gameId = 1L,
+            gameId = gameId,
             igdbId = null,
             gameTitle = "Test Game",
             platformSlug = "snes",
-            startTime = Instant.parse("2026-05-15T12:00:00Z"),
+            startTime = start,
             endTime = Instant.parse("2026-05-15T12:30:00Z"),
             deviceId = "device-x",
             deviceManufacturer = "Acme",
@@ -84,6 +96,44 @@ class PlaySessionBackfillTest {
 
         assertEquals(PlaySessionBackfill.Summary(sent = 0, duplicates = 0, failed = 2), summary)
         coVerify(exactly = 1) { uploader.upload(any()) }
+    }
+
+    @Test
+    fun `a deleted game's sessions from before the cutoff are never uploaded`() = runTest {
+        val cutoff = Instant.parse("2026-06-01T00:00:00Z")
+        val before = pending(1L, gameId = 5L, start = cutoff.minusSeconds(60))
+        val after = pending(2L, gameId = 5L, start = cutoff.plusSeconds(60))
+        val otherGame = pending(3L, gameId = 6L, start = cutoff.minusSeconds(60))
+        coEvery { playRecordDeletionDao.getForOwner(7L) } returns listOf(
+            PlayRecordDeletionEntity(gameId = 5L, ownerUserId = 7L, deletedBefore = cutoff)
+        )
+        coEvery { playSessionDao.getPendingForRomM(7L, 0L, 100) } returns listOf(before, after, otherGame)
+        coEvery { playSessionDao.getPendingForRomM(7L, 3L, 100) } returns emptyList()
+        coEvery { uploader.upload(listOf(after, otherGame)) } returns RomMPlaySessionUploader.UploadResult.Success(2, 0, 0)
+
+        val summary = backfill.run()
+
+        assertEquals(PlaySessionBackfill.Summary(sent = 2, duplicates = 0, failed = 0), summary)
+        coVerify(exactly = 1) { uploader.upload(listOf(after, otherGame)) }
+    }
+
+    @Test
+    fun `a batch made only of deleted sessions advances the cursor without uploading`() = runTest {
+        val cutoff = Instant.parse("2026-06-01T00:00:00Z")
+        val blocked = listOf(pending(1L, gameId = 5L, start = cutoff.minusSeconds(60)))
+        val next = listOf(pending(2L, gameId = 6L))
+        coEvery { playRecordDeletionDao.getForOwner(7L) } returns listOf(
+            PlayRecordDeletionEntity(gameId = 5L, ownerUserId = 7L, deletedBefore = cutoff)
+        )
+        coEvery { playSessionDao.getPendingForRomM(7L, 0L, 100) } returns blocked
+        coEvery { playSessionDao.getPendingForRomM(7L, 1L, 100) } returns next
+        coEvery { playSessionDao.getPendingForRomM(7L, 2L, 100) } returns emptyList()
+        coEvery { uploader.upload(next) } returns RomMPlaySessionUploader.UploadResult.Success(1, 0, 0)
+
+        backfill.run()
+
+        coVerify(exactly = 1) { uploader.upload(any()) }
+        coVerify(exactly = 1) { uploader.upload(next) }
     }
 
     @Test

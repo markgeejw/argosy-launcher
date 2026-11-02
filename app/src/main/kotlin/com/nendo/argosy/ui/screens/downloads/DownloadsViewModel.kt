@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.nendo.argosy.R
 import com.nendo.argosy.data.download.DownloadManager
 import com.nendo.argosy.data.download.DownloadProgress
@@ -15,11 +14,6 @@ import com.nendo.argosy.data.download.MediaDownloadProgress
 import com.nendo.argosy.data.download.MediaDownloadState
 import com.nendo.argosy.data.download.QueuedMediaDownload
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
-import com.nendo.argosy.data.repository.GameRepository
-import com.nendo.argosy.data.steam.SteamContentManager
-import com.nendo.argosy.data.steam.QueuedSteamDownload
-import com.nendo.argosy.data.steam.SteamDownloadProgress
-import com.nendo.argosy.data.steam.SteamDownloadState
 import com.nendo.argosy.ui.input.InputHandler
 import com.nendo.argosy.ui.input.InputResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -200,12 +194,9 @@ data class DownloadsUiState(
 
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val downloadManager: DownloadManager,
     private val preferencesRepository: UserPreferencesRepository,
-    private val steamContentManager: SteamContentManager,
-    private val mediaDownloadManager: MediaDownloadManager,
-    private val gameRepository: GameRepository
+    private val mediaDownloadManager: MediaDownloadManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DownloadsUiState())
@@ -213,7 +204,6 @@ class DownloadsViewModel @Inject constructor(
 
     val state: StateFlow<DownloadQueueState> = downloadManager.state
 
-    private val _steamDownloads = MutableStateFlow<List<DownloadProgress>>(emptyList())
     private val _mediaDownloads = MutableStateFlow<List<DownloadProgress>>(emptyList())
 
     private var mediaItemIdsByRowId: Map<Long, String> = emptyMap()
@@ -223,10 +213,9 @@ class DownloadsViewModel @Inject constructor(
             combine(
                 downloadManager.state,
                 preferencesRepository.preferences.map { it.maxConcurrentDownloads },
-                _steamDownloads,
                 _mediaDownloads
-            ) { downloadState, maxActive, steamItems, mediaItems ->
-                MergedSources(downloadState, maxActive, steamItems + mediaItems)
+            ) { downloadState, maxActive, mediaItems ->
+                MergedSources(downloadState, maxActive, mediaItems)
             }.collect { (downloadState, maxActive, externalItems) ->
                 val merged = downloadState.copy(
                     activeDownloads = downloadState.activeDownloads + externalItems.filter {
@@ -261,135 +250,6 @@ class DownloadsViewModel @Inject constructor(
                         isTouchMode = it.isTouchMode && newFocusedId == currentFocusedId
                     )
                 }
-            }
-        }
-
-        // Convert Steam downloads to DownloadProgress entries
-        // Observe active download, state, queue, and completed
-        viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
-                steamContentManager.activeDownload,
-                steamContentManager.downloadState,
-                steamContentManager.downloadQueue,
-                steamContentManager.completedDownloads
-            ) { activeDl, dlState, queue, completed ->
-                arrayOf(activeDl, dlState, queue, completed)
-            }.collect { values ->
-                @Suppress("UNCHECKED_CAST")
-                val activeDl = values[0] as SteamDownloadProgress?
-                val steamState = values[1] as SteamDownloadState
-                val queue = values[2] as List<QueuedSteamDownload>
-                val completed = values[3] as List<SteamDownloadProgress>
-
-                val items = mutableListOf<DownloadProgress>()
-
-                // Active/paused download
-                // Skip stale activeDownload when state has moved to Completed/Idle --
-                // completed entries are handled by the completedDownloads flow.
-                val activeAppId: Long?
-                val isStaleActive = activeDl != null &&
-                    (steamState is SteamDownloadState.Completed || steamState is SteamDownloadState.Idle)
-                when {
-                    activeDl != null && !isStaleActive -> {
-                        activeAppId = activeDl.appId
-                        val (mappedState, statusMsg) = when (steamState) {
-                            is SteamDownloadState.Downloading -> {
-                                val depotInfo = if (steamState.totalDepots > 1) {
-                                    context.getString(
-                                        R.string.downloads_steam_status_depot_progress,
-                                        steamState.currentDepot,
-                                        steamState.totalDepots
-                                    )
-                                } else {
-                                    ""
-                                }
-                                DownloadState.DOWNLOADING to depotInfo.ifEmpty { null }
-                            }
-                            is SteamDownloadState.Preparing -> DownloadState.QUEUED to context.getString(R.string.downloads_steam_status_preparing)
-                            is SteamDownloadState.Connecting -> DownloadState.QUEUED to context.getString(R.string.downloads_steam_status_connecting)
-                            is SteamDownloadState.FetchingManifest -> DownloadState.QUEUED to context.getString(R.string.downloads_steam_status_fetching_manifest)
-                            is SteamDownloadState.Validating -> DownloadState.EXTRACTING to (
-                                steamState.statusDetail.ifEmpty { context.getString(R.string.downloads_steam_status_validating_fallback) }
-                            )
-                            is SteamDownloadState.Moving -> DownloadState.EXTRACTING to context.getString(R.string.downloads_steam_status_moving)
-                            is SteamDownloadState.Cleaning -> DownloadState.QUEUED to context.getString(R.string.downloads_steam_status_cleaning)
-                            is SteamDownloadState.Paused -> DownloadState.PAUSED to null
-                            is SteamDownloadState.Completed -> DownloadState.COMPLETED to null
-                            is SteamDownloadState.Failed -> DownloadState.FAILED to steamState.error
-                            is SteamDownloadState.Idle -> DownloadState.QUEUED to null
-                        }
-                        val game = gameRepository.getBySteamAppId(activeDl.appId)
-                        items.add(DownloadProgress(
-                            id = -activeDl.appId,
-                            gameId = game?.id ?: 0L,
-                            rommId = 0L,
-                            platformSlug = "steam",
-                            gameTitle = activeDl.gameName,
-                            fileName = "",
-                            totalBytes = activeDl.totalBytes,
-                            bytesDownloaded = activeDl.bytesDownloaded,
-                            state = mappedState,
-                            coverPath = activeDl.coverPath,
-                            bytesPerSecond = if (mappedState == DownloadState.EXTRACTING) 0L else activeDl.bytesPerSecond,
-                            statusMessage = statusMsg
-                        ))
-                    }
-                    steamState is SteamDownloadState.Paused -> {
-                        activeAppId = steamState.appId
-                        val game = gameRepository.getBySteamAppId(steamState.appId)
-                        items.add(DownloadProgress(
-                            id = -steamState.appId,
-                            gameId = game?.id ?: 0L,
-                            rommId = 0L,
-                            platformSlug = "steam",
-                            gameTitle = steamState.gameName,
-                            fileName = "",
-                            totalBytes = 0L,
-                            bytesDownloaded = 0L,
-                            state = DownloadState.PAUSED,
-                            coverPath = game?.let { gameRepository.getArt(it.id).coverPath }
-                        ))
-                    }
-                    else -> activeAppId = null
-                }
-
-                // Queued downloads: show as QUEUED (waiting to start)
-                for (queued in queue) {
-                    if (queued.appId == activeAppId) continue
-                    val game = gameRepository.getBySteamAppId(queued.appId)
-                    items.add(DownloadProgress(
-                        id = -queued.appId,
-                        gameId = game?.id ?: 0L,
-                        rommId = 0L,
-                        platformSlug = "steam",
-                        gameTitle = queued.gameName,
-                        fileName = "",
-                        totalBytes = 0L,
-                        bytesDownloaded = 0L,
-                        state = DownloadState.QUEUED,
-                        coverPath = queued.coverPath
-                    ))
-                }
-
-                // Completed Steam downloads
-                for (dl in completed) {
-                    if (dl.appId == activeAppId) continue
-                    val game = gameRepository.getBySteamAppId(dl.appId)
-                    items.add(DownloadProgress(
-                        id = -dl.appId,
-                        gameId = game?.id ?: 0L,
-                        rommId = 0L,
-                        platformSlug = "steam",
-                        gameTitle = dl.gameName,
-                        fileName = "",
-                        totalBytes = dl.totalBytes,
-                        bytesDownloaded = dl.totalBytes,
-                        state = DownloadState.COMPLETED,
-                        coverPath = dl.coverPath
-                    ))
-                }
-
-                _steamDownloads.value = items
             }
         }
 
@@ -474,8 +334,6 @@ class DownloadsViewModel @Inject constructor(
 
     private fun isMediaItem(item: DownloadProgress) = item.platformSlug == MEDIA_SLUG
 
-    private fun isSteamItem(item: DownloadProgress) = !isMediaItem(item) && item.id < 0
-
     fun openFocusedGame(onNavigateToGame: (Long) -> Unit) {
         val item = _uiState.value.focusedItem ?: return
         if (!isMediaItem(item)) onNavigateToGame(item.gameId)
@@ -493,14 +351,6 @@ class DownloadsViewModel @Inject constructor(
                 }
                 continue
             }
-            if (isSteamItem(item)) {
-                when (item.state) {
-                    DownloadState.DOWNLOADING -> steamContentManager.pauseDownload()
-                    DownloadState.PAUSED -> resumeSteamDownload(item)
-                    else -> {}
-                }
-                continue
-            }
             when (item.state) {
                 DownloadState.DOWNLOADING -> downloadManager.pauseDownload(item.rommId)
                 DownloadState.PAUSED, DownloadState.WAITING_FOR_STORAGE ->
@@ -512,24 +362,12 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    private fun resumeSteamDownload(item: DownloadProgress) {
-        val steamAppId = -item.id
-        android.util.Log.d("DownloadsVM", "resumeSteamDownload: steamAppId=$steamAppId")
-        viewModelScope.launch {
-            val game = gameRepository.getBySteamAppId(steamAppId)
-            android.util.Log.d("DownloadsVM", "resumeSteamDownload: game=${game?.title}")
-            if (game == null) return@launch
-            steamContentManager.queueDownloadOptimistic(steamAppId, game.title, item.coverPath)
-        }
-    }
-
     fun cancelFocusedItem() {
         val group = _uiState.value.focusedGroup ?: return
         for (item in group.items) {
             when {
                 isMediaItem(item) ->
                     mediaItemIdsByRowId[item.id]?.let { mediaDownloadManager.cancelDownload(it) }
-                isSteamItem(item) -> steamContentManager.cancelDownload()
                 else -> downloadManager.cancelDownload(item.rommId)
             }
         }
@@ -549,13 +387,11 @@ class DownloadsViewModel @Inject constructor(
 
     fun clearCompleted() {
         downloadManager.clearCompleted()
-        steamContentManager.clearCompletedDownloads()
         mediaDownloadManager.clearCompletedDownloads()
     }
 
     fun clearFinished() {
         downloadManager.clearFinished()
-        steamContentManager.clearCompletedDownloads()
         mediaDownloadManager.clearCompletedDownloads()
     }
 
@@ -577,11 +413,11 @@ class DownloadsViewModel @Inject constructor(
     }
 
     fun showFailedActionDialog() {
-        _uiState.value = _uiState.value.copy(showFailedActionDialog = true)
+        _uiState.update { it.copy(showFailedActionDialog = true) }
     }
 
     fun dismissFailedActionDialog() {
-        _uiState.value = _uiState.value.copy(showFailedActionDialog = false)
+        _uiState.update { it.copy(showFailedActionDialog = false) }
     }
 
     fun createInputHandler(
@@ -675,11 +511,6 @@ private val TOGGLEABLE_STATES = setOf(
     DownloadState.WAITING_FOR_STORAGE
 )
 
-/**
- * Media rows share one list with rom and Steam rows, which is keyed on a Long. Steam already claims
- * the small negatives with its own app ids, so media is placed far below them: an item id is a
- * server GUID with no numeric form of its own, and the two spaces must not meet.
- */
 private const val MEDIA_ROW_ID_BASE = -1_000_000_000_000L
 
 private fun mediaRowId(itemId: String): Long =

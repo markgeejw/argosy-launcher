@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -249,7 +250,7 @@ class VirtualBrowserViewModel @Inject constructor(
     }
 
     fun setSearchQuery(query: String) {
-        _search.value = _search.value.copy(query = query)
+        _search.update { it.copy(query = query) }
         _focusedIndex.value = 0
     }
 
@@ -259,10 +260,10 @@ class VirtualBrowserViewModel @Inject constructor(
             val isPinned = category.name in _pinnedCategories.value
             if (isPinned) {
                 unpinCollectionUseCase.unpinVirtual(categoryType, category.name)
-                _pinnedCategories.value = _pinnedCategories.value - category.name
+                _pinnedCategories.update { it - category.name }
             } else {
                 pinCollectionUseCase.pinVirtual(categoryType, category.name)
-                _pinnedCategories.value = _pinnedCategories.value + category.name
+                _pinnedCategories.update { it + category.name }
             }
         }
     }

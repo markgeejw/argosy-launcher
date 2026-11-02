@@ -58,6 +58,29 @@ class ServerRomLayoutTest {
     }
 
     @Test
+    fun `parent segments cannot climb above the root`() {
+        val paths = listOf("roms/gc/Game", "roms/gc/Game/../../etc/x")
+
+        assertEquals("etc/x", ServerRomLayout.relativeDir("roms/gc/Game/../../etc/x", paths))
+        assertEquals(
+            "x",
+            ServerRomLayout.relativeDir(
+                "roms/nes/Game/../../x",
+                emptyList(),
+                romFolderNames = listOf("Game")
+            )
+        )
+    }
+
+    @Test
+    fun `a path made only of parent segments has no relative dir`() {
+        val paths = listOf("../..", "../..")
+
+        assertNull(ServerRomLayout.relativeDir("../..", paths))
+        assertNull(ServerRomLayout.relativeDir("./.", listOf("./.")))
+    }
+
+    @Test
     fun `a deeper tree keeps every segment below the root`() {
         val paths = listOf("roms/ps3/Game", "roms/ps3/Game/PS3_GAME/USRDIR")
 

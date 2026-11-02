@@ -34,7 +34,11 @@ class SyncSaveOnSessionEndUseCaseTest {
 
     private val saveSyncRepository = mockk<SaveSyncRepository>(relaxed = true)
     private val gameDao = mockk<GameDao>(relaxed = true)
-    private val emulatorDetector = mockk<EmulatorDetector>(relaxed = true)
+    private val emulatorDetector = mockk<EmulatorDetector>(relaxed = true) {
+        every { getByPackage(any()) } answers {
+            com.nendo.argosy.data.emulator.EmulatorRegistry.getByPackage(firstArg())
+        }
+    }
     private val emulatorConfigDao = mockk<EmulatorConfigDao>(relaxed = true)
     private val preferencesRepository = mockk<UserPreferencesRepository>(relaxed = true)
     private val romMRepository = mockk<RomMRepository>(relaxed = true)

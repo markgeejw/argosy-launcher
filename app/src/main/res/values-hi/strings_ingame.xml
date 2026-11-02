@@ -169,6 +169,8 @@
     <string name="ingame_settings_game_specific_controls_subtitle_off">आपकी ग्लोबल कंट्रोलर मैपिंग इस्तेमाल हो रही है</string>
     <string name="ingame_settings_rumble_title">रम्बल</string>
     <string name="ingame_settings_rumble_subtitle">कंट्रोलर वाइब्रेशन फीडबैक सक्षम करें</string>
+    <string name="ingame_settings_motion_title">मोशन कंट्रोल</string>
+    <string name="ingame_settings_motion_subtitle">गेम को डिवाइस का झुकाव और घुमाव पढ़ने दें</string>
     <string name="ingame_settings_controller_order_title">कंट्रोलर ऑर्डर</string>
     <plurals name="ingame_settings_controller_order_assigned">
         <item quantity="one">%d कंट्रोलर असाइन किया गया</item>
@@ -178,6 +180,7 @@
     <string name="ingame_settings_controller_type_title">प्लेयर %1$d कंट्रोलर</string>
     <string name="ingame_settings_controller_type_pending">अगली बार लॉन्च करने पर लागू होगा</string>
     <string name="ingame_settings_controller_type_core_default">कोर द्वारा चुना गया</string>
+    <string name="ingame_settings_controller_type_auto">ऑटो (%1$s)</string>
     <string name="ingame_settings_controller_grip_title">कंट्रोलर ग्रिप</string>
     <string name="ingame_settings_controller_grip_subtitle">ग्रिप जिस हिस्से को ढकती है, UI को वहां से ऊपर खिसकाएं</string>
     <string name="ingame_settings_input_mapping_title">इनपुट मैपिंग</string>
@@ -190,6 +193,8 @@
     <string name="ingame_settings_hotkeys_subtitle">मेन्यू, फास्ट फॉरवर्ड, रिवाइंड के लिए शॉर्टकट सेट करें</string>
     <string name="ingame_settings_limit_hotkeys_title">हॉटकी केवल प्लेयर 1 तक सीमित करें</string>
     <string name="ingame_settings_limit_hotkeys_subtitle">केवल प्लेयर 1 का कंट्रोलर हॉटकी चला सकता है</string>
+    <string name="ingame_settings_select_as_back_title">Select को बैक मानें</string>
+    <string name="ingame_settings_select_as_back_subtitle">उन कंट्रोलर के लिए जिनका Select बैक भेजता है। ऑटो, बिना Select बटन वाले कंट्रोलर पर बैक को Select मानता है।</string>
     <string name="ingame_settings_toggle_fast_forward_title">फास्ट फॉरवर्ड टॉगल करें</string>
     <string name="ingame_settings_toggle_fast_forward_subtitle">शुरू करने के लिए एक बार दबाएं, रोकने के लिए फिर से (बंद = दबाए रखकर फास्ट फॉरवर्ड)</string>
     <string name="ingame_settings_preserve_pitch_title">ऑडियो पिच बनाए रखें</string>
@@ -361,9 +366,12 @@
     <string name="ingame_libretro_core_error_unknown">एक अनपेक्षित त्रुटि हुई</string>
 
     <string name="ingame_libretro_sram_load_failed_fresh_save">सेव लोड करने में विफल, इसके बजाय नई सेव इस्तेमाल हो रही है</string>
+    <string name="ingame_libretro_hardcore_off_core_setting">इस सत्र के लिए हार्डकोर बंद है: %1$s का मान %2$s है</string>
+    <string name="ingame_libretro_core_option_blocked_hardcore">हार्डकोर में यह मान अनुमत नहीं है</string>
     <string name="ingame_libretro_casual_save_in_hardcore">हार्डकोर में कैज़ुअल सेव जारी है</string>
 
     <string name="ingame_libretro_disc_swap_inserted">%1$s डाला गया</string>
+    <string name="ingame_libretro_sun_level">धूप %1$d/%2$d</string>
     <string name="ingame_libretro_disc_swap_fallback_name">डिस्क %1$d</string>
 
     <string name="ingame_libretro_speedrun_default_category_name">प्रैक्टिस</string>
@@ -399,6 +407,7 @@
     <string name="ingame_libretro_resume_success">रिज़्यूम हुआ</string>
     <string name="ingame_libretro_resume_restore_failure">स्टेट रीस्टोर करने में विफल</string>
     <string name="ingame_libretro_auto_restore_success">स्टेट रीस्टोर हुआ</string>
+    <string name="ingame_libretro_auto_restore_skipped_for_save">आपके सेव से शुरू हुआ। रिज़्यूम स्टेट उससे मेल नहीं खाता था।</string>
     <string name="ingame_libretro_auto_restore_failure">स्टेट रीस्टोर करने में विफल</string>
     <string name="ingame_libretro_auto_restore_response_unsupported_core">इस कोर के लिए सेव स्टेट उपलब्ध नहीं हैं</string>
     <string name="ingame_libretro_auto_restore_response_success">स्टेट रीस्टोर हुआ</string>
@@ -421,6 +430,7 @@
     <string name="ingame_libretro_quickaction_load_unsupported_core">इस कोर के लिए सेव स्टेट उपलब्ध नहीं हैं</string>
     <string name="ingame_libretro_quickaction_load_success">स्टेट लोड हुआ</string>
     <string name="ingame_libretro_quickaction_load_failure">स्टेट लोड करने में विफल</string>
+    <string name="ingame_libretro_quickaction_load_replaced">यह स्टेट बदल दी गई। इसे फिर से चुनें।</string>
     <string name="ingame_libretro_quickaction_screenshot_capture_failed">कैप्चर विफल</string>
     <string name="ingame_libretro_quickaction_screenshot_success">स्क्रीनशॉट सेव हुआ</string>
     <string name="ingame_libretro_quickaction_screenshot_failure">स्क्रीनशॉट विफल</string>

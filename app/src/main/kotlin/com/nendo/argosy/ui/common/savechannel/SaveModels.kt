@@ -2,6 +2,12 @@ package com.nendo.argosy.ui.common.savechannel
 
 enum class SaveFocusColumn { SLOTS, HISTORY }
 
+sealed interface SaveDeleteTarget {
+    data class Channel(val channelName: String) : SaveDeleteTarget
+    data class Version(val cacheId: Long, val timestamp: Long, val onServer: Boolean) : SaveDeleteTarget
+    data class Archived(val cacheIds: List<Long>, val allOnServer: Boolean) : SaveDeleteTarget
+}
+
 data class SaveSlotItem(
     val channelName: String?,
     val displayName: String,
@@ -44,4 +50,7 @@ data class SaveHistoryItem(
 ) {
     val historyKey: String get() =
         if (cacheId >= 0) "c$cacheId" else "s${serverSaveId ?: timestamp}"
+
+    val isDeletable: Boolean get() =
+        cacheId >= 0 && !isActiveRestorePoint && (isArchival || !isLatest)
 }

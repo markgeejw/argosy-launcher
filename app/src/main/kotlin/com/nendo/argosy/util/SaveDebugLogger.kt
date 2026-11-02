@@ -682,7 +682,7 @@ object SaveDebugLogger {
             }
             if (!entry.details.isNullOrBlank()) {
                 append(" | ")
-                append(entry.details)
+                append(LogSanitizer.sanitize(entry.details))
             }
         }
 

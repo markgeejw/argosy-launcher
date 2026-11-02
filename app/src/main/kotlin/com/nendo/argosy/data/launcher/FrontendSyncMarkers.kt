@@ -19,24 +19,29 @@ object FrontendSyncMarkers {
     private const val MAX_MARKER_BYTES = 128L
     private val MARKER_ID = Regex("[1-9][0-9]{0,19}")
 
-    fun read(dir: File, folder: GameNativeSyncFolder): List<Pair<Int, String>>? =
-        dir.listFiles()
+    /**
+     * The markers in [dir], or null when the folder or any marker in it cannot be read, so a
+     * caller never mistakes an unreadable marker for an uninstalled game.
+     */
+    fun read(dir: File, folder: GameNativeSyncFolder): List<Pair<Int, String>>? {
+        val files = dir.listFiles()
             ?.filter { it.isFile && it.name.endsWith(folder.markerExtension, ignoreCase = true) }
-            ?.mapNotNull { file ->
-                val id = readId(file) ?: return@mapNotNull null
-                id to file.name.dropLast(folder.markerExtension.length)
+            ?: return null
+        val markers = mutableListOf<Pair<Int, String>>()
+        for (file in files) {
+            if (file.length() > MAX_MARKER_BYTES) continue
+            val content = runCatching { file.readText() }.getOrElse {
+                Logger.warn(TAG, "read: unreadable marker | file=${file.name}, error=${it.message}")
+                return null
             }
+            val id = parseId(content) ?: continue
+            markers += id to file.name.dropLast(folder.markerExtension.length)
+        }
+        return markers
+    }
 
     fun parseId(content: String): Int? =
         content.trim().takeIf { MARKER_ID.matches(it) }?.toIntOrNull()
-
-    private fun readId(file: File): Int? {
-        if (file.length() > MAX_MARKER_BYTES) return null
-        val content = runCatching { file.readText() }
-            .onFailure { Logger.debug(TAG, "readId: unreadable marker | file=${file.name}, error=${it.message}") }
-            .getOrNull() ?: return null
-        return parseId(content)
-    }
 }
 
 @Singleton

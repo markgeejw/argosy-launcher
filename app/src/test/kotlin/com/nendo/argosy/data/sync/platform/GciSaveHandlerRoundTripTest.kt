@@ -11,6 +11,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -122,6 +124,27 @@ class GciSaveHandlerRoundTripTest {
         assertTrue("Extract reported failure: ${result.error}", result.success)
         assertTrue("A save in another card folder was deleted", otherCard.exists())
         assertEquals(otherBytes.toList(), otherCard.readBytes().toList())
+    }
+
+    @Test
+    fun `a core memory dump never uploads as a GameCube save`() = runTest {
+        val dump = File(baseDir, "Super Smash Bros. Melee.srm").apply { writeBytes(ByteArray(296960) { 0xFF.toByte() }) }
+
+        assertNull(handler.prepareForUpload(dump.absolutePath, saveContext()))
+    }
+
+    @Test
+    fun `a cached path naming a non-gci file is not trusted`() {
+        assertTrue(handler.isValidCachedSavePath("/storage/emulated/0/GC/USA/Card A/01-GZLE-ZELDA.gci"))
+        assertTrue(handler.isValidCachedSavePath("/data/user/0/com.nendo.argosy/files/saves/GC"))
+        assertFalse(handler.isValidCachedSavePath("/storage/emulated/0/RetroArch/saves/Melee.srm"))
+    }
+
+    @Test
+    fun `only gci files and gci bundles are GameCube server saves`() {
+        assertTrue(GciSaveHandler.isGciServerFileName("01-GZLE-ZELDA.gci"))
+        assertTrue(GciSaveHandler.isGciServerFileName("Zelda [2026-06-20_10-00-00].zip"))
+        assertFalse(GciSaveHandler.isGciServerFileName("Super Smash Bros. Melee [2026-10-20_05-21-15].srm"))
     }
 
     private fun saveContext() = SaveContext(

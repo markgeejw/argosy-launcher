@@ -50,6 +50,16 @@ class RootFileHarnessReceiver : BroadcastReceiver() {
                     "regroup" -> regroup(work, path ?: return@launch, group ?: return@launch)
                     "mode" -> runRoot(work, "p=${q(path ?: return@launch)}\nchmod ${q(mode ?: return@launch)} \"\$p\" && ls -lnd \"\$p\"")
                     "delete" -> runRoot(work, "p=${q(path ?: return@launch)}\nrm -f \"\$p\" && echo deleted; ls -ln \"\$(dirname \"\$p\")\"")
+                    "move" -> runRoot(
+                        work,
+                        "p=${q(path ?: return@launch)}\nd=\"\$(dirname \"\$p\")/${name ?: return@launch}\"\n" +
+                            "[ -e \"\$d\" ] && { echo exists; exit 1; }\nmv \"\$p\" \"\$d\" && ls -ln \"\$(dirname \"\$p\")\""
+                    )
+                    "dropaside" -> runRoot(
+                        work,
+                        "p=${q(path ?: return@launch)}\ncase \"\$p\" in *-aside) rm -rf \"\$p\" && echo dropped ;; " +
+                            "*) echo refused; exit 1 ;; esac"
+                    )
                     "stacks" -> runRoot(work, "debuggerd -b ${android.os.Process.myPid()}", echoOutput = false)
                     else -> Log.w(TAG, "unknown op $op")
                 }

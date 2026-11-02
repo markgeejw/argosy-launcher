@@ -6,6 +6,10 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <style name="Theme.Argosy.Game" parent="Theme.Argosy">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
     <style name="Theme.Argosy.FocusDirector" parent="@android:style/Theme.Translucent.NoTitleBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowIsFloating">false</item>

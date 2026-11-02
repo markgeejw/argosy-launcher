@@ -62,6 +62,10 @@ class SaveCacheRepository @Inject constructor(
         )
     }
 
+    suspend fun pendingUploadsOnPlatform(platformId: Long): Int = withContext(Dispatchers.IO) {
+        saveCacheDao.countNeedingRemoteSyncOnPlatform(platformId)
+    }
+
     /** Deletes all cached save/state rows AND files; returns false when blocked by an active session. */
     suspend fun resetSaveCache(): Boolean = withContext(Dispatchers.IO) {
         if (sessionStateStore.hasActiveSession()) return@withContext false

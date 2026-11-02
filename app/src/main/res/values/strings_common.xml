@@ -115,6 +115,12 @@
     <string name="ui_save_channel_footer_rename">Rename</string>
     <!-- Footer hint on a save slot. Verb: erases the slot. -->
     <string name="ui_save_channel_footer_delete_slot">Delete</string>
+    <!-- Footer hint on the Archived slot. Verb phrase: erases every archived save on this
+         device. -->
+    <string name="ui_save_channel_footer_delete_archived">Delete all</string>
+    <!-- Footer hint on one save in the history list. Verb: erases that one save on this
+         device. -->
+    <string name="ui_save_channel_footer_delete_version">Delete</string>
     <!-- Footer hint on a save in the history list. Verb: puts that save back in play. -->
     <string name="ui_save_channel_footer_restore_save">Restore</string>
     <!-- Footer hint on a save in the history list. Verb phrase: copies it into a slot the user
@@ -229,6 +235,23 @@
     <string name="ui_save_channel_delete_slot_message">Delete \"%1$s\"?</string>
     <!-- Note under that body, saying what deleting reaches. -->
     <string name="ui_save_channel_delete_slot_note">This will remove it from the server and local storage. This cannot be undone.</string>
+    <!-- Heading of the confirmation before one save in the history list is erased. Noun
+         phrase, rendered in caps. -->
+    <string name="ui_save_channel_delete_version_title">DELETE SAVE</string>
+    <!-- Body of that confirmation. %1$s is when the save was made, already formatted. -->
+    <string name="ui_save_channel_delete_version_message">Delete the save from %1$s?</string>
+    <!-- Heading of the confirmation before every archived save is erased. Noun phrase,
+         rendered in caps. -->
+    <string name="ui_save_channel_delete_archived_title">DELETE ARCHIVED SAVES</string>
+    <!-- Body of that confirmation. %1$d is how many archived saves there are. -->
+    <plurals name="ui_save_channel_delete_archived_message">
+        <item quantity="one">Delete %1$d archived save?</item>
+        <item quantity="other">Delete %1$d archived saves?</item>
+    </plurals>
+    <!-- Note under a save or archived-saves deletion: only this device's copies go. -->
+    <string name="ui_save_channel_delete_local_note">This removes the copy on this device. A copy on the server stays. This cannot be undone.</string>
+    <!-- Note on the same dialog when at least one save being deleted was never uploaded. -->
+    <string name="ui_save_channel_delete_only_copy_note">This device holds the only copy. It will be gone for good.</string>
 
     <!-- Heading of the warning shown when a save state was written by a different build of the
          emulator core. Rendered in caps. -->
@@ -363,6 +386,12 @@
     <string name="ui_save_channel_notice_renamed">Renamed to \'%1$s\'</string>
     <!-- Brief message after a save slot is erased. %1$s is its name. -->
     <string name="ui_save_channel_notice_slot_deleted">Deleted save slot \'%1$s\'</string>
+    <!-- Brief message after saves were erased from the history list or the Archived slot.
+         %1$d is how many. -->
+    <plurals name="ui_save_channel_notice_versions_deleted">
+        <item quantity="one">Deleted %1$d save</item>
+        <item quantity="other">Deleted %1$d saves</item>
+    </plurals>
     <!-- Brief message after a save slot is erased on this device but the server copies could not
          be removed. %1$s is its name. -->
     <string name="ui_save_channel_notice_slot_deleted_server_failed">Deleted save slot \'%1$s\' here; the server copy could not be removed</string>
@@ -395,6 +424,12 @@
 
     <!-- Declining button of the shared confirm modal. Verb. -->
     <string name="ui_confirm_modal_cancel">Cancel</string>
+    <string name="ui_pushed_apk_title">Install %1$s?</string>
+    <string name="ui_pushed_apk_message">%1$s sent this app to this device.\n\nPackage: %2$s\nSigner: %3$s</string>
+    <string name="ui_pushed_apk_unknown_server">Your RomM server</string>
+    <string name="ui_pushed_apk_unknown_signer">unknown</string>
+    <string name="ui_pushed_apk_install">Install</string>
+    <string name="ui_pushed_apk_not_now">Not now</string>
 
     <!-- Placeholder in a modal's search field when nothing has been typed. -->
     <string name="ui_modal_search_placeholder">Search...</string>
@@ -447,8 +482,6 @@
     <string name="ui_changelog_action_resync_library">Resync Library</string>
     <!-- One of those things. Verb phrase: empty Argosy's cached files. -->
     <string name="ui_changelog_action_clear_cache">Clear Cache</string>
-    <!-- One of those things. Verb phrase: tell Argosy where Steam games are installed. -->
-    <string name="ui_changelog_action_set_steam_path">Set Steam Install Path</string>
 
     <!-- Heading of the prompt shown when a save changed on both this device and the server while
          Argosy was syncing in the background. -->
@@ -600,11 +633,8 @@
     <!-- Icon description on the tick beside a collection the game is already in. -->
     <string name="ui_add_to_collection_member">In collection</string>
 
-    <!-- Row of the prompt asking where a Steam game should come from. Verb phrase: Argosy
-         fetches it. -->
-    <string name="ui_steam_location_download">Download via Argosy</string>
-    <!-- Row of that prompt for a launcher that already has the game. Verb phrase: records the
-         game as present without fetching anything. -->
+    <!-- Row of the prompt that links a Steam game to the launcher app that has it installed.
+         Verb phrase: records the game as present without fetching anything. -->
     <string name="ui_steam_location_mark_installed">Mark as Installed</string>
     <!-- Second line under that row. %1$s is the other launcher's name. -->
     <string name="ui_steam_location_managed_by">Managed by %1$s</string>
@@ -1186,6 +1216,18 @@
     <!-- Row of that panel, on a device with two screens. Verb phrase: puts each screen in the
          other's role. -->
     <string name="ui_quick_settings_swap_displays">Swap screens</string>
+    <!-- Row of that panel. Name of the wireless network radio; usually kept as is. -->
+    <string name="ui_quick_settings_wifi">Wi-Fi</string>
+    <!-- Row of that panel. Name of the short-range radio for controllers and headphones. -->
+    <string name="ui_quick_settings_bluetooth">Bluetooth</string>
+    <!-- Value of a radio row. Adjective: the radio is switched on. -->
+    <string name="ui_quick_settings_radio_on">On</string>
+    <!-- Value of a radio row. Adjective: the radio is switched off. -->
+    <string name="ui_quick_settings_radio_off">Off</string>
+    <!-- Value of the Wi-Fi row. Adjective: joined to a wireless network. -->
+    <string name="ui_quick_settings_wifi_connected">Connected</string>
+    <!-- Value of the Wi-Fi row. Adjective: switched on but not joined to any network. -->
+    <string name="ui_quick_settings_wifi_not_connected">Not connected</string>
     <!-- Row of that panel. "QuayPass" is the name of an Argosy feature; leave it
          untranslated. -->
     <string name="ui_quick_settings_quaypass">QuayPass</string>
@@ -1207,6 +1249,76 @@
     <string name="ui_quick_settings_page_performance">Performance</string>
     <!-- Title of the page of that panel holding the social rows. Noun, plural. -->
     <string name="ui_quick_settings_page_friends">Friends</string>
+    <!-- Title of the page of that panel holding the Wi-Fi and Bluetooth rows. Noun, plural: the
+         device's wireless links. -->
+    <string name="ui_quick_settings_page_connections">Connections</string>
+    <!-- Connections page, on a device where Argosy cannot switch the radios or join networks.
+         Shown alone below the Wi-Fi and Bluetooth status rows. Full sentence. -->
+    <string name="ui_quick_connections_unsupported">This device doesn\'t allow direct Wi-Fi and Bluetooth control</string>
+    <!-- Connections page switcher option that shows the Wi-Fi network lists. Name of the radio. -->
+    <string name="ui_quick_connections_tab_wifi">Wi-Fi</string>
+    <!-- Connections page switcher option that shows the paired Bluetooth devices. Name of the radio. -->
+    <string name="ui_quick_connections_tab_bluetooth">Bluetooth</string>
+    <!-- Shown in place of the network lists while Wi-Fi is switched off. -->
+    <string name="ui_quick_connections_wifi_off">Wi-Fi is off</string>
+    <!-- Shown in place of the paired device list while Bluetooth is switched off. -->
+    <string name="ui_quick_connections_bluetooth_off">Bluetooth is off</string>
+    <!-- Connections page heading over the Wi-Fi networks in range that the device can join. Noun
+         phrase. Shown in capitals. -->
+    <string name="ui_quick_connections_nearby">Nearby networks</string>
+    <!-- Connections page heading over the Wi-Fi networks the device remembers. Noun phrase.
+         Shown in capitals. -->
+    <string name="ui_quick_connections_saved">Saved networks</string>
+    <!-- Connections page heading over the Bluetooth devices paired with this device. Noun
+         phrase. Shown in capitals. -->
+    <string name="ui_quick_connections_paired">Paired devices</string>
+    <!-- Connections page, under Nearby networks while the device looks for networks in range.
+         Verb phrase in progress. -->
+    <string name="ui_quick_connections_scanning">Searching for networks</string>
+    <!-- Connections page, under Nearby networks when the search found nothing to join. -->
+    <string name="ui_quick_connections_no_networks">No networks found</string>
+    <!-- Connections page, under Paired devices when no Bluetooth device is paired. -->
+    <string name="ui_quick_connections_no_paired">No paired devices</string>
+    <!-- Value beside a nearby network while the device joins it. Verb, in progress; keep
+         short. -->
+    <string name="ui_quick_connections_row_joining">Joining</string>
+    <!-- Value beside a nearby network the device could not join. Keep short. -->
+    <string name="ui_quick_connections_row_failed">Couldn\'t join</string>
+    <!-- Description of the lock icon beside a nearby network that needs a password.
+         Adjective. -->
+    <string name="ui_quick_connections_secured">Secured</string>
+    <!-- Button on a saved network that makes the device stop remembering it. Verb. -->
+    <string name="ui_quick_connections_forget">Forget</string>
+    <!-- Connections page notice when Argosy may not read the paired Bluetooth devices. Full
+         sentence. -->
+    <string name="ui_quick_connections_bluetooth_permission">Argosy needs permission to show paired devices.</string>
+    <!-- Button beside that notice that asks for the permission. Verb. -->
+    <string name="ui_quick_connections_bluetooth_permission_allow">Allow</string>
+    <!-- Value beside a paired Bluetooth device that is linked right now. Adjective. -->
+    <string name="ui_quick_connections_device_connected">Connected</string>
+    <!-- Value beside a paired Bluetooth device that is not linked right now. Adjective. -->
+    <string name="ui_quick_connections_device_not_connected">Not connected</string>
+    <!-- Battery charge of a connected controller, for example "80%". %1$d is the number. -->
+    <string name="ui_quick_connections_battery">%1$d%%</string>
+    <!-- Wi-Fi frequency band of the current network. Keep the unit abbreviation. -->
+    <string name="ui_quick_connections_band_2_4">2.4 GHz</string>
+    <!-- Wi-Fi frequency band of the current network. Keep the unit abbreviation. -->
+    <string name="ui_quick_connections_band_5">5 GHz</string>
+    <!-- Wi-Fi frequency band of the current network. Keep the unit abbreviation. -->
+    <string name="ui_quick_connections_band_6">6 GHz</string>
+    <!-- Title of the dialog that asks for a Wi-Fi password. %1$s is the network name. Verb
+         phrase: connect to that network. -->
+    <string name="ui_quick_connections_join_title">Join %1$s</string>
+    <!-- Label of the field in that dialog where the Wi-Fi password goes. Noun. -->
+    <string name="ui_quick_connections_join_password">Password</string>
+    <!-- Button in that dialog that connects to the network. Verb. -->
+    <string name="ui_quick_connections_join_confirm">Join</string>
+    <!-- That same button while the device is connecting. Verb, in progress. -->
+    <string name="ui_quick_connections_join_busy">Joining</string>
+    <!-- Button in that dialog that closes it without connecting. Verb. -->
+    <string name="ui_quick_connections_join_cancel">Cancel</string>
+    <!-- Error in that dialog when the device refused to join the network. Full sentence. -->
+    <string name="ui_quick_connections_join_failed">The device couldn\'t join this network.</string>
     <!-- Title of the page of that panel holding the background music row. Noun. -->
     <string name="ui_quick_settings_page_music">Music</string>
     <!-- Section heading on that panel over the theme and brightness rows. Noun. Shown in
@@ -1415,15 +1527,38 @@
     <string name="ui_sync_overlay_hardcore_skip">Skip Sync</string>
     <!-- Second line under that choice. -->
     <string name="ui_sync_overlay_hardcore_skip_subtitle">Launch without syncing</string>
-    <string name="ui_launch_overlay_step_finishing_previous">Finishing previous launch</string>
-    <!-- "Core" is the emulator core that runs the game -->
-    <string name="ui_launch_overlay_step_downloading_core">Downloading core</string>
-    <string name="ui_launch_overlay_step_preparing_system_files">Preparing system files</string>
-    <string name="ui_launch_overlay_step_preparing_ui">Preparing UI</string>
-    <string name="ui_launch_overlay_step_launching">Launching</string>
     <string name="ui_launch_overlay_cancel">Cancel</string>
     <string name="ui_launch_overlay_cancel_option">Cancel launch</string>
     <string name="ui_launch_overlay_cancel_option_subtitle">Go back without starting the game</string>
+    <!-- Line under the game title when the launch is still waiting for the previous launch to end. -->
+    <string name="ui_launch_overlay_wait_previous">Still finishing the previous launch</string>
+    <!-- Line under the game title when the summary of the player's last session is slow to load. -->
+    <string name="ui_launch_overlay_wait_recap">Still loading your last session</string>
+    <!-- Line under the game title when the save sync with the server runs long. "Save" is the noun: the game's save file. -->
+    <string name="ui_launch_overlay_wait_save">Still syncing your save</string>
+    <!-- Line under the game title when the emulator core download runs long. "Core" is the emulator core that runs the game. -->
+    <string name="ui_launch_overlay_wait_core">Still downloading the emulator core</string>
+    <!-- Same line with the download size. %1$s is a size such as "12.3 MB". -->
+    <string name="ui_launch_overlay_wait_core_sized">Still downloading the emulator core &#183; %1$s</string>
+    <!-- Line under the game title when the emulator setup runs long. -->
+    <string name="ui_launch_overlay_wait_prepare">Still preparing the emulator</string>
+    <!-- Shown when the RomM server did not answer; the game still starts. "RomM" is a product name; leave it untranslated. -->
+    <string name="ui_launch_overlay_failed_connect">RomM didn\'t answer. Starting with the save on this device.</string>
+    <!-- Shown when the RomM server is reachable but did not answer within the pre-launch budget; the game still starts. "RomM" is a product name; leave it untranslated. -->
+    <string name="ui_launch_overlay_failed_timeout">RomM took too long to answer. Starting with the save on this device.</string>
+    <!-- Shown when the save on the server could not be downloaded; the game still starts with the local save. -->
+    <string name="ui_launch_overlay_failed_download">Your save couldn\'t be downloaded. Starting with the save on this device.</string>
+    <!-- Shown when the downloaded save could not be written to the device; the game still starts with the local save. -->
+    <string name="ui_launch_overlay_failed_write">Your save couldn\'t be written. Starting with the save on this device.</string>
+    <!-- Download progress. %1$d is a whole percent from 0 to 100. -->
+    <string name="ui_launch_overlay_percent">%1$d%%</string>
+    <!-- Download progress with the time left. %1$d is a whole percent, %2$d the seconds left. -->
+    <plurals name="ui_launch_overlay_percent_eta">
+        <item quantity="one">%1$d%% &#183; about %2$d second left</item>
+        <item quantity="other">%1$d%% &#183; about %2$d seconds left</item>
+    </plurals>
+    <!-- Footer hint beside the cancel button glyph while a game launches. -->
+    <string name="ui_launch_overlay_hint_cancel">Cancel</string>
     <!-- Title of the question shown when two installed Steam launchers both have this game installed. -->
     <string name="ui_launch_overlay_launcher_choice_title">Choose a Launcher</string>
     <!-- Body of that question. %1$s is the game title. "Change Launcher" must match the translation
@@ -1431,8 +1566,6 @@
     <string name="ui_launch_overlay_launcher_choice_message">%1$s is installed in more than one launcher. Pin one with Change Launcher on the game\'s page to stop this question.</string>
     <!-- Second line under each launcher choice. %1$s is the launcher's product name (GameNative, DroidDeck); leave it untranslated. -->
     <string name="ui_launch_overlay_launcher_choice_option_subtitle">Start the game in %1$s</string>
-    <!-- Launch step shown while the summary of the player's last session of this game loads. -->
-    <string name="ui_launch_overlay_step_loading_recap">Loading your last session</string>
     <!-- Line under the game title in the summary shown before a game starts. %1$s is when the
          player's last session of this game ended, such as "Yesterday" or "2 weeks ago". -->
     <string name="ui_launch_recap_meta">Last session &#183; %1$s</string>
@@ -2062,4 +2195,12 @@
     <string name="gamelist_row_genre_quiz">Quiz</string>
     <!-- Short game genre name on a narrow tab in the game list row. Full genre: "Simulator" (simulation games). -->
     <string name="gamelist_row_genre_sim">Sim</string>
+    <!-- Title of the dialog confirming that a game is hidden. %1$s is the game's title. "Hide" is
+         a verb: the game leaves the normal lists. -->
+    <string name="common_game_confirm_hide_title">Hide %1$s?</string>
+    <!-- Body of the hide confirmation. "Source" and "Hidden" name a tab and an option in the
+         Library filter, so keep them matching those labels. -->
+    <string name="common_game_confirm_hide_message">Hidden games can be shown again in the Library by filtering Source to Hidden.</string>
+    <!-- Confirm button of the hide dialog. Verb. -->
+    <string name="common_game_confirm_hide_confirm">Hide</string>
 </resources>

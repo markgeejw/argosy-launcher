@@ -104,7 +104,6 @@ fun DownloadProgressCover(
     )
     val transition = rememberInfiniteTransition(label = "water")
 
-    // Primary wave: ~1.5 cycles across the width, 3s period
     val phase1 by transition.animateFloat(
         initialValue = 0f,
         targetValue = TWO_PI,
@@ -114,7 +113,6 @@ fun DownloadProgressCover(
         ),
         label = "phase1"
     )
-    // Secondary wave: ~2.3 cycles, slower drift in the opposite direction
     val phase2 by transition.animateFloat(
         initialValue = TWO_PI,
         targetValue = 0f,
@@ -124,7 +122,6 @@ fun DownloadProgressCover(
         ),
         label = "phase2"
     )
-    // Primary amplitude: swells and recedes over 2.2s
     val ampScale1 by transition.animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
@@ -134,7 +131,6 @@ fun DownloadProgressCover(
         ),
         label = "amp1"
     )
-    // Secondary amplitude: slower, offset cycle (3.1s) so they rarely peak together
     val ampScale2 by transition.animateFloat(
         initialValue = 0.8f,
         targetValue = 0.2f,

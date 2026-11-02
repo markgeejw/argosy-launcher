@@ -13,6 +13,7 @@ import com.nendo.argosy.data.remote.ra.RAApiProvider
 import com.nendo.argosy.data.remote.ra.RAAwardResponse
 import com.nendo.argosy.data.remote.ra.RAGameInfoResponse
 import com.nendo.argosy.data.remote.ra.RAPatchData
+import com.nendo.argosy.data.remote.ra.RAStartSessionResponse
 import com.nendo.argosy.data.sync.AchievementPayload
 import com.nendo.argosy.data.sync.SyncPayloadCodec
 import com.squareup.moshi.Moshi
@@ -91,6 +92,48 @@ class RetroAchievementsRepositoryOfflineTest {
         ownerUserId = 7L
     )
 
+    @Test
+    fun `startsession sends the hardcore flag with the verified hash, as rcheevos does`() = runTest {
+        coEvery {
+            api.startSession(any(), any(), any(), any(), any(), any(), any())
+        } returns Response.success(RAStartSessionResponse(success = true))
+
+        repository.startSession(4242L, hardcore = true, gameHash = "abc123")
+
+        coVerify {
+            api.startSession(
+                request = "startsession",
+                username = "player",
+                token = "token",
+                gameId = 4242L,
+                hardcore = 1,
+                gameHash = "abc123",
+                clientVersion = RAApi.RCHEEVOS_VERSION
+            )
+        }
+    }
+
+    @Test
+    fun `startsession without a verified hash sends neither h nor m`() = runTest {
+        coEvery {
+            api.startSession(any(), any(), any(), any(), any(), any(), any())
+        } returns Response.success(RAStartSessionResponse(success = true))
+
+        repository.startSession(4242L, hardcore = true, gameHash = null)
+
+        coVerify {
+            api.startSession(
+                request = "startsession",
+                username = "player",
+                token = "token",
+                gameId = 4242L,
+                hardcore = null,
+                gameHash = null,
+                clientVersion = RAApi.RCHEEVOS_VERSION
+            )
+        }
+    }
+
     private fun stubAward(response: Response<RAAwardResponse>) {
         coEvery { pendingSyncQueueDao.getUnsubmittedBySyncType(SyncType.ACHIEVEMENT) } returns listOf(exhaustedRow())
         coEvery { api.awardAchievement(any(), any(), any(), any(), any(), any()) } returns response
@@ -158,6 +201,22 @@ class RetroAchievementsRepositoryOfflineTest {
         repository.submitPendingAchievements()
 
         coVerify(exactly = 1) { pendingSyncQueueDao.recordRetryableFailure(5L, "Invalid token", any()) }
+        coVerify(exactly = 0) { pendingSyncQueueDao.deleteById(any()) }
+    }
+
+    @Test
+    fun `an auth refusal in the body keeps the unlock queued`() = runTest {
+        stubAward(
+            Response.success(
+                RAAwardResponse(success = false, error = "The access token has expired.", code = "expired_token")
+            )
+        )
+        repository.submitPendingAchievements()
+
+        stubAward(httpError(422, """{"Success":false,"Error":"Credentials invalid (0)","Code":"invalid_credentials"}"""))
+        repository.submitPendingAchievements()
+
+        coVerify(exactly = 2) { pendingSyncQueueDao.recordRetryableFailure(5L, any(), any()) }
         coVerify(exactly = 0) { pendingSyncQueueDao.deleteById(any()) }
     }
 

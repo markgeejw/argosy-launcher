@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
 import com.nendo.argosy.R
+import com.nendo.argosy.ui.common.ScreenshotImage
 import com.nendo.argosy.ui.common.rememberFileImageModel
 import com.nendo.argosy.ui.primitives.FocusIndicators
 import com.nendo.argosy.ui.primitives.argosyFocusIndicators
@@ -79,7 +80,8 @@ internal fun SnapshotThumb(
 ) {
     val theme = LocalArgosyTheme.current
     var serverFailed by remember(url) { mutableStateOf(false) }
-    val model = rememberFileImageModel(url?.takeUnless { serverFailed } ?: fallbackPath)
+    val screenshotUrl = url?.takeUnless { serverFailed }
+    val model = rememberFileImageModel(screenshotUrl ?: fallbackPath)
     Box(
         modifier = modifier
             .aspectRatio(THUMB_ASPECT)
@@ -87,12 +89,18 @@ internal fun SnapshotThumb(
             .background(theme.surfaceRaised),
         contentAlignment = Alignment.Center
     ) {
-        if (model != null) {
+        if (model != null && screenshotUrl != null) {
+            ScreenshotImage(
+                model = model,
+                contentDescription = null,
+                onError = { serverFailed = true },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (model != null) {
             AsyncImage(
                 model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                onError = { if (url != null && !serverFailed) serverFailed = true },
                 modifier = Modifier.fillMaxSize()
             )
         } else {

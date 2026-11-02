@@ -1,6 +1,5 @@
 package com.nendo.argosy.ui.screens.gamedetail
 
-import com.nendo.argosy.data.steam.SteamDownloadState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nendo.argosy.data.cache.ImageCacheManager
@@ -18,6 +17,7 @@ import com.nendo.argosy.data.launcher.SteamLaunchers
 import com.nendo.argosy.data.local.dao.EmulatorConfigDao
 import com.nendo.argosy.data.local.dao.GameDiscDao
 import com.nendo.argosy.data.local.dao.GameFileDao
+import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.repository.PlatformRepository
 import com.nendo.argosy.data.model.ArtSlot
 import com.nendo.argosy.data.model.GameSource
@@ -68,6 +68,7 @@ import com.nendo.argosy.ui.screens.gamedetail.delegates.SaveManagementDelegate
 import com.nendo.argosy.ui.screens.gamedetail.delegates.ScreenshotDelegate
 import com.nendo.argosy.ui.ModalResetSignal
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -82,6 +83,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 
@@ -115,7 +117,6 @@ class GameDetailViewModel @Inject constructor(
     private val repairImageCacheUseCase: RepairImageCacheUseCase,
     private val modalResetSignal: ModalResetSignal,
     private val titleIdDownloadObserver: com.nendo.argosy.data.emulator.TitleIdDownloadObserver,
-    private val gameStartRouter: com.nendo.argosy.ui.screens.common.GameStartRouter,
     private val gameDocumentLoader: com.nendo.argosy.data.repository.GameDocumentLoader,
     private val documentHighlightStore: com.nendo.argosy.data.repository.DocumentHighlightStore,
     val pickerModalDelegate: PickerModalDelegate,
@@ -130,8 +131,7 @@ class GameDetailViewModel @Inject constructor(
     private val perGameSettingsDelegate: PerGameSettingsDelegate,
     val speedrunSplitsDelegate: com.nendo.argosy.ui.screens.gamedetail.delegates.SpeedrunSplitsDelegate,
     private val socialRepository: com.nendo.argosy.data.social.SocialRepository,
-    private val steamContentManager: com.nendo.argosy.data.steam.SteamContentManager,
-    private val steamDownloadPromptController: com.nendo.argosy.data.steam.SteamDownloadPromptController,
+    private val steamLauncherLinkController: com.nendo.argosy.data.steam.SteamLauncherLinkController,
     private val variantScanner: com.nendo.argosy.data.scanner.VariantScanner,
     private val variantResolver: com.nendo.argosy.data.emulator.VariantResolver,
     private val downloadManager: com.nendo.argosy.data.download.DownloadManager,
@@ -139,7 +139,9 @@ class GameDetailViewModel @Inject constructor(
     private val getRelatedGamesUseCase: com.nendo.argosy.domain.usecase.game.GetRelatedGamesUseCase,
     private val gradientExtractionDelegate: com.nendo.argosy.ui.screens.common.GradientExtractionDelegate,
     private val gameThemeAudio: com.nendo.argosy.ui.audio.GameThemeAudioCoordinator,
-    private val siblingChoice: com.nendo.argosy.ui.screens.common.SiblingChoiceDelegate
+    private val siblingChoice: com.nendo.argosy.ui.screens.common.SiblingChoiceDelegate,
+    private val steamInstallReports: com.nendo.argosy.data.launcher.SteamInstallReports,
+    private val appsRepository: com.nendo.argosy.data.repository.AppsRepository
 ) : ViewModel() {
 
     val siblingChoiceState = siblingChoice.state
@@ -149,6 +151,10 @@ class GameDetailViewModel @Inject constructor(
     private var heldForTimeline = false
 
     private val sessionStateStore by lazy { com.nendo.argosy.data.preferences.SessionStateStore(context) }
+
+    val gameConfirm = com.nendo.argosy.ui.common.GameConfirmController(
+        gameActions::deleteDownloadConfirm, gameActions::hideConfirm, viewModelScope
+    )
 
     private val _uiState = MutableStateFlow(GameDetailUiState())
     val uiState: StateFlow<GameDetailUiState> = _uiState.asStateFlow()
@@ -165,6 +171,7 @@ class GameDetailViewModel @Inject constructor(
     val launchEvents: SharedFlow<LaunchEvent> = _launchEvents.asSharedFlow()
 
     private var currentGameId: Long = 0
+    private var steamLauncherRefreshVersion = 0L
     private val documentReaderController =
         com.nendo.argosy.ui.screens.gamedetail.components.DocumentReaderController(
             scope = viewModelScope,
@@ -267,6 +274,11 @@ class GameDetailViewModel @Inject constructor(
         }
 
         viewModelScope.launch { emulatorDetector.detectEmulators() }
+        viewModelScope.launch {
+            appsRepository.packageChanges.collect { packageName ->
+                if (SteamLaunchers.getByPackage(packageName) != null) refreshSteamLauncher()
+            }
+        }
 
         viewModelScope.launch {
             preferencesRepository.userPreferences.collect { prefs ->
@@ -524,7 +536,7 @@ class GameDetailViewModel @Inject constructor(
             is PickerSelection.SteamLauncher -> {
                 val launcher = selection.launcher
                 if (launcher == null) {
-                    gameRepository.updateSteamLauncher(currentGameId, null, false)
+                    gameRepository.clearSteamLauncherPin(currentGameId)
                 } else {
                     gameRepository.updateSteamLauncher(currentGameId, launcher.packageName, true)
                 }
@@ -553,9 +565,10 @@ class GameDetailViewModel @Inject constructor(
     }
 
     fun loadGame(gameId: Long) {
+        if (gameId != currentGameId) downloadDelegate.reset()
+        steamLauncherRefreshVersion++
         currentGameId = gameId
         pageLoadTime = System.currentTimeMillis()
-        downloadDelegate.reset()
         imageCacheManager.pauseBackgroundCaching()
         gameThemeAudio.enter(gameId)
         viewModelScope.launch { prefetchGameSaveDataUseCase(gameId) }
@@ -603,25 +616,17 @@ class GameDetailViewModel @Inject constructor(
 
             val isSteamGame = game.isSteamGame
             val isAndroidApp = game.isAndroidApp
-            val steamLauncherName = if (isSteamGame) {
-                game.steamLauncher?.let { SteamLaunchers.getByPackage(it)?.displayName }
-            } else null
+            val steamCandidates = steamLauncherCandidates(game)
             val fileExists = gameRepository.validateAndDiscoverGame(gameId)
 
             val steamPathExists = isSteamGame && downloadFileStatusRepository.pathExists(game.localPath)
-            val steamDownloadComplete = isSteamGame && downloadFileStatusRepository.isDownloadComplete(game.localPath)
-            val steamDownloadInProgress = isSteamGame && downloadFileStatusRepository.isDownloadInProgress(game.localPath)
+            val steamInstalled = isSteamGame &&
+                downloadFileStatusRepository.isSteamInstalled(game.isExternallyManaged, game.localPath)
 
             val canPlay = when {
                 game.source == GameSource.ANDROID_APP -> true
                 isAndroidApp -> game.packageName != null
-                isSteamGame -> {
-                    game.localPath != null && steamPathExists && run {
-                        val launcher = game.steamLauncher?.let { SteamLaunchers.getByPackage(it) }
-                            ?: SteamLaunchers.getPreferred(context)
-                        launcher?.isInstalled(context) == true
-                    }
-                }
+                isSteamGame -> false
                 game.isMultiDisc -> {
                     val downloadedCount = gameDiscDao.getDownloadedDiscCount(gameId)
                     downloadedCount > 0 && emulatorDetector.hasAnyEmulator(game.platformSlug)
@@ -629,16 +634,10 @@ class GameDetailViewModel @Inject constructor(
                 else -> fileExists && emulatorDetector.hasAnyEmulator(game.platformSlug)
             }
 
-            val activeSteamDl = if (isSteamGame) steamContentManager.activeDownload.value else null
-            val isSteamDownloading = activeSteamDl != null && activeSteamDl.appId == game.steamAppId
-
             val downloadStatus = when {
                 game.source == GameSource.ANDROID_APP -> GameDownloadStatus.DOWNLOADED
                 isAndroidApp && fileExists && game.packageName == null -> GameDownloadStatus.NEEDS_INSTALL
-                isSteamGame && game.isExternallyManaged -> GameDownloadStatus.DOWNLOADED
-                isSteamGame && game.localPath != null && steamDownloadComplete -> GameDownloadStatus.DOWNLOADED
-                isSteamGame && game.localPath != null && steamDownloadInProgress -> GameDownloadStatus.DOWNLOADING
-                isSteamDownloading -> GameDownloadStatus.DOWNLOADING
+                isSteamGame -> if (steamInstalled) GameDownloadStatus.DOWNLOADED else GameDownloadStatus.NOT_DOWNLOADED
                 fileExists -> GameDownloadStatus.DOWNLOADED
                 game.isMultiDisc -> {
                     val downloadedCount = gameDiscDao.getDownloadedDiscCount(gameId)
@@ -732,9 +731,8 @@ class GameDetailViewModel @Inject constructor(
                         achievements = cachedAchievements,
                         canManageSaves = canManageSaves,
                         canManageStates = canManageStates,
-                        steamLauncherName = steamLauncherName,
                         isHidden = isHiddenForOwner
-                    ),
+                    ).withSteamLauncher(game, steamCandidates, steamPathExists),
                     canSearchCovers = romMRepository.getCapabilities().supportsCoverSearch,
                     isLoading = false,
                     selectedCoreId = selectedCoreId,
@@ -767,7 +765,7 @@ class GameDetailViewModel @Inject constructor(
                 }
             }
 
-            val needsTitleId = game.platformSlug in com.nendo.argosy.data.platform.PlatformDefinitions.TITLE_ID_PLATFORMS
+            val needsTitleId = com.nendo.argosy.data.platform.PlatformDefinitions.hasTitleId(game.platformSlug)
             if (needsTitleId && game.titleId == null && game.localPath != null) {
                 viewModelScope.launch {
                     titleIdDownloadObserver.extractTitleIdForGame(gameId)
@@ -846,19 +844,32 @@ class GameDetailViewModel @Inject constructor(
         gameEntityObserverJob?.cancel()
         gameEntityObserverJob = viewModelScope.launch {
             var lastSeenLauncher: String? = null
+            var lastSeenManual = false
             var launcherInitialized = false
+            var lastSeenInstall: Triple<GameSource, String?, Boolean>? = null
             gameRepository.observeById(gameId).collect { updatedGame ->
                 if (updatedGame == null) return@collect
 
-                // Launcher flip (Mark-as-Installed / Unlink) needs a full re-derivation
-                // so downloadStatus and launcher-dependent UI props refresh without
-                // requiring the user to back out and re-enter.
-                val launcherChanged = launcherInitialized && lastSeenLauncher != updatedGame.steamLauncher
-                lastSeenLauncher = updatedGame.steamLauncher
-                launcherInitialized = true
-                if (launcherChanged) {
+                val install = Triple(updatedGame.source, updatedGame.packageName, updatedGame.localPath != null)
+                val installChanged = lastSeenInstall != null && lastSeenInstall != install
+                lastSeenInstall = install
+                if (installChanged) {
                     loadGame(gameId)
                     return@collect
+                }
+
+                val launcherChanged = launcherInitialized &&
+                    (lastSeenLauncher != updatedGame.steamLauncher || lastSeenManual != updatedGame.launcherSetManually)
+                val wasExternallyManaged = lastSeenLauncher != null && lastSeenLauncher != GameEntity.LAUNCHER_UNSPECIFIED
+                lastSeenLauncher = updatedGame.steamLauncher
+                lastSeenManual = updatedGame.launcherSetManually
+                launcherInitialized = true
+                if (launcherChanged) {
+                    if (!updatedGame.isSteamGame || wasExternallyManaged != updatedGame.isExternallyManaged) {
+                        loadGame(gameId)
+                        return@collect
+                    }
+                    refreshSteamLauncher()
                 }
 
                 _uiState.update { state ->
@@ -1062,12 +1073,13 @@ class GameDetailViewModel @Inject constructor(
         if (!picker.showFilePicker) return
         pickerModalDelegate.dismissFilePicker()
         if (picker.filePickerManageMode) {
+            val gameId = currentGameId
             downloadDelegate.applyManagedFiles(
                 viewModelScope,
-                currentGameId,
+                gameId,
                 picker.filePickerRows,
                 picker.filePickerSelected
-            )
+            ) { if (currentGameId == gameId) loadGame(gameId) }
         } else {
             downloadDelegate.downloadWithSelection(
                 viewModelScope,
@@ -1096,8 +1108,8 @@ class GameDetailViewModel @Inject constructor(
     fun toggleFilePickerRow(row: com.nendo.argosy.data.model.FilePickerRow) =
         pickerModalDelegate.toggleFilePickerRow(row)
 
-    fun downloadSteamGame() {
-        steamDownloadPromptController.requestSteamDownload(currentGameId)
+    fun linkSteamLauncher() {
+        steamLauncherLinkController.requestLink(currentGameId)
     }
 
     fun dismissExtractionPrompt() = downloadDelegate.dismissExtractionPrompt()
@@ -1113,6 +1125,37 @@ class GameDetailViewModel @Inject constructor(
     fun refreshGameData() {
         downloadDelegate.refreshGameData(viewModelScope, currentGameId) {
             loadGame(currentGameId)
+        }
+    }
+
+    fun refreshSteamLauncher() {
+        val displayedGame = _uiState.value.game ?: return
+        val gameId = currentGameId
+        if (!displayedGame.isSteamGame || displayedGame.id != gameId) return
+        val refreshVersion = ++steamLauncherRefreshVersion
+        viewModelScope.launch {
+            val ownerUserId = preferencesRepository.userPreferences.first().rommUserId
+            val game = gameRepository.getById(gameId) ?: return@launch
+            val candidates = steamLauncherCandidates(game)
+            val pathExists = downloadFileStatusRepository.pathExists(game.localPath)
+            if (preferencesRepository.userPreferences.first().rommUserId != ownerUserId) return@launch
+            _uiState.update { state ->
+                val currentGame = state.game ?: return@update state
+                if (refreshVersion != steamLauncherRefreshVersion || currentGameId != gameId || currentGame.id != gameId) {
+                    return@update state
+                }
+                state.copy(game = currentGame.withSteamLauncher(game, candidates, pathExists))
+            }
+        }
+    }
+
+    private suspend fun steamLauncherCandidates(game: GameEntity): List<String> = withContext(Dispatchers.IO) {
+        if (!game.isSteamGame) return@withContext emptyList()
+        val reporting = if (game.hasSteamLauncherPin) emptyList() else game.steamAppId?.let {
+            steamInstallReports.launchersReporting(it)
+        }.orEmpty()
+        game.steamLaunchCandidates(reporting) { pkg ->
+            SteamLaunchers.getByPackage(pkg)?.isInstalled(context) == true
         }
     }
 
@@ -1133,7 +1176,7 @@ class GameDetailViewModel @Inject constructor(
             GameDownloadStatus.NOT_DOWNLOADED, GameDownloadStatus.FAILED -> {
                 val game = state.game
                 if (game != null && game.isSteamGame) {
-                    downloadSteamGame()
+                    linkSteamLauncher()
                 } else {
                     promptOrDownload()
                 }
@@ -1166,7 +1209,7 @@ class GameDetailViewModel @Inject constructor(
                 discId = discId,
                 allowVariantPrompt = false,
                 origin = pendingLaunchOrigin,
-                onLaunch = callbacks.onLaunch,
+                start = callbacks.start,
                 onLaunchFailed = { callbacks.onLaunchFailed() }
             )
         }
@@ -1231,7 +1274,7 @@ class GameDetailViewModel @Inject constructor(
                 overrideLaunchMode = launchMode,
                 allowVariantPrompt = false,
                 origin = pendingLaunchOrigin,
-                onLaunch = callbacks.onLaunch,
+                start = callbacks.start,
                 onLaunchFailed = { callbacks.onLaunchFailed() }
             )
         } else {
@@ -1250,22 +1293,17 @@ class GameDetailViewModel @Inject constructor(
         overrideDisplayId: Int? = null
     ): com.nendo.argosy.ui.screens.common.LaunchResultCallbacks =
         com.nendo.argosy.ui.screens.common.LaunchResultCallbacks(
-            onLaunch = { intent ->
-                val notices = notificationManager
-                gameStartRouter.start(
-                    gameId = currentGameId,
-                    intent = intent,
-                    overrideDisplayId = overrideDisplayId,
-                    onFailure = { e ->
-                        notices.showError(
-                            NotificationText.Res(
-                                R.string.gamedetail_notice_launch_failed,
-                                listOf(e.message ?: "null")
-                            )
-                        )
-                    }
-                )
-            },
+            start = com.nendo.argosy.ui.screens.common.GameStart(
+                gameId = currentGameId,
+                overrideDisplayId = overrideDisplayId,
+                onFailure = { e ->
+                    notificationManager.showError(
+                        e.message?.let { reason ->
+                            NotificationText.Res(R.string.gamedetail_notice_launch_failed, listOf(reason))
+                        } ?: NotificationText.Res(R.string.notif_gamelaunch_launch_failed)
+                    )
+                }
+            ),
             onSelectDisc = { discs -> pickerModalDelegate.showDiscPicker(discs) },
             onSelectVariant = { variants -> pickerModalDelegate.showVariantPicker(variants) },
             onNoEmulator = { showEmulatorPicker() },
@@ -1359,7 +1397,7 @@ class GameDetailViewModel @Inject constructor(
             gameId = currentGameId,
             allowVariantPrompt = false,
             origin = pendingLaunchOrigin,
-            onLaunch = callbacks.onLaunch,
+            start = callbacks.start,
             onLaunchFailed = { callbacks.onLaunchFailed() }
         )
     }
@@ -1410,11 +1448,14 @@ class GameDetailViewModel @Inject constructor(
                         downloadDelegate.uninstallAndroidApp(viewModelScope, pkg)
                     }
                     gameUi?.isExternallyManaged == true -> {
-                        steamDownloadPromptController.unlinkLauncher(currentGameId)
+                        steamLauncherLinkController.unlinkLauncher(currentGameId)
                         viewModelScope.launch { loadGame(currentGameId) }
                     }
                     else -> {
-                        downloadDelegate.deleteLocalFile(viewModelScope, currentGameId) { loadGame(currentGameId) }
+                        val gameId = currentGameId
+                        gameConfirm.requestDelete(gameId) { withSoundtrack ->
+                            downloadDelegate.deleteLocalFile(viewModelScope, gameId, withSoundtrack) { loadGame(gameId) }
+                        }
                     }
                 }
             }
@@ -1422,7 +1463,18 @@ class GameDetailViewModel @Inject constructor(
                 toggleMoreOptions()
                 downloadDelegate.removeFromLibrary(viewModelScope, currentGameId)
             }
-            MoreOptionAction.ToggleHide -> { toggleHideGame(); onBack() }
+            MoreOptionAction.ToggleHide -> {
+                toggleMoreOptions()
+                if (_uiState.value.game?.isHidden == true) {
+                    toggleHideGame()
+                    onBack()
+                } else {
+                    gameConfirm.requestHide(currentGameId) {
+                        toggleHideGame()
+                        onBack()
+                    }
+                }
+            }
         }
     }
 
@@ -1589,13 +1641,13 @@ class GameDetailViewModel @Inject constructor(
 
     fun confirmRename() = saveManagement.saveChannelDelegate.confirmRename(viewModelScope)
 
-    fun saveChannelSecondaryAction() = saveManagement.saveChannelDelegate.secondaryAction(viewModelScope, ::handleSaveStatusChanged)
+    fun saveChannelSecondaryAction() = saveManagement.saveChannelDelegate.secondaryAction()
 
-    fun saveChannelTertiaryAction() = saveManagement.saveChannelDelegate.tertiaryAction()
+    fun saveChannelTertiaryAction() = saveManagement.saveChannelDelegate.tertiaryAction(viewModelScope)
 
     fun dismissDeleteConfirmation() = saveManagement.saveChannelDelegate.dismissDeleteConfirmation()
 
-    fun confirmDeleteChannel() = saveManagement.saveChannelDelegate.confirmDeleteChannel(viewModelScope, ::handleSaveStatusChanged)
+    fun confirmDelete() = saveManagement.saveChannelDelegate.confirmDelete(viewModelScope, ::handleSaveStatusChanged)
 
     fun dismissMigrateConfirmation() = saveManagement.saveChannelDelegate.dismissMigrateConfirmation()
 
@@ -2051,6 +2103,8 @@ class GameDetailViewModel @Inject constructor(
 
     fun selectMemcard(cardPath: String) = gameLaunchDelegate.selectMemcard(viewModelScope, cardPath)
     fun dismissMemcardPicker() = gameLaunchDelegate.dismissMemcardPicker()
+    val menuWrapMode get() = preferencesRepository.menuWrapMode
+
     fun setMemcardPickerFocusIndex(index: Int) {
         _uiState.update { it.copy(memcardPickerFocusIndex = index) }
     }
@@ -2505,6 +2559,7 @@ class GameDetailViewModel @Inject constructor(
         onNavigateToPlatformSettings: (Long) -> Unit = {},
         onSnapUp: () -> Boolean = { false },
         onSnapDown: () -> Boolean = { false },
+        onScrollContent: (direction: Int) -> Boolean = { false },
         onSectionLeft: () -> Unit = {},
         onSectionRight: () -> Unit = {},
         onPrevGame: () -> Unit = {},
@@ -2512,73 +2567,50 @@ class GameDetailViewModel @Inject constructor(
         isInScreenshotsSection: () -> Boolean = { false },
         onNavigateToGame: (Long) -> Unit = {}
     ): InputHandler = object : InputHandler {
-        override fun onUp(): InputResult {
-            routeSnapshotInput { it.onUp() }?.let { return it }
+        private fun vertical(direction: Int, onBase: () -> Boolean): InputResult {
+            routeSnapshotInput { if (direction < 0) it.onUp() else it.onDown() }?.let { return it }
             val state = _uiState.value
             val saveState = state.saveChannel
             val pickerState = pickerModalDelegate.state.value
             return when {
-                state.reviewEditor != null -> { moveReviewEditorSection(-1); InputResult.HANDLED }
+                state.reviewEditor != null -> { moveReviewEditorSection(direction); InputResult.HANDLED }
                 saveState.showRenameDialog -> InputResult.UNHANDLED
                 saveState.showRestoreConfirmation -> InputResult.UNHANDLED
                 saveState.showDeleteConfirmation -> InputResult.UNHANDLED
-                saveState.isVisible -> { moveSaveCacheFocus(-1); InputResult.HANDLED }
+                saveState.isVisible -> { moveSaveCacheFocus(direction); InputResult.HANDLED }
                 state.showScreenshotViewer -> InputResult.UNHANDLED
                 state.showRatingPicker -> InputResult.UNHANDLED
                 state.showPermissionModal -> InputResult.UNHANDLED
-                state.showStatusPicker -> { changeStatusValue(-1); InputResult.HANDLED }
+                state.showStatusPicker -> { changeStatusValue(direction); InputResult.HANDLED }
                 state.showMissingDiscPrompt -> InputResult.UNHANDLED
                 state.showExtractionFailedPrompt -> InputResult.HANDLED
-                pickerState.showFilePicker -> { moveFilePickerFocus(-1); InputResult.HANDLED }
-                pickerState.showCorePicker -> { moveCorePickerFocus(-1); InputResult.HANDLED }
-                pickerState.showDiscPicker -> { navigateDiscPicker(-1); InputResult.HANDLED }
-                pickerState.showArtPicker -> { moveArtPickerFocus(-pickerState.artPickerSlot.pickerConfig.columns); InputResult.HANDLED }
-                pickerState.showVariantPicker -> { pickerModalDelegate.moveVariantPickerFocus(-1); InputResult.HANDLED }
-                pickerState.showEmulatorPicker -> { moveEmulatorPickerFocus(-1); InputResult.HANDLED }
-                pickerState.showSteamLauncherPicker -> { moveSteamLauncherPickerFocus(-1); InputResult.HANDLED }
-                state.showAddToCollectionModal -> { moveCollectionFocusUp(); InputResult.HANDLED }
-                state.showRatingsStatusMenu -> { changeRatingsStatusFocus(-1); InputResult.HANDLED }
-                state.showPlayOptions -> { movePlayOptionsFocus(-1); InputResult.HANDLED }
-                state.showMoreOptions -> { moveOptionsFocus(-1); InputResult.HANDLED }
-                state.showAchievementList -> { moveAchievementListFocus(-1); InputResult.HANDLED }
-                state.showReviewList -> { moveReviewListFocus(-1); InputResult.HANDLED }
-                else -> if (onSnapUp()) InputResult.HANDLED else InputResult.UNHANDLED
+                pickerState.showFilePicker -> { moveFilePickerFocus(direction); InputResult.HANDLED }
+                pickerState.showCorePicker -> { moveCorePickerFocus(direction); InputResult.HANDLED }
+                pickerState.showDiscPicker -> { navigateDiscPicker(direction); InputResult.HANDLED }
+                pickerState.showArtPicker -> { moveArtPickerFocus(direction * pickerState.artPickerSlot.pickerConfig.columns); InputResult.HANDLED }
+                pickerState.showVariantPicker -> { pickerModalDelegate.moveVariantPickerFocus(direction); InputResult.HANDLED }
+                pickerState.showEmulatorPicker -> { moveEmulatorPickerFocus(direction); InputResult.HANDLED }
+                pickerState.showSteamLauncherPicker -> { moveSteamLauncherPickerFocus(direction); InputResult.HANDLED }
+                state.showAddToCollectionModal -> {
+                    if (direction < 0) moveCollectionFocusUp() else moveCollectionFocusDown()
+                    InputResult.HANDLED
+                }
+                state.showRatingsStatusMenu -> { changeRatingsStatusFocus(direction); InputResult.HANDLED }
+                state.showPlayOptions -> { movePlayOptionsFocus(direction); InputResult.HANDLED }
+                state.showMoreOptions -> { moveOptionsFocus(direction); InputResult.HANDLED }
+                state.showAchievementList -> { moveAchievementListFocus(direction); InputResult.HANDLED }
+                state.showReviewList -> { moveReviewListFocus(direction); InputResult.HANDLED }
+                else -> if (onBase()) InputResult.HANDLED else InputResult.UNHANDLED
             }
         }
 
-        override fun onDown(): InputResult {
-            routeSnapshotInput { it.onDown() }?.let { return it }
-            val state = _uiState.value
-            val saveState = state.saveChannel
-            val pickerState = pickerModalDelegate.state.value
-            return when {
-                state.reviewEditor != null -> { moveReviewEditorSection(1); InputResult.HANDLED }
-                saveState.showRenameDialog -> InputResult.UNHANDLED
-                saveState.showRestoreConfirmation -> InputResult.UNHANDLED
-                saveState.showDeleteConfirmation -> InputResult.UNHANDLED
-                saveState.isVisible -> { moveSaveCacheFocus(1); InputResult.HANDLED }
-                state.showScreenshotViewer -> InputResult.UNHANDLED
-                state.showRatingPicker -> InputResult.UNHANDLED
-                state.showPermissionModal -> InputResult.UNHANDLED
-                state.showStatusPicker -> { changeStatusValue(1); InputResult.HANDLED }
-                state.showMissingDiscPrompt -> InputResult.UNHANDLED
-                state.showExtractionFailedPrompt -> InputResult.HANDLED
-                pickerState.showFilePicker -> { moveFilePickerFocus(1); InputResult.HANDLED }
-                pickerState.showCorePicker -> { moveCorePickerFocus(1); InputResult.HANDLED }
-                pickerState.showDiscPicker -> { navigateDiscPicker(1); InputResult.HANDLED }
-                pickerState.showArtPicker -> { moveArtPickerFocus(pickerState.artPickerSlot.pickerConfig.columns); InputResult.HANDLED }
-                pickerState.showVariantPicker -> { pickerModalDelegate.moveVariantPickerFocus(1); InputResult.HANDLED }
-                pickerState.showEmulatorPicker -> { moveEmulatorPickerFocus(1); InputResult.HANDLED }
-                pickerState.showSteamLauncherPicker -> { moveSteamLauncherPickerFocus(1); InputResult.HANDLED }
-                state.showAddToCollectionModal -> { moveCollectionFocusDown(); InputResult.HANDLED }
-                state.showRatingsStatusMenu -> { changeRatingsStatusFocus(1); InputResult.HANDLED }
-                state.showPlayOptions -> { movePlayOptionsFocus(1); InputResult.HANDLED }
-                state.showMoreOptions -> { moveOptionsFocus(1); InputResult.HANDLED }
-                state.showAchievementList -> { moveAchievementListFocus(1); InputResult.HANDLED }
-                state.showReviewList -> { moveReviewListFocus(1); InputResult.HANDLED }
-                else -> if (onSnapDown()) InputResult.HANDLED else InputResult.UNHANDLED
-            }
-        }
+        override fun onUp(): InputResult = vertical(-1, onSnapUp)
+
+        override fun onDown(): InputResult = vertical(1, onSnapDown)
+
+        override fun onRightStickUp(): InputResult = vertical(-1) { onScrollContent(-1) }
+
+        override fun onRightStickDown(): InputResult = vertical(1) { onScrollContent(1) }
 
         override fun onLeft(): InputResult {
             routeSnapshotInput { it.onLeft() }?.let { return it }
@@ -2708,7 +2740,7 @@ class GameDetailViewModel @Inject constructor(
             when {
                 state.reviewEditor != null -> confirmReviewEditorAction()
                 saveState.showRenameDialog -> confirmRename()
-                saveState.showDeleteConfirmation -> confirmDeleteChannel()
+                saveState.showDeleteConfirmation -> confirmDelete()
                 saveState.showRestoreConfirmation -> restoreSave(syncToServer = false)
                 saveState.showMigrateConfirmation -> confirmMigrateChannel()
                 saveState.showDeleteLegacyConfirmation -> confirmDeleteLegacyChannel()

@@ -19,7 +19,8 @@ class HotkeyDispatcherTest {
         quickLoadSucceeds: Boolean = true,
         toastSink: MutableList<String> = mutableListOf(),
         saveStateManager: SaveStateManager = mockk(relaxed = true),
-        retroView: GLRetroView = mockk(relaxed = true)
+        retroView: GLRetroView = mockk(relaxed = true),
+        sunSteps: MutableList<Int> = mutableListOf()
     ): HotkeyDispatcher {
         every { saveStateManager.performQuickSave(any(), any()) } returns true
         every { saveStateManager.performQuickLoad(any()) } returns quickLoadSucceeds
@@ -47,8 +48,18 @@ class HotkeyDispatcherTest {
             onSpeedrunSkipSplit = {},
             onSpeedrunToggleTimer = {},
             onSpeedrunResetTimer = {},
+            onStepSunLevel = { sunSteps.add(it) },
             onQuit = {}
         )
+    }
+
+    @Test
+    fun sunHotkeysStepTheLevelUpAndDown() {
+        val steps = mutableListOf<Int>()
+        val dispatcher = build(false, null, sunSteps = steps)
+        dispatcher.dispatch(config(HotkeyAction.SUN_BRIGHTER))
+        dispatcher.dispatch(config(HotkeyAction.SUN_DIMMER))
+        assertEquals(listOf(1, -1), steps)
     }
 
     private fun config(action: HotkeyAction) = HotkeyManager.HotkeyConfig(

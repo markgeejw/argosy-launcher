@@ -103,7 +103,6 @@
     <string name="settings_shell_header_accounts">COMPTES</string>
     <string name="settings_shell_header_saves">SAUVEGARDES</string>
     <string name="settings_shell_header_sync_settings">PARAMÈTRES DE SYNCHRO</string>
-    <string name="settings_shell_header_steam">STEAM (EXPÉRIMENTAL)</string>
     <string name="settings_shell_header_storage">STOCKAGE</string>
     <string name="settings_shell_header_storage_games">STOCKAGE DES JEUX</string>
     <string name="settings_shell_header_storage_media">STOCKAGE MULTIMÉDIA</string>
@@ -193,6 +192,11 @@
     <string name="settings_shell_modal_import_settings_message">Choisissez un fichier de sauvegarde et les réglages qu\'il contient remplaceront les vôtres. Tout ce que le fichier omet reste inchangé, et les comptes, serveurs, états de synchro et emplacements de fichiers ne sont jamais repris.</string>
     <string name="settings_shell_modal_import_settings_confirm">Choisir un fichier</string>
 
+    <string name="settings_shell_modal_accessibility_title">Activer l\'accessibilité</string>
+    <string name="settings_shell_modal_accessibility_message">Argosy utilise son service d\'accessibilité pour détecter le bouton Retour pendant qu\'un autre émulateur est ouvert. Android vous avertira qu\'il peut observer ce que vous saisissez ; Argosy ne surveille que le bouton Retour pendant une partie.</string>
+    <string name="settings_shell_modal_accessibility_confirm">Ouvrir les paramètres</string>
+    <string name="settings_shell_modal_accessibility_not_now">Plus tard</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">Migrer les téléchargements ?</string>
     <string name="settings_shell_modal_migrate_downloads_message">Déplacer %1$d jeux (%2$s) vers le nouvel emplacement ?</string>
     <string name="settings_shell_modal_migrate_downloads_confirm">Migrer</string>
@@ -208,9 +212,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">Plateforme</string>
     <string name="settings_shell_modal_purge_platform_message">Cela supprimera les %1$d jeux et leurs fichiers ROM locaux. Cette action est irréversible.</string>
     <string name="settings_shell_modal_purge_platform_confirm">Purger</string>
+    <string name="settings_shell_modal_purge_disabled_title">Retirer aussi %1$s de cet appareil ?</string>
+    <string name="settings_shell_modal_purge_disabled_message">Ses %1$d jeux sont maintenant masqués. Purger les supprime aussi, avec leurs fichiers ROM locaux. Cette action est irréversible.</string>
+    <string name="settings_shell_modal_purge_disabled_keep">Garder les fichiers</string>
 
     <string name="settings_shell_modal_sync_first_title">Synchroniser les sauvegardes d\'abord</string>
     <string name="settings_shell_modal_sync_first_message">Synchronisez les sauvegardes d\'abord : %1$d en attente. Réinitialiser la bibliothèque maintenant supprimerait définitivement les sauvegardes non envoyées.</string>
+    <string name="settings_shell_modal_purge_sync_first_message">Synchronisez les sauvegardes d\'abord : %1$d en attente. Retirer cette plateforme maintenant supprimerait définitivement les sauvegardes non envoyées. La demande de retrait réapparaît une fois la synchronisation terminée.</string>
     <string name="settings_shell_modal_sync_first_confirm">Synchroniser</string>
 
     <string name="settings_shell_modal_reset_library_title">Réinitialiser la bibliothèque ?</string>
@@ -379,8 +387,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">Cela supprimera les shaders du catalogue téléchargés. Les shaders personnalisés sont conservés, et les shaders du catalogue seront retéléchargés à la demande.</string>
     <string name="settings_shell_caches_frames_title">Vider les cadres téléchargés ?</string>
     <string name="settings_shell_caches_frames_message">Cela supprimera les cadres téléchargés. Ils seront retéléchargés à la demande lors de leur sélection.</string>
-    <string name="settings_shell_caches_steam_downloads_title">Vider les données de téléchargement Steam ?</string>
-    <string name="settings_shell_caches_steam_downloads_message">Cela supprimera les téléchargements Steam en préparation et videra la file d\'attente. Les jeux installés ne sont pas affectés, mais les téléchargements partiels repartiront de zéro.</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 
@@ -560,4 +566,5 @@
     <string name="settings_shell_footer_play_time_move">Déplacer</string>
     <string name="settings_shell_footer_play_time_open">Ouvrir</string>
     <string name="settings_shell_footer_play_time_sort">Trier</string>
+    <string name="settings_shell_footer_play_time_delete">Supprimer l\'historique</string>
 </resources>

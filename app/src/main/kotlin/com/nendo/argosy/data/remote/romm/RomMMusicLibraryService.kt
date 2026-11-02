@@ -125,9 +125,17 @@ class RomMMusicLibraryService @Inject constructor(
         return apiClient.buildMediaUrl(encodeResourcePath(trimmed))
     }
 
-    fun isServerOrigin(url: String): Boolean = sameOrigin(url, connectionManager.getBaseUrl())
+    fun authHeaders(url: String, token: String?): Map<String, String> =
+        bearerHeaders(url, connectionManager.getBaseUrl(), token)
 
     companion object {
+        /**
+         * The RomM bearer header for [url], or none when [url] is not on [baseUrl]'s scheme, host
+         * and port, so a stream or preview naming another host never receives the token.
+         */
+        fun bearerHeaders(url: String, baseUrl: String, token: String?): Map<String, String> =
+            if (token != null && sameOrigin(url, baseUrl)) mapOf("Authorization" to "Bearer $token") else emptyMap()
+
         fun encodeResourcePath(rawPath: String): String {
             val pathPart = rawPath.substringBefore('?')
             val query = rawPath.substringAfter('?', "")

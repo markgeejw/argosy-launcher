@@ -103,6 +103,21 @@
     <string name="ui_save_channel_delete_slot_cancel">रद्द करें</string>
     <string name="ui_save_channel_delete_slot_message">\"%1$s\" हटाएं?</string>
     <string name="ui_save_channel_delete_slot_note">इससे यह सर्वर और लोकल स्टोरेज दोनों से हट जाएगा। इसे वापस नहीं लाया जा सकता।</string>
+    <string name="ui_save_channel_footer_delete_archived">सब हटाएं</string>
+    <string name="ui_save_channel_footer_delete_version">हटाएं</string>
+    <string name="ui_save_channel_delete_version_title">सेव हटाएं</string>
+    <string name="ui_save_channel_delete_version_message">%1$s का सेव हटाएं?</string>
+    <string name="ui_save_channel_delete_archived_title">आर्काइव किए गए सेव हटाएं</string>
+    <plurals name="ui_save_channel_delete_archived_message">
+        <item quantity="one">%1$d आर्काइव किया गया सेव हटाएं?</item>
+        <item quantity="other">%1$d आर्काइव किए गए सेव हटाएं?</item>
+    </plurals>
+    <string name="ui_save_channel_delete_local_note">इससे इस डिवाइस की कॉपी हट जाएगी। सर्वर की कॉपी बनी रहेगी। इसे वापस नहीं लाया जा सकता।</string>
+    <string name="ui_save_channel_delete_only_copy_note">इकलौती कॉपी इसी डिवाइस पर है। यह हमेशा के लिए मिट जाएगी।</string>
+    <plurals name="ui_save_channel_notice_versions_deleted">
+        <item quantity="one">%1$d सेव हटाया गया</item>
+        <item quantity="other">%1$d सेव हटाए गए</item>
+    </plurals>
 
     <string name="ui_save_channel_version_mismatch_title">कोर वर्शन मिसमैच</string>
     <string name="ui_save_channel_version_mismatch_confirm">फिर भी लोड करें</string>
@@ -178,6 +193,12 @@
     <!-- Shared modals and controls (ui/components, ui/primitives) -->
 
     <string name="ui_confirm_modal_cancel">रद्द करें</string>
+    <string name="ui_pushed_apk_title">%1$s इंस्टॉल करें?</string>
+    <string name="ui_pushed_apk_message">%1$s ने यह ऐप इस डिवाइस पर भेजा है।\n\nपैकेज: %2$s\nहस्ताक्षर: %3$s</string>
+    <string name="ui_pushed_apk_unknown_server">आपका RomM सर्वर</string>
+    <string name="ui_pushed_apk_unknown_signer">अज्ञात</string>
+    <string name="ui_pushed_apk_install">इंस्टॉल करें</string>
+    <string name="ui_pushed_apk_not_now">अभी नहीं</string>
 
     <string name="ui_modal_search_placeholder">खोजें...</string>
 
@@ -205,7 +226,6 @@
     <string name="ui_changelog_action_relogin_romm">RomM में फिर से लॉगिन करें</string>
     <string name="ui_changelog_action_resync_library">लाइब्रेरी फिर सिंक करें</string>
     <string name="ui_changelog_action_clear_cache">कैश साफ़ करें</string>
-    <string name="ui_changelog_action_set_steam_path">Steam इंस्टॉल पाथ सेट करें</string>
 
     <string name="ui_background_conflict_title">सेव सिंक कॉन्फ्लिक्ट</string>
     <string name="ui_background_conflict_default_slot">डिफ़ॉल्ट सेव</string>
@@ -294,7 +314,6 @@
     <string name="ui_add_to_collection_create">नया कलेक्शन बनाएं</string>
     <string name="ui_add_to_collection_member">कलेक्शन में मौजूद</string>
 
-    <string name="ui_steam_location_download">Argosy के ज़रिए डाउनलोड करें</string>
     <string name="ui_steam_location_mark_installed">इंस्टॉल्ड के रूप में चिह्नित करें</string>
     <string name="ui_steam_location_managed_by">%1$s द्वारा प्रबंधित</string>
 
@@ -674,18 +693,28 @@
     <string name="ui_sync_overlay_hardcore_downgrade_subtitle">सर्वर सेव का उपयोग करें, हार्डकोर स्टेटस खोएं</string>
     <string name="ui_sync_overlay_hardcore_skip">सिंक छोड़ें</string>
     <string name="ui_sync_overlay_hardcore_skip_subtitle">बिना सिंक किए लॉन्च करें</string>
-    <string name="ui_launch_overlay_step_finishing_previous">पिछला लॉन्च पूरा हो रहा है</string>
-    <string name="ui_launch_overlay_step_downloading_core">कोर डाउनलोड हो रहा है</string>
-    <string name="ui_launch_overlay_step_preparing_system_files">सिस्टम फ़ाइलें तैयार हो रही हैं</string>
-    <string name="ui_launch_overlay_step_preparing_ui">UI तैयार हो रहा है</string>
-    <string name="ui_launch_overlay_step_launching">लॉन्च हो रहा है</string>
     <string name="ui_launch_overlay_cancel">रद्द करें</string>
     <string name="ui_launch_overlay_cancel_option">लॉन्च रद्द करें</string>
     <string name="ui_launch_overlay_cancel_option_subtitle">गेम शुरू किए बिना वापस जाएँ</string>
+    <string name="ui_launch_overlay_wait_previous">पिछला लॉन्च अभी भी पूरा हो रहा है</string>
+    <string name="ui_launch_overlay_wait_recap">आपका पिछला सत्र अभी भी लोड हो रहा है</string>
+    <string name="ui_launch_overlay_wait_save">आपकी सेव अभी भी सिंक हो रही है</string>
+    <string name="ui_launch_overlay_wait_core">एमुलेटर कोर अभी भी डाउनलोड हो रहा है</string>
+    <string name="ui_launch_overlay_wait_core_sized">एमुलेटर कोर अभी भी डाउनलोड हो रहा है &#183; %1$s</string>
+    <string name="ui_launch_overlay_wait_prepare">एमुलेटर अभी भी तैयार हो रहा है</string>
+    <string name="ui_launch_overlay_failed_connect">RomM ने जवाब नहीं दिया। इस डिवाइस की सेव के साथ शुरू हो रहा है।</string>
+    <string name="ui_launch_overlay_failed_timeout">RomM ने जवाब देने में बहुत देर लगाई। इस डिवाइस की सेव के साथ शुरू हो रहा है।</string>
+    <string name="ui_launch_overlay_failed_download">आपकी सेव डाउनलोड नहीं हो सकी। इस डिवाइस की सेव के साथ शुरू हो रहा है।</string>
+    <string name="ui_launch_overlay_failed_write">आपकी सेव लिखी नहीं जा सकी। इस डिवाइस की सेव के साथ शुरू हो रहा है।</string>
+    <string name="ui_launch_overlay_percent">%1$d%%</string>
+    <plurals name="ui_launch_overlay_percent_eta">
+        <item quantity="one">%1$d%% &#183; लगभग %2$d सेकंड बाकी</item>
+        <item quantity="other">%1$d%% &#183; लगभग %2$d सेकंड बाकी</item>
+    </plurals>
+    <string name="ui_launch_overlay_hint_cancel">रद्द करें</string>
     <string name="ui_launch_overlay_launcher_choice_title">लॉन्चर चुनें</string>
     <string name="ui_launch_overlay_launcher_choice_message">%1$s एक से अधिक लॉन्चर में इंस्टॉल है। यह सवाल बंद करने के लिए गेम के पेज पर \"लॉन्चर बदलें\" से एक लॉन्चर पिन करें।</string>
     <string name="ui_launch_overlay_launcher_choice_option_subtitle">गेम %1$s में शुरू करें</string>
-    <string name="ui_launch_overlay_step_loading_recap">आपका पिछला सत्र लोड हो रहा है</string>
     <string name="ui_launch_recap_meta">पिछला सेशन &#183; %1$s</string>
     <string name="ui_launch_recap_meta_duration">पिछला सेशन &#183; %1$s &#183; %2$s</string>
     <plurals name="ui_launch_recap_meta_unlocked">
@@ -985,6 +1014,42 @@
     <string name="home_grid_local_video_row_title">इस डिवाइस पर एक वीडियो चुनें</string>
     <string name="home_grid_local_video_row_subtitle">सीधे आपके स्टोरेज से चलता है</string>
     <string name="ui_quick_settings_swap_displays">डिस्प्ले बदलें</string>
+    <string name="ui_quick_settings_page_connections">कनेक्शन</string>
+    <string name="ui_quick_connections_unsupported">यह डिवाइस वाई-फ़ाई और ब्लूटूथ को सीधे नियंत्रित करने की अनुमति नहीं देता</string>
+    <string name="ui_quick_connections_tab_wifi">वाई-फ़ाई</string>
+    <string name="ui_quick_connections_tab_bluetooth">ब्लूटूथ</string>
+    <string name="ui_quick_connections_wifi_off">वाई-फ़ाई बंद है</string>
+    <string name="ui_quick_connections_bluetooth_off">ब्लूटूथ बंद है</string>
+    <string name="ui_quick_connections_nearby">आस-पास के नेटवर्क</string>
+    <string name="ui_quick_connections_saved">सहेजे गए नेटवर्क</string>
+    <string name="ui_quick_connections_paired">पेयर किए गए डिवाइस</string>
+    <string name="ui_quick_connections_scanning">नेटवर्क खोजे जा रहे हैं</string>
+    <string name="ui_quick_connections_no_networks">कोई नेटवर्क नहीं मिला</string>
+    <string name="ui_quick_connections_no_paired">कोई पेयर किया गया डिवाइस नहीं</string>
+    <string name="ui_quick_connections_row_joining">जुड़ रहा है</string>
+    <string name="ui_quick_connections_row_failed">विफल</string>
+    <string name="ui_quick_connections_secured">सुरक्षित</string>
+    <string name="ui_quick_connections_forget">भूलें</string>
+    <string name="ui_quick_connections_bluetooth_permission">पेयर किए गए डिवाइस दिखाने के लिए Argosy को अनुमति चाहिए।</string>
+    <string name="ui_quick_connections_bluetooth_permission_allow">अनुमति दें</string>
+    <string name="ui_quick_connections_device_connected">कनेक्ट है</string>
+    <string name="ui_quick_connections_device_not_connected">कनेक्ट नहीं है</string>
+    <string name="ui_quick_connections_battery">%1$d%%</string>
+    <string name="ui_quick_connections_band_2_4">2.4 GHz</string>
+    <string name="ui_quick_connections_band_5">5 GHz</string>
+    <string name="ui_quick_connections_band_6">6 GHz</string>
+    <string name="ui_quick_connections_join_title">%1$s से जुड़ें</string>
+    <string name="ui_quick_connections_join_password">पासवर्ड</string>
+    <string name="ui_quick_connections_join_confirm">जुड़ें</string>
+    <string name="ui_quick_connections_join_busy">जुड़ रहा है</string>
+    <string name="ui_quick_connections_join_cancel">रद्द करें</string>
+    <string name="ui_quick_connections_join_failed">डिवाइस इस नेटवर्क से नहीं जुड़ सका।</string>
+    <string name="ui_quick_settings_wifi">वाई-फ़ाई</string>
+    <string name="ui_quick_settings_bluetooth">ब्लूटूथ</string>
+    <string name="ui_quick_settings_radio_on">चालू</string>
+    <string name="ui_quick_settings_radio_off">बंद</string>
+    <string name="ui_quick_settings_wifi_connected">कनेक्ट है</string>
+    <string name="ui_quick_settings_wifi_not_connected">कनेक्ट नहीं है</string>
     <string name="ui_sibling_choice_title_download">डाउनलोड के लिए वैरिएंट चुनें</string>
     <string name="ui_sibling_choice_title_active">सक्रिय वैरिएंट</string>
     <string name="ui_sibling_choice_automatic">स्वचालित</string>
@@ -1018,4 +1083,7 @@
     <string name="gamelist_row_genre_board_game">बोर्ड गेम</string>
     <string name="gamelist_row_genre_quiz">क्विज़</string>
     <string name="gamelist_row_genre_sim">सिम्युलेटर</string>
+    <string name="common_game_confirm_hide_title">%1$s छिपाएं?</string>
+    <string name="common_game_confirm_hide_message">छिपे हुए गेम लाइब्रेरी में सोर्स को छिपे हुए पर फ़िल्टर करके फिर से दिखाए जा सकते हैं।</string>
+    <string name="common_game_confirm_hide_confirm">छिपाएं</string>
 </resources>

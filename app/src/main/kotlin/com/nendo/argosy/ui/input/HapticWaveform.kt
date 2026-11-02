@@ -55,10 +55,6 @@ object HapticWaveforms {
             PRIORITY_ALERT,
             listOf(pulse(18, 200), pause(45), pulse(18, 200), pause(45), pulse(18, 200))
         )
-        HapticPattern.LAUNCH_GAME -> Shape(
-            PRIORITY_ALERT,
-            listOf(pulse(30, 90), pulse(30, 150), pulse(30, 210), pulse(30, 255))
-        )
         HapticPattern.ERROR -> Shape(
             PRIORITY_ALERT,
             listOf(pulse(35, 255), pause(60), pulse(35, 255))

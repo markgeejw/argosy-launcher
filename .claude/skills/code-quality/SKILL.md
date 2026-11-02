@@ -79,7 +79,8 @@ Pattern: Check existing components for `InputHandler` + `clickableNoFocus` pairi
 RENDERS without taking the input stack is INCOMPLETE - gamepad input drives the screen
 behind it (dual-focus ghost, drawer-over-dialog). Every modal must use exactly one of:
 (A) `ModalInputEffect`/`pushModal` (self-contained; `ArgosyConfirmModalHost` does this for
-you - pushes IMMEDIATELY on open, never deferred to a lifecycle event), (B) the host
+you - pushes in the composition that opens the modal, never deferred to a lifecycle
+event), (B) the host
 handler guarding the modal's visibility state in EVERY nav method (up/down/left/right/
 confirm/back AND prev/next section/trigger - partial guards leak the unguarded
 directions), or (C) a handler the host stores and delegates to. `Modal`/`CenteredModal`/
@@ -511,7 +512,6 @@ in an import search. Before saying "this is not on the list", grep for `Dao` in
 the file, not just the import block.
 - `ui/screens/settings/SettingsViewModel.kt` (`SaveCacheDao`)
 - `ui/screens/settings/delegates/BiosSettingsDelegate.kt` (`FirmwareDao`)
-- `ui/screens/savesync/SaveSyncViewModel.kt` (`GameDao`, `PendingConflictDao`, `SaveSyncDao`)
 - `ui/screens/gamedetail/GameDetailViewModel.kt` (`EmulatorConfigDao`, `GameDiscDao`, `GameFileDao`)
 - `ui/screens/gamedetail/delegates/AchievementDelegate.kt` (`AchievementDao`)
 - `ui/screens/gamedetail/delegates/PerGameSettingsDelegate.kt` (`EmulatorConfigDao`)

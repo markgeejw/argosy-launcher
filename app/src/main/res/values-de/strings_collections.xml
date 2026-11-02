@@ -200,13 +200,6 @@
     <string name="downloads_action_clear_finished">Abgeschlossene entfernen</string>
     <string name="downloads_action_start_all">Alle starten</string>
 
-    <string name="downloads_steam_status_preparing">Wird vorbereitet…</string>
-    <string name="downloads_steam_status_connecting">Verbindung zu Steam wird hergestellt…</string>
-    <string name="downloads_steam_status_fetching_manifest">Depot-Manifest wird abgerufen…</string>
-    <string name="downloads_steam_status_validating_fallback">Wird überprüft…</string>
-    <string name="downloads_steam_status_moving">Dateien werden verschoben…</string>
-    <string name="downloads_steam_status_cleaning">Wird bereinigt…</string>
-    <string name="downloads_steam_status_depot_progress">" (%1$d/%2$d Depots)"</string>
 
     <plurals name="downloads_group_progress">
         <item quantity="one">%1$d von %2$d Datei</item>

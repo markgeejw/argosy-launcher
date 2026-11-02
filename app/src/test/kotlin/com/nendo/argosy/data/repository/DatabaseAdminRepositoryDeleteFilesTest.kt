@@ -44,12 +44,29 @@ class DatabaseAdminRepositoryDeleteFilesTest {
             attributionRepository = mockk(relaxed = true),
             downloadManager = mockk(relaxed = true),
             emulatorDownloadManager = mockk(relaxed = true),
-            steamContentManager = mockk(relaxed = true),
             mediaDownloadManager = mockk(relaxed = true),
             socialRepository = mockk(relaxed = true),
-            soundFeedbackManager = mockk(relaxed = true),
-            hardResetRecorder = HardResetRecorder(context, Moshi.Builder().build())
+            sfxCacheCleaner = mockk(relaxed = true),
+            hardResetRecorder = HardResetRecorder(context, Moshi.Builder().build()),
+            gameRepository = dagger.Lazy { gameRepository }
         )
+        coEvery { gameRepository.getDownloadDirForPlatformId(any()) } returns platformDir
+    }
+
+    private val gameRepository: GameRepository = mockk(relaxed = true)
+    private val platformDir: File by lazy { tempFolder.newFolder("roms", "nes") }
+
+    @Test
+    fun `a stored folder that holds the platform folder is never deleted`() = runTest {
+        val romsRoot = platformDir.parentFile!!
+        coEvery { gameDao.getDownloadedBySources(any()) } returns listOf(
+            game(id = 4L, path = romsRoot.absolutePath, origin = FileOrigin.ROMM_DOWNLOAD)
+        )
+
+        val summary = repository.deleteDownloadedFiles(GameSource.entries)
+
+        assertTrue(platformDir.exists())
+        assertEquals(1, summary.failed)
     }
 
     @Test

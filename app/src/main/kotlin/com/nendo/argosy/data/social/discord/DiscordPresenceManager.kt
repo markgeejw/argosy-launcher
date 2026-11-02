@@ -138,11 +138,6 @@ class DiscordPresenceManager @Inject constructor(
     private fun connectSdk(accessToken: String, tokenType: String) {
         if (!sdkAvailable) return
         try {
-            // SDK integration point:
-            // val client = DiscordClient(BuildConfig.DISCORD_APP_ID.toLong())
-            // client.UpdateToken(tokenType, accessToken)
-            // client.Connect()
-            // sdkClient = client
             Log.d(TAG, "Discord SDK connect: appId=${BuildConfig.DISCORD_APP_ID}, tokenType=$tokenType")
             _state.value = DiscordPresenceState.Connected
             startCallbackLoop()
@@ -157,7 +152,6 @@ class DiscordPresenceManager @Inject constructor(
             callbackJob?.cancel()
             callbackJob = null
             if (sdkClient != null) {
-                // client.Disconnect()
                 sdkClient = null
                 Log.d(TAG, "Discord SDK disconnected")
             }
@@ -172,12 +166,6 @@ class DiscordPresenceManager @Inject constructor(
     private fun updatePresence(title: String, platform: String?, startTimestamp: Long) {
         if (!sdkAvailable || sdkClient == null) return
         try {
-            // SDK integration point:
-            // val activity = DiscordActivity()
-            // activity.setDetails("Playing $title")
-            // if (platform != null) activity.setState(platform)
-            // activity.timestamps.start = startTimestamp / 1000
-            // client.UpdateRichPresence(activity)
             Log.d(TAG, "Discord presence update: $title ($platform)")
             _state.value = DiscordPresenceState.Active(title)
         } catch (e: Exception) {
@@ -189,7 +177,6 @@ class DiscordPresenceManager @Inject constructor(
     private fun clearPresence() {
         if (!sdkAvailable || sdkClient == null) return
         try {
-            // client.ClearRichPresence()
             Log.d(TAG, "Discord presence cleared")
             _state.value = DiscordPresenceState.Connected
         } catch (e: Exception) {
@@ -202,7 +189,6 @@ class DiscordPresenceManager @Inject constructor(
         callbackJob = scope.launch {
             while (isActive && isInForeground) {
                 try {
-                    // client.RunCallbacks()
                 } catch (e: Exception) {
                     Log.w(TAG, "Discord RunCallbacks error", e)
                 }

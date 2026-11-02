@@ -25,6 +25,7 @@
 
     <string name="social_profile_hint_avatar">头像</string>
     <string name="social_profile_hint_view_game">查看游戏</string>
+    <string name="social_profile_unavailable_offline">恢复连接后即会加载此个人资料</string>
     <string name="social_profile_hint_settings">设置</string>
 
     <string name="social_tabbar_feed">动态</string>

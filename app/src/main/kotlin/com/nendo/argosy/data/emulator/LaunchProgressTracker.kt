@@ -1,10 +1,15 @@
 package com.nendo.argosy.data.emulator
 
+import android.os.SystemClock
+import com.nendo.argosy.domain.model.LaunchFailure
+import com.nendo.argosy.domain.model.LaunchPhase
 import com.nendo.argosy.domain.model.LaunchProgress
 import com.nendo.argosy.domain.model.LaunchRecap
 import com.nendo.argosy.domain.model.LaunchPromptOption
 import com.nendo.argosy.domain.model.LaunchStep
 import com.nendo.argosy.domain.model.SyncProgress
+import com.nendo.argosy.domain.model.failure
+import com.nendo.argosy.domain.model.phase
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.SafeCoroutineScope
 import kotlinx.coroutines.CompletableDeferred
@@ -31,12 +36,23 @@ private const val PREVIOUS_LAUNCH_WAIT_MS = 15_000L
  * never opens the game; a launch started while it drains waits for it before doing anything.
  */
 @Singleton
-class LaunchProgressTracker internal constructor(private val scope: CoroutineScope) {
+class LaunchProgressTracker internal constructor(
+    private val scope: CoroutineScope,
+    private val clock: () -> Long = SystemClock::elapsedRealtime
+) {
 
     @Inject constructor() : this(SafeCoroutineScope(Dispatchers.Default, TAG))
 
     private val _progress = MutableStateFlow<LaunchProgress?>(null)
     val progress: StateFlow<LaunchProgress?> = _progress.asStateFlow()
+
+    private val _launchLive = MutableStateFlow(false)
+
+    /**
+     * True from [begin] until the launch it opened is cleared: cancelled, failed, its game screen
+     * taken over or never opened, or its launching hold run out.
+     */
+    val launchLive: StateFlow<Boolean> = _launchLive.asStateFlow()
 
     private val lock = Any()
     private var live: Ticket? = null
@@ -46,10 +62,16 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
     val current: Ticket?
         get() = synchronized(lock) { live?.takeUnless { it.isFinished } }
 
-    inner class Ticket internal constructor(val gameTitle: String?) {
+    inner class Ticket internal constructor(val gameId: Long?, val gameTitle: String?) {
         @Volatile
         var isCancelled = false
             private set
+
+        var failure: LaunchFailure? = null
+            internal set
+
+        @Volatile
+        internal var awaitsWindow = false
 
         private val finished = CompletableDeferred<Unit>()
         private var pendingAnswer: CompletableDeferred<LaunchPromptOption?>? = null
@@ -109,14 +131,15 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
      * Opens a launch, waiting out a cancelled one that is still finishing. Null when another
      * launch is already in progress, or this one was cancelled while it waited.
      */
-    suspend fun begin(gameTitle: String?): Ticket? {
+    suspend fun begin(gameId: Long?, gameTitle: String?): Ticket? {
         val ticket: Ticket
         val previous: Ticket?
         synchronized(lock) {
             if (live?.isFinished == false) return null
             launchingHold?.cancel()
-            ticket = Ticket(gameTitle)
+            ticket = Ticket(gameId, gameTitle)
             live = ticket
+            _launchLive.value = true
             previous = draining?.takeUnless { it.isFinished }
             draining = null
             _progress.value = null
@@ -151,6 +174,7 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
         if (ticket.isFinished) return false
         ticket.cancel()
         live = null
+        _launchLive.value = false
         draining = ticket
         _progress.value = null
         true
@@ -158,7 +182,7 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
 
     /**
      * Ends [ticket]. A launch that opened its game keeps showing until the screen that started it
-     * stops, or briefly when it never does.
+     * stops outside a [holdForWindow] hold, or briefly when it never does.
      */
     fun finish(ticket: Ticket, launched: Boolean) {
         synchronized(lock) {
@@ -166,7 +190,9 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
             if (draining === ticket) draining = null
             if (live !== ticket) return
             if (launched && !ticket.isCancelled) {
-                _progress.value = LaunchProgress(ticket.gameTitle, LaunchStep.Launching)
+                _progress.value = LaunchProgress(
+                    ticket.gameTitle, LaunchStep.Launching, ticket.gameId, clock(), ticket.failure
+                )
                 launchingHold?.cancel()
                 launchingHold = scope.launch {
                     delay(LAUNCHING_HOLD_MS)
@@ -174,19 +200,42 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
                 }
             } else {
                 live = null
+                _launchLive.value = false
                 _progress.value = null
             }
         }
     }
 
-    fun hostStopped() {
-        synchronized(lock) { live?.takeIf { it.isFinished } }?.let(::clearIfLive)
+    /**
+     * Keeps [ticket]'s Launching through a stop of the screen that started it until
+     * [windowRequested] or [openFailed]. The Launching hold timeout still ends it.
+     */
+    fun holdForWindow(ticket: Ticket) {
+        synchronized(lock) { ticket.awaitsWindow = true }
     }
+
+    fun windowRequested(ticket: Ticket) {
+        synchronized(lock) { ticket.awaitsWindow = false }
+    }
+
+    /**
+     * Ends the finished live launch unless [holdForWindow] still holds it.
+     */
+    fun hostStopped() {
+        synchronized(lock) { live?.takeIf { it.isFinished && !it.awaitsWindow } }?.let(::clearIfLive)
+    }
+
+    /**
+     * Ends [ticket], a launch whose game screen was asked for but never opened. A launch begun
+     * since is left alone.
+     */
+    fun openFailed(ticket: Ticket) = clearIfLive(ticket)
 
     private fun clearIfLive(ticket: Ticket) {
         synchronized(lock) {
             if (live !== ticket) return
             live = null
+            _launchLive.value = false
             _progress.value = null
         }
     }
@@ -194,7 +243,16 @@ class LaunchProgressTracker internal constructor(private val scope: CoroutineSco
     private fun publish(ticket: Ticket, step: LaunchStep) {
         synchronized(lock) {
             if (live !== ticket || ticket.isCancelled) return
-            _progress.value = LaunchProgress(ticket.gameTitle, step)
+            ticket.failure = step.failure ?: ticket.failure
+            _progress.value = LaunchProgress(
+                ticket.gameTitle, step, ticket.gameId, startedAt(_progress.value, step), ticket.failure
+            )
         }
+    }
+
+    private fun startedAt(shown: LaunchProgress?, step: LaunchStep): Long {
+        val shownPhase = shown?.step?.phase
+        val keepsClock = shownPhase == step.phase && shownPhase != LaunchPhase.QUESTION
+        return if (shown != null && keepsClock) shown.stepStartedAtMs else clock()
     }
 }

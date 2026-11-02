@@ -36,6 +36,19 @@ object ComponentDefaults {
         const val titleOverscanRatio = 0.2f
     }
 
+    object GameShowcase {
+        const val backdropCrossfadeMs = 380
+        const val enterMs = 320
+        const val coverDelayMs = 60
+        const val textDelayMs = 120
+        const val exitMs = 120
+        const val coverDriftDp = 8
+        const val textRiseDp = 12
+        const val floatTravelDp = 6
+        const val floatSlideMs = 2400
+        const val floatHoldMs = 1600
+    }
+
     object BoxArt {
         val shape = BoxArtShape.STANDARD
         val cornerRadius = BoxArtCornerRadius.MEDIUM
@@ -101,6 +114,8 @@ object ComponentDefaults {
         const val stripeWidth = 7
         const val stripeGap = 5
         const val gradientShiftRatio = 0.1f
+        const val sweepMs = 1400
+        const val sweepWidthRatio = 0.35f
     }
 
     object DownloadItem {
@@ -110,6 +125,9 @@ object ComponentDefaults {
 
     object GameListRow {
         const val rowHeight = 84
+        const val compactRowMinHeight = 32
+        const val compactArtworkAspectRatio = 0.75f
+        const val compactArtworkMaxWidthRatio = 0.45f
         const val footerHeight = 22
         const val footerSecondTabAlpha = 0.55f
         const val footerThirdTabAlpha = 0.3f
@@ -331,12 +349,24 @@ object ComponentDefaults {
     object LaunchOverlay {
         const val scrimAlphaDark = 0.8f
         const val scrimAlphaLight = 0.55f
-        const val iconSizeDp = 56
         const val progressWidthDp = 280
         const val fadeMs = 300
-        const val spinMs = 1000
-        const val stepFadeInMs = 200
-        const val stepFadeOutMs = 150
+        const val veilMs = 700
+        const val arrivalMs = 400
+        const val audioRiseMs = 1000
+        const val patienceMs = 2500
+        const val reflowMs = 900
+        const val statusFadeMs = 700
+        const val statusFadeDelayMs = 500
+        const val etaTickMs = 250
+        const val artHeightDp = 240
+        const val artHeightRatio = 0.4f
+        const val titleMaxLines = 2
+        const val breathMs = 4000
+        const val breathPeakAlpha = 0.18f
+        const val breathFloorAlpha = 0f
+        const val breathSpreadDp = 28
+        const val breathBlurDp = 24
     }
 
     object UnlockRecap {

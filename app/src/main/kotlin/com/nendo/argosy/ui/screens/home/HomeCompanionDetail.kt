@@ -11,6 +11,7 @@ fun HomeGameUi.toCompanionDetail(friends: List<FriendActivity> = emptyList()): C
         platformSlug = platformSlug,
         artUrl = coverPath,
         backdropUrl = backgroundPath,
+        backdropIsScreenshotOrArt = backgroundIsScreenshotOrArt,
         isGameTitle = true,
         spineUrl = boxSpinePath,
         box3dUrl = box3dPath,

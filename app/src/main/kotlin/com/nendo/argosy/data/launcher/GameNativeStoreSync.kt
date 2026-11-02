@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.launcher
 
+import android.content.Context
 import com.nendo.argosy.data.cache.ImageCacheManager
 import com.nendo.argosy.data.cache.recordArtSource
 import com.nendo.argosy.data.local.dao.GameDao
@@ -13,10 +14,12 @@ import com.nendo.argosy.data.model.GameSource
 import com.nendo.argosy.data.platform.LocalPlatformIds
 import com.nendo.argosy.data.preferences.StoragePreferencesRepository
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
+import com.nendo.argosy.data.repository.AppsRepository
 import com.nendo.argosy.data.remote.steam.SteamStoreApi
 import com.nendo.argosy.data.remote.steam.SteamStoreSearchApi
 import com.nendo.argosy.util.Logger
 import com.squareup.moshi.Moshi
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -85,6 +88,8 @@ sealed interface StoreScanResult {
  */
 @Singleton
 class GameNativeStoreSync @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val appsRepository: AppsRepository,
     private val gameDao: GameDao,
     private val platformDao: PlatformDao,
     private val imageCacheManager: ImageCacheManager,
@@ -117,11 +122,10 @@ class GameNativeStoreSync @Inject constructor(
         storagePrefs.migrateLegacyGameNativeSyncDir()
         steamLibraryRepair.restoreSources()
         val dirs = storagePrefs.preferences.first().gameNativeSyncDirs
-        if (dirs.isEmpty()) return@withContext ScanSummary(emptyMap())
-
         val cacheScreenshots = preferencesRepository.userPreferences.first().syncScreenshotsEnabled
         val ownerUserId = syncPreferencesRepository.getRommUserId()
         val results = linkedMapOf<GameNativeSyncFolder, StoreScanResult>()
+        val steamReports = linkedMapOf<GameNativeSyncFolder, List<Pair<Int, String>>>()
 
         for (folder in GameNativeSyncFolder.entries) {
             val path = dirs[folder] ?: continue
@@ -138,55 +142,80 @@ class GameNativeStoreSync @Inject constructor(
                 continue
             }
             val store = GameNativeStore.forFolder(folder)
-            results[folder] = if (store == null) {
-                reconcileSteamInstallState(markers, ownerUserId, folder.launcherPackage)
+            if (store == null) {
+                steamReports[folder] = markers
             } else {
-                reconcileStore(store, markers, cacheScreenshots, ownerUserId)
+                results[folder] = reconcileStore(store, markers, cacheScreenshots, ownerUserId)
             }
-            Logger.info(TAG, "scan: ${folder.slug} | ${results[folder]}")
         }
-
+        results.putAll(reconcileSteamInstallState(steamReports, ownerUserId))
+        results.forEach { (folder, result) -> Logger.info(TAG, "scan: ${folder.slug} | $result") }
         ScanSummary(results)
     }
 
+    suspend fun refreshSteamInstallations() = withContext(Dispatchers.IO) {
+        val dirs = storagePrefs.preferences.first().gameNativeSyncDirs
+        val reports = GameNativeSyncFolder.STEAM_INSTALL_MARKERS.mapNotNull { folder ->
+            val dir = dirs[folder]?.let(::File)?.takeIf { it.isDirectory } ?: return@mapNotNull null
+            FrontendSyncMarkers.read(dir, folder)?.let { folder to it }
+        }.toMap()
+        reconcileSteamInstallState(reports, syncPreferencesRepository.getRommUserId())
+        Unit
+    }
+
     private suspend fun reconcileSteamInstallState(
-        markers: List<Pair<Int, String>>,
-        ownerUserId: Long?,
-        launcherPackage: String
-    ): StoreScanResult.InstallState {
-        val markerIds = markers.map { it.first.toLong() }.toSet()
+        reports: Map<GameNativeSyncFolder, List<Pair<Int, String>>>,
+        ownerUserId: Long?
+    ): Map<GameNativeSyncFolder, StoreScanResult.InstallState> {
         val steamGames = gameDao.getBySourcesForOwner(
             sources = listOf(GameSource.STEAM),
             platformId = LocalPlatformIds.STEAM,
             ownerUserId = ownerUserId
         )
         val byAppId = steamGames.mapNotNull { game -> game.steamAppId?.let { it to game } }.toMap()
-
-        var matched = 0
-        for (appId in markerIds) {
-            val game = byAppId[appId] ?: continue
-            matched++
-            if (game.launcherSetManually) continue
-            if (game.steamLauncher == launcherPackage) continue
-            if (game.isExternallyManaged) continue
-            gameDao.setSteamLauncher(game.id, launcherPackage)
-            Logger.debug(TAG, "reconcileSteam: marked installed | launcher=$launcherPackage, title=${game.title}, appId=$appId")
+        val markerIds = reports.mapValues { (_, markers) -> markers.map { it.first.toLong() }.toSet() }
+        val results = reports.mapValues { (folder, markers) ->
+            val ids = markerIds.getValue(folder)
+            StoreScanResult.InstallState(markers.size, ids.count { it in byAppId }, ids.count { it !in byAppId })
         }
-
-        for (game in steamGames) {
-            val appId = game.steamAppId ?: continue
-            if (game.launcherSetManually) continue
-            if (game.steamLauncher != launcherPackage) continue
-            if (appId in markerIds) continue
-            gameDao.setSteamLauncher(game.id, null)
-            Logger.debug(TAG, "reconcileSteam: marker gone, cleared | launcher=$launcherPackage, title=${game.title}")
+        val installed = SteamLaunchers.all.filter { runCatching { it.isInstalled(context) }.getOrDefault(false) }
+            .map { it.packageName }.toSet()
+        val missingPackages = steamGames.mapNotNull { it.steamLauncher }
+            .filter { it != GameEntity.LAUNCHER_UNSPECIFIED && it !in installed }.distinct()
+            .filter(appsRepository::isPackageMissing).toSet()
+        gameLoop@ for (initial in steamGames) {
+            var game = initial
+            for (attempt in 0..1) {
+                if (syncPreferencesRepository.getRommUserId() != ownerUserId) return results
+                val stored = game.steamLauncher?.takeIf { it != GameEntity.LAUNCHER_UNSPECIFIED }
+                if (stored != null && appsRepository.isPackageUpdating(stored)) continue@gameLoop
+                val missing = stored in missingPackages
+                if (missing && game.launcherSetManually) {
+                    if (gameDao.compareAndSetSteamLauncher(game.id, stored, true, stored, false, ownerUserId) == 0) {
+                        game = gameDao.getById(game.id) ?: continue@gameLoop
+                        continue
+                    }
+                    game = game.copy(launcherSetManually = false)
+                }
+                if (game.launcherSetManually) continue@gameLoop
+                val appId = game.steamAppId ?: continue@gameLoop
+                val reporting = markerIds.filter { (folder, ids) -> folder.launcherPackage in installed && appId in ids }
+                    .keys.map { it.launcherPackage }
+                val ownInventory = markerIds.entries.firstOrNull { it.key.launcherPackage == stored }?.value
+                val replacement = when {
+                    missing -> reporting.singleOrNull() ?: game.steamLauncher
+                    stored == null -> reporting.firstOrNull() ?: game.steamLauncher
+                    ownInventory != null && appId !in ownInventory -> reporting.firstOrNull()
+                    else -> game.steamLauncher
+                }
+                if (replacement == game.steamLauncher) continue@gameLoop
+                if (gameDao.compareAndSetSteamLauncher(game.id, game.steamLauncher, false, replacement, false, ownerUserId) != 0) {
+                    continue@gameLoop
+                }
+                game = gameDao.getById(game.id) ?: continue@gameLoop
+            }
         }
-
-        return StoreScanResult.InstallState(
-            markers = markers.size,
-            matched = matched,
-            notInLibrary = markerIds.count { it !in byAppId }
-        )
+        return results
     }
 
     private suspend fun reconcileStore(
@@ -200,9 +229,15 @@ class GameNativeStoreSync @Inject constructor(
         val markerIds = markers.map { it.first.toLong() }.toSet()
 
         var removed = 0
-        existing.filter { it.steamAppId !in markerIds }.forEach { stale ->
-            Logger.debug(TAG, "reconcile: removing uninstalled | store=${store.slug}, title=${stale.title}")
-            gameDao.delete(stale.id)
+        val stale = if (markerIds.isEmpty() && existing.isNotEmpty()) {
+            Logger.warn(TAG, "reconcile: ${store.slug} folder lists no markers; keeping ${existing.size} games")
+            emptyList()
+        } else {
+            existing.filter { it.steamAppId !in markerIds }
+        }
+        stale.forEach { game ->
+            Logger.debug(TAG, "reconcile: removing uninstalled | store=${store.slug}, title=${game.title}")
+            gameDao.delete(game.id)
             removed++
         }
 
@@ -357,7 +392,7 @@ class GameNativeStoreSync @Inject constructor(
             title = name,
             coverUrl = "https://steamcdn-a.akamaihd.net/steam/apps/${match.id}/library_600x900.jpg",
             backgroundUrl = "https://steamcdn-a.akamaihd.net/steam/apps/${match.id}/library_hero.jpg",
-            description = details?.shortDescription,
+            description = details?.plainShortDescription,
             genre = details?.genres?.mapNotNull { it.description }?.joinToString(", ")?.takeIf { it.isNotBlank() },
             screenshotUrls = screenshots
         )

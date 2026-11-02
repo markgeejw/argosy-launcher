@@ -8,6 +8,7 @@ import com.nendo.argosy.data.model.GameSource
 import com.nendo.argosy.data.model.ResolvedGameArt
 import com.nendo.argosy.data.model.tieredByOwnership
 import com.nendo.argosy.data.emulator.EmulatorDetector
+import com.nendo.argosy.data.emulator.LaunchProgressTracker
 import com.nendo.argosy.data.platform.LocalPlatformIds
 import com.nendo.argosy.data.preferences.BoxArtBorderStyle
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
@@ -34,12 +35,14 @@ import com.nendo.argosy.ui.screens.home.HomeRowItem
 import com.nendo.argosy.ui.screens.home.PLATFORM_ROW_LIMIT
 import com.nendo.argosy.ui.screens.home.PlatformGameLoader
 import com.nendo.argosy.ui.screens.home.toHomePlatformUi
+import com.nendo.argosy.ui.util.heldWhile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -51,6 +54,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -106,12 +110,15 @@ class HomeLibraryDelegate @Inject constructor(
     private val downloadFileStatusRepository: DownloadFileStatusRepository,
     private val steamPathResolver: com.nendo.argosy.data.steam.SteamPathResolver,
     private val collectionRepository: com.nendo.argosy.data.repository.CollectionRepository,
-    private val appsRepository: com.nendo.argosy.data.repository.AppsRepository
+    private val appsRepository: com.nendo.argosy.data.repository.AppsRepository,
+    private val launchProgressTracker: LaunchProgressTracker
 ) {
     private val _state = MutableStateFlow(LibraryState())
     val state: StateFlow<LibraryState> = _state.asStateFlow()
 
     private val recentGamesCache = AtomicReference(RecentGamesCache(null, 0L))
+    private val deferredRecentsRefreshes = MutableStateFlow(0L)
+    private val recentsObservers = AtomicInteger()
     private var cachedPlatformDisplayNames: Map<Long, String> = emptyMap()
     private val pendingCoverRepairs = mutableSetOf<Long>()
     private val platformGameLoader = PlatformGameLoader(gameRepository, downloadFileStatusRepository)
@@ -236,18 +243,25 @@ class HomeLibraryDelegate @Inject constructor(
         scope.launch {
             gameRepository.awaitStorageReady()
             val newThreshold = Instant.now().minus(NEW_GAME_THRESHOLD_HOURS, ChronoUnit.HOURS)
-            gameRepository.observeRecentlyPlayed(RECENT_GAMES_CANDIDATE_POOL).collect { recentlyPlayed ->
-                val installedOnly = installedOnlyHome()
-                val newlyAdded = gameRepository.getNewlyAdded(newThreshold, installedOnly, RECENT_GAMES_CANDIDATE_POOL)
-                val allCandidates = (recentlyPlayed + newlyAdded).distinctBy { it.id }
+            val played = gameRepository.observeRecentlyPlayed(RECENT_GAMES_CANDIDATE_POOL)
+            val source = combine(played, deferredRecentsRefreshes) { recentlyPlayed, _ -> recentlyPlayed }
+            recentsObservers.incrementAndGet()
+            try {
+                source.heldWhile(launchProgressTracker.launchLive).collect { recentlyPlayed ->
+                    val installedOnly = installedOnlyHome()
+                    val newlyAdded = gameRepository.getNewlyAdded(newThreshold, installedOnly, RECENT_GAMES_CANDIDATE_POOL)
+                    val allCandidates = (recentlyPlayed + newlyAdded).distinctBy { it.id }
 
-                val playableGames = if (installedOnly) filterPlayable(allCandidates) else allCandidates
-                val sorted = sortRecentGamesWithNewPriority(playableGames)
-                val validated = sorted.take(RECENT_GAMES_LIMIT).toUis()
+                    val playableGames = if (installedOnly) filterPlayable(allCandidates) else allCandidates
+                    val sorted = sortRecentGamesWithNewPriority(playableGames)
+                    val validated = sorted.take(RECENT_GAMES_LIMIT).toUis()
 
-                recentGamesCache.set(RecentGamesCache(validated, recentGamesCache.get().version))
-                _state.update { it.copy(recentGames = validated) }
-                onRecentGamesUpdated(validated)
+                    recentGamesCache.set(RecentGamesCache(validated, recentGamesCache.get().version))
+                    _state.update { it.copy(recentGames = validated) }
+                    onRecentGamesUpdated(validated)
+                }
+            } finally {
+                recentsObservers.decrementAndGet()
             }
         }
     }
@@ -271,6 +285,8 @@ class HomeLibraryDelegate @Inject constructor(
 
         val gameUis = if (currentCache.games != null) {
             currentCache.games
+        } else if (deferIfRecentsHeld()) {
+            return
         } else {
             val newThreshold = Instant.now().minus(NEW_GAME_THRESHOLD_HOURS, ChronoUnit.HOURS)
             val installedOnly = installedOnlyHome()
@@ -480,6 +496,10 @@ class HomeLibraryDelegate @Inject constructor(
                 RefreshResult(gameUis.map { it.id }, isEmpty = gameUis.isEmpty())
             }
             HomeRow.Continue -> {
+                if (deferIfRecentsHeld()) {
+                    val shown = _state.value.recentGames
+                    return RefreshResult(shown.map { it.id }, isEmpty = shown.isEmpty())
+                }
                 invalidateRecentGamesCache()
                 val newThreshold = Instant.now().minus(NEW_GAME_THRESHOLD_HOURS, ChronoUnit.HOURS)
                 val installedOnly = installedOnlyHome()
@@ -606,6 +626,12 @@ class HomeLibraryDelegate @Inject constructor(
 
     fun invalidateRecentGamesCache() {
         recentGamesCache.updateAndGet { RecentGamesCache(null, it.version + 1) }
+    }
+
+    private fun deferIfRecentsHeld(): Boolean {
+        if (recentsObservers.get() == 0 || !launchProgressTracker.launchLive.value) return false
+        deferredRecentsRefreshes.update { it + 1 }
+        return true
     }
 
     private suspend fun prefetchGamesForPinnedCollection(pinned: PinnedCollection) {

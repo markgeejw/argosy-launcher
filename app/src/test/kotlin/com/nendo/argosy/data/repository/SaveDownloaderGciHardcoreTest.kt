@@ -17,6 +17,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,13 +39,14 @@ class SaveDownloaderGciHardcoreTest {
     private val saveArchiver: SaveArchiver = mockk(relaxed = true)
     private val gciSaveHandler: GciSaveHandler = mockk(relaxed = true)
     private val savePathResolver: com.nendo.argosy.data.sync.SavePathResolver = mockk(relaxed = true)
+    private val emulatorResolver: com.nendo.argosy.data.emulator.EmulatorResolver = mockk(relaxed = true)
 
     private val downloader by lazy {
         SaveDownloader(
             context = context,
             saveSyncDao = saveSyncDao,
             saveCacheDao = mockk(relaxed = true),
-            emulatorResolver = mockk(relaxed = true),
+            emulatorResolver = emulatorResolver,
             gameDao = gameDao,
             activeSaveRepository = mockk(relaxed = true),
             titleDbRepository = mockk(relaxed = true),
@@ -132,6 +134,22 @@ class SaveDownloaderGciHardcoreTest {
         coEvery { saveCacheManager.cacheServerDownload(any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             SaveCacheManager.CacheResult.Created(0L, 77L)
         downloader.downloadToCache(serverSaveId, gameId, channel, activate = false)
+    }
+
+    @Test
+    fun `a core memory dump on the server never becomes a GameCube cache row`() = runTest {
+        coEvery { emulatorResolver.getEmulatorIdForGame(gameId, any(), any()) } returns "dolphin"
+        coEvery { api.getSave(serverSaveId) } returns Response.success(
+            RomMSave(
+                id = serverSaveId, romId = 200L, userId = 1L, emulator = "retroarch", fileName = "Melee.srm",
+                downloadPath = "/saves/Melee.srm", updatedAt = "2026-10-20T05:21:15Z", contentHash = "dump"
+            )
+        )
+
+        val cacheId = downloader.downloadToCache(serverSaveId, gameId, "autosave", activate = false)
+
+        assertNull(cacheId)
+        coVerify(exactly = 0) { saveCacheManager.cacheServerDownload(any(), any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test

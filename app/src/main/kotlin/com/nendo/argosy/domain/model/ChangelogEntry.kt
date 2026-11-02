@@ -1,7 +1,5 @@
 package com.nendo.argosy.domain.model
 
-import com.nendo.argosy.ui.screens.settings.SettingsSection
-
 data class ChangelogEntry(
     val version: String,
     val highlights: List<String>,
@@ -10,12 +8,9 @@ data class ChangelogEntry(
 )
 
 sealed class RequiredAction(
-    val label: String,
-    val section: SettingsSection,
     val actionKey: String? = null
 ) {
-    data object ReloginRomM : RequiredAction("Re-login to RomM", SettingsSection.ROMM, "rommConfig")
-    data object ResyncLibrary : RequiredAction("Resync Library", SettingsSection.ROMM, "syncLibrary")
-    data object ClearCache : RequiredAction("Clear Cache", SettingsSection.STORAGE)
-    data object SetSteamInstallPath : RequiredAction("Set Steam Install Path", SettingsSection.STEAM_SETTINGS)
+    data object ReloginRomM : RequiredAction("rommConfig")
+    data object ResyncLibrary : RequiredAction("syncLibrary")
+    data object ClearCache : RequiredAction()
 }

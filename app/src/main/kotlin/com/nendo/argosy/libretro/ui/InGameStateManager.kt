@@ -47,6 +47,7 @@ import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.nendo.argosy.R
 import com.nendo.argosy.libretro.SaveStateManager
+import com.nendo.argosy.ui.common.ScreenshotImage
 import com.nendo.argosy.util.formatSaveSize
 import com.nendo.argosy.util.formatSaveTimestamp
 import com.nendo.argosy.ui.components.FooterBarWithState
@@ -107,7 +108,6 @@ fun InGameStateManager(
                     val newIndex = (idx - SPLIT_GRID_COLUMNS).coerceAtLeast(0)
                     if (newIndex != idx) currentOnFocusChange.value(newIndex)
                 } else {
-                    // Carousel: no vertical nav
                 }
                 return InputResult.HANDLED
             }
@@ -212,7 +212,6 @@ fun InGameStateManager(
         SideEffect { effectiveModeState.value = effectiveMode }
 
         Column(modifier = Modifier.fillMaxSize()) {
-            // Title bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -236,7 +235,6 @@ fun InGameStateManager(
                 }
             }
 
-            // Content area
             Box(modifier = Modifier.weight(1f)) {
                 when (effectiveMode) {
                     StateManagerViewMode.SPLIT -> SplitLayout(
@@ -257,7 +255,6 @@ fun InGameStateManager(
                 }
             }
 
-            // Footer
             val footerHints = buildFooterHints(isOccupied, effectiveMode, loadAllowed)
             FooterBarWithState(
                 hints = footerHints,
@@ -274,7 +271,6 @@ fun InGameStateManager(
             )
         }
 
-        // Delete confirmation overlay
         if (showDeleteConfirmation) {
             NestedModal(
                 title = stringResource(R.string.ingame_states_delete_title),
@@ -391,7 +387,6 @@ private fun SplitLayout(
                 }
             }
 
-            // Slot info at bottom of preview
             if (focusedSlot != null) {
                 Column(
                     modifier = Modifier
@@ -474,7 +469,6 @@ private fun CarouselLayout(
             .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        // Large screenshot
         val screenshotFile = focusedSlot?.screenshotFile
         if (screenshotFile != null && screenshotFile.exists()) {
             AsyncImage(
@@ -497,7 +491,6 @@ private fun CarouselLayout(
             )
         }
 
-        // Slot indicator at top
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -527,7 +520,6 @@ private fun CarouselLayout(
             }
         }
 
-        // Info bar at bottom
         if (focusedSlot != null) {
             Column(
                 modifier = Modifier
@@ -597,7 +589,6 @@ private fun SlotCard(
             .padding(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Thumbnail
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -611,14 +602,13 @@ private fun SlotCard(
         ) {
             val screenshotFile = slot.screenshotFile
             if (screenshotFile != null && screenshotFile.exists()) {
-                AsyncImage(
+                ScreenshotImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(screenshotFile)
                         .memoryCacheKey("${screenshotFile.absolutePath}_${slot.timestamp}")
                         .diskCachePolicy(CachePolicy.DISABLED)
                         .build(),
                     contentDescription = slotLabel(slot.slotNumber),
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {

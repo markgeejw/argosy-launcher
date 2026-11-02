@@ -3,6 +3,7 @@ package com.nendo.argosy.data.emulator
 import android.os.Environment
 import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.util.AppPaths
+import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.RootShell
 
 data class SavePathConfig(
@@ -32,6 +33,7 @@ private const val BUILTIN_EMULATOR_ID = EmulatorRegistry.BUILTIN_ID
  * a caller that has no resolved base gets the packaged default under `{filesDir}`.
  */
 const val BUILTIN_SAVES_TOKEN = "{builtinSaves}"
+internal val UNRESOLVED_TOKEN = Regex("""\{[A-Za-z]+\}""")
 
 object SavePathRegistry {
 
@@ -238,7 +240,7 @@ object SavePathRegistry {
             emulatorId = "citra_mmj",
             defaultPaths = listOf(
                 "{extStorage}/citra-emu/sdmc/Nintendo 3DS",
-                "{extStorage}/Android/data/org.citra.emu/files/sdmc/Nintendo 3DS"
+                "{extStorage}/Android/data/org.citra.emu/files/citra-emu/sdmc/Nintendo 3DS"
             ),
             saveExtensions = listOf("*"),
             usesFolderBasedSaves = true
@@ -375,6 +377,21 @@ object SavePathRegistry {
             emulatorId = "seedlessds",
             defaultPaths = emptyList(),
             saveExtensions = listOf("dsv", "sav"),
+            savesBesideRom = true
+        ),
+        "pokedaisy" to SavePathConfig(
+            emulatorId = "pokedaisy",
+            defaultPaths = listOf(
+                "{extStorage}/Android/data/com.pokedaisy.app/files/saves"
+            ),
+            saveExtensions = listOf("sav", "srm")
+        ),
+        "pokedaisy_nds" to SavePathConfig(
+            emulatorId = "pokedaisy",
+            defaultPaths = listOf(
+                "{extStorage}/Android/data/com.pokedaisy.app/files/saves"
+            ),
+            saveExtensions = listOf("sav", "srm"),
             savesBesideRom = true
         ),
         "melonds" to SavePathConfig(
@@ -521,6 +538,14 @@ object SavePathRegistry {
             saveExtensions = listOf("*"),
             usesFolderBasedSaves = true
         ),
+        "vita3k-plus" to SavePathConfig(
+            emulatorId = "vita3k-plus",
+            defaultPaths = listOf(
+                "{extStorage}/Android/data/org.vita3kplus.emulator/files/VITA/ux0/user/00/savedata"
+            ),
+            saveExtensions = listOf("*"),
+            usesFolderBasedSaves = true
+        ),
 
         /**
          * PS3 - folder-based saves, one directory per artifact under a single hardcoded user.
@@ -566,20 +591,23 @@ object SavePathRegistry {
             saveExtensions = listOf("*"),
             usesFolderBasedSaves = true
         ),
-
-        /**
-         * Xbox - the path names the directory holding the emulator's disk image, not the saves.
-         * Saves live at `E:\UDATA\<save_id>\` inside a FATX filesystem inside `hdd.img`, which
-         * hakuX ingests into its own directory during setup and boots from there. `XboxSaveHandler`
-         * stages them out of the image and back into it, so everything downstream sees files.
-         */
-        "hakux" to SavePathConfig(
-            emulatorId = "hakux",
+        "xendroid-plus" to SavePathConfig(
+            emulatorId = "xendroid-plus",
             defaultPaths = listOf(
-                "{extStorage}/Android/data/com.rfandango.haku_x/files/x1box"
+                "{extStorage}/Android/data/xendroid.compose.fork/files/compose/content"
             ),
             saveExtensions = listOf("*"),
             usesFolderBasedSaves = true
+        ),
+
+        "hakux" to SavePathConfig(
+            emulatorId = "hakux",
+            defaultPaths = listOf(
+                "/data/data/com.rfandango.haku_x/files/native/hdd/Partition1/UDATA"
+            ),
+            saveExtensions = listOf("*"),
+            usesFolderBasedSaves = true,
+            requiresRoot = true
         ),
 
         // Wii U - folder-based saves by title ID
@@ -600,7 +628,6 @@ object SavePathRegistry {
             usesFolderBasedSaves = true
         ),
 
-        // Dreamcast - uses shared VMU files, not yet supported
         "redream" to SavePathConfig(
             emulatorId = "redream",
             defaultPaths = listOf(
@@ -617,8 +644,7 @@ object SavePathRegistry {
                 "{extStorage}/Flycast/data"
             ),
             saveExtensions = listOf("bin"),
-            usesSharedMemoryCard = true,
-            supported = false
+            usesSharedMemoryCard = true
         ),
 
         // Saturn - not yet supported
@@ -777,6 +803,7 @@ object SavePathRegistry {
         "me.magnum.melondualds" to "melondualds",
         "com.dsemu.drastic" to "drastic",
         "com.seedlessds.app" to "seedlessds",
+        "com.pokedaisy.app" to "pokedaisy",
         "it.dbtecno.pizzaboygba" to "pizza_boy_gba",
         "it.dbtecno.pizzaboy" to "pizza_boy_gb",
         "it.dbtecno.pizzaboygbapro" to "pizza_boy_gba_pro",
@@ -784,11 +811,13 @@ object SavePathRegistry {
         "info.cemu.cemu" to "cemu",
         "org.vita3k.emulator" to "vita3k",
         "org.vita3k.emulator.ikhoeyZX" to "vita3k-zx",
+        "org.vita3kplus.emulator" to "vita3k-plus",
         "com.github.stenzek.duckstation" to "duckstation",
         "aenu.aps3e" to "aps3e",
         "com.armsx3" to "armsx3",
         "com.armsx3.play" to "armsx3_play",
         "xendroid.compose" to "xendroid",
+        "xendroid.compose.fork" to "xendroid-plus",
         "com.rfandango.haku_x" to "hakux"
     )
 
@@ -844,12 +873,13 @@ object SavePathRegistry {
 
     fun getConfigForPlatform(emulatorId: String, platformSlug: String): SavePathConfig? {
         val canonicalSlug = PlatformDefinitions.getCanonicalSlug(platformSlug)
-        return configs["${emulatorId}_$canonicalSlug"]
+        val config = configs["${emulatorId}_$canonicalSlug"]
             ?: configs["${emulatorId}_$platformSlug"]
             ?: configs[emulatorId]
             ?: familyBaseIdFor(emulatorId)?.let { base ->
                 configs["${base}_$canonicalSlug"] ?: configs["${base}_$platformSlug"] ?: configs[base]
             }
+        return config?.takeIf { it.isUsable }
     }
 
     fun getConfigForPlatformByPackage(packageName: String, platformSlug: String): SavePathConfig? {
@@ -909,13 +939,18 @@ object SavePathRegistry {
             else -> listOf(path)
         }
         val builtinBase = builtinSavesDir ?: filesDir?.let { "$it/${AppPaths.LIBRETRO_SAVES_SUBDIR}" }
-        return results.map { p ->
+        return results.mapNotNull { p ->
             var r = p
             if (packageName != null) r = r.replace("{package}", packageName)
             if (core != null) r = r.replace("{core}", core)
             if (filesDir != null) r = r.replace("{filesDir}", filesDir)
             if (builtinBase != null) r = r.replace(BUILTIN_SAVES_TOKEN, builtinBase)
-            r
+            if (UNRESOLVED_TOKEN.containsMatchIn(r)) {
+                Logger.warn("SavePathRegistry", "Dropping save path with an unresolved template: $r")
+                null
+            } else {
+                r
+            }
         }
     }
 
@@ -933,9 +968,14 @@ object SavePathRegistry {
             null
         }
 
+        val packageName = if (config.usesPackageTemplate) {
+            EmulatorRegistry.getById(config.emulatorId)?.packageName
+        } else null
+
         val paths = config.defaultPaths.flatMap { path ->
             expandPath(
                 path,
+                packageName = packageName,
                 core = core,
                 filesDir = filesDir,
                 externalStorageRoots = externalStorageRoots,
@@ -947,6 +987,7 @@ object SavePathRegistry {
             val withoutCore = config.defaultPaths.flatMap { path ->
                 expandPath(
                     path.replace("/{core}", "").replace("{core}", ""),
+                    packageName = packageName,
                     filesDir = filesDir,
                     externalStorageRoots = externalStorageRoots,
                     builtinSavesDir = builtinSavesDir

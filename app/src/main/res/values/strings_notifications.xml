@@ -82,8 +82,6 @@
     <string name="notif_storage_hardreset_blocked_active_downloads">Cancel game downloads before resetting</string>
     <!-- Hard reset blocked: an emulator package is still downloading. Command. -->
     <string name="notif_storage_hardreset_blocked_emulator_download">Wait for the emulator download to finish first</string>
-    <!-- Hard reset blocked: a Steam game is still downloading. Command. -->
-    <string name="notif_storage_hardreset_blocked_steam_download">Cancel Steam downloads before resetting</string>
     <!-- Hard reset blocked: a movie or TV episode is still downloading. Command. -->
     <string name="notif_storage_hardreset_blocked_media_download">Cancel the movie or episode download before resetting</string>
     <!-- Hard reset blocked: unsynced save uploads exist but no account username could be
@@ -105,15 +103,6 @@
     <!-- Fallback detail used in notif_storage_hardreset_failed when the exception carries
          no message. Imperative suggestion. -->
     <string name="notif_storage_hardreset_failed_default_detail">try again</string>
-
-    <!-- Steam content downloads (SteamContentManager). -->
-
-    <!-- Subtitle when a Steam game's install folder is not writable. %1$s is the
-         absolute filesystem path (untranslated). -->
-    <string name="notif_steam_path_not_accessible">Install path not accessible: %1$s</string>
-    <!-- Subtitle when there is not enough free space to download a Steam game. %1$d is
-         megabytes free, %2$d megabytes required. -->
-    <string name="notif_steam_storage_blocked_subtitle">Not enough storage (%1$dMB free, need %2$dMB)</string>
 
     <!-- Friend presence notifications (SocialRepository). -->
 
@@ -158,16 +147,11 @@
     <string name="notif_storage_caches_emulator_busy_precheck">Wait for the emulator download to finish first</string>
     <!-- Blocks opening the driver-cache clear confirmation while a driver download is active. -->
     <string name="notif_storage_caches_driver_busy">Wait for the driver download to finish first</string>
-    <!-- Blocks opening the Steam-cache clear confirmation while a Steam download is active. -->
-    <string name="notif_storage_caches_steam_busy_precheck">Cancel Steam downloads first</string>
     <!-- Blocks the ROM extraction cache clear itself while a game is running. -->
     <string name="notif_storage_caches_rom_extraction_busy">Cannot clear extracted ROMs while a game is running</string>
     <!-- Blocks the emulator cache clear itself when it could not run because a download started
          in the meantime. -->
     <string name="notif_storage_caches_emulator_busy_runclear">Wait for the emulator download to finish first</string>
-    <!-- Blocks the Steam cache clear itself when it could not run because a download started in
-         the meantime. -->
-    <string name="notif_storage_caches_steam_busy_runclear">Cancel Steam downloads first</string>
 
     <!-- Settings: manual save sync and image cache relocation (SyncSettingsDelegate). -->
 
@@ -231,15 +215,6 @@
     <!-- Title for the notification summarizing a GameNative folder rescan. Proper noun (the
          launcher's library feature), not a command. -->
     <string name="notif_steam_settings_gamenative_scan_title">GameNative Library</string>
-    <!-- Title shown after the Steam install volume changes while downloads are active. Past
-         participle describing the setting, not a command. -->
-    <string name="notif_steam_settings_install_path_changed_title">Install path changed</string>
-    <!-- Subtitle explaining that in-flight downloads keep their original destination. %1$d is
-         the number of downloads affected. -->
-    <plurals name="notif_steam_settings_install_path_changed_subtitle">
-        <item quantity="one">%1$d download in progress will finish at its original location. New downloads use the new target.</item>
-        <item quantity="other">%1$d downloads in progress will finish at their original location. New downloads use the new target.</item>
-    </plurals>
     <!-- Error when downloading a Steam launcher release fails. %1$s is the exception detail. -->
     <string name="notif_steam_settings_launcher_download_failed">Download failed: %1$s</string>
     <!-- Notification after a manual Steam library reset. %1$d is the number of games removed. -->
@@ -249,6 +224,10 @@
     <string name="notif_steam_settings_game_added">Added: %1$s</string>
     <!-- Notification after an automatic Steam library sync adds games. %1$d is the count. -->
     <string name="notif_steam_settings_library_synced">Added %1$d Steam games</string>
+    <!-- Notification after Refresh Metadata in Steam settings. %1$d is how many games were updated. -->
+    <string name="notif_steam_settings_metadata_refreshed">Refreshed %1$d Steam games</string>
+    <!-- Notification when Refresh Metadata in Steam settings fails. %1$s is the error. -->
+    <string name="notif_steam_settings_metadata_refresh_failed">Couldn\'t refresh Steam metadata: %1$s</string>
 
     <!-- Settings: Jellyfin media library sync (JellyfinSettingsDelegate). -->
 
@@ -320,11 +299,23 @@
         <item quantity="other">Queued %1$d downloads</item>
     </plurals>
 
+    <!-- Steam launcher link prompt (SteamLauncherLinkController). -->
+
+    <!-- Error when a Steam game is opened for linking but no supported launcher app (GameNative,
+         GameHub, DroidDeck) is installed. "Settings &gt; Steam" is the path through Argosy's
+         own settings screens. -->
+    <string name="notif_steam_link_no_launcher_installed">No Steam launcher installed. Install one in Settings &gt; Steam.</string>
+
     <!-- Game launch failures (GameLaunchDelegate). -->
 
     <string name="notif_gamelaunch_no_emulator">No emulator installed for this platform</string>
+    <string name="notif_gamelaunch_busy_syncing">Sync is still running. Try again in a moment.</string>
+    <string name="notif_gamelaunch_busy_launching">Another game is still starting</string>
     <string name="notif_gamelaunch_no_rom_file">ROM file not found</string>
     <string name="notif_gamelaunch_no_steam_launcher">Steam launcher not installed</string>
+    <string name="notif_gamelaunch_no_steam_launcher_installed">No Steam launcher installed. Install one in Settings &gt; Steam.</string>
+    <string name="notif_gamelaunch_steam_launcher_unavailable">Steam launcher unavailable. Choose a launcher in game details &gt; Change Launcher.</string>
+    <string name="notif_gamelaunch_steam_launcher_updating">Launcher updating. Try again in a moment.</string>
     <!-- %1$s is the platform slug (untranslated, upstream identifier). -->
     <string name="notif_gamelaunch_no_core_base">No core available for %1$s</string>
     <!-- %1$s is the platform slug (untranslated, upstream identifier), %2$s is the
@@ -411,6 +402,9 @@
     <string name="notif_review_deleted">Review deleted</string>
     <!-- Error when a review write was attempted without a social connection. -->
     <string name="notif_review_error_offline">Not connected to Argosy Social</string>
+    <!-- Error when a like, comment, post, follow, friend or notification action was attempted
+         without a social connection, so it was not sent. -->
+    <string name="notif_social_error_offline">Not connected to Argosy Social</string>
     <!-- Error when the server refused the review text for exceeding its length limit. -->
     <string name="notif_review_error_too_long">The review is too long</string>
     <!-- Error when the server could not read the review it was sent. -->

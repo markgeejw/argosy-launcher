@@ -6,11 +6,13 @@ import com.nendo.argosy.data.local.dao.DownloadQueueDao
 import com.nendo.argosy.data.local.dao.EmulatorConfigDao
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.GameDiscDao
+import com.nendo.argosy.data.local.dao.GameFileDao
 import com.nendo.argosy.data.download.DownloadState
 import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.remote.romm.RomMResult
 import com.nendo.argosy.data.repository.GameRepository
+import java.io.File
 import javax.inject.Inject
 
 private const val TAG = "DownloadGameUseCase"
@@ -49,6 +51,7 @@ sealed class DownloadGameFailureReason {
 class DownloadGameUseCase @Inject constructor(
     private val gameDao: GameDao,
     private val gameDiscDao: GameDiscDao,
+    private val gameFileDao: GameFileDao,
     private val romMRepository: RomMRepository,
     private val downloadManager: DownloadManager,
     private val emulatorConfigDao: EmulatorConfigDao,
@@ -66,7 +69,6 @@ class DownloadGameUseCase @Inject constructor(
         val rommId = game.rommId
             ?: return DownloadResult.Error(DownloadGameFailureReason.GameNotSynced)
 
-        // Check if game is already downloaded (validates path and tries discovery)
         if (gameRepository.validateAndDiscoverGame(gameId)) {
             Log.d(TAG, "Game already downloaded: ${game.title}")
             return DownloadResult.AlreadyDownloaded
@@ -94,7 +96,9 @@ class DownloadGameUseCase @Inject constructor(
 
         if (game.isMultiDisc) {
             Log.d(TAG, "invoke: taking multi-disc download path")
-            return downloadMultiDiscGame(gameId, game.title, game.rommFileName, coverPath, game.platformSlug)
+            return downloadMultiDiscGame(
+                gameId, game.title, game.rommFileName, coverPath, game.platformSlug, selectedFileIds
+            )
         }
 
         Log.d(TAG, "invoke: taking single ROM download path")
@@ -194,7 +198,8 @@ class DownloadGameUseCase @Inject constructor(
         gameTitle: String,
         gameFolderName: String?,
         coverPath: String?,
-        platformSlug: String
+        platformSlug: String,
+        selectedFileIds: List<Long>? = null
     ): DownloadResult {
         val discs = gameDiscDao.getDiscsForGame(gameId)
         Log.d(TAG, "downloadMultiDiscGame: gameId=$gameId, title=$gameTitle, discs.size=${discs.size}")
@@ -203,13 +208,33 @@ class DownloadGameUseCase @Inject constructor(
             return DownloadResult.Error(DownloadGameFailureReason.NoDiscsFound)
         }
 
-        val discsToDownload = discs.filter { it.localPath == null }
+        val discsToDownload = discs.filter { disc -> disc.localPath?.let { File(it).exists() } != true }
         if (discsToDownload.isEmpty()) {
             return DownloadResult.Error(DownloadGameFailureReason.AllDiscsAlreadyDownloaded)
         }
 
+        val filesByName = gameFileDao.getFilesForGame(gameId).associateBy { it.fileName }
         var queuedCount = 0
         for (disc in discsToDownload) {
+            val folderFile = disc.parentRommId?.let { filesByName[disc.fileName] }
+            if (folderFile?.rommFileId != null) {
+                if (selectedFileIds != null && folderFile.rommFileId !in selectedFileIds) continue
+                downloadManager.enqueueGameFileDownload(
+                    gameId = gameId,
+                    gameFileId = folderFile.id,
+                    rommFileId = folderFile.rommFileId,
+                    fileName = folderFile.fileName,
+                    category = folderFile.category,
+                    gameTitle = gameTitle,
+                    platformSlug = platformSlug,
+                    coverPath = coverPath,
+                    expectedSizeBytes = folderFile.fileSize,
+                    gameFolderName = gameFolderName
+                )
+                queuedCount++
+                continue
+            }
+            if (selectedFileIds != null) continue
             val romResult = romMRepository.getRom(disc.rommId)
             if (romResult is RomMResult.Success) {
                 val rom = romResult.data

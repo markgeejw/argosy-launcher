@@ -20,6 +20,7 @@ fun realFsFal(): FileAccessLayer = mockk<FileAccessLayer>(relaxed = true).also {
     every { fal.deleteRecursively(any()) } answers { File(firstArg<String>()).deleteRecursively() }
     every { fal.getTransformedFile(any()) } answers { File(firstArg<String>()) }
     every { fal.isRestrictedPath(any()) } returns false
+    every { fal.prepareSaveAccess(*anyVararg()) } returns true
     every { fal.commitSaveAccess(*anyVararg()) } returns true
     every { fal.getInputStream(any()) } answers {
         val f = File(firstArg<String>())

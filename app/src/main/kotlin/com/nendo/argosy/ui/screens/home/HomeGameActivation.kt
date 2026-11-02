@@ -4,7 +4,7 @@ enum class HomeGameActivation {
     INSTALL,
     LAUNCH,
     RESUME_DOWNLOAD,
-    STEAM_DOWNLOAD,
+    STEAM_LINK_LAUNCHER,
     DOWNLOAD_EXACT,
     DOWNLOAD_WITH_CHOICE
 }
@@ -21,7 +21,7 @@ fun homeGameActivation(
     game.needsInstall -> HomeGameActivation.INSTALL
     game.isDownloaded -> HomeGameActivation.LAUNCH
     indicator.isPaused || indicator.isQueued -> HomeGameActivation.RESUME_DOWNLOAD
-    game.isSteamGame -> HomeGameActivation.STEAM_DOWNLOAD
+    game.isSteamGame -> HomeGameActivation.STEAM_LINK_LAUNCHER
     exactRow -> HomeGameActivation.DOWNLOAD_EXACT
     else -> HomeGameActivation.DOWNLOAD_WITH_CHOICE
 }

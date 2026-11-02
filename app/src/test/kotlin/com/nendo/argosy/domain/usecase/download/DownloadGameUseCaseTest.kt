@@ -5,7 +5,10 @@ import com.nendo.argosy.data.local.dao.DownloadQueueDao
 import com.nendo.argosy.data.local.dao.EmulatorConfigDao
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.GameDiscDao
+import com.nendo.argosy.data.local.dao.GameFileDao
+import com.nendo.argosy.data.local.entity.GameDiscEntity
 import com.nendo.argosy.data.local.entity.GameEntity
+import com.nendo.argosy.data.local.entity.GameFileEntity
 import com.nendo.argosy.data.model.GameSource
 import com.nendo.argosy.data.model.ResolvedGameArt
 import com.nendo.argosy.data.remote.romm.RomMRepository
@@ -31,6 +34,7 @@ class DownloadGameUseCaseTest {
     private lateinit var emulatorConfigDao: EmulatorConfigDao
     private lateinit var downloadQueueDao: DownloadQueueDao
     private lateinit var gameRepository: GameRepository
+    private lateinit var gameFileDao: GameFileDao
     private lateinit var useCase: DownloadGameUseCase
 
     @Before
@@ -42,7 +46,41 @@ class DownloadGameUseCaseTest {
         emulatorConfigDao = mockk(relaxed = true)
         downloadQueueDao = mockk(relaxed = true)
         gameRepository = mockk(relaxed = true)
-        useCase = DownloadGameUseCase(gameDao, gameDiscDao, romMRepository, downloadManager, emulatorConfigDao, downloadQueueDao, gameRepository, mockk(relaxed = true))
+        gameFileDao = mockk(relaxed = true)
+        useCase = DownloadGameUseCase(gameDao, gameDiscDao, gameFileDao, romMRepository, downloadManager, emulatorConfigDao, downloadQueueDao, gameRepository, mockk(relaxed = true))
+    }
+
+    @Test
+    fun `a folder disc downloads only its own file`() = runTest {
+        givenFolderDiscGame()
+
+        assertTrue(useCase(123L) is DownloadResult.MultiDiscQueued)
+
+        coVerify(exactly = 1) { downloadManager.enqueueGameFileDownload(gameId = 123L, gameFileId = 11L, rommFileId = 7702L, fileName = DISC_1, category = "game", gameTitle = any(), platformSlug = "psx", coverPath = any(), expectedSizeBytes = any(), gameFolderName = any()) }
+        coVerify(exactly = 1) { downloadManager.enqueueGameFileDownload(gameId = 123L, gameFileId = 12L, rommFileId = 7701L, fileName = DISC_2, category = "game", gameTitle = any(), platformSlug = "psx", coverPath = any(), expectedSizeBytes = any(), gameFolderName = any()) }
+        coVerify(exactly = 0) { downloadManager.enqueueDiscDownload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a chosen folder disc is the only one queued`() = runTest {
+        givenFolderDiscGame()
+
+        assertTrue(useCase(123L, selectedFileIds = listOf(7701L)) is DownloadResult.MultiDiscQueued)
+
+        coVerify(exactly = 1) { downloadManager.enqueueGameFileDownload(gameId = 123L, gameFileId = 12L, rommFileId = 7701L, fileName = DISC_2, category = any(), gameTitle = any(), platformSlug = any(), coverPath = any(), expectedSizeBytes = any(), gameFolderName = any()) }
+        coVerify(exactly = 0) { downloadManager.enqueueGameFileDownload(gameId = any(), gameFileId = 11L, rommFileId = any(), fileName = any(), category = any(), gameTitle = any(), platformSlug = any(), coverPath = any(), expectedSizeBytes = any(), gameFolderName = any()) }
+    }
+
+    private fun givenFolderDiscGame() {
+        coEvery { gameDao.getById(123L) } returns createGameEntity(platformSlug = "psx").copy(isMultiDisc = true)
+        coEvery { gameDiscDao.getDiscsForGame(123L) } returns listOf(
+            GameDiscEntity(id = 1L, gameId = 123L, discNumber = 1, rommId = 456L, fileName = DISC_1, localPath = null, fileSize = 10L, parentRommId = 456L),
+            GameDiscEntity(id = 2L, gameId = 123L, discNumber = 2, rommId = 456L, fileName = DISC_2, localPath = null, fileSize = 10L, parentRommId = 456L)
+        )
+        coEvery { gameFileDao.getFilesForGame(123L) } returns listOf(
+            GameFileEntity(id = 11L, gameId = 123L, rommFileId = 7702L, fileName = DISC_1, filePath = "roms/psx/Game", category = "game", fileSize = 10L),
+            GameFileEntity(id = 12L, gameId = 123L, rommFileId = 7701L, fileName = DISC_2, filePath = "roms/psx/Game", category = "game", fileSize = 10L)
+        )
     }
 
     @Test
@@ -287,4 +325,9 @@ class DownloadGameUseCaseTest {
         revision = null,
         screenshotPaths = null
     )
+
+    private companion object {
+        const val DISC_1 = "Game (Disc 1).chd"
+        const val DISC_2 = "Game (Disc 2).chd"
+    }
 }

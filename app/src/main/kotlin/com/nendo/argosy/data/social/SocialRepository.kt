@@ -10,7 +10,9 @@ import com.nendo.argosy.data.emulator.PlaySessionTracker
 import com.nendo.argosy.data.local.dao.AchievementDao
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.PendingSocialSyncDao
+import com.nendo.argosy.data.local.dao.PlayRecordDeletionDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
+import com.nendo.argosy.data.local.dao.cutoffsFor
 import com.nendo.argosy.data.local.dao.resolved
 import com.nendo.argosy.data.model.ArtSlot
 import com.nendo.argosy.data.local.entity.AchievementEntity
@@ -53,6 +55,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.time.Instant
@@ -69,6 +72,7 @@ class SocialRepository @Inject constructor(
     private val socialService: ArgosSocialService,
     private val preferencesRepository: UserPreferencesRepository,
     private val playSessionDao: PlaySessionDao,
+    private val playRecordDeletionDao: PlayRecordDeletionDao,
     private val pendingSocialSyncDao: PendingSocialSyncDao,
     private val gameDao: GameDao,
     private val achievementDao: AchievementDao,
@@ -303,17 +307,20 @@ class SocialRepository @Inject constructor(
                         }
                     }
                     is ArgosSocialService.ConnectionState.Failed -> {
-                        _connectionState.value = SocialConnectionState.Failed(state.reason)
+                        abandonInFlightRequests()
+                        _connectionState.update { SocialConnectionState.Failed(state.reason) }
                     }
                     is ArgosSocialService.ConnectionState.Disconnected -> {
-                        val prefs = preferencesRepository.userPreferences.first()
-                        if (!prefs.isSocialLinked) {
-                            _connectionState.value = SocialConnectionState.Disconnected
+                        abandonInFlightRequests()
+                        _connectionState.update { current ->
+                            if (current is SocialConnectionState.AwaitingAuth) current
+                            else SocialConnectionState.Disconnected
                         }
                     }
                     is ArgosSocialService.ConnectionState.Connecting,
                     is ArgosSocialService.ConnectionState.Reconnecting -> {
-                        _connectionState.value = SocialConnectionState.Connecting
+                        abandonInFlightRequests()
+                        _connectionState.update { SocialConnectionState.Connecting }
                     }
                 }
             }
@@ -349,10 +356,12 @@ class SocialRepository @Inject constructor(
                     }
                     is ArgosSocialService.IncomingMessage.FavoriteFriendUpdated -> {
                         Log.d(TAG, "Favorite updated: ${message.friendId} -> ${message.isFavorite}")
-                        _friends.value = _friends.value.map { friend ->
-                            if (friend.id == message.friendId) friend.copy(isFavorite = message.isFavorite)
-                            else friend
-                        }.sortedWith(friendComparator)
+                        _friends.update { friends ->
+                            friends.map { friend ->
+                                if (friend.id == message.friendId) friend.copy(isFavorite = message.isFavorite)
+                                else friend
+                            }.sortedWith(friendComparator)
+                        }
                     }
                     is ArgosSocialService.IncomingMessage.QuayPassAvatarUpdated -> {
                         message.ownerDoodle?.let { preferencesRepository.setSocialAvatarFromServer(it) }
@@ -415,9 +424,8 @@ class SocialRepository @Inject constructor(
                         Log.d(TAG, "FeedData received: ${message.events.size} new events, loadingMore=$_isLoadingMoreFeed, prevCount=$prevCount")
                         _isLoadingFeed.value = false
                         if (_isLoadingMoreFeed) {
-                            val combined = _feedEvents.value + message.events
+                            val combined = _feedEvents.updateAndGet { it + message.events }
                             Log.d(TAG, "FeedData appending: $prevCount + ${message.events.size} = ${combined.size} total")
-                            _feedEvents.value = combined
                             _isLoadingMoreFeed = false
                         } else {
                             Log.d(TAG, "FeedData replacing: was $prevCount, now ${message.events.size}")
@@ -429,7 +437,7 @@ class SocialRepository @Inject constructor(
                     is ArgosSocialService.IncomingMessage.FeedEvent -> {
                         val prevCount = _feedEvents.value.size
                         Log.d(TAG, "FeedEvent received: id=${message.event.id}, type=${message.event.type}, prepending to $prevCount events")
-                        _feedEvents.value = listOf(message.event) + _feedEvents.value
+                        _feedEvents.update { listOf(message.event) + it }
                         Log.d(TAG, "FeedEvent added: total now ${_feedEvents.value.size}")
                     }
                     is ArgosSocialService.IncomingMessage.FeedEventUpdated -> {
@@ -448,12 +456,13 @@ class SocialRepository @Inject constructor(
                     }
                     is ArgosSocialService.IncomingMessage.EventCommentsData -> {
                         Log.d(TAG, "EventCommentsData: eventId=${message.eventId}, count=${message.comments.size}")
-                        _eventComments.value = _eventComments.value + (message.eventId to message.comments)
+                        _eventComments.update { it + (message.eventId to message.comments) }
                     }
                     is ArgosSocialService.IncomingMessage.FeedCommentReceived -> {
                         Log.d(TAG, "FeedCommentReceived: eventId=${message.eventId}, commentId=${message.comment.id}")
-                        val current = _eventComments.value[message.eventId] ?: emptyList()
-                        _eventComments.value = _eventComments.value + (message.eventId to (current + message.comment))
+                        _eventComments.update {
+                            it + (message.eventId to ((it[message.eventId] ?: emptyList()) + message.comment))
+                        }
                     }
                     is ArgosSocialService.IncomingMessage.RequestGameData -> {
                         Log.d(TAG, "Server requesting game data: igdbId=${message.igdbId}, steamAppId=${message.steamAppId}, title=${message.gameTitle}")
@@ -476,7 +485,7 @@ class SocialRepository @Inject constructor(
                     is ArgosSocialService.IncomingMessage.NotificationReceived -> {
                         _usersCache.putAll(message.users)
                         val resolved = resolveNotificationActors(message.notification)
-                        _notifications.value = trimNotifications(listOf(resolved) + _notifications.value)
+                        _notifications.update { trimNotifications(listOf(resolved) + it) }
                     }
                     is ArgosSocialService.IncomingMessage.NotificationsData -> {
                         _usersCache.putAll(message.users)
@@ -486,7 +495,7 @@ class SocialRepository @Inject constructor(
                         }
                         val resolved = message.notifications.map { resolveNotificationActors(it) }
                         if (_isLoadingMoreNotifications) {
-                            _notifications.value = trimNotifications(_notifications.value + resolved)
+                            _notifications.update { trimNotifications(it + resolved) }
                             _isLoadingMoreNotifications = false
                         } else {
                             _notifications.value = trimNotifications(resolved)
@@ -495,7 +504,7 @@ class SocialRepository @Inject constructor(
                     }
                     is ArgosSocialService.IncomingMessage.CommunityFeedData -> {
                         if (_isLoadingMoreCommunityFeed) {
-                            _communityFeed.value = _communityFeed.value + message.events
+                            _communityFeed.update { it + message.events }
                         } else {
                             _communityFeed.value = message.events
                         }
@@ -509,14 +518,16 @@ class SocialRepository @Inject constructor(
                         Log.d(TAG, "CommunityFollows: ${message.follows.size}")
                     }
                     is ArgosSocialService.IncomingMessage.CommunityFollowUpdated -> {
-                        val existing = _communityFollows.value.toMutableList()
-                        val idx = existing.indexOfFirst { it.igdbGameId == message.follow.igdbGameId }
-                        if (idx >= 0) {
-                            existing[idx] = message.follow
-                        } else {
-                            existing.add(message.follow)
+                        _communityFollows.update { follows ->
+                            val existing = follows.toMutableList()
+                            val idx = existing.indexOfFirst { it.igdbGameId == message.follow.igdbGameId }
+                            if (idx >= 0) {
+                                existing[idx] = message.follow
+                            } else {
+                                existing.add(message.follow)
+                            }
+                            existing
                         }
-                        _communityFollows.value = existing
                         Log.d(TAG, "CommunityFollowUpdated: igdbGameId=${message.follow.igdbGameId}")
                     }
                     is ArgosSocialService.IncomingMessage.UserSettingsData -> {
@@ -719,6 +730,27 @@ class SocialRepository @Inject constructor(
         _usersCache.clear()
     }
 
+    private fun abandonInFlightRequests() {
+        _isLoadingFeed.update { false }
+        _isLoadingMoreFeed = false
+        _isLoadingNotifications.update { false }
+        _isLoadingMoreNotifications = false
+        _isLoadingCommunityFeed.update { false }
+        _isLoadingMoreCommunityFeed = false
+        _isLoadingProfile.update { false }
+        pendingReviewWriteIgdbId?.let {
+            failReviewWrite(it, NotificationText.Res(R.string.notif_review_error_offline))
+        }
+    }
+
+    private fun sendWrite(send: () -> Boolean): Boolean {
+        val sent = socialService.isConnected() && send()
+        if (!sent) {
+            notificationManager.showError(NotificationText.Res(R.string.notif_social_error_offline))
+        }
+        return sent
+    }
+
     fun sendPresence(
         status: PresenceStatus,
         gameIgdbId: Int? = null,
@@ -735,34 +767,26 @@ class SocialRepository @Inject constructor(
         socialService.reconnectIfNeeded()
     }
 
-    fun requestUserProfile(userId: String? = null) {
-        if (socialService.isConnected()) {
-            _isLoadingProfile.value = true
-            socialService.requestUserProfile(userId)
-        }
+    fun requestUserProfile(userId: String? = null): Boolean {
+        if (!socialService.isConnected()) return false
+        _isLoadingProfile.update { true }
+        val sent = socialService.requestUserProfile(userId)
+        if (!sent) _isLoadingProfile.update { false }
+        return sent
     }
 
-    fun sendFriendRequest(userId: String) {
-        if (socialService.isConnected()) {
-            socialService.sendFriendRequest(userId)
-        }
-    }
+    fun sendFriendRequest(userId: String): Boolean =
+        sendWrite { socialService.sendFriendRequest(userId) }
 
-    fun acceptFriend(userId: String) {
-        if (socialService.isConnected()) {
-            socialService.acceptFriend(userId)
-        }
-    }
+    fun acceptFriend(userId: String): Boolean =
+        sendWrite { socialService.acceptFriend(userId) }
 
     /**
      * Declines a received request, cancels a sent one, or unfriends. The server
      * routes by the relationship, so the caller does not distinguish them.
      */
-    fun removeFriend(userId: String) {
-        if (socialService.isConnected()) {
-            socialService.removeFriend(userId)
-        }
-    }
+    fun removeFriend(userId: String): Boolean =
+        sendWrite { socialService.removeFriend(userId) }
 
     fun requestQuayPassCheckins() {
         if (socialService.isConnected()) {
@@ -776,23 +800,18 @@ class SocialRepository @Inject constructor(
         }
     }
 
-    fun toggleFavoriteFriend(friendId: String) {
-        if (socialService.isConnected()) {
-            socialService.toggleFavoriteFriend(friendId)
-        }
-    }
+    fun toggleFavoriteFriend(friendId: String): Boolean =
+        sendWrite { socialService.toggleFavoriteFriend(friendId) }
 
-    fun toggleGameVisibility(igdbGameId: Int?, steamAppId: Int? = null, isCurrentlyHidden: Boolean = false) {
-        if (!socialService.isConnected()) return
+    fun toggleGameVisibility(igdbGameId: Int?, steamAppId: Int? = null, isCurrentlyHidden: Boolean = false): Boolean {
         if (igdbGameId != null && igdbGameId != 0) {
             val isHidden = igdbGameId in _hiddenGameIds.value
-            if (isHidden) {
-                _hiddenGameIds.value = _hiddenGameIds.value - igdbGameId
-                socialService.sendUnhideGame(igdbGameId, steamAppId)
-            } else {
-                _hiddenGameIds.value = _hiddenGameIds.value + igdbGameId
-                socialService.sendHideGame(igdbGameId, steamAppId)
+            val sent = sendWrite {
+                if (isHidden) socialService.sendUnhideGame(igdbGameId, steamAppId)
+                else socialService.sendHideGame(igdbGameId, steamAppId)
             }
+            if (!sent) return false
+            _hiddenGameIds.update { if (isHidden) it - igdbGameId else it + igdbGameId }
             pendingToggleGameId = igdbGameId
             hiddenGameToggleJob?.cancel()
             hiddenGameToggleJob = scope.launch {
@@ -800,12 +819,12 @@ class SocialRepository @Inject constructor(
                 syncPreferencesRepository.setHiddenGameIds(_hiddenGameIds.value)
                 pendingToggleGameId = null
             }
-        } else if (steamAppId != null) {
-            if (isCurrentlyHidden) {
-                socialService.sendUnhideGame(null, steamAppId)
-            } else {
-                socialService.sendHideGame(null, steamAppId)
-            }
+            return true
+        }
+        if (steamAppId == null) return false
+        return sendWrite {
+            if (isCurrentlyHidden) socialService.sendUnhideGame(null, steamAppId)
+            else socialService.sendHideGame(null, steamAppId)
         }
     }
 
@@ -820,17 +839,11 @@ class SocialRepository @Inject constructor(
         }
     }
 
-    fun regenerateFriendCode() {
-        if (socialService.isConnected()) {
-            socialService.regenerateFriendCode()
-        }
-    }
+    fun regenerateFriendCode(): Boolean =
+        sendWrite { socialService.regenerateFriendCode() }
 
-    fun addFriendByCode(code: String) {
-        if (socialService.isConnected()) {
-            socialService.addFriendByCode(code)
-        }
-    }
+    fun addFriendByCode(code: String): Boolean =
+        sendWrite { socialService.addFriendByCode(code) }
 
     /**
      * Hands new play sessions to the social queue and to the RomM ingest. Without a social
@@ -854,8 +867,10 @@ class SocialRepository @Inject constructor(
             return SyncResult.Success(0)
         }
 
+        val cutoffs = playRecordDeletionDao.cutoffsFor(ownerUserId)
         var queued = 0
         for (session in sessions) {
+            if (cutoffs.blocks(session.gameId, session.startTime)) continue
             val userId = session.userId ?: continue
             val payload = ArgosSocialService.PlaySessionPayload(
                 userId = userId,
@@ -884,14 +899,12 @@ class SocialRepository @Inject constructor(
             queued++
         }
 
-        if (queued > 0) {
-            val maxEndTime = sessions.maxOf { it.endTime }
-            preferencesRepository.setLastPlaySessionSyncTime(maxEndTime)
-            Log.d(TAG, "Queued $queued play sessions for sync, lastSync updated to $maxEndTime")
+        val maxEndTime = sessions.maxOf { it.endTime }
+        preferencesRepository.setLastPlaySessionSyncTime(maxEndTime)
+        Log.d(TAG, "Queued $queued of ${sessions.size} play sessions for sync, lastSync updated to $maxEndTime")
 
-            if (socialService.isConnected()) {
-                scope.launch { socialSyncCoordinator.get().processQueue() }
-            }
+        if (queued > 0 && socialService.isConnected()) {
+            scope.launch { socialSyncCoordinator.get().processQueue() }
         }
 
         return SyncResult.Success(queued)
@@ -1081,10 +1094,12 @@ class SocialRepository @Inject constructor(
     fun requestFeed(limit: Int = FEED_PAGE_SIZE, beforeId: String? = null, userId: String? = null) {
         Log.d(TAG, "requestFeed: limit=$limit, beforeId=$beforeId, userId=$userId, connected=${socialService.isConnected()}")
         if (socialService.isConnected()) {
-            _isLoadingFeed.value = true
+            _isLoadingFeed.update { true }
             _currentFeedUserId = userId
             Log.d(TAG, "requestFeed: sending request, currentFeedUserId=$_currentFeedUserId")
-            socialService.getFeed(limit, beforeId, userId)
+            if (!socialService.getFeed(limit, beforeId, userId)) {
+                _isLoadingFeed.update { false }
+            }
         } else {
             Log.w(TAG, "requestFeed: not connected, request not sent")
         }
@@ -1097,89 +1112,89 @@ class SocialRepository @Inject constructor(
             Log.w(TAG, "loadMoreFeed: no events to paginate from")
             return
         }
-        if (_feedHasMore.value && !_isLoadingFeed.value) {
+        if (_feedHasMore.value && !_isLoadingFeed.value && socialService.isConnected()) {
             Log.d(TAG, "loadMoreFeed: requesting more with beforeId=${lastEvent.id}, userId=$_currentFeedUserId")
-            _isLoadingFeed.value = true
+            _isLoadingFeed.update { true }
             _isLoadingMoreFeed = true
-            socialService.getFeed(FEED_PAGE_SIZE, lastEvent.id, _currentFeedUserId)
+            if (!socialService.getFeed(FEED_PAGE_SIZE, lastEvent.id, _currentFeedUserId)) {
+                _isLoadingMoreFeed = false
+                _isLoadingFeed.update { false }
+            }
         } else {
             Log.d(TAG, "loadMoreFeed: skipped - hasMore=${_feedHasMore.value}, isLoading=${_isLoadingFeed.value}")
         }
     }
 
-    fun likeEvent(eventId: String) {
+    fun likeEvent(eventId: String): Boolean {
         Log.d(TAG, "likeEvent: eventId=$eventId, connected=${socialService.isConnected()}")
-        if (socialService.isConnected()) {
-            val events = _feedEvents.value.toMutableList()
-            val index = events.indexOfFirst { it.id == eventId }
-            if (index >= 0) {
-                val event = events[index]
+        if (!sendWrite { socialService.likeEvent(eventId) }) return false
+        _feedEvents.update { events ->
+            events.map { event ->
+                if (event.id != eventId) return@map event
                 val newLiked = !event.isLikedByMe
                 val newCount = if (newLiked) event.likeCount + 1 else event.likeCount - 1
-                Log.d(TAG, "likeEvent: optimistic update - liked=$newLiked, count=${event.likeCount}->$newCount")
-                events[index] = event.copy(isLikedByMe = newLiked, likeCount = newCount.coerceAtLeast(0))
-                _feedEvents.value = events
-            } else {
-                Log.w(TAG, "likeEvent: event $eventId not found in local list")
+                event.copy(isLikedByMe = newLiked, likeCount = newCount.coerceAtLeast(0))
             }
-            socialService.likeEvent(eventId)
         }
+        return true
     }
 
-    fun hideEvent(eventId: String) {
+    fun hideEvent(eventId: String): Boolean {
         Log.d(TAG, "hideEvent: eventId=$eventId, connected=${socialService.isConnected()}")
-        if (socialService.isConnected()) {
-            val prevCount = _feedEvents.value.size
-            _feedEvents.value = _feedEvents.value.filter { it.id != eventId }
-            Log.d(TAG, "hideEvent: removed locally, count $prevCount -> ${_feedEvents.value.size}")
-            socialService.hideEvent(eventId)
-        }
+        if (!sendWrite { socialService.hideEvent(eventId) }) return false
+        _feedEvents.update { events -> events.filter { it.id != eventId } }
+        return true
     }
 
-    fun reportEvent(eventId: String, reason: String? = null) {
+    fun reportEvent(eventId: String, reason: String? = null): Boolean {
         Log.d(TAG, "reportEvent: eventId=$eventId, reason=$reason, connected=${socialService.isConnected()}")
-        if (socialService.isConnected()) {
-            socialService.reportEvent(eventId, reason)
-        }
+        return sendWrite { socialService.reportEvent(eventId, reason) }
     }
 
     fun requestNotifications(limit: Int = NOTIFICATIONS_PAGE_SIZE) {
         if (socialService.isConnected()) {
-            _isLoadingNotifications.value = true
+            _isLoadingNotifications.update { true }
             _notificationsCursor = null
-            socialService.getNotifications(limit)
+            if (!socialService.getNotifications(limit)) {
+                _isLoadingNotifications.update { false }
+            }
         }
     }
 
     fun loadMoreNotifications() {
         val cursor = _notificationsCursor ?: return
-        if (_notificationsHasMore.value && !_isLoadingNotifications.value) {
-            _isLoadingNotifications.value = true
+        if (_notificationsHasMore.value && !_isLoadingNotifications.value && socialService.isConnected()) {
+            _isLoadingNotifications.update { true }
             _isLoadingMoreNotifications = true
-            socialService.getNotifications(NOTIFICATIONS_PAGE_SIZE, cursor)
+            if (!socialService.getNotifications(NOTIFICATIONS_PAGE_SIZE, cursor)) {
+                _isLoadingMoreNotifications = false
+                _isLoadingNotifications.update { false }
+            }
         }
     }
 
-    fun markNotificationRead(notificationId: String) {
-        if (socialService.isConnected()) {
-            socialService.markNotificationRead(notificationId = notificationId)
-            _notifications.value = _notifications.value.map {
+    fun markNotificationRead(notificationId: String): Boolean {
+        if (!sendWrite { socialService.markNotificationRead(notificationId = notificationId) }) return false
+        _notifications.update { notifications ->
+            notifications.map {
                 if (it.id == notificationId && it.isUnread) {
                     it.copy(viewedAt = java.time.Instant.now().toString())
                 } else it
             }
         }
+        return true
     }
 
-    fun markAllNotificationsRead() {
-        if (socialService.isConnected()) {
-            socialService.markAllNotificationsRead()
-            val now = java.time.Instant.now().toString()
-            _notifications.value = _notifications.value.map {
+    fun markAllNotificationsRead(): Boolean {
+        if (!sendWrite { socialService.markAllNotificationsRead() }) return false
+        val now = java.time.Instant.now().toString()
+        _notifications.update { notifications ->
+            notifications.map {
                 it.copy(viewedAt = now)
             }
-            _unreadCount.value = 0
         }
+        _unreadCount.update { 0 }
+        return true
     }
 
     fun getEvent(eventId: String) {
@@ -1204,11 +1219,9 @@ class SocialRepository @Inject constructor(
         }
     }
 
-    fun commentEvent(eventId: String, content: String) {
+    fun commentEvent(eventId: String, content: String): Boolean {
         Log.d(TAG, "commentEvent: eventId=$eventId, connected=${socialService.isConnected()}")
-        if (socialService.isConnected()) {
-            socialService.commentEvent(eventId, content)
-        }
+        return sendWrite { socialService.commentEvent(eventId, content) }
     }
 
     fun createPost(
@@ -1218,26 +1231,29 @@ class SocialRepository @Inject constructor(
         igdbId: Int? = null,
         gameTitle: String? = null,
         public: Boolean = false
-    ) {
-        if (socialService.isConnected()) {
-            socialService.createPost(body, canvasSize, doodleData, igdbId, gameTitle, public)
-        }
+    ): Boolean = sendWrite {
+        socialService.createPost(body, canvasSize, doodleData, igdbId, gameTitle, public)
     }
 
     fun requestCommunityFeed(igdbGameId: Int? = null, limit: Int = FEED_PAGE_SIZE) {
         if (socialService.isConnected()) {
-            _isLoadingCommunityFeed.value = true
+            _isLoadingCommunityFeed.update { true }
             _isLoadingMoreCommunityFeed = false
-            socialService.getCommunityFeed(igdbGameId, limit)
+            if (!socialService.getCommunityFeed(igdbGameId, limit)) {
+                _isLoadingCommunityFeed.update { false }
+            }
         }
     }
 
     fun loadMoreCommunityFeed(igdbGameId: Int? = null) {
         val last = _communityFeed.value.lastOrNull() ?: return
-        if (_communityFeedHasMore.value && !_isLoadingCommunityFeed.value) {
-            _isLoadingCommunityFeed.value = true
+        if (_communityFeedHasMore.value && !_isLoadingCommunityFeed.value && socialService.isConnected()) {
+            _isLoadingCommunityFeed.update { true }
             _isLoadingMoreCommunityFeed = true
-            socialService.getCommunityFeed(igdbGameId, FEED_PAGE_SIZE, last.id)
+            if (!socialService.getCommunityFeed(igdbGameId, FEED_PAGE_SIZE, last.id)) {
+                _isLoadingMoreCommunityFeed = false
+                _isLoadingCommunityFeed.update { false }
+            }
         }
     }
 
@@ -1247,24 +1263,17 @@ class SocialRepository @Inject constructor(
         }
     }
 
-    fun followCommunity(igdbGameId: Int, isPrivate: Boolean = false, anonymous: Boolean = false) {
-        if (socialService.isConnected()) {
-            socialService.followCommunity(igdbGameId, isPrivate, anonymous)
-        }
+    fun followCommunity(igdbGameId: Int, isPrivate: Boolean = false, anonymous: Boolean = false): Boolean =
+        sendWrite { socialService.followCommunity(igdbGameId, isPrivate, anonymous) }
+
+    fun unfollowCommunity(igdbGameId: Int): Boolean {
+        if (!sendWrite { socialService.unfollowCommunity(igdbGameId) }) return false
+        _communityFollows.update { follows -> follows.filter { it.igdbGameId != igdbGameId } }
+        return true
     }
 
-    fun unfollowCommunity(igdbGameId: Int) {
-        if (socialService.isConnected()) {
-            socialService.unfollowCommunity(igdbGameId)
-            _communityFollows.value = _communityFollows.value.filter { it.igdbGameId != igdbGameId }
-        }
-    }
-
-    fun updateCommunityFollow(igdbGameId: Int, isPrivate: Boolean, anonymous: Boolean) {
-        if (socialService.isConnected()) {
-            socialService.updateCommunityFollow(igdbGameId, isPrivate, anonymous)
-        }
-    }
+    fun updateCommunityFollow(igdbGameId: Int, isPrivate: Boolean, anonymous: Boolean): Boolean =
+        sendWrite { socialService.updateCommunityFollow(igdbGameId, isPrivate, anonymous) }
 
     fun requestUserSettings() {
         if (socialService.isConnected()) {
@@ -1272,20 +1281,16 @@ class SocialRepository @Inject constructor(
         }
     }
 
-    fun updateUserSettings(communityAutoShare: Boolean? = null) {
-        if (socialService.isConnected()) {
-            socialService.updateUserSettings(communityAutoShare)
-            if (communityAutoShare != null) {
-                _userSettings.value = _userSettings.value.copy(communityAutoShare = communityAutoShare)
-            }
+    fun updateUserSettings(communityAutoShare: Boolean? = null): Boolean {
+        if (!sendWrite { socialService.updateUserSettings(communityAutoShare) }) return false
+        if (communityAutoShare != null) {
+            _userSettings.update { it.copy(communityAutoShare = communityAutoShare) }
         }
+        return true
     }
 
-    fun updateEventVisibility(eventId: String, public: Boolean) {
-        if (socialService.isConnected()) {
-            socialService.updateEventVisibility(eventId, public)
-        }
-    }
+    fun updateEventVisibility(eventId: String, public: Boolean): Boolean =
+        sendWrite { socialService.updateEventVisibility(eventId, public) }
 
     fun emitAchievementUnlocked(
         igdbId: Long?,
@@ -1406,10 +1411,8 @@ class SocialRepository @Inject constructor(
         caption: String?,
         igdbId: Int?,
         gameTitle: String?
-    ) {
-        if (socialService.isConnected()) {
-            socialService.createDoodle(canvasSize, data, caption, igdbId, gameTitle)
-        }
+    ): Boolean = sendWrite {
+        socialService.createDoodle(canvasSize, data, caption, igdbId, gameTitle)
     }
 
     private suspend fun handleGameDataRequest(igdbId: Long, gameTitle: String, fields: List<String>, steamAppId: Long? = null) {

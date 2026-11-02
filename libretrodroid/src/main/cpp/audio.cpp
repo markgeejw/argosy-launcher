@@ -264,7 +264,7 @@ double Audio::computeDynamicBufferConversionFactor(double dt) {
     // Error is represented by normalized distance to half buffer utilization. Range [-1.0, 1.0]
     double errorMeasure = (framesCapacityInBuffer - 2.0f * framesAvailableInBuffer) / framesCapacityInBuffer;
 
-    errorIntegral += errorMeasure * dt;
+    errorIntegral = std::clamp(errorIntegral + errorMeasure * dt, -maxi / ki, maxi / ki);
 
     // Wikipedia states that human ear resolution is around 3.6 Hz within the octave of 1000–2000 Hz.
     // This changes continuously, so we should try to keep it a very low value.

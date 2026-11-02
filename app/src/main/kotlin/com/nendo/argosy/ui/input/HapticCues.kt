@@ -14,6 +14,5 @@ val SoundType.hapticCue: HapticPattern?
         SoundType.DOWNLOAD_START -> HapticPattern.DOWNLOAD_START
         SoundType.DOWNLOAD_COMPLETE -> HapticPattern.DOWNLOAD_COMPLETE
         SoundType.ERROR -> HapticPattern.ERROR
-        SoundType.LAUNCH_GAME -> HapticPattern.LAUNCH_GAME
-        SoundType.SILENT, SoundType.VOLUME_PREVIEW -> null
+        SoundType.LAUNCH_GAME, SoundType.SILENT, SoundType.VOLUME_PREVIEW -> null
     }

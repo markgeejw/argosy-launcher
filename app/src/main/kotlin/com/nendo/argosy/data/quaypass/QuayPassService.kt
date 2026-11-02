@@ -320,8 +320,9 @@ class QuayPassService @Inject constructor(
         val username = prefs.socialUsername ?: return null
         val avatarRaster = buildAvatarRaster(prefs.socialAvatarDoodle, prefs.socialAvatarUseDoodle)
         val hiddenGameIds = syncPreferencesRepository.hiddenGameIds().first()
-        val lastGame = cachedLastGame?.takeUnless { game ->
-            game.igdbId?.toInt()?.let { it in hiddenGameIds } == true
+        val lastGame = cachedLastGame?.takeIf { game ->
+            val igdbId = game.igdbId?.takeIf { it > 0 }?.toInt()
+            igdbId != null && igdbId !in hiddenGameIds
         }
         val profile = OutboundProfile(
             username = username,

@@ -12,6 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
@@ -71,7 +72,7 @@ class CoreCrashController @Inject constructor(
     fun moveFocus(delta: Int) {
         if (_downloading.value != null) return
         val max = ((_prompt.value?.options?.size ?: 1) - 1).coerceAtLeast(0)
-        _focusIndex.value = (_focusIndex.value + delta).coerceIn(0, max)
+        _focusIndex.update { (it + delta).coerceIn(0, max) }
     }
 
     fun setFocus(index: Int) {
@@ -110,7 +111,7 @@ class CoreCrashController @Inject constructor(
         val info = LibretroCoreRegistry.getCoreById(current.coreId) ?: run { clear(); return }
         _downloading.value = CoreDownloadProgress("Downloading ${current.displayName}...", 0f)
         val result = coreManager.downloadCore(info) { fraction ->
-            _downloading.value = _downloading.value?.copy(fraction = fraction)
+            _downloading.update { it?.copy(fraction = fraction) }
         }
         _downloading.value = CoreDownloadProgress(
             label = if (result.isSuccess) "Downloaded ${current.displayName}" else "Download failed",

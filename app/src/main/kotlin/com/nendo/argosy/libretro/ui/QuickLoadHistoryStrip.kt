@@ -21,17 +21,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.nendo.argosy.R
 import com.nendo.argosy.libretro.SaveStateManager
+import com.nendo.argosy.ui.common.ScreenshotImage
 import com.nendo.argosy.ui.components.animateScrollToItemCentered
 import com.nendo.argosy.ui.primitives.FocusIndicators
 import com.nendo.argosy.ui.primitives.argosyFocusIndicators
@@ -107,14 +106,13 @@ private fun QuickLoadHistoryThumb(
     ) {
         val screenshotFile = slot.screenshotFile
         if (screenshotFile != null) {
-            AsyncImage(
+            ScreenshotImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(screenshotFile)
                     .memoryCacheKey("${screenshotFile.absolutePath}_${slot.timestamp}")
                     .diskCachePolicy(CachePolicy.DISABLED)
                     .build(),
                 contentDescription = label,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
         } else {

@@ -9,6 +9,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -108,3 +111,59 @@ fun ArgosyProgressBar(
         }
     }
 }
+
+/**
+ * Indeterminate twin of [ArgosyProgressBar]: a segment [ComponentDefaults.ProgressBar.sweepWidthRatio]
+ * of the track wide sweeps across it every [sweepMs]. It rests centred under reduced motion or a zero
+ * [sweepMs].
+ */
+@Composable
+fun ArgosyIndeterminateProgressBar(
+    modifier: Modifier = Modifier,
+    sweepMs: Int = ComponentDefaults.ProgressBar.sweepMs,
+    tint: Color? = null,
+) {
+    val theme = LocalArgosyTheme.current
+    val s = LocalUiScale.current.scale
+    val fillColor = tint ?: theme.focusAccent
+    val trackColor = theme.surfaceElevated
+    val moving = sweepMs > 0 && LocalMotionTier.current != MotionTier.Reduced
+    val sweep: State<Float> = if (moving) {
+        rememberInfiniteTransition(label = "sweep").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = sweepMs, easing = Motion.argosyEase),
+            ),
+            label = "sweep-phase",
+        )
+    } else {
+        remember { mutableFloatStateOf(RESTING_SWEEP_PHASE) }
+    }
+    Canvas(modifier = modifier.fillMaxWidth().height((ComponentDefaults.ProgressBar.height * s).dp)) {
+        val radius = CornerRadius(size.height / 2f, size.height / 2f)
+        drawRoundRect(color = trackColor, cornerRadius = radius)
+        val segment = size.width * ComponentDefaults.ProgressBar.sweepWidthRatio
+        val start = -segment + sweep.value * (size.width + segment)
+        val trackClip = Path().apply {
+            addRoundRect(RoundRect(0f, 0f, size.width, size.height, radius))
+        }
+        clipPath(trackClip) {
+            drawRoundRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        fillColor,
+                        trackGradientEnd(fillColor, theme.isDark, ComponentDefaults.ProgressBar.gradientShiftRatio)
+                    ),
+                    startX = start,
+                    endX = (start + segment).coerceAtLeast(start + 1f),
+                ),
+                topLeft = Offset(start, 0f),
+                size = Size(segment, size.height),
+                cornerRadius = radius,
+            )
+        }
+    }
+}
+
+private const val RESTING_SWEEP_PHASE = 0.5f

@@ -48,6 +48,26 @@ class SessionRecoveryAttemptsTest {
     }
 
     @Test
+    fun `releasing an older session leaves a newer session's record in place`() = runTest {
+        val repo = repo()
+        val newerStart = Instant.parse("2026-10-02T10:05:00Z")
+        repo.persistActiveSession(
+            gameId = 6L,
+            emulatorPackage = "com.retroarch",
+            startTime = newerStart,
+            coreName = null,
+            isHardcore = false
+        )
+
+        repo.clearActiveSession(startedAt = Instant.parse("2026-10-02T10:00:00Z"))
+        repo.keepSessionForRetry(maxAttempts = 1, startedAt = Instant.parse("2026-10-02T10:00:00Z"))
+        assertEquals(6L, repo.getPersistedSession()?.gameId)
+
+        repo.clearActiveSession(startedAt = newerStart)
+        assertNull(repo.getPersistedSession())
+    }
+
+    @Test
     fun `a new session starts with a clean count`() = runTest {
         val repo = repo()
         repo.persist()

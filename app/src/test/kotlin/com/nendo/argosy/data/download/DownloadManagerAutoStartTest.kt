@@ -15,6 +15,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,7 +86,6 @@ class DownloadManagerAutoStartTest {
             soundManager = mockk(relaxed = true),
             m3uManager = mockk(relaxed = true),
             thermalManager = dagger.Lazy { mockk(relaxed = true) },
-            steamContentManager = dagger.Lazy { mockk(relaxed = true) },
             mediaDownloadManager = dagger.Lazy { mediaDownloadManager },
             musicDirectoryManager = mockk(relaxed = true),
             attributionRepository = mockk(relaxed = true),
@@ -100,7 +100,8 @@ class DownloadManagerAutoStartTest {
                 platformDao = platformDao,
                 gameDao = gameDao,
                 preferencesRepository = preferencesRepository
-            )
+            ),
+            scope = CoroutineScope(testDispatcher)
         )
     }
 

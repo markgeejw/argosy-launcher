@@ -26,12 +26,14 @@ import com.nendo.argosy.ui.input.ModalInputEffect
 import com.nendo.argosy.ui.screens.gamedetail.components.OptionItem
 import com.nendo.argosy.ui.theme.Dimens
 
-private class QuickOption(val label: String, val icon: ImageVector, val onSelect: () -> Unit)
+private class QuickOption(val label: String, val icon: ImageVector, val onSelect: (() -> Unit)?) {
+    val enabled: Boolean get() = onSelect != null
+}
 
 @Composable
 fun FriendOptionsModal(
     friend: Friend,
-    onViewProfile: (Friend) -> Unit,
+    onViewProfile: ((Friend) -> Unit)?,
     onToggleFavorite: (Friend) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -40,8 +42,9 @@ fun FriendOptionsModal(
         options = listOf(
             QuickOption(
                 stringResource(R.string.ui_quick_friends_options_profile),
-                Icons.Default.Person
-            ) { onViewProfile(friend) },
+                Icons.Default.Person,
+                onViewProfile?.let { view -> { view(friend) } }
+            ),
             QuickOption(
                 stringResource(
                     if (friend.isFavorite) R.string.ui_quick_friends_options_unfavorite
@@ -57,8 +60,8 @@ fun FriendOptionsModal(
 @Composable
 fun ProfileOptionsModal(
     user: SocialUser,
-    onViewProfile: () -> Unit,
-    onEditAvatar: () -> Unit,
+    onViewProfile: (() -> Unit)?,
+    onEditAvatar: (() -> Unit)?,
     onShowFriendCode: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -75,14 +78,15 @@ fun ProfileOptionsModal(
 
 @Composable
 private fun QuickOptionsModal(title: String, options: List<QuickOption>, onDismiss: () -> Unit) {
-    val focusIndex = remember { mutableIntStateOf(0) }
+    val focusIndex = remember { mutableIntStateOf(options.indexOfFirst { it.enabled }.coerceAtLeast(0)) }
     val currentOptions by rememberUpdatedState(options)
     val currentDismiss by rememberUpdatedState(onDismiss)
 
     val inputHandler = remember {
         object : InputHandler {
             private fun move(delta: Int): InputResult {
-                val next = focusIndex.intValue + delta
+                var next = focusIndex.intValue + delta
+                while (next in currentOptions.indices && !currentOptions[next].enabled) next += delta
                 if (next !in currentOptions.indices) return InputResult.handled(SoundType.BOUNDARY)
                 focusIndex.intValue = next
                 return InputResult.HANDLED
@@ -102,7 +106,9 @@ private fun QuickOptionsModal(title: String, options: List<QuickOption>, onDismi
             override fun onRight(): InputResult = InputResult.HANDLED
 
             override fun onConfirm(): InputResult {
-                currentOptions.getOrNull(focusIndex.intValue)?.onSelect?.invoke()
+                val option = currentOptions.getOrNull(focusIndex.intValue) ?: return InputResult.HANDLED
+                val select = option.onSelect ?: return InputResult.handled(SoundType.BOUNDARY)
+                select()
                 return InputResult.HANDLED
             }
 
@@ -132,9 +138,12 @@ private fun QuickOptionsModal(title: String, options: List<QuickOption>, onDismi
                     label = option.label,
                     icon = option.icon,
                     isFocused = focusIndex.intValue == index,
-                    onClick = {
-                        focusIndex.intValue = index
-                        option.onSelect()
+                    isEnabled = option.enabled,
+                    onClick = option.onSelect?.let { select ->
+                        {
+                            focusIndex.intValue = index
+                            select()
+                        }
                     }
                 )
             }

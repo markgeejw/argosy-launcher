@@ -123,7 +123,7 @@ interface HomeInputActions {
     fun activateExactGame(game: HomeGameUi)
     fun resumeDownload(gameId: Long)
     fun queueDownload(gameId: Long)
-    fun queueSteamDownload(gameId: Long)
+    fun linkSteamLauncher(gameId: Long)
     fun navigateToLibrary(platformId: Long?, sourceFilter: String?)
     fun toggleFavorite(gameId: Long)
     fun unfavoriteMedia(itemId: String)

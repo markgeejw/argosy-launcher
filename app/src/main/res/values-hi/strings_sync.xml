@@ -8,6 +8,7 @@
     <string name="sync_prelaunch_connecting">कनेक्ट हो रहा है...</string>
     <string name="sync_prelaunch_connected">कनेक्टेड</string>
     <string name="sync_prelaunch_connect_failed">कनेक्शन विफल</string>
+    <string name="sync_prelaunch_timed_out">सर्वर ने बहुत देर लगाई</string>
     <string name="sync_prelaunch_downloading">डाउनलोड हो रहा है...</string>
     <string name="sync_prelaunch_download_complete">डाउनलोड पूर्ण</string>
     <string name="sync_prelaunch_download_failed">डाउनलोड विफल</string>
@@ -63,14 +64,12 @@
     <string name="sync_service_saves">सेव सिंक हो रहे हैं...</string>
     <string name="steam_service_connecting">कनेक्ट हो रहा है...</string>
     <string name="steam_service_signing_in">साइन इन हो रहा है...</string>
-    <string name="steam_service_syncing_library">Steam लाइब्रेरी सिंक हो रही है...</string>
 
     <!-- Android system notification shown while downloads run in the background. -->
 
     <string name="sync_download_channel_name">डाउनलोड प्रगति</string>
     <string name="sync_download_channel_description">बैकग्राउंड में डाउनलोड प्रगति दिखाता है</string>
     <string name="sync_download_service_preparing">डाउनलोड की तैयारी हो रही है...</string>
-    <string name="sync_download_service_steam_downloading">डाउनलोड हो रहा है: %1$s</string>
     <string name="sync_download_service_extracting">एक्सट्रैक्ट हो रहा है: %1$s</string>
     <string name="sync_download_service_moving">ROM स्टोरेज में ले जाया जा रहा है: %1$s</string>
     <string name="sync_download_service_downloading">डाउनलोड हो रहा है: %1$s</string>
@@ -162,10 +161,6 @@
     <string name="sync_steam_rate_limited_subtitle">लॉगिन दर सीमित है। एक घंटे में फिर कोशिश करें</string>
     <string name="sync_steam_auth_expired_title">Steam सेशन समाप्त हो गया</string>
     <string name="sync_steam_auth_expired_subtitle">सेटिंग्स &gt; Steam से फिर साइन इन करें</string>
-    <string name="sync_steam_download_signed_out_title">Steam सेशन समाप्त हो गया</string>
-    <string name="sync_steam_download_signed_out_subtitle">डाउनलोड करने के लिए सेटिंग्स &gt; Steam से साइन इन करें</string>
-    <string name="sync_steam_path_blocked_title">%1$s डाउनलोड नहीं हो सकता</string>
-    <string name="sync_steam_storage_blocked_title">%1$s डाउनलोड नहीं हो सकता</string>
 
     <string name="sync_steam_qr_rate_limited">दर सीमित है। बाद में फिर कोशिश करें</string>
     <string name="sync_steam_qr_login_failed">लॉगिन विफल: %1$s</string>

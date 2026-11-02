@@ -175,9 +175,8 @@ class SyncMonitorViewModel @Inject constructor(
         if (!row.syncEnabled) {
             viewModelScope.launch {
                 platformRepository.updateSyncEnabled(row.platformId, true)
-                if (_uiState.value.isConnected && !_uiState.value.libraryBusy) {
-                    platformSyncQueue.enqueuePlatform(row.platformId, row.name)
-                }
+                if (!_uiState.value.isConnected) return@launch
+                platformSyncQueue.enqueuePlatformAfterLibrary(row.platformId, row.name)
             }
             return
         }

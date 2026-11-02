@@ -46,3 +46,32 @@ fun InputDevice.isPhysicalGamepad(): Boolean {
     if (!padSource || isVirtual) return false
     return !name.orEmpty().startsWith(OEM_VIRTUAL_DEVICE_PREFIX, ignoreCase = true)
 }
+
+/**
+ * Whether this pointer device is the touchpad of a connected game controller: a mouse or
+ * touchpad device that is itself a physical gamepad, or that belongs to one. A connected gamepad
+ * owns it when the two share vendor and product ids, as a DualShock 4 or DualSense touchpad does,
+ * or when the pointer carries the gamepad's name, alone or with a suffix ("DualSense Wireless
+ * Controller Touchpad"), which still holds where the system re-registers the pad under other ids.
+ */
+fun InputDevice.isControllerTouchpad(): Boolean {
+    val pointer = supportsSource(InputDevice.SOURCE_MOUSE) ||
+        supportsSource(InputDevice.SOURCE_MOUSE_RELATIVE) ||
+        supportsSource(InputDevice.SOURCE_TOUCHPAD)
+    if (!pointer) return false
+    if (isPhysicalGamepad()) return true
+    val pointerName = name.orEmpty()
+    return InputDevice.getDeviceIds().any { otherId ->
+        otherId != id && InputDevice.getDevice(otherId)?.let { other ->
+            other.isPhysicalGamepad() && (
+                (vendorId != 0 && other.vendorId == vendorId && other.productId == productId) ||
+                    other.ownsPointerNamed(pointerName)
+                )
+        } == true
+    }
+}
+
+private fun InputDevice.ownsPointerNamed(pointerName: String): Boolean {
+    val padName = name.orEmpty()
+    return padName.isNotBlank() && (pointerName == padName || pointerName.startsWith("$padName "))
+}

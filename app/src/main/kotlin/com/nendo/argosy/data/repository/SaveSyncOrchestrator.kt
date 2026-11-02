@@ -43,6 +43,7 @@ class SaveSyncOrchestrator @Inject constructor(
     private val saveCacheDao: SaveCacheDao,
     private val saveCacheManager: dagger.Lazy<SaveCacheManager>,
     private val activeSaveRepository: ActiveSaveRepository,
+    private val serverSaveGate: ServerSaveGate,
     private val pendingSyncQueueDao: PendingSyncQueueDao,
     private val gameDao: GameDao,
     private val emulatorResolver: EmulatorResolver,
@@ -57,7 +58,8 @@ class SaveSyncOrchestrator @Inject constructor(
     private val saveOwnershipTracker: SaveOwnershipTracker,
     private val accountSwitchMarkerStore: com.nendo.argosy.data.preferences.AccountSwitchMarkerStore,
     private val fileAccessLayer: com.nendo.argosy.data.storage.FileAccessLayer,
-    private val gameArtDao: com.nendo.argosy.data.local.dao.GameArtDao
+    private val gameArtDao: com.nendo.argosy.data.local.dao.GameArtDao,
+    private val diskJudge: ActiveSaveDiskJudge
 ) {
     sealed interface RefreshOutcome {
         data object Dirtied : RefreshOutcome
@@ -397,7 +399,8 @@ class SaveSyncOrchestrator @Inject constructor(
                     romPath = game.localPath,
                     coreName = coreName,
                     cachedSaveId = game.saveId ?: game.titleId,
-                    gameId = game.id
+                    gameId = game.id,
+                    emulatorPackage = emulatorResolver.getEmulatorPackageForGame(game.id, game.platformId, game.platformSlug)
                 ) ?: return@withContext DiskCheck.Untouched
                 if (!hasExtension(target, expectedExtension)) return@withContext DiskCheck.Failed
                 Logger.info(TAG, "[SaveSync] DISK gameId=${game.id} | no save on disk for emulator=$emulatorId, placing active cache id=${active.id} | path=$target")
@@ -411,7 +414,6 @@ class SaveSyncOrchestrator @Inject constructor(
 
         val diskHash = cacheManager.calculateLocalSaveHash(savePath, game.id, emulatorId)
             ?: return@withContext DiskCheck.Untouched
-        val syncRow = saveSyncDao.getByGameEmulatorAndChannel(game.id, emulatorId, SaveSyncApiClient.syncKeyOf(channel), ownerUserId)
 
         if (active == null) {
             if (saveOwnershipTracker.claim(savePath, emulatorId) is SaveClaim.Foreign) return@withContext DiskCheck.Untouched
@@ -419,26 +421,22 @@ class SaveSyncOrchestrator @Inject constructor(
             return@withContext if (cacheSystemSave(game.id, emulatorId, savePath, channelName)) DiskCheck.Adopted else DiskCheck.Untouched
         }
 
-        val knownForms = setOfNotNull(
-            active.contentHash,
-            active.identityHash,
-            syncRow?.localContentHash?.takeIf { syncRow.rommSaveId != null && syncRow.rommSaveId == active.rommSaveId }
-        )
-        if (diskHash in knownForms) return@withContext DiskCheck.Matches
-
-        val newerDirty = saveCacheDao.getAllByGameChannelAndHash(game.id, ownerUserId, active.channelName, diskHash)
-            .firstOrNull { it.needsRemoteSync && !it.cachedAt.isBefore(active.cachedAt) }
-        if (newerDirty != null) {
-            Logger.info(TAG, "[SaveSync] DISK gameId=${game.id} | disk matches unsynced cache id=${newerDirty.id}, keeping it as the active version")
-            activeSaveRepository.activateCache(game.id, newerDirty.id)
-            return@withContext DiskCheck.Adopted
-        }
-
-        if (!secureSaves) {
-            if (saveOwnershipTracker.claim(savePath, emulatorId) is SaveClaim.Foreign) return@withContext DiskCheck.Untouched
-            Logger.info(TAG, "[SaveSync] DISK gameId=${game.id} | disk differs from active cache id=${active.id}, adopting it (Secure Saves off) | path=$savePath")
-            cacheSystemSave(game.id, emulatorId, savePath, channelName)
-            return@withContext DiskCheck.Adopted
+        val judgement = diskJudge.judge(game.id, emulatorId, channel, savePath, diskHash, active, secureSaves, ownerUserId)
+        val syncRow = judgement.syncRow
+        when (val verdict = judgement.verdict) {
+            DiskVerdict.Matches -> return@withContext DiskCheck.Matches
+            is DiskVerdict.Progress -> {
+                Logger.info(TAG, "[SaveSync] DISK gameId=${game.id} | disk matches unsynced cache id=${verdict.cacheId}, keeping it as the active version")
+                activeSaveRepository.activateCache(game.id, verdict.cacheId)
+                return@withContext DiskCheck.Adopted
+            }
+            DiskVerdict.Foreign -> return@withContext DiskCheck.Untouched
+            DiskVerdict.Adopt -> {
+                Logger.info(TAG, "[SaveSync] DISK gameId=${game.id} | disk differs from active cache id=${active.id}, adopting it (Secure Saves off) | path=$savePath")
+                cacheSystemSave(game.id, emulatorId, savePath, channelName)
+                return@withContext DiskCheck.Adopted
+            }
+            DiskVerdict.ProtectThenRestore -> Unit
         }
 
         if (!hasExtension(savePath, expectedExtension)) return@withContext DiskCheck.Failed
@@ -504,6 +502,13 @@ class SaveSyncOrchestrator @Inject constructor(
             val game = gameDao.getById(entity.gameId) ?: return@mapNotNull null
             if (game.localPath == null) {
                 Logger.debug(TAG, "downloadPendingServerSaves: skipping non-installed gameId=${entity.gameId} silently")
+                return@mapNotNull null
+            }
+            serverSaveGate.holdFor(entity.gameId, game.localPath, entity.channelName, entity.serverUpdatedAt)?.let { hold ->
+                Logger.info(TAG, "[SaveSync] DOWNLOAD gameId=${entity.gameId} channel=${entity.channelName} | Not placed on disk: ${hold.reason}")
+                if (hold is ServerSaveHold.Superseded && entity.syncStatus == SaveSyncEntity.STATUS_SERVER_NEWER) {
+                    saveSyncDao.upsert(entity.copy(syncStatus = SaveSyncEntity.STATUS_SYNCED))
+                }
                 return@mapNotNull null
             }
             if (localMovedSinceUpload(entity, entity.gameId, entity.emulatorId)) {
@@ -572,8 +577,12 @@ class SaveSyncOrchestrator @Inject constructor(
         if (!prefs.saveSyncEnabled) return@withContext
 
         val client = apiClient.get()
-        val serverSaves = client.checkSavesForGame(gameId, rommId)
-            .filterNot { SaveSyncApiClient.isStateShapedSave(it) }
+        val serverSaves = try {
+            client.checkSavesForGame(gameId, rommId)
+        } catch (e: SaveInventoryUnavailableException) {
+            Logger.warn(TAG, "[SaveSync] NEW_DOWNLOAD gameId=$gameId | Server saves unavailable, skipping: ${e.message}")
+            return@withContext
+        }.filterNot { SaveSyncApiClient.isStateShapedSave(it) }
         if (serverSaves.isEmpty()) return@withContext
 
         val game = gameDao.getById(gameId) ?: return@withContext
@@ -637,7 +646,12 @@ class SaveSyncOrchestrator @Inject constructor(
             val emulatorId = client.resolveEmulatorForGame(game) ?: continue
             val romBaseName = game.localPath?.let { File(it).nameWithoutExtension }
             val heldHashByRow = saveSyncDao.getByGame(game.id, ownerUserId).associate { it.id to it.lastUploadedHash }
-            val serverSaves = client.checkSavesForGame(game.id, rommId)
+            val serverSaves = try {
+                client.checkSavesForGame(game.id, rommId)
+            } catch (e: SaveInventoryUnavailableException) {
+                Logger.warn(TAG, "[SaveSync] RECONCILE gameId=${game.id} | Server saves unavailable, skipping: ${e.message}")
+                continue
+            }
             if (serverSaves.isEmpty()) continue
             inspected++
 

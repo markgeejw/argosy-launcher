@@ -20,5 +20,20 @@ internal suspend fun releaseStoppedEmulator(
     }
 }
 
+internal suspend fun awaitEmulatorLeft(
+    stillOnScreen: () -> Boolean,
+    launcherStillInFront: () -> Boolean,
+    checks: Int,
+    intervalMs: Long
+): Boolean {
+    if (!stillOnScreen()) return true
+    repeat(checks) {
+        delay(intervalMs)
+        if (!launcherStillInFront()) return false
+        if (!stillOnScreen()) return true
+    }
+    return false
+}
+
 private fun newSessionStarted(ended: ActiveSession?, live: ActiveSession?): Boolean =
     live != null && (ended == null || live.startTime != ended.startTime || live.gameId != ended.gameId)

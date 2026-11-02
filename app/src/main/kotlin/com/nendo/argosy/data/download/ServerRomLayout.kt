@@ -25,5 +25,5 @@ object ServerRomLayout {
     }
 
     private fun segmentsOf(path: String): List<String> =
-        path.trim('/').split('/').filter { it.isNotEmpty() }
+        path.trim('/').split('/').filter { it.isNotEmpty() && it != "." && it != ".." }
 }

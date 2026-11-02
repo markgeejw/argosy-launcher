@@ -68,6 +68,8 @@ class AchievementDelegate @Inject constructor(
                 val rom = result.data
                 val apiAchievements = rom.raMetadata?.achievements ?: emptyList()
                 if (apiAchievements.isEmpty()) return emptyList()
+                val verifiedRaId = gameRepository.getById(gameId)?.takeIf { it.raIdVerified }?.verifiedRaId
+                if (verifiedRaId != null && verifiedRaId != rom.raId) return emptyList()
 
                 val rommEarnedByBadgeId = if (rom.raId != null) {
                     romMRepository.refreshRAProgressionIfNeeded(force = true)

@@ -24,12 +24,6 @@ private const val PROGRESS_NOTIFICATION_STEP = 25
 sealed class SyncPlatformResult {
     data class Success(val result: SyncResult) : SyncPlatformResult()
     data class Error(val reason: SyncPlatformFailureReason) : SyncPlatformResult()
-
-    /**
-     * A sync was already running, so this request did nothing. Distinct from Error because
-     * callers back off quietly rather than telling the user something failed.
-     */
-    data object AlreadyInProgress : SyncPlatformResult()
 }
 
 /**
@@ -104,11 +98,6 @@ class SyncPlatformUseCase @Inject constructor(
                     romMRepository.syncPlatform(platformId)
                 } finally {
                     progressJob.cancel()
-                }
-
-                if (result.alreadyInProgress) {
-                    notificationManager.dismissByKey(NOTIFICATION_KEY)
-                    return@withContext SyncPlatformResult.AlreadyInProgress
                 }
 
                 if (result.errors.isEmpty()) {

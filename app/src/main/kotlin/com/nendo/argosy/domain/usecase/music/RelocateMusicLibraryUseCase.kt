@@ -29,15 +29,27 @@ class RelocateMusicLibraryUseCase @Inject constructor(
         val source = File(oldPath)
         val target = File(newPath)
         if (moveFiles && source.exists() && source.absolutePath != target.absolutePath) {
-            musicDirectoryManager.relocate(source, target)
+            val result = musicDirectoryManager.relocate(source, target)
             val oldPrefix = source.absolutePath.trimEnd('/')
             val newPrefix = target.absolutePath.trimEnd('/')
-            bgmPlaylistRepository.rewritePathPrefix(oldPrefix, newPrefix)
-            gameFileDao.rewriteLocalPathPrefix(oldPrefix, newPrefix)
-            controlsPreferencesRepository.rewriteSoundConfigPathPrefix(oldPrefix, newPrefix)
+            repoint(oldPrefix, newPrefix)
+            result.failed.forEach { stayed -> repointFile(newPrefix + stayed.removePrefix(oldPrefix), stayed) }
         }
         val isDefault = target.absolutePath == musicDirectoryManager.defaultMusicDir().absolutePath
         storagePreferences.setMusicStoragePath(if (isDefault) null else target.absolutePath)
         attributionRepository.markDirty(StorageCategory.MUSIC)
+    }
+
+    private suspend fun repoint(oldPrefix: String, newPrefix: String) {
+        bgmPlaylistRepository.rewritePathPrefix(oldPrefix, newPrefix)
+        gameFileDao.rewriteLocalPathPrefix(oldPrefix, newPrefix)
+        controlsPreferencesRepository.rewriteSoundConfigPathPrefix(oldPrefix, newPrefix)
+    }
+
+    private suspend fun repointFile(oldPath: String, newPath: String) {
+        bgmPlaylistRepository.rewritePathPrefix(oldPath, newPath)
+        gameFileDao.updateLocalPathByOldPath(oldPath, newPath)
+        gameFileDao.rewriteLocalPathPrefix(oldPath, newPath)
+        controlsPreferencesRepository.rewriteSoundConfigPathPrefix(oldPath, newPath)
     }
 }

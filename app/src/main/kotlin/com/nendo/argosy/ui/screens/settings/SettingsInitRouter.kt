@@ -14,6 +14,7 @@ import com.nendo.argosy.data.remote.romm.ConnectionState
 import com.nendo.argosy.libretro.LibretroCoreRegistry
 import com.nendo.argosy.core.input.DetectedLayout
 import com.nendo.argosy.ui.screens.settings.delegates.StorageSettingsDelegate
+import com.nendo.argosy.ui.screens.settings.sections.steamMaxFocusIndex
 import com.nendo.argosy.util.AppPaths
 import com.nendo.argosy.R
 import kotlinx.coroutines.delay
@@ -181,7 +182,7 @@ internal fun routeObserveDelegateStates(vm: SettingsViewModel) {
     }.launchIn(vm.viewModelScope)
 
     vm.steamDelegate.state.onEach { steam ->
-        vm._uiState.update { it.copy(steam = steam) }
+        routeUpdateSteamState(vm, steam)
     }.launchIn(vm.viewModelScope)
 
     vm.jellyfinDelegate.state.onEach { jellyfin ->
@@ -203,6 +204,17 @@ internal fun routeObserveDelegateStates(vm: SettingsViewModel) {
     vm.driversDelegate.state.onEach { drivers ->
         vm._uiState.update { it.copy(drivers = drivers) }
     }.launchIn(vm.viewModelScope)
+}
+
+internal fun routeUpdateSteamState(vm: SettingsViewModel, steam: SteamSettingsState) {
+    vm._uiState.update { state ->
+        state.copy(
+            steam = steam,
+            focusedIndex = if (state.currentSection == SettingsSection.STEAM_SETTINGS) {
+                state.focusedIndex.coerceIn(0, steamMaxFocusIndex(steam))
+            } else state.focusedIndex
+        )
+    }
 }
 
 internal fun routeObserveDelegateEvents(vm: SettingsViewModel) {
@@ -575,6 +587,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             bodyFontScale = prefs.bodyFontScale,
             gridDensity = prefs.gridDensity,
             libraryLayout = prefs.libraryLayout,
+            libraryListStyle = prefs.libraryListStyle,
             backgroundBlur = prefs.backgroundBlur,
             backgroundSaturation = prefs.backgroundSaturation,
             backgroundOpacity = prefs.backgroundOpacity,
@@ -590,6 +603,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             compactFooter = prefs.compactFooter,
             hideSystemNavigationBar = prefs.hideSystemNavigationBar,
             hideSystemStatusBar = prefs.hideSystemStatusBar,
+            quickPanelInEmulators = prefs.quickPanelInEmulators,
             lockScreenArt = prefs.lockScreenArt,
             homeAppAvailable = prefs.homeAppAvailable,
             isDefaultHome = vm.displayDelegate.isDefaultHome(),
@@ -645,7 +659,12 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             hasScreenCapturePermission = vm.displayDelegate.hasScreenCapturePermission(),
             hasSecondaryDisplay = vm.displayAffinityHelper.hasSecondaryDisplay,
             hasPhysicalSecondaryDisplay = vm.displayAffinityHelper.hasPhysicalSecondaryDisplay,
+            lidSleepSupported = vm.lidSleepGuard.isSupported,
+            lidSleepEnabled = prefs.lidSleepEnabled,
             dualScreenEnabled = prefs.dualScreenEnabled,
+            dualScreenMatchSize = vm.libretroSettingsRepo.getBuiltinEmulatorSettings().first().dualScreenMatchSize,
+            dualScreenMatchSizeAvailable = vm.displayAffinityHelper.hasPhysicalSecondaryDisplay &&
+                com.nendo.argosy.libretro.KnownPanels.forModel().isNotEmpty(),
             displayRoleOverride = prefs.displayRoleOverride,
             gamesLaunchTarget = prefs.gamesDisplayTarget,
             appsLaunchTarget = prefs.appsDisplayTarget,
@@ -680,7 +699,8 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             openQuickPanelKey = prefs.openQuickPanelKey,
             navRingRoutes = com.nendo.argosy.ui.navigation.NavRing.resolve(prefs.navRingRoutes),
             quickNavigation = prefs.quickNavigation,
-            navBarAutoHide = prefs.navBarAutoHide
+            navBarAutoHide = prefs.navBarAutoHide,
+            ignoreControllerTouchpad = prefs.ignoreControllerTouchpad
         ))
         vm.controlsDelegate.refreshUsageStatsPermission()
 
@@ -944,11 +964,13 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
                 builtinControls = BuiltinControlsState(
                     controllerOrderCount = it.builtinControls.controllerOrderCount,
                     rumbleEnabled = refreshSettings.rumbleEnabled,
+                    motionEnabled = refreshSettings.motionEnabled,
                     limitHotkeysToPlayer1 = refreshSettings.limitHotkeysToPlayer1,
                     speedrunStartOnReset = refreshSettings.speedrunStartOnReset,
                     speedrunPanelSide = refreshSettings.speedrunPanelSide,
                     speedrunPanelWidthPercent = refreshSettings.speedrunPanelWidthPercent,
                     fastForwardMode = refreshSettings.fastForwardMode,
+                    selectAsBack = refreshSettings.selectAsBack,
                     fastForwardPreservePitch = refreshSettings.fastForwardPreservePitch,
                     analogAsDpad = refreshSettings.analogAsDpad,
                     dpadAsAnalog = refreshSettings.dpadAsAnalog,

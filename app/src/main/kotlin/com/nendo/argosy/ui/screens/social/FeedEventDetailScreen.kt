@@ -192,7 +192,7 @@ class FeedEventDetailViewModel @Inject constructor(
     }
 
     fun updateCommentText(text: String) {
-        _uiState.value = _uiState.value.copy(commentText = text)
+        _uiState.update { it.copy(commentText = text) }
     }
 
     fun submitComment() {
@@ -201,26 +201,30 @@ class FeedEventDetailViewModel @Inject constructor(
         val text = state.commentText.trim()
         if (text.isEmpty()) return
 
-        socialRepository.commentEvent(event.id, text)
-        _uiState.value = state.copy(commentText = "", isCommentInputFocused = false)
+        if (!socialRepository.commentEvent(event.id, text)) return
+        _uiState.update { it.copy(commentText = "", isCommentInputFocused = false) }
     }
 
     fun focusCommentInput() {
-        _uiState.value = _uiState.value.copy(
-            scrollToCommentInput = true,
-            focusedCommentIndex = -1
-        )
+        _uiState.update {
+            it.copy(
+                scrollToCommentInput = true,
+                focusedCommentIndex = -1
+            )
+        }
     }
 
     fun onCommentInputScrolled() {
-        _uiState.value = _uiState.value.copy(
-            scrollToCommentInput = false,
-            isCommentInputFocused = true
-        )
+        _uiState.update {
+            it.copy(
+                scrollToCommentInput = false,
+                isCommentInputFocused = true
+            )
+        }
     }
 
     fun unfocusCommentInput() {
-        _uiState.value = _uiState.value.copy(isCommentInputFocused = false)
+        _uiState.update { it.copy(isCommentInputFocused = false) }
     }
 
     private fun moveFocus(delta: Int): Boolean {
@@ -230,7 +234,7 @@ class FeedEventDetailViewModel @Inject constructor(
 
         val newIndex = (state.focusedCommentIndex + delta).coerceIn(-1, comments.size - 1)
         if (newIndex != state.focusedCommentIndex) {
-            _uiState.value = state.copy(focusedCommentIndex = newIndex)
+            _uiState.update { it.copy(focusedCommentIndex = newIndex) }
             return true
         }
         return false
@@ -1019,7 +1023,6 @@ private fun CommentInput(
             try {
                 commentFocusRequester.requestFocus()
             } catch (_: IllegalStateException) {
-                // FocusRequester not yet attached to layout
             }
         }
     }

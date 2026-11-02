@@ -175,8 +175,23 @@ its libretro `pcsx2` layout (`armsx2` aliases to `pcsx2`). The core has no
 
 ### PSP (`PspFolderHandler`)
 
-`save_id` is the 9-character disc id (`ULUS10064`), `FOLDER_PREFIX`. Profile
-and system data are separate sibling folders sharing it.
+`save_id` is the 9-character save prefix, `FOLDER_PREFIX`. Profile and system
+data are separate sibling folders sharing it. It is the disc id (`ULUS10064`)
+except for a Store release that keeps its disc release's prefix: the dump reads
+`NPJH50804` and the game saves as `ULJS00445`. Two sources give that prefix:
+
+- sigil, from the game's executable when it is readable. The rule is in
+  sigil's `docs/platforms/psp.md`; only an `NP…` disc id is ever re-keyed.
+- `PspSavePrefixLearner`, when the executable is encrypted. A built-in session
+  whose live cache matched nothing adopts the one serial every folder the game
+  wrote during that session starts with, unless another game is keyed by it.
+  Only the built-in core qualifies: its `SAVEDATA` is Argosy's own and runs one
+  game at a time. Standalone PPSSPP's folder is shared, so it is never learned
+  from.
+
+Discovery replaces a stored `save_id` that finds nothing with an extracted one
+that finds the save, and migration 220 to 221 unlocks `NP…` rows so the next
+launch reads them again.
 
 ```
 <base>/PSP/SAVEDATA/<discId><saveName>
@@ -188,7 +203,7 @@ returns the *parent*, not a match, because there is no single folder. All of
 that lives in `PrefixBundleFolderHandler`, shared with PS3; what PSP owns is
 the PARAM.SFO test that keeps installed game data out of the bundle.
 
-### Vita, Wii, Wii U (plain `FolderSaveHandler`)
+### Vita (plain `FolderSaveHandler`)
 
 `FOLDER_EXACT`, one directory named exactly for the id:
 
@@ -196,9 +211,48 @@ the PARAM.SFO test that keeps installed game data out of the bundle.
 <base>/<save_id>
 ```
 
-For Wii the base is the NAND's `Wii/title/00010000`: under the standalone app's files for
+### Wii (`CategorySplitFolderHandler`)
+
+`save_id` is `FOLDER_SPLIT`, the ticket's category and code, `00010000/524d4745`. The base is
+the NAND's category directory `Wii/title/00010000`: under the standalone app's files for
 `dolphin_wii`, and `<builtin saves>/User/Wii/title/00010000` for the built-in Dolphin core
-(`argosy_wii`). Both upload through the same handler, so a game's save moves between the two.
+(`argosy_wii`). The folder is the low id under it, `<base>/524d4745`, with the same id rules
+as Wii U below: split, flat and bare low ids address one folder, and another `0001xxxx`
+category resolves beside the base. Uploads and restores go through Sigil
+(`dolphin_standalone` and the libretro `dolphin` layout); pre-launch discovery and active-cache
+placement still find the folder through this handler. Joining the split id whole pointed both
+at `00010000/00010000/524d4745`.
+
+### Wii U (`WiiUFolderHandler`)
+
+`WiiUFolderHandler` is the same `CategorySplitFolderHandler` over `0005xxxx` categories, plus
+the user-folder archive shape below.
+
+`save_id` is `FOLDER_SPLIT`, the title id split as `00050000/1012bd00`. Cemu's base is
+already the category directory, `mlc01/usr/save/00050000`, so only the low half names the
+folder:
+
+```
+<base>/<low id>
+  meta/
+  user/<persistent id>/...
+  user/common/...
+```
+
+The low half is the last eight characters of the id, so the split form, the flat
+`000500001012bd00` and the low id alone all resolve to the same folder, in lowercase as
+Cemu writes it. The category is the high half of a full id. When it differs from the
+category directory the base ends in, the folder is its sibling: a demo id
+`00050002/<low id>` resolves to `mlc01/usr/save/00050002/<low id>`. A low id alone carries
+no category and stays under the base. Before this handler the split id was joined onto the base whole, which
+pointed every restore at `00050000/00050000/1012bd00` and never found the save Cemu
+actually wrote.
+
+An archive comes in one of two shapes. Argosy uploads the title folder under its own
+name (`1012bd00/meta`, `1012bd00/user`), which matches exactly. Other clients upload the
+contents of `user` (`80000001/`, `common/`): those roots name no title, so the archive
+is placed on the resolved destination, each root under the title's `user` folder. An archive
+with any other root, such as a different title's folder, is refused.
 
 ### GameCube (`GciSaveHandler`)
 
@@ -322,47 +376,54 @@ not been read from the app, and a guessed path resolves to a directory the
 emulator never writes. `EmulatorRegistry` still routes `xbox360` to `ax360e`
 and `ax360e_free`, so AX360E launches games but does not sync their saves.
 
-### Xbox (the path names an image, not a folder)
+### Xbox (`XboxSaveHandler`, root only)
 
-The one platform whose save is not a host file. Saves are written to
-`E:\UDATA\<save_id>\` inside a FATX filesystem inside the disk image the
-emulator boots, and `save_id` here is the raw hex title id the console names
-the directory after, not the `MS-100` serial printed on the disc.
+`save_id` is the raw hex title id from the XBE certificate, not the `MS-100`
+serial printed on the disc. The game writes its save to `E:\UDATA\<save_id>\`.
 
-`hakux`'s `defaultPaths` names the directory holding that image, not the saves:
+hakuX 1.x runs its own core and keeps E: as host folders in its private app
+storage (`NativeCoreActivity.hddDir()` is `File(filesDir, "native/hdd")`, and
+no setting moves it):
 
 ```
-{extStorage}/Android/data/com.rfandango.haku_x/files/x1box
+/data/data/com.rfandango.haku_x/files/native/hdd/Partition1/UDATA/<save_id>/
 ```
 
-hakuX ingests the flash ROM, MCPX and hard disk into that directory during
-setup, renaming them to `flash.bin`, `mcpx.bin` and `hdd.img`, and boots from
-its own copies. The file is qcow2 despite the `.img` name, so the reader checks
-the `QFI\xfb` magic rather than trusting the extension.
+hakuX names the folders in lower case and its core matches them in any case, so
+lookup is case-insensitive and a new folder is written in lower case.
 
-Two layers sit between the path and the save. `Qcow2Image` maps guest offsets
-through the L1 and L2 tables, and `FatxVolume` reads the filesystem inside. The
-E: partition begins at sector `0x55F400` on every Xbox-shaped image and runs to
-the end of the disk, which is upstream-exact and must not be recomputed.
+Only the vendor root daemon reaches that folder, so the config is
+`requiresRoot`. `XboxSaveHandler` copies the title's folder through root into
+`cache/xbox-saves/<save_id>` and hands that to the ordinary folder pipeline. It
+restages on every read, because hakuX writes the folder without telling us. On
+restore it unpacks into the staging folder, then root-copies the tree back over
+the title's folder, owned by hakuX's uid, dirs 700 and files 600.
 
-`XboxSaveHandler` stages a save out of the image into the app cache and hands
-that directory to the ordinary folder pipeline, then writes the staged tree back
-in on restore. Nothing downstream of the handler knows a container is involved.
-Staging is rebuilt from the image on every read, because the emulator writes the
-image without telling us and a cached copy would upload a stale save.
+hakuX signs saves with a default HD key every install shares, unless the user
+imported their own console's EEPROM, so a save carries between hakuX installs as
+is. The 0.3.x disk image (`x1box/hdd.img`, qcow2) is no longer read.
+`xbox_hdd.qcow2` is retired firmware (`BiosPathRegistry.isRetiredFirmware`):
+firmware sync gives it no row, and `BiosRepository.purgeRetiredFirmware` deletes
+any copy or partial download in Argosy's BIOS folders at every startup. The
+server's copy is left alone.
 
-Writing is in place only. A file must already exist in the image at the same
-size, so a save can be restored over itself but one the emulator has never
-written cannot be introduced. Growing a file or creating one needs cluster
-allocation, which means updating the qcow2 refcount tables, and a mistake there
-damages an image the user cannot rebuild.
+### Dreamcast (`DreamcastSaveHandler`)
 
-The image is also registered in `BiosPathRegistry` under the firmware name
-`xbox_hdd.qcow2`, mapped to `hdd.img` on disk and listed in
-`writeOnceFileNames`, so BIOS
-redistribution never copies a fresh one over it. Every other firmware entry is a
-static blob where overwriting is harmless; this one is a volume the user's saves
-live inside.
+`save_id` is the disc's IP.BIN product number. Port A1's card is named after it,
+with each of ` /\:*?|<>` replaced by `_` (standalone also replaces `"`):
+
+```
+built-in flycast core   <save dir>/T13301N.A1.bin
+standalone Flycast      <VMU folder>/T13301N_vmu_save_A1.bin
+```
+
+The standalone names come from `hostfs::getVmuPath` in Flycast's
+`core/oslib/oslib.cpp`. The VMU folder is `Dreamcast.VMUPath` from `emu.cfg`
+when it is set, else Flycast's `data` folder. `emu.cfg` sits beside `data`. With
+`PerGameVmu` off, every game shares `vmu_save_A1.bin`, and only Sigil's
+`flycast_standalone` layout can sort that card's saves by game.
+`FlycastStandaloneConfig` reads both settings. `DreamcastSaveHandler.standalone`
+names the file when Sigil doesn't route the save.
 
 ### RetroArch and the file-based default
 
@@ -375,6 +436,13 @@ Not id-derived at all. The save is named for the ROM, not the title:
 `RetroArchSaveHandler` resolves `<base>` through the core name and
 `retroarch.cfg`, including the `savefiles_in_content_dir` case where the save
 sits beside the ROM.
+
+A multi-disc game on a playlist platform (psx, saturn, dreamcast, dc, amiga) is
+launched through `<folder>.m3u`, which `M3uManager` writes for whichever discs
+are on disk, even one. Emulators name the save after that playlist, so the
+game's `localPath` is the playlist and `<rom name>` above is the playlist's name
+whichever discs are present. The game's title id is RomM's, read from the first
+disc; a local read only ever takes disc 1.
 
 ## What wiring the three actually took
 

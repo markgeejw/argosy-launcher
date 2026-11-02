@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.nendo.argosy.ui.util.verticalEdgeFade
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.nendo.argosy.domain.model.AutoGridConfig
 import com.nendo.argosy.domain.model.HomeScrollAxis
 import com.nendo.argosy.ui.common.GridDirection
@@ -170,7 +171,9 @@ fun HomeAutoGrid(
                     onCoverLoadFailed = onCoverLoadFailed,
                     onCoverLoaded = onCoverLoaded,
                     onPosterLoaded = onPosterLoaded,
-                    modifier = entry?.modifierFor(item.key) ?: Modifier
+                    modifier = Modifier
+                        .zIndex(if (index == focusedIndex) FOCUSED_CELL_Z else 0f)
+                        .then(entry?.modifierFor(item.key) ?: Modifier)
                 )
             }
             when (config.scrollAxis) {
@@ -497,3 +500,5 @@ private fun AutoGridCell(
         }
     }
 }
+
+private const val FOCUSED_CELL_Z = 1f

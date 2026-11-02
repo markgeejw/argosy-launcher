@@ -94,7 +94,6 @@
     <string name="settings_shell_header_accounts">अकाउंट</string>
     <string name="settings_shell_header_saves">सेव</string>
     <string name="settings_shell_header_sync_settings">सिंक सेटिंग्स</string>
-    <string name="settings_shell_header_steam">STEAM (प्रायोगिक)</string>
     <string name="settings_shell_header_storage">स्टोरेज</string>
     <string name="settings_shell_header_storage_games">गेम्स स्टोरेज</string>
     <string name="settings_shell_header_storage_media">मीडिया स्टोरेज</string>
@@ -184,6 +183,11 @@
     <string name="settings_shell_modal_import_settings_message">बैकअप फ़ाइल चुनें और उसमें नामित सेटिंग्स आपकी सेटिंग्स की जगह ले लेंगी। फ़ाइल जो छोड़ती है वह अछूता रहेगा, और अकाउंट, सर्वर, सिंक स्टेटस और फ़ाइल लोकेशन कभी नहीं लाए जाते।</string>
     <string name="settings_shell_modal_import_settings_confirm">फ़ाइल चुनें</string>
 
+    <string name="settings_shell_modal_accessibility_title">एक्सेसिबिलिटी चालू करें</string>
+    <string name="settings_shell_modal_accessibility_message">जब कोई दूसरा एमुलेटर खुला हो, तब वापस बटन देखने के लिए Argosy अपनी एक्सेसिबिलिटी सेवा का उपयोग करता है। Android चेतावनी देगा कि यह आपके टाइप किए गए को देख सकती है; Argosy गेम के दौरान केवल वापस बटन पर नज़र रखता है।</string>
+    <string name="settings_shell_modal_accessibility_confirm">सेटिंग्स खोलें</string>
+    <string name="settings_shell_modal_accessibility_not_now">अभी नहीं</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">डाउनलोड माइग्रेट करें?</string>
     <string name="settings_shell_modal_migrate_downloads_message">%1$d गेम (%2$s) नई लोकेशन पर ले जाएँ?</string>
     <string name="settings_shell_modal_migrate_downloads_confirm">माइग्रेट करें</string>
@@ -199,9 +203,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">प्लेटफ़ॉर्म</string>
     <string name="settings_shell_modal_purge_platform_message">इससे सभी %1$d गेम और उनकी लोकल ROM फ़ाइलें हट जाएँगी। यह पूर्ववत नहीं किया जा सकता।</string>
     <string name="settings_shell_modal_purge_platform_confirm">पर्ज करें</string>
+    <string name="settings_shell_modal_purge_disabled_title">क्या %1$s को इस डिवाइस से भी हटाएँ?</string>
+    <string name="settings_shell_modal_purge_disabled_message">इसके %1$d गेम अब छिपे हुए हैं। पर्ज करने से वे और उनकी लोकल ROM फ़ाइलें भी हट जाएँगी। यह पूर्ववत नहीं किया जा सकता।</string>
+    <string name="settings_shell_modal_purge_disabled_keep">फ़ाइलें रखें</string>
 
     <string name="settings_shell_modal_sync_first_title">पहले सेव सिंक करें</string>
     <string name="settings_shell_modal_sync_first_message">पहले सेव सिंक करें - %1$d लंबित हैं। अभी लाइब्रेरी रीसेट करने से वे सेव हमेशा के लिए मिट जाएँगे जो अपलोड नहीं हुए हैं।</string>
+    <string name="settings_shell_modal_purge_sync_first_message">पहले सेव सिंक करें - %1$d लंबित हैं। अभी यह प्लेटफ़ॉर्म हटाने से वे सेव हमेशा के लिए मिट जाएँगे जो अपलोड नहीं हुए हैं। सिंक पूरा होने के बाद हटाने का संकेत फिर से दिखेगा।</string>
     <string name="settings_shell_modal_sync_first_confirm">अभी सिंक करें</string>
 
     <string name="settings_shell_modal_reset_library_title">लाइब्रेरी रीसेट करें?</string>
@@ -368,8 +376,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">इससे डाउनलोड किए गए कैटलॉग शेडर हट जाएँगे। कस्टम शेडर बने रहेंगे, और कैटलॉग शेडर मांगे जाने पर फिर से डाउनलोड होंगे।</string>
     <string name="settings_shell_caches_frames_title">फ़्रेम ओवरले साफ़ करें?</string>
     <string name="settings_shell_caches_frames_message">इससे डाउनलोड किए गए फ़्रेम ओवरले हट जाएँगे। चुने जाने पर वे मांगे जाने पर फिर से डाउनलोड होंगे।</string>
-    <string name="settings_shell_caches_steam_downloads_title">Steam डाउनलोड डेटा साफ़ करें?</string>
-    <string name="settings_shell_caches_steam_downloads_message">इससे स्टेज किए गए Steam डाउनलोड हट जाएँगे और डाउनलोड क्यू साफ़ हो जाएगी। इंस्टॉल किए गए गेम प्रभावित नहीं होंगे, लेकिन आधे-अधूरे डाउनलोड शुरू से चालू होंगे।</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 
@@ -537,4 +543,5 @@
     <string name="settings_shell_footer_play_time_move">ले जाएं</string>
     <string name="settings_shell_footer_play_time_open">खोलें</string>
     <string name="settings_shell_footer_play_time_sort">क्रम</string>
+    <string name="settings_shell_footer_play_time_delete">रिकॉर्ड हटाएँ</string>
 </resources>

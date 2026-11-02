@@ -60,19 +60,7 @@ fun AddFriendModal(
         }
     }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, inputHandler) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                inputDispatcher.pushModal(inputHandler)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            inputDispatcher.removeModal(inputHandler)
-        }
-    }
+    com.nendo.argosy.ui.input.ModalInputEffect(active = true, handler = inputHandler, inputDispatcher = inputDispatcher)
 
     NestedModal(
         title = stringResource(R.string.ui_add_friend_title),

@@ -41,6 +41,7 @@ fun SyncProgress.statusMessage(): String = when (this) {
         false -> stringResource(R.string.sync_prelaunch_write_failed)
     }
     is SyncProgress.PreLaunch.Launching -> stringResource(R.string.sync_prelaunch_launching)
+    is SyncProgress.PreLaunch.TimedOut -> stringResource(R.string.sync_prelaunch_timed_out)
     is SyncProgress.PostSession.CheckingSave -> when (found) {
         null -> stringResource(R.string.sync_postsession_checking_save)
         true -> stringResource(R.string.sync_postsession_save_found)

@@ -38,7 +38,7 @@ data class SaveChannelState(
     val renameText: String = "",
     val renameMode: RenameMode = RenameMode.SAVE_AS,
     val showDeleteConfirmation: Boolean = false,
-    val deleteSelectedEntry: UnifiedSaveEntry? = null,
+    val deleteTarget: SaveDeleteTarget? = null,
     val showVersionMismatchDialog: Boolean = false,
     val versionMismatchState: UnifiedStateEntry? = null,
     val showStateDeleteConfirmation: Boolean = false,
@@ -90,6 +90,16 @@ data class SaveChannelState(
         get() = selectedTab == SaveTab.SAVES &&
             saveFocusColumn == SaveFocusColumn.SLOTS &&
             focusedSlot?.let { !it.isCreateAction && it.channelName != null } == true
+
+    val canDeleteArchived: Boolean
+        get() = selectedTab == SaveTab.SAVES &&
+            saveFocusColumn == SaveFocusColumn.SLOTS &&
+            focusedSlot?.isArchivedBucket == true
+
+    val canDeleteVersion: Boolean
+        get() = selectedTab == SaveTab.SAVES &&
+            saveFocusColumn == SaveFocusColumn.HISTORY &&
+            focusedHistoryItem?.isDeletable == true
 
     val canRenameSlot: Boolean
         get() = selectedTab == SaveTab.SAVES &&

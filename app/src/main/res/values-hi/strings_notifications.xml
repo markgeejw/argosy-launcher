@@ -28,7 +28,6 @@
     <string name="notif_storage_hardreset_blocked_active_session">रीसेट करने से पहले चल रहा गेम बंद करें</string>
     <string name="notif_storage_hardreset_blocked_active_downloads">रीसेट करने से पहले गेम डाउनलोड रद्द करें</string>
     <string name="notif_storage_hardreset_blocked_emulator_download">पहले एमुलेटर डाउनलोड पूरा होने का इंतज़ार करें</string>
-    <string name="notif_storage_hardreset_blocked_steam_download">रीसेट करने से पहले Steam डाउनलोड रद्द करें</string>
     <string name="notif_storage_hardreset_blocked_media_download">रीसेट करने से पहले मूवी या एपिसोड डाउनलोड रद्द करें</string>
     <string name="notif_storage_hardreset_pending_uploads_none">रीसेट करने से पहले लंबित सेव अपलोड सिंक करें</string>
     <string name="notif_storage_hardreset_pending_uploads_one">रीसेट करने से पहले %1$s के लंबित सेव अपलोड सिंक करें</string>
@@ -36,11 +35,6 @@
     <string name="notif_storage_hardreset_success">हार्ड रीसेट पूर्ण, हटाई गई फ़ाइलों का रिकॉर्ड सहेजा गया - अपनी लाइब्रेरी फिर से बनाने के लिए सिंक करें</string>
     <string name="notif_storage_hardreset_failed">हार्ड रीसेट विफल - %1$s</string>
     <string name="notif_storage_hardreset_failed_default_detail">फिर कोशिश करें</string>
-
-    <!-- Steam content downloads (SteamContentManager). -->
-
-    <string name="notif_steam_path_not_accessible">इंस्टॉल पाथ एक्सेस नहीं हो सका: %1$s</string>
-    <string name="notif_steam_storage_blocked_subtitle">पर्याप्त स्टोरेज नहीं (%1$dMB खाली, %2$dMB चाहिए)</string>
 
     <!-- Friend presence notifications (SocialRepository). -->
 
@@ -63,10 +57,8 @@
 
     <string name="notif_storage_caches_emulator_busy_precheck">पहले एमुलेटर डाउनलोड पूरा होने का इंतज़ार करें</string>
     <string name="notif_storage_caches_driver_busy">पहले ड्राइवर डाउनलोड पूरा होने का इंतज़ार करें</string>
-    <string name="notif_storage_caches_steam_busy_precheck">पहले Steam डाउनलोड रद्द करें</string>
     <string name="notif_storage_caches_rom_extraction_busy">गेम चलते समय एक्सट्रैक्ट किए गए ROM साफ़ नहीं किए जा सकते</string>
     <string name="notif_storage_caches_emulator_busy_runclear">पहले एमुलेटर डाउनलोड पूरा होने का इंतज़ार करें</string>
-    <string name="notif_storage_caches_steam_busy_runclear">पहले Steam डाउनलोड रद्द करें</string>
 
     <!-- Settings: manual save sync and image cache relocation (SyncSettingsDelegate). -->
 
@@ -101,15 +93,12 @@
 
     <string name="notif_steam_settings_gamenative_unconfigured">कोई GameNative फ़ोल्डर कॉन्फ़िगर नहीं है</string>
     <string name="notif_steam_settings_gamenative_scan_title">GameNative लाइब्रेरी</string>
-    <string name="notif_steam_settings_install_path_changed_title">इंस्टॉल पाथ बदला गया</string>
-    <plurals name="notif_steam_settings_install_path_changed_subtitle">
-        <item quantity="one">%1$d डाउनलोड जो चल रहा है वह अपनी मूल लोकेशन पर पूरा होगा। नए डाउनलोड नए टारगेट का उपयोग करेंगे।</item>
-        <item quantity="other">%1$d डाउनलोड जो चल रहे हैं वे अपनी मूल लोकेशन पर पूरे होंगे। नए डाउनलोड नए टारगेट का उपयोग करेंगे।</item>
-    </plurals>
     <string name="notif_steam_settings_launcher_download_failed">डाउनलोड विफल: %1$s</string>
     <string name="notif_steam_settings_library_reset">%1$d Steam गेम हटाए गए</string>
     <string name="notif_steam_settings_game_added">जोड़ा गया: %1$s</string>
     <string name="notif_steam_settings_library_synced">%1$d Steam गेम जोड़े गए</string>
+    <string name="notif_steam_settings_metadata_refreshed">%1$d Steam गेम रीफ़्रेश किए गए</string>
+    <string name="notif_steam_settings_metadata_refresh_failed">Steam मेटाडेटा रीफ़्रेश नहीं हो सका: %1$s</string>
 
     <!-- Settings: Jellyfin media library sync (JellyfinSettingsDelegate). -->
 
@@ -159,8 +148,14 @@
     <!-- Game launch failures (GameLaunchDelegate). -->
 
     <string name="notif_gamelaunch_no_emulator">इस प्लेटफ़ॉर्म के लिए कोई एमुलेटर इंस्टॉल्ड नहीं है</string>
+    <string name="notif_gamelaunch_busy_syncing">सिंक अभी चल रहा है। थोड़ी देर में फिर कोशिश करें।</string>
+    <string name="notif_gamelaunch_busy_launching">एक और गेम अभी शुरू हो रहा है</string>
     <string name="notif_gamelaunch_no_rom_file">ROM फ़ाइल नहीं मिली</string>
     <string name="notif_gamelaunch_no_steam_launcher">Steam लॉन्चर इंस्टॉल्ड नहीं है</string>
+    <string name="notif_gamelaunch_no_steam_launcher_installed">कोई Steam लॉन्चर इंस्टॉल नहीं है। सेटिंग्स &gt; Steam में एक इंस्टॉल करें।</string>
+    <string name="notif_steam_link_no_launcher_installed">कोई Steam लॉन्चर इंस्टॉल नहीं है। सेटिंग्स &gt; Steam में एक इंस्टॉल करें।</string>
+    <string name="notif_gamelaunch_steam_launcher_unavailable">Steam लॉन्चर उपलब्ध नहीं है। गेम विवरण &gt; लॉन्चर बदलें में एक लॉन्चर चुनें।</string>
+    <string name="notif_gamelaunch_steam_launcher_updating">लॉन्चर अपडेट हो रहा है। थोड़ी देर बाद फिर कोशिश करें।</string>
     <string name="notif_gamelaunch_no_core_base">%1$s के लिए कोई कोर उपलब्ध नहीं है</string>
     <string name="notif_gamelaunch_no_core_with_reason">%1$s के लिए कोई कोर उपलब्ध नहीं है: %2$s</string>
     <string name="notif_gamelaunch_missing_discs">गायब डिस्क: %1$s। ठीक करने के लिए गेम विवरण देखें।</string>
@@ -217,6 +212,7 @@
     <string name="notif_review_saved">समीक्षा पोस्ट हुई</string>
     <string name="notif_review_deleted">समीक्षा हटाई गई</string>
     <string name="notif_review_error_offline">Argosy Social से कनेक्ट नहीं है</string>
+    <string name="notif_social_error_offline">Argosy Social से कनेक्ट नहीं है</string>
     <string name="notif_review_error_too_long">समीक्षा बहुत लंबी है</string>
     <string name="notif_review_error_invalid">सर्वर समीक्षा को पढ़ नहीं सका</string>
     <string name="notif_review_error_server">सर्वर समीक्षा को सहेज नहीं सका</string>

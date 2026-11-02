@@ -109,6 +109,9 @@
     <string name="settings_interface_hide_system_nav_bar_subtitle">隐藏 Android 的返回、主屏幕和最近任务按钮或手势条。从边缘滑动即可显示</string>
     <string name="settings_interface_hide_system_status_bar_title">隐藏系统状态栏</string>
     <string name="settings_interface_hide_system_status_bar_subtitle">隐藏 Android 状态栏和通知图标。从顶部向下滑动即可显示</string>
+    <string name="settings_interface_quick_panel_in_emulators_title">在其他模拟器中使用快捷面板</string>
+    <string name="settings_interface_quick_panel_in_emulators_subtitle">在 Argosy 启动的模拟器中长按返回即可打开快捷面板。需要 Argosy 的无障碍服务</string>
+    <string name="settings_interface_quick_panel_in_emulators_service_off">无障碍服务已关闭。请在权限中开启</string>
     <string name="settings_interface_lock_screen_art_title">锁屏图片</string>
     <string name="settings_interface_lock_screen_art_subtitle">当 Argosy 是你的主屏幕应用时，锁屏会显示你的游戏库或未退出的游戏。会永久替换你的锁屏壁纸。</string>
     <string name="settings_interface_home_app_title">可用作主屏幕应用</string>
@@ -175,6 +178,7 @@
     <string name="settings_installers_error_download">下载失败</string>
     <string name="settings_installers_error_rate_limited">GitHub 正在限制请求，请稍后重试</string>
     <string name="settings_installers_error_not_found">无法访问该仓库</string>
+    <string name="settings_installers_error_wrong_package">下载的是与预期不同的应用</string>
     <string name="settings_installers_ime_enable_title">在系统设置中启用</string>
     <string name="settings_installers_ime_enable_subtitle">Android 要求在系统设置中启用键盘</string>
     <string name="settings_installers_ime_select_title">选择当前键盘</string>
@@ -192,6 +196,8 @@
     <string name="settings_navigation_swap_xy_subtitle">交换上下文菜单与次要操作</string>
     <string name="settings_navigation_swap_start_select_title">交换Start/Select</string>
     <string name="settings_navigation_swap_start_select_subtitle">互换Start与Select按钮的功能</string>
+    <string name="settings_navigation_ignore_controller_touchpad_title">游戏中忽略触摸板</string>
+    <string name="settings_navigation_ignore_controller_touchpad_subtitle">游戏运行时，手柄触摸板无法点击启动器</string>
 
     <string name="settings_navigation_haptic_title">震动反馈</string>
     <string name="settings_navigation_vibration_title">震动强度</string>
@@ -237,6 +243,8 @@
         <item quantity="other">%d分钟</item>
     </plurals>
     <string name="settings_displays_dim_level_title">变暗程度</string>
+    <string name="settings_displays_lid_sleep_title">合盖时休眠</string>
+    <string name="settings_displays_lid_sleep_subtitle">若合盖后按键将设备唤醒，则让其重新休眠</string>
 
     <string name="settings_displays_dual_screen_title">启用双屏模式</string>
     <string name="settings_displays_dual_screen_subtitle">将副屏用作伴侣屏幕</string>
@@ -244,6 +252,8 @@
 
     <string name="settings_displays_display_roles_title">操作屏幕</string>
     <string name="settings_displays_display_roles_subtitle">菜单打开的那块屏幕；另一块显示你正在看的内容</string>
+    <string name="settings_displays_match_screen_size_title">游戏屏幕同尺寸</string>
+    <string name="settings_displays_match_screen_size_subtitle">DS 的两块屏幕以相同尺寸显示，并在转轴处相接</string>
     <string name="settings_displays_display_roles_auto">自动</string>
     <string name="settings_displays_display_roles_standard">伴侣屏幕</string>
     <string name="settings_displays_display_roles_swapped">主屏幕</string>
@@ -612,6 +622,8 @@
     <string name="settings_permissions_screen_capture_description">使氛围LED灯光能够在游戏过程中采集屏幕颜色。</string>
     <string name="settings_permissions_display_overlay_title">悬浮在其他应用上层</string>
     <string name="settings_permissions_display_overlay_description">在外部模拟器中游戏时显示存档检测通知。</string>
+    <string name="settings_permissions_accessibility_title">无障碍服务</string>
+    <string name="settings_permissions_accessibility_description">让快捷面板可在其他模拟器上方打开，并可静默截取存档截图</string>
     <string name="settings_permissions_live_wallpaper_title">动态锁屏</string>
     <string name="settings_permissions_live_wallpaper_description">允许 Argosy 应用动态锁屏。</string>
     <string name="settings_lock_screen_wallpaper_label">Argosy 游戏库</string>
@@ -871,7 +883,7 @@
         <item quantity="other">%d个文件</item>
     </plurals>
     <string name="settings_storage_steam_tile_title">Steam与PC</string>
-    <string name="settings_storage_steam_tile_subtitle">商店、安装内容与暂存文件</string>
+    <string name="settings_storage_steam_tile_subtitle">商店与安装内容</string>
 
     <string name="settings_storage_rom_path_title">全局ROM路径</string>
     <string name="settings_storage_rom_path_free">剩余%1$s</string>
@@ -1088,10 +1100,6 @@
     <string name="settings_caches_frames_busy">正在清除...</string>
     <string name="settings_caches_frames_subtitle">已下载的边框 - 按需重新下载</string>
 
-    <string name="settings_caches_steam_clear_title">清除下载数据</string>
-    <string name="settings_caches_steam_clear_busy">正在清除...</string>
-    <string name="settings_caches_steam_clear_blocked">请先取消Steam下载</string>
-    <string name="settings_caches_steam_clear_subtitle">移除暂存的下载内容与队列 - 已安装的游戏保留</string>
 
     <string name="settings_caches_info_artwork_title">美术资源缓存</string>
     <string name="settings_caches_info_artwork_subtitle">海报、背景图及其他在线美术资源 - 按需重新下载</string>
@@ -1110,9 +1118,6 @@
     </plurals>
     <string name="settings_caches_info_steam_total_title">Steam与PC总计</string>
     <string name="settings_caches_info_steam_total_subtitle">包含已安装的商店游戏</string>
-    <string name="settings_caches_info_steam_staging_title">下载暂存</string>
-    <string name="settings_caches_info_steam_staging_subtitle">等待部署的未完成下载</string>
-    <string name="settings_caches_info_steam_staging_computing">正在计算...</string>
 
     <!-- ===== Steam section ===== -->
 
@@ -1128,10 +1133,6 @@
     <string name="settings_steam_gn_storage_warning_title">外部存储</string>
     <string name="settings_steam_gn_storage_warning_value">打开GameNative，在设置中启用"Write to external storage"</string>
 
-    <string name="settings_steam_install_path_title">安装路径</string>
-    <string name="settings_steam_install_path_title_custom">安装路径 (自定义)</string>
-    <string name="settings_steam_install_path_change">更改</string>
-    <string name="settings_steam_install_triage_title">已安装的游戏</string>
     <string name="settings_steam_account_title">Steam账户</string>
     <string name="settings_steam_account_connected">已连接</string>
 
@@ -1139,7 +1140,7 @@
     <string name="settings_steam_sync_idle">从Steam同步已拥有的游戏</string>
     <string name="settings_steam_sync_licenses">正在同步授权信息...</string>
     <string name="settings_steam_sync_packages">正在获取包 (%1$d/%2$d)...</string>
-    <string name="settings_steam_sync_apps">正在获取游戏 (%1$d/%2$d)...</string>
+    <string name="settings_steam_sync_apps">正在检查应用 (%1$d/%2$d)...</string>
     <string name="settings_steam_sync_complete">新增%1$d个，更新%2$d个</string>
     <string name="settings_steam_sync_error">错误：%1$s</string>
 
@@ -1171,11 +1172,11 @@
     <string name="settings_steam_reset_library_subtitle">移除所有已同步的Steam游戏</string>
 
     <string name="settings_steam_gn_required_title">需要GameNative</string>
-    <string name="settings_steam_gn_required_message">Steam游戏由Argosy下载，并通过GameNative启动。请先安装GameNative并在其设置中启用外部存储，然后再继续。</string>
+    <string name="settings_steam_gn_required_message">Steam游戏通过GameNative、DroidDeck或GameHub安装和启动。请先安装其中一个应用，然后再继续。</string>
     <string name="settings_steam_gn_required_action">安装GameNative</string>
 
     <string name="settings_steam_login_title">登录Steam</string>
-    <string name="settings_steam_login_message">连接你的Steam账户以同步库并下载游戏。</string>
+    <string name="settings_steam_login_message">连接你的Steam账户以同步库。</string>
     <string name="settings_steam_login_action">连接</string>
     <string name="settings_steam_connecting">正在连接...</string>
 
@@ -1437,6 +1438,8 @@
 
     <string name="settings_builtin_controls_rumble_title">震动</string>
     <string name="settings_builtin_controls_rumble_subtitle">启用手柄震动反馈</string>
+    <string name="settings_builtin_controls_motion_title">体感操控</string>
+    <string name="settings_builtin_controls_motion_subtitle">允许游戏读取设备的倾斜和旋转</string>
     <string name="settings_builtin_controls_order_title">手柄顺序</string>
     <string name="settings_builtin_controls_order_subtitle">在每个手柄上按一个按钮以设置玩家顺序</string>
     <plurals name="settings_builtin_controls_order_assigned">
@@ -1446,6 +1449,7 @@
     <string name="settings_builtin_controls_mapping_subtitle">为每个手柄重新映射按键</string>
     <string name="settings_builtin_controls_controller_type_title">玩家 %1$d 控制器</string>
     <string name="settings_builtin_controls_controller_type_subtitle">游戏识别到的控制器。下次启动游戏时生效。</string>
+    <string name="settings_builtin_controls_controller_type_auto">自动 (%1$s)</string>
 
     <string name="settings_builtin_controls_analog_as_dpad_title">左摇杆模拟方向键</string>
     <string name="settings_builtin_controls_analog_as_dpad_subtitle">将左摇杆映射为方向键输入</string>
@@ -1456,6 +1460,11 @@
     <string name="settings_builtin_controls_hotkeys_subtitle">配置菜单、快进、回退的快捷键</string>
     <string name="settings_builtin_controls_limit_hotkeys_title">快捷键仅限1号玩家</string>
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">只有1号玩家的手柄可以触发快捷键</string>
+    <string name="settings_builtin_controls_select_as_back_title">Select 识别为返回</string>
+    <string name="settings_builtin_controls_select_as_back_subtitle">适用于按 Select 会发送返回键的手柄。自动模式会在没有 Select 键的手柄上把返回键当作 Select。</string>
+    <string name="settings_builtin_controls_select_as_back_auto">自动</string>
+    <string name="settings_builtin_controls_select_as_back_on">开</string>
+    <string name="settings_builtin_controls_select_as_back_off">关</string>
     <string name="settings_builtin_controls_toggle_ff_title">切换式快进</string>
     <string name="settings_builtin_controls_toggle_ff_subtitle">按一次开始，再按一次停止（关闭则需按住才能快进）</string>
     <string name="settings_builtin_controls_ff_pitch_title">保持音调</string>
@@ -1711,6 +1720,8 @@
     <string name="settings_platform_sync_toggle_subtitle">在库同步中包含此平台</string>
     <string name="settings_platform_combine_content_title">合并内容</string>
     <string name="settings_platform_combine_content_subtitle">所有游戏放在同一文件夹，所有更新与DLC放在extcontent中</string>
+    <string name="settings_platform_skip_full_sync_title">完整同步时跳过</string>
+    <string name="settings_platform_skip_full_sync_subtitle">增量同步仍会检查其变更</string>
     <string name="settings_platform_sync_now_title">立即同步</string>
     <string name="settings_platform_sync_now_busy">正在同步...</string>
     <string name="settings_platform_sync_now_subtitle">与RomM同步此平台</string>
@@ -1788,6 +1799,9 @@
     <string name="settings_library_layout_title">布局</string>
     <string name="settings_library_layout_grid">网格</string>
     <string name="settings_library_layout_list">列表</string>
+    <string name="settings_library_list_style_title">列表样式</string>
+    <string name="settings_library_list_style_relaxed">宽松</string>
+    <string name="settings_library_list_style_compact">紧凑</string>
     <string name="settings_library_box_art_title">封面图</string>
     <string name="settings_library_box_art_subtitle">为有 3D 盒装图的游戏显示 3D 盒装</string>
     <string name="settings_library_box_art_option_2d">2D 封面</string>
@@ -1863,6 +1877,8 @@
     <string name="settings_hotkeys_action_skip_split">跳过分段</string>
     <string name="settings_hotkeys_action_toggle_timer">开始/暂停计时</string>
     <string name="settings_hotkeys_action_reset_timer">重置计时器</string>
+    <string name="settings_hotkeys_action_sun_brighter">增强阳光</string>
+    <string name="settings_hotkeys_action_sun_dimmer">减弱阳光</string>
 
     <!-- ===== Input mapping modal ===== -->
 
@@ -2139,12 +2155,10 @@
     <!-- ===== Controller order modal ===== -->
 
     <string name="settings_controller_order_title">手柄顺序</string>
-    <string name="settings_controller_order_subtitle">按下手柄上的按钮即可找到它。</string>
+    <string name="settings_controller_order_prompt">在要使用的手柄上按 %1$s + %2$s 或 %3$s</string>
+    <string name="settings_controller_order_ready">准备好后按 %1$s</string>
     <string name="settings_controller_order_hint_clear_all">全部清除</string>
     <string name="settings_controller_order_default_name">手柄</string>
-    <string name="settings_controller_order_slot_label">P%1$d</string>
-    <string name="settings_controller_order_seat_none">无</string>
-    <string name="settings_controller_order_empty">未连接手柄</string>
 
     <!-- ===== Grip controller modal ===== -->
 
@@ -2275,7 +2289,6 @@
     <string name="settings_accounts_delegate_blocker_external_game">%1$s在%2$d秒前仍在前台运行。请完全退出后再试。</string>
     <string name="settings_accounts_delegate_blocker_active_downloads">游戏下载仍在进行。请等待完成或取消下载。</string>
     <string name="settings_accounts_delegate_blocker_emulator_download">模拟器下载仍在进行。请等待完成或取消下载。</string>
-    <string name="settings_accounts_delegate_blocker_steam_download">Steam下载仍在进行。请等待完成或取消下载。</string>
     <string name="settings_accounts_delegate_blocker_media_download">有影片或剧集仍在下载。请等待完成或取消下载。</string>
     <string name="settings_accounts_delegate_blocker_library_sync">库同步正在进行。请等待其完成后再试。</string>
     <string name="settings_accounts_delegate_blocker_netplay_session">联机对战会话处于打开状态。请退出后再试。</string>
@@ -2285,7 +2298,6 @@
     <!-- ===== Steam settings delegate ===== -->
 
     <string name="settings_steam_delegate_invalid_app_id">请输入有效的Steam App ID</string>
-    <string name="settings_steam_delegate_volume_other_label">其他</string>
 
     <!-- ===== Jellyfin settings delegate ===== -->
 
@@ -2432,6 +2444,7 @@
     <string name="settings_libretro_def_audio_volume_subtitle" formatted="false">模拟器输出电平 (100%是未经调整的水平)</string>
     <string name="settings_libretro_def_vsync_title">垂直同步</string>
     <string name="settings_libretro_def_vsync_subtitle">与显示屏刷新率同步</string>
+    <string name="settings_libretro_applies_next_launch">下次启动游戏时生效</string>
     <string name="settings_libretro_def_auto_save_state_title">退出时保存即时存档</string>
     <string name="settings_libretro_def_auto_save_state_subtitle">仅适用于休闲模式游戏</string>
     <string name="settings_libretro_def_auto_restore_state_title">启动时恢复即时存档</string>
@@ -2573,6 +2586,9 @@
     </plurals>
     <string name="settings_play_time_romm_refresh_stopped">刷新已中止：%s</string>
     <string name="settings_play_time_list_unknown_game">未知游戏</string>
+    <string name="settings_play_time_delete_title">删除游玩记录？</string>
+    <string name="settings_play_time_delete_message">%1$s 在此设备上的全部游玩记录将被删除。此前的游玩会话不会再同步回来。</string>
+    <string name="settings_play_time_delete_confirm">删除</string>
     <string name="settings_play_time_list_game_detail">%1$s，上次游玩 %2$s</string>
     <plurals name="settings_play_time_list_sessions">
         <item quantity="other">%d 次会话</item>

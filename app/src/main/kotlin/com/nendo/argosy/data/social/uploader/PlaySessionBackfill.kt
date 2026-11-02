@@ -1,6 +1,8 @@
 package com.nendo.argosy.data.social.uploader
 
+import com.nendo.argosy.data.local.dao.PlayRecordDeletionDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
+import com.nendo.argosy.data.local.dao.cutoffsFor
 import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.remote.romm.ConnectionState
 import com.nendo.argosy.data.remote.romm.RomMConnectionManager
@@ -27,6 +29,7 @@ private const val BATCH_SIZE = 100
 @Singleton
 class PlaySessionBackfill @Inject constructor(
     private val playSessionDao: PlaySessionDao,
+    private val playRecordDeletionDao: PlayRecordDeletionDao,
     private val uploader: RomMPlaySessionUploader,
     private val syncPreferencesRepository: SyncPreferencesRepository,
     private val connectionManager: RomMConnectionManager,
@@ -54,6 +57,7 @@ class PlaySessionBackfill @Inject constructor(
         val ownerUserId = syncPreferencesRepository.getRommUserId()
         val relinked = playSessionDao.relinkOrphans(ownerUserId)
         if (relinked > 0) Logger.info(TAG, "run: relinked $relinked sessions to current game rows")
+        val cutoffs = playRecordDeletionDao.cutoffsFor(ownerUserId)
         var afterId = 0L
         var sent = 0
         var duplicates = 0
@@ -61,7 +65,10 @@ class PlaySessionBackfill @Inject constructor(
         while (true) {
             val batch = playSessionDao.getPendingForRomM(ownerUserId, afterId, BATCH_SIZE)
             if (batch.isEmpty()) break
-            when (val result = uploader.upload(batch)) {
+            afterId = batch.last().session.id
+            val sendable = batch.filterNot { cutoffs.blocks(it.session.gameId, it.session.startTime) }
+            if (sendable.isEmpty()) continue
+            when (val result = uploader.upload(sendable)) {
                 is RomMPlaySessionUploader.UploadResult.Success -> {
                     sent += result.sent
                     duplicates += result.duplicates
@@ -76,7 +83,6 @@ class PlaySessionBackfill @Inject constructor(
                     return Summary(sent, duplicates, failed, result.message)
                 }
             }
-            afterId = batch.last().session.id
         }
         syncPreferencesRepository.setRommPlaySessionLastUpload(Instant.now())
         Logger.info(TAG, "run: sent=$sent duplicates=$duplicates failed=$failed")

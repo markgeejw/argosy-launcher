@@ -490,7 +490,7 @@ val hints = buildList {
 | `CenteredModal` | Center-aligned content | 0.7 dark / 0.5 light |
 | `NestedModal` | Secondary modal on top | 0.5 dark / 0.35 light |
 | `ModalScaffold` (`ui/primitives/ModalScaffold.kt`) | V2 scrim + GlassPanel shell; pure visuals, captures no input | 0.55 black |
-| `ArgosyConfirmModalHost` (`ui/primitives/ConfirmModal.kt`) | V2 confirm modal host; pushes onto the modal input stack IMMEDIATELY on open | - |
+| `ArgosyConfirmModalHost` (`ui/primitives/ConfirmModal.kt`) | V2 confirm modal host; pushes onto the modal input stack in the composition that opens it | - |
 
 ### Current Input-Routing Infrastructure (settings)
 

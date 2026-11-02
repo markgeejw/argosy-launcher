@@ -59,36 +59,29 @@ class EmulatorUpdateRepository @Inject constructor(
         private val HEX_PATTERN = Regex("""^[0-9a-fA-F]{7,40}$""")
 
         fun extractVersionFromRelease(release: GitHubRelease): String? {
-            // First try to find a semver-like version in the release name
             VERSION_PATTERN.find(release.name)?.let { match ->
                 return match.groupValues[1]
             }
 
-            // Then try the tag name
             VERSION_PATTERN.find(release.tagName)?.let { match ->
                 return match.groupValues[1]
             }
 
-            // Try APK filenames - often contain version like "app-1.2.3-arm64.apk"
             release.assets
                 .filter { it.name.endsWith(".apk", ignoreCase = true) }
                 .firstNotNullOfOrNull { asset ->
                     VERSION_PATTERN.find(asset.name)?.groupValues?.get(1)
                 }?.let { return it }
 
-            // No semver found
             return null
         }
 
         fun findVersionFromTags(tags: List<GitHubTag>, releaseTagName: String): String? {
-            // If the release tag is a commit hash, find a semver tag pointing to same commit
             val releaseTagHash = releaseTagName.removePrefix("v")
 
-            // First, find the commit SHA for the release tag (it might be in the tags list)
             val releaseTag = tags.find { it.name == releaseTagName }
             val targetSha = releaseTag?.commit?.sha ?: releaseTagHash
 
-            // Look for semver tags pointing to the same commit
             return tags
                 .filter { VERSION_PATTERN.containsMatchIn(it.name) }
                 .find { it.commit.sha.startsWith(targetSha) || targetSha.startsWith(it.commit.sha) }
@@ -97,6 +90,35 @@ class EmulatorUpdateRepository @Inject constructor(
 
         fun isCommitHash(version: String): Boolean {
             return HEX_PATTERN.matches(version.removePrefix("v"))
+        }
+
+        internal fun isUpdateAvailable(
+            installedVersion: String?,
+            latestVersion: String,
+            installedAt: Instant?,
+            releasePublishedAt: String?
+        ): Boolean {
+            installedVersion ?: return false
+            val latest = VersionInfo.parse(latestVersion)
+            val current = VersionInfo.parse(installedVersion)
+            return when {
+                current != null && latest != null -> latest > current
+                current == null && isCommitHash(installedVersion) && latest != null ->
+                    !installedSinceRelease(installedAt, releasePublishedAt)
+                latest != null && current == null ->
+                    VERSION_PATTERN.find(installedVersion)?.groupValues?.get(1)
+                        ?.let { VersionInfo.parse(it) }
+                        ?.let { latest > it } == true
+                else -> false
+            }
+        }
+
+        private fun installedSinceRelease(installedAt: Instant?, releasePublishedAt: String?): Boolean {
+            installedAt ?: return false
+            val published = releasePublishedAt?.let {
+                runCatching { java.time.OffsetDateTime.parse(it).toInstant() }.getOrNull()
+            } ?: return false
+            return !installedAt.isBefore(published)
         }
     }
 
@@ -199,7 +221,8 @@ class EmulatorUpdateRepository @Inject constructor(
     suspend fun checkForUpdate(
         emulator: EmulatorDef,
         installedVersion: String?,
-        storedVariant: String? = null
+        storedVariant: String? = null,
+        installedAt: Instant? = null
     ): EmulatorUpdateCheckResult {
         val source = emulator.releaseSource ?: return EmulatorUpdateCheckResult.Error(
             emulator.id,
@@ -217,11 +240,9 @@ class EmulatorUpdateRepository @Inject constructor(
                 )
             }
 
-            // Try to extract version from release info first
             var extractedVersion = extractVersionFromRelease(release)
             Log.d(TAG, "${emulator.id}: tag=${release.tagName}, name=${release.name}, extractedFromRelease=$extractedVersion")
 
-            // If no semver found and tag looks like a commit hash, fetch tags to find version
             if (extractedVersion == null && isCommitHash(release.tagName)) {
                 Log.d(TAG, "${emulator.id}: tag is commit hash, fetching tags...")
                 fetchTagsFromSource(source)?.let { tags ->
@@ -232,13 +253,9 @@ class EmulatorUpdateRepository @Inject constructor(
                 }
             }
 
-            // Final fallback to tag name
             extractedVersion = extractedVersion ?: release.tagName
             Log.d(TAG, "${emulator.id}: final version: $extractedVersion")
 
-            val latestVersion = VersionInfo.parse(extractedVersion)
-
-            // If installed version is a commit hash, try to find the associated tag
             var resolvedInstalledVersion = installedVersion
             if (installedVersion != null && isCommitHash(installedVersion)) {
                 Log.d(TAG, "${emulator.id}: installed version is commit hash, fetching tags...")
@@ -252,8 +269,6 @@ class EmulatorUpdateRepository @Inject constructor(
                 }
             }
 
-            val currentVersionInfo = resolvedInstalledVersion?.let { VersionInfo.parse(it) }
-
             val matchResult = ApkAssetMatcher.matchApk(
                 assets = release.assets,
                 storedVariant = storedVariant
@@ -266,22 +281,12 @@ class EmulatorUpdateRepository @Inject constructor(
                 )
             }
 
-            val hasUpdate = when {
-                // No installed version means we can't compare
-                resolvedInstalledVersion == null -> false
-                // Both have valid semver - use semver comparison
-                currentVersionInfo != null && latestVersion != null -> latestVersion > currentVersionInfo
-                // Installed version is an unresolved commit hash -- assume release is newer
-                currentVersionInfo == null && isCommitHash(resolvedInstalledVersion) && latestVersion != null -> true
-                // If GitHub version couldn't be parsed but installed can, try extracting semver from installed
-                latestVersion != null && currentVersionInfo == null -> {
-                    val extractedInstalled = VERSION_PATTERN.find(resolvedInstalledVersion)?.groupValues?.get(1)
-                    val extractedInfo = extractedInstalled?.let { VersionInfo.parse(it) }
-                    extractedInfo != null && latestVersion > extractedInfo
-                }
-                // Can't compare - skip
-                else -> false
-            }
+            val hasUpdate = isUpdateAvailable(
+                installedVersion = resolvedInstalledVersion,
+                latestVersion = extractedVersion,
+                installedAt = installedAt,
+                releasePublishedAt = release.publishedAt
+            )
 
             if (hasUpdate) {
                 Log.d(TAG, "Update available for ${emulator.id}: $installedVersion -> $extractedVersion")
@@ -397,17 +402,14 @@ class EmulatorUpdateRepository @Inject constructor(
             val release = fetchReleaseFromSource(source)
                 ?: return FetchReleaseResult.Error("Release API request failed")
 
-            // Try to extract version from release info first
             var version = extractVersionFromRelease(release)
 
-            // If no semver found and tag looks like a commit hash, fetch tags to find version
             if (version == null && isCommitHash(release.tagName)) {
                 fetchTagsFromSource(source)?.let { tags ->
                     version = findVersionFromTags(tags, release.tagName)
                 }
             }
 
-            // Final fallback to tag name
             version = version ?: release.tagName
 
             val matchResult = ApkAssetMatcher.matchApk(
@@ -475,12 +477,10 @@ object VersionFormatter {
     fun formatForDisplay(version: String): String {
         val trimmed = version.trim()
 
-        // Check for semver (v1.2.3 or 1.2.3-beta)
         SEMVER_REGEX.find(trimmed)?.let { match ->
             return match.groupValues[1]
         }
 
-        // Check for date-based versions (nightly-2024-01-15, 20240115, etc.)
         DATE_REGEX.find(trimmed)?.let { match ->
             val year = match.groupValues[1]
             val month = match.groupValues[2]
@@ -488,19 +488,16 @@ object VersionFormatter {
             return "$year-$month-$day"
         }
 
-        // Check for commit hash (truncate to 7 chars)
         if (HEX_REGEX.matches(trimmed)) {
             val hash = trimmed.removePrefix("v")
             return hash.take(7)
         }
 
-        // Special cases
         if (trimmed.equals("release", ignoreCase = true) ||
             trimmed.equals("nightly", ignoreCase = true)) {
             return "Latest"
         }
 
-        // Fallback: return as-is but limit length
         return if (trimmed.length > 12) trimmed.take(12) + "..." else trimmed
     }
 }

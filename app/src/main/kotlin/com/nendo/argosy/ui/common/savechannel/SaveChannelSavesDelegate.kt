@@ -896,16 +896,35 @@ class SaveChannelSavesDelegate @Inject constructor(
         if (state.selectedTab != SaveTab.SAVES) return
         if (state.saveFocusColumn != SaveFocusColumn.SLOTS) return
         val slot = state.focusedSlot ?: return
-        if (slot.isCreateAction || slot.channelName == null) return
+        if (slot.isCreateAction) return
 
-        val entry = holder.rawEntries.firstOrNull {
-            it.channelName == slot.channelName && it.isLocked
-        } ?: return
+        val target = if (slot.isArchivedBucket) {
+            val archived = holder.rawEntries.filter { it.isArchival && it.localCacheId != null }
+            if (archived.isEmpty()) return
+            SaveDeleteTarget.Archived(
+                cacheIds = archived.mapNotNull { it.localCacheId },
+                allOnServer = archived.all { it.localCopyUploaded }
+            )
+        } else {
+            val channelName = slot.channelName ?: return
+            holder.rawEntries.firstOrNull { it.channelName == channelName && it.isLocked } ?: return
+            SaveDeleteTarget.Channel(channelName)
+        }
+        _state.update { it.copy(showDeleteConfirmation = true, deleteTarget = target) }
+    }
 
+    fun showDeleteVersionConfirmation() {
+        val state = _state.value
+        if (!state.canDeleteVersion) return
+        val item = state.focusedHistoryItem ?: return
         _state.update {
             it.copy(
                 showDeleteConfirmation = true,
-                deleteSelectedEntry = entry
+                deleteTarget = SaveDeleteTarget.Version(
+                    cacheId = item.cacheId,
+                    timestamp = item.timestamp,
+                    onServer = holder.rawEntries.any { it.localCacheId == item.cacheId && it.localCopyUploaded }
+                )
             )
         }
     }
@@ -914,7 +933,7 @@ class SaveChannelSavesDelegate @Inject constructor(
         _state.update {
             it.copy(
                 showDeleteConfirmation = false,
-                deleteSelectedEntry = null
+                deleteTarget = null
             )
         }
     }
@@ -923,14 +942,45 @@ class SaveChannelSavesDelegate @Inject constructor(
      * Delete every copy of a save channel -- local cache entries AND their server saves. Deleting
      * only the local cache lets a server-only (or synced) save survive and re-sync back on refresh.
      */
-    fun confirmDeleteChannel(
+    fun confirmDelete(
         scope: CoroutineScope,
         onSaveStatusChanged: (SaveStatusEvent) -> Unit
     ) {
-        val state = _state.value
-        val entry = state.deleteSelectedEntry ?: return
-        val channelName = entry.channelName ?: return
+        when (val target = _state.value.deleteTarget ?: return) {
+            is SaveDeleteTarget.Channel -> deleteChannel(scope, target.channelName, onSaveStatusChanged)
+            is SaveDeleteTarget.Version -> deleteCachedVersions(scope, listOf(target.cacheId))
+            is SaveDeleteTarget.Archived -> deleteCachedVersions(scope, target.cacheIds)
+        }
+    }
 
+    private fun deleteCachedVersions(scope: CoroutineScope, cacheIds: List<Long>) {
+        scope.launch {
+            cacheIds.forEach { saveCacheManager.deleteCachedSave(it) }
+            refreshEntries()
+            _state.update {
+                it.copy(
+                    showDeleteConfirmation = false,
+                    deleteTarget = null,
+                    selectedSlotIndex = it.selectedSlotIndex.coerceAtMost((it.saveSlots.size - 1).coerceAtLeast(0)),
+                    selectedHistoryIndex = it.selectedHistoryIndex.coerceAtMost((it.saveHistory.size - 1).coerceAtLeast(0))
+                )
+            }
+            notificationManager.showSuccess(
+                NotificationText.Plural(
+                    R.plurals.ui_save_channel_notice_versions_deleted,
+                    cacheIds.size,
+                    listOf(cacheIds.size)
+                )
+            )
+        }
+    }
+
+    private fun deleteChannel(
+        scope: CoroutineScope,
+        channelName: String,
+        onSaveStatusChanged: (SaveStatusEvent) -> Unit
+    ) {
+        val state = _state.value
         scope.launch {
             val result = deleteSaveChannelUseCase(currentGameId, channelName)
 
@@ -947,7 +997,7 @@ class SaveChannelSavesDelegate @Inject constructor(
             _state.update {
                 it.copy(
                     showDeleteConfirmation = false,
-                    deleteSelectedEntry = null,
+                    deleteTarget = null,
                     selectedSlotIndex = it.selectedSlotIndex.coerceAtMost(
                         (it.saveSlots.size - 1).coerceAtLeast(0)
                     )

@@ -112,10 +112,13 @@ class UserPreferencesRepository @Inject constructor(
             selectSwapMode = controls.selectSwapMode,
             openNavigationKey = controls.openNavigationKey,
             openQuickPanelKey = controls.openQuickPanelKey,
+            quickPanelInEmulators = controls.quickPanelInEmulators,
             navRingRoutes = controls.navRingRoutes,
             quickNavigation = controls.quickNavigation,
             navBarAutoHide = controls.navBarAutoHide,
+            ignoreControllerTouchpad = controls.ignoreControllerTouchpad,
             lastRommSync = sync.lastRommSync,
+            rommChangesWatermark = sync.rommChangesWatermark,
             lastFavoritesSync = sync.lastFavoritesSync,
             lastFavoritesCheck = sync.lastFavoritesCheck,
             syncFilters = sync.syncFilters,
@@ -151,6 +154,7 @@ class UserPreferencesRepository @Inject constructor(
             folderNameFromRom = storage.folderNameFromRom,
             gridDensity = display.gridDensity,
             libraryLayout = display.libraryLayout,
+            libraryListStyle = display.libraryListStyle,
             libraryBoxArt3d = display.libraryBoxArt3d,
             libraryDefaultSort = display.libraryDefaultSort,
             libraryDefaultSortDescending = display.libraryDefaultSortDescending,
@@ -176,7 +180,6 @@ class UserPreferencesRepository @Inject constructor(
             fileLoggingPath = app.fileLoggingPath,
             fileLogLevel = app.fileLogLevel,
             saveDebugLoggingEnabled = sync.saveDebugLoggingEnabled,
-            saveWatcherEnabled = sync.saveWatcherEnabled,
             boxArtShape = display.boxArtShape,
             boxArtCornerRadius = display.boxArtCornerRadius,
             boxArtBorderThickness = display.boxArtBorderThickness,
@@ -214,7 +217,6 @@ class UserPreferencesRepository @Inject constructor(
             customBiosPath = storage.customBiosPath,
             weeklyIntegrityCheckEnabled = storage.weeklyIntegrityCheckEnabled,
             lastIntegrityCheckTime = storage.lastIntegrityCheckTime,
-            steamInstallVolume = storage.steamInstallVolume,
             videoWallpaperEnabled = display.videoWallpaperEnabled,
             videoWallpaperDelaySeconds = display.videoWallpaperDelaySeconds,
             videoWallpaperMuted = display.videoWallpaperMuted,
@@ -235,6 +237,7 @@ class UserPreferencesRepository @Inject constructor(
             ambientLedAchievementFlash = display.ambientLedAchievementFlash,
             builtinLibretroEnabled = builtinEnabled,
             appDisplayTargets = app.appDisplayTargets,
+            lidSleepEnabled = display.lidSleepEnabled,
             dualScreenEnabled = display.dualScreenEnabled,
             displayRoleOverride = display.displayRoleOverride,
             gamesDisplayTarget = display.gamesDisplayTarget,
@@ -292,6 +295,8 @@ class UserPreferencesRepository @Inject constructor(
      */
     val latest: UserPreferences? get() = hotPreferences.replayCache.firstOrNull()
 
+    val menuWrapMode: MenuWrapMode get() = (latest ?: UserPreferences()).menuWrapMode
+
     // --- Display delegates ---
 
     suspend fun setThemeMode(mode: ThemeMode) = displayPrefs.setThemeMode(mode)
@@ -321,6 +326,8 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setFontScale(slot: FontSlot, scale: Int) = displayPrefs.setFontScale(slot, scale)
     suspend fun setGridDensity(density: GridDensity) = displayPrefs.setGridDensity(density)
     suspend fun setLibraryLayout(layout: LibraryLayout) = displayPrefs.setLibraryLayout(layout)
+
+    suspend fun setLibraryListStyle(style: LibraryListStyle) = displayPrefs.setLibraryListStyle(style)
 
     suspend fun setLibraryBoxArt3d(enabled: Boolean) = displayPrefs.setLibraryBoxArt3d(enabled)
 
@@ -402,6 +409,7 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setScreenDimmerEnabled(enabled: Boolean) = displayPrefs.setScreenDimmerEnabled(enabled)
     suspend fun setScreenDimmerTimeoutMinutes(minutes: Int) = displayPrefs.setScreenDimmerTimeoutMinutes(minutes)
     suspend fun setScreenDimmerLevel(level: Int) = displayPrefs.setScreenDimmerLevel(level)
+    suspend fun setLidSleepEnabled(enabled: Boolean) = displayPrefs.setLidSleepEnabled(enabled)
     suspend fun setDualScreenEnabled(enabled: Boolean) = displayPrefs.setDualScreenEnabled(enabled)
     suspend fun setDisplayRoleOverride(override: DisplayRoleOverride) = displayPrefs.setDisplayRoleOverride(override)
     suspend fun setGamesDisplayTarget(target: EmulatorDisplayTarget) = displayPrefs.setGamesDisplayTarget(target)
@@ -445,6 +453,8 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setRAWebApiKey(key: String?) = syncPrefs.setRAWebApiKey(key)
     suspend fun setRAProxy(enabled: Boolean, address: String) = syncPrefs.setRAProxy(enabled, address)
     suspend fun setLastRommSyncTime(time: Instant) = syncPrefs.setLastRommSyncTime(time)
+
+    suspend fun setRommChangesWatermark(time: Instant) = syncPrefs.setRommChangesWatermark(time)
     suspend fun setLastRommFullSyncTime(time: Instant) = syncPrefs.setLastRommFullSyncTime(time)
     suspend fun getSyncResumeGeneration(): Instant? = syncPrefs.getSyncResumeGeneration()
     suspend fun getSyncResumeCompletedPlatformIds(): Set<Long> = syncPrefs.getSyncResumeCompletedPlatformIds()
@@ -475,8 +485,6 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setSaveCacheLimit(limit: Int) = syncPrefs.setSaveCacheLimit(limit)
     suspend fun setSaveDebugLoggingEnabled(enabled: Boolean) = syncPrefs.setSaveDebugLoggingEnabled(enabled)
     suspend fun setImageCachePath(path: String?) = syncPrefs.setImageCachePath(path)
-    fun saveWatcherEnabled(): Flow<Boolean> = syncPrefs.saveWatcherEnabled()
-    suspend fun setSaveWatcherEnabled(enabled: Boolean) = syncPrefs.setSaveWatcherEnabled(enabled)
 
     // --- Social delegates ---
 
@@ -528,9 +536,11 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setSelectSwapMode(mode: SelectSwapMode) = controlsPrefs.setSelectSwapMode(mode)
     suspend fun setOpenNavigationKey(keyCode: Int) = controlsPrefs.setOpenNavigationKey(keyCode)
     suspend fun setOpenQuickPanelKey(keyCode: Int) = controlsPrefs.setOpenQuickPanelKey(keyCode)
+    suspend fun setQuickPanelInEmulators(enabled: Boolean) = controlsPrefs.setQuickPanelInEmulators(enabled)
     suspend fun setNavRingRoutes(routes: List<String>?) = controlsPrefs.setNavRingRoutes(routes)
     suspend fun setQuickNavigation(enabled: Boolean) = controlsPrefs.setQuickNavigation(enabled)
     suspend fun setNavBarAutoHide(enabled: Boolean) = controlsPrefs.setNavBarAutoHide(enabled)
+    suspend fun setIgnoreControllerTouchpad(enabled: Boolean) = controlsPrefs.setIgnoreControllerTouchpad(enabled)
 
 
     // --- Storage delegates ---
@@ -546,7 +556,6 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setCustomBiosPath(path: String?) = storagePrefs.setCustomBiosPath(path)
     suspend fun setWeeklyIntegrityCheckEnabled(enabled: Boolean) = storagePrefs.setWeeklyIntegrityCheckEnabled(enabled)
     suspend fun setLastIntegrityCheckTime(timeMs: Long) = storagePrefs.setLastIntegrityCheckTime(timeMs)
-    suspend fun setSteamInstallVolume(volume: String?) = storagePrefs.setSteamInstallVolume(volume)
     suspend fun setMediaStoragePath(path: String?) = storagePrefs.setMediaStoragePath(path)
 
     suspend fun setJellyfinServerUrl(url: String?) = jellyfinPrefs.setServerUrl(url)
@@ -609,6 +618,7 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setBuiltinLowLatencyAudio(enabled: Boolean) = builtinPrefs.setBuiltinLowLatencyAudio(enabled)
     suspend fun setBuiltinForceSoftwareTiming(enabled: Boolean) = builtinPrefs.setBuiltinForceSoftwareTiming(enabled)
     suspend fun setBuiltinRumbleEnabled(enabled: Boolean) = builtinPrefs.setBuiltinRumbleEnabled(enabled)
+    suspend fun setBuiltinMotionEnabled(enabled: Boolean) = builtinPrefs.setBuiltinMotionEnabled(enabled)
     suspend fun setBuiltinBlackFrameInsertion(enabled: Boolean) = builtinPrefs.setBuiltinBlackFrameInsertion(enabled)
     suspend fun setBuiltinLimitHotkeysToPlayer1(enabled: Boolean) = builtinPrefs.setBuiltinLimitHotkeysToPlayer1(enabled)
     suspend fun setBuiltinAnalogAsDpad(enabled: Boolean) = builtinPrefs.setBuiltinAnalogAsDpad(enabled)
@@ -617,6 +627,8 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setBuiltinFastForwardEnabled(enabled: Boolean) = builtinPrefs.setBuiltinFastForwardEnabled(enabled)
     suspend fun setBuiltinFastForwardSpeed(speed: Int) = builtinPrefs.setBuiltinFastForwardSpeed(speed)
     suspend fun setBuiltinFastForwardMode(mode: com.nendo.argosy.data.local.entity.FastForwardMode) = builtinPrefs.setBuiltinFastForwardMode(mode)
+    suspend fun setBuiltinSelectAsBack(mode: com.nendo.argosy.data.local.entity.SelectAsBackMode) = builtinPrefs.setBuiltinSelectAsBack(mode)
+    suspend fun setBuiltinDualScreenMatchSize(enabled: Boolean) = builtinPrefs.setBuiltinDualScreenMatchSize(enabled)
     suspend fun setBuiltinFastForwardPreservePitch(enabled: Boolean) = builtinPrefs.setBuiltinFastForwardPreservePitch(enabled)
     suspend fun setBuiltinRotation(rotation: Int) = builtinPrefs.setBuiltinRotation(rotation)
     suspend fun setBuiltinOverscanCrop(crop: Int) = builtinPrefs.setBuiltinOverscanCrop(crop)
@@ -682,11 +694,12 @@ class UserPreferencesRepository @Inject constructor(
         isNetplayGuest: Boolean = false
     ) = sessionPrefs.persistActiveSession(gameId, emulatorPackage, startTime, coreName, isHardcore, channelName, variantFileId, origin, isNetplayGuest)
 
-    suspend fun clearActiveSession() = sessionPrefs.clearActiveSession()
+    suspend fun clearActiveSession(startedAt: Instant? = null) = sessionPrefs.clearActiveSession(startedAt)
 
     suspend fun getPersistedSession(): PersistedSession? = sessionPrefs.getPersistedSession()
 
-    suspend fun keepSessionForRetry(maxAttempts: Int): Boolean = sessionPrefs.keepSessionForRetry(maxAttempts)
+    suspend fun keepSessionForRetry(maxAttempts: Int, startedAt: Instant? = null): Boolean =
+        sessionPrefs.keepSessionForRetry(maxAttempts, startedAt)
 }
 
 data class BuiltinEmulatorSettings(
@@ -700,6 +713,7 @@ data class BuiltinEmulatorSettings(
     val audioVolume: Int = 100,
     val forceSoftwareTiming: Boolean = false,
     val rumbleEnabled: Boolean = true,
+    val motionEnabled: Boolean = true,
     val blackFrameInsertion: Boolean = false,
     val framesEnabled: Boolean = false,
     val frame: String? = null,
@@ -709,6 +723,8 @@ data class BuiltinEmulatorSettings(
     val fastForwardEnabled: Boolean = true,
     val fastForwardSpeed: Int = 4,
     val fastForwardMode: com.nendo.argosy.data.local.entity.FastForwardMode = com.nendo.argosy.data.local.entity.FastForwardMode.HOLD,
+    val selectAsBack: com.nendo.argosy.data.local.entity.SelectAsBackMode = com.nendo.argosy.data.local.entity.SelectAsBackMode.AUTO,
+    val dualScreenMatchSize: Boolean = false,
     val fastForwardPreservePitch: Boolean = false,
     val rotation: Int = -1,
     val overscanCrop: Int = 0,
@@ -831,15 +847,15 @@ data class UserPreferences(
     val tertiaryColor: Int? = null,
     val surfaceTintBleed: Int = 0,
     val backdropEnabled: Boolean = false,
-    val backdropPreset: BackdropPreset = BackdropPreset.PLATFORMS,
+    val backdropPreset: BackdropPreset = BackdropPreset.DOTS,
     val backdropCellSize: Int = ComponentDefaults.SurfaceBackdrop.cellSizeDefaultDp,
     val backdropScatter: Int = 200,
     val backdropScaleJitter: Int = 100,
     val backdropStrength: Int = 20,
-    val backdropEdgeStyle: BackdropEdgeStyle = BackdropEdgeStyle.CONNECTIONS,
+    val backdropEdgeStyle: BackdropEdgeStyle = BackdropEdgeStyle.NONE,
     val backdropVertexIcons: BackdropVertexIcon = BackdropVertexIcon.NONE,
     val backdropSeed: Long = 0L,
-    val backdropMotion: BackdropMotion = BackdropMotion.SWAY,
+    val backdropMotion: BackdropMotion = BackdropMotion.OFF,
     val backdropMotionSpeed: Int = 75,
     val backdropDriftAngle: Float = 45f,
     val displayFontPath: String? = null,
@@ -862,10 +878,13 @@ data class UserPreferences(
     val selectSwapMode: SelectSwapMode = SelectSwapMode.HOLD,
     val openNavigationKey: Int = ControlsPreferences.DEFAULT_OPEN_NAVIGATION_KEY,
     val openQuickPanelKey: Int = ControlsPreferences.DEFAULT_OPEN_QUICK_PANEL_KEY,
+    val quickPanelInEmulators: Boolean = false,
     val navRingRoutes: List<String>? = null,
     val quickNavigation: Boolean = true,
     val navBarAutoHide: Boolean = true,
+    val ignoreControllerTouchpad: Boolean = true,
     val lastRommSync: Instant? = null,
+    val rommChangesWatermark: Instant? = null,
     val lastFavoritesSync: Instant? = null,
     val lastFavoritesCheck: Instant? = null,
     val syncFilters: SyncFilterPreferences = SyncFilterPreferences(),
@@ -885,6 +904,7 @@ data class UserPreferences(
     val folderNameFromRom: Boolean = false,
     val gridDensity: GridDensity = GridDensity.NORMAL,
     val libraryLayout: LibraryLayout = LibraryLayout.GRID,
+    val libraryListStyle: LibraryListStyle = LibraryListStyle.RELAXED,
     val libraryBoxArt3d: Boolean = false,
     val libraryDefaultSort: String = "TITLE",
     val libraryDefaultSortDescending: Boolean? = null,
@@ -896,7 +916,7 @@ data class UserPreferences(
     val libraryDefaultPlayers: com.nendo.argosy.domain.model.PlayerCountBucket? = null,
     val soundConfigs: Map<SoundType, SoundConfig> = emptyMap(),
     val betaUpdatesEnabled: Boolean = false,
-    val closeEmulatorOnSessionEnd: Boolean = true,
+    val closeEmulatorOnSessionEnd: Boolean = false,
     val appLanguage: AppLanguage = AppLanguage.SYSTEM,
     val preLaunchRecapsEnabled: Boolean = true,
     val monthlyRecapEnabled: Boolean = true,
@@ -906,7 +926,7 @@ data class UserPreferences(
     val secureSaves: Boolean = true,
     val stateCacheEnabled: Boolean = true,
     val saveCacheLimit: Int = 10,
-    val backgroundBlur: Int = 0,
+    val backgroundBlur: Int = 40,
     val backgroundSaturation: Int = 100,
     val backgroundOpacity: Int = 100,
     val useGameBackground: Boolean = true,
@@ -928,18 +948,17 @@ data class UserPreferences(
     val fileLoggingPath: String? = null,
     val fileLogLevel: LogLevel = LogLevel.INFO,
     val saveDebugLoggingEnabled: Boolean = false,
-    val saveWatcherEnabled: Boolean = false,
     val boxArtShape: BoxArtShape = BoxArtShape.STANDARD,
     val boxArtCornerRadius: BoxArtCornerRadius = BoxArtCornerRadius.MEDIUM,
     val boxArtBorderThickness: BoxArtBorderThickness = BoxArtBorderThickness.MEDIUM,
-    val boxArtBorderStyle: BoxArtBorderStyle = BoxArtBorderStyle.GLASS,
-    val glassBorderTint: GlassBorderTint = GlassBorderTint.TINT_20,
+    val boxArtBorderStyle: BoxArtBorderStyle = BoxArtBorderStyle.SOLID,
+    val glassBorderTint: GlassBorderTint = GlassBorderTint.OFF,
     val boxArtGlowStrength: BoxArtGlowStrength = BoxArtGlowStrength.MEDIUM,
     val boxArtOuterEffect: BoxArtOuterEffect = BoxArtOuterEffect.GLOW,
-    val boxArtOuterEffectThickness: BoxArtOuterEffectThickness = BoxArtOuterEffectThickness.THIN,
+    val boxArtOuterEffectThickness: BoxArtOuterEffectThickness = BoxArtOuterEffectThickness.MEDIUM,
     val glowColorMode: GlowColorMode = GlowColorMode.AUTO,
-    val boxArtInnerEffect: BoxArtInnerEffect = BoxArtInnerEffect.GLASS,
-    val boxArtInnerEffectThickness: BoxArtInnerEffectThickness = BoxArtInnerEffectThickness.THICK,
+    val boxArtInnerEffect: BoxArtInnerEffect = BoxArtInnerEffect.SHADOW,
+    val boxArtInnerEffectThickness: BoxArtInnerEffectThickness = BoxArtInnerEffectThickness.MEDIUM,
     val gradientPreset: GradientPreset = GradientPreset.BALANCED,
     val gradientAdvancedMode: Boolean = false,
     val systemIconPosition: SystemIconPosition = SystemIconPosition.TOP_LEFT,
@@ -985,6 +1004,7 @@ data class UserPreferences(
     val ambientLedAchievementFlash: Boolean = true,
     val builtinLibretroEnabled: Boolean = true,
     val appDisplayTargets: Map<String, String> = emptyMap(),
+    val lidSleepEnabled: Boolean = true,
     val dualScreenEnabled: Boolean = false,
     val displayRoleOverride: DisplayRoleOverride = DisplayRoleOverride.AUTO,
     val gamesDisplayTarget: EmulatorDisplayTarget = EmulatorDisplayTarget.PRESENTATION,
@@ -1009,7 +1029,6 @@ data class UserPreferences(
     val lastStateValidation: Instant? = null,
     val weeklyIntegrityCheckEnabled: Boolean = true,
     val lastIntegrityCheckTime: Long? = null,
-    val steamInstallVolume: String? = null,
     val quayPassEnabled: Boolean = false,
     val quayPassAvatarSyncPending: Boolean = false,
     val quayPassMessageSyncPending: Boolean = false,
@@ -1072,6 +1091,15 @@ enum class LibraryLayout {
     companion object {
         fun fromString(value: String?): LibraryLayout =
             entries.find { it.name == value } ?: GRID
+    }
+}
+
+enum class LibraryListStyle {
+    COMPACT, RELAXED;
+
+    companion object {
+        fun fromString(value: String?): LibraryListStyle =
+            entries.find { it.name == value } ?: RELAXED
     }
 }
 

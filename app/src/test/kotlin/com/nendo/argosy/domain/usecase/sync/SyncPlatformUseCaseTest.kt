@@ -197,18 +197,6 @@ class SyncPlatformUseCaseTest {
     }
 
     @Test
-    fun `invoke dismisses notification when sync already in progress`() = runTest {
-        every { romMRepository.isConnected() } returns true
-        coEvery { romMRepository.syncPlatform(any()) } returns
-            SyncResult(0, 0, 0, 0, emptyList(), alreadyInProgress = true)
-
-        val result = useCase(123L, "SNES")
-
-        assertTrue(result is SyncPlatformResult.AlreadyInProgress)
-        verify { notificationManager.dismissByKey("romm-platform-sync") }
-    }
-
-    @Test
     fun `invoke handles exception and completes notification with error`() = runTest {
         every { romMRepository.isConnected() } returns true
         coEvery { romMRepository.syncPlatform(any()) } throws RuntimeException("Network error")

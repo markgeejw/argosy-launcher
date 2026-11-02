@@ -49,11 +49,9 @@ class GraphicsBackendRegistryTest {
     }
 
     @Test
-    fun `melonDS cores offer a backend row but no Vulkan`() {
+    fun `melonDS cores have no renderer choice on Android`() {
         listOf("melonds", "melondsds").forEach { coreId ->
-            val backend = GraphicsBackendRegistry.forCore(coreId)
-            assertNotNull(coreId, backend)
-            assertFalse(coreId, GraphicsBackendRegistry.supportsVulkan(backend))
+            assertNull(coreId, GraphicsBackendRegistry.forCore(coreId))
         }
     }
 

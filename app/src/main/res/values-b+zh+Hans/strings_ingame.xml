@@ -167,6 +167,8 @@
     <string name="ingame_settings_game_specific_controls_subtitle_off">使用全局控制器映射</string>
     <string name="ingame_settings_rumble_title">震动</string>
     <string name="ingame_settings_rumble_subtitle">启用控制器震动反馈</string>
+    <string name="ingame_settings_motion_title">体感操控</string>
+    <string name="ingame_settings_motion_subtitle">允许游戏读取设备的倾斜和旋转</string>
     <string name="ingame_settings_controller_order_title">控制器顺序</string>
     <plurals name="ingame_settings_controller_order_assigned">
         <item quantity="other">已分配%d个控制器</item>
@@ -175,6 +177,7 @@
     <string name="ingame_settings_controller_type_title">玩家%1$d控制器</string>
     <string name="ingame_settings_controller_type_pending">将在下次启动时生效</string>
     <string name="ingame_settings_controller_type_core_default">由核心选择</string>
+    <string name="ingame_settings_controller_type_auto">自动 (%1$s)</string>
     <string name="ingame_settings_controller_grip_title">控制器手柄支架</string>
     <string name="ingame_settings_controller_grip_subtitle">将界面上移，避开手柄支架遮挡的区域</string>
     <string name="ingame_settings_input_mapping_title">按键映射</string>
@@ -188,6 +191,8 @@
     <string name="ingame_settings_hotkeys_subtitle">配置菜单、快进、快退的快捷键</string>
     <string name="ingame_settings_limit_hotkeys_title">快捷键仅限1号玩家</string>
     <string name="ingame_settings_limit_hotkeys_subtitle">只有1号玩家的控制器可以触发快捷键</string>
+    <string name="ingame_settings_select_as_back_title">Select 识别为返回</string>
+    <string name="ingame_settings_select_as_back_subtitle">适用于按 Select 会发送返回键的手柄。自动模式会在没有 Select 键的手柄上把返回键当作 Select。</string>
     <string name="ingame_settings_toggle_fast_forward_title">快进切换模式</string>
     <string name="ingame_settings_toggle_fast_forward_subtitle">按一次开始，再按一次停止（关闭时需按住以快进）</string>
     <string name="ingame_settings_preserve_pitch_title">保持音调</string>
@@ -353,9 +358,12 @@
     <string name="ingame_libretro_core_error_unknown">发生了意外错误</string>
 
     <string name="ingame_libretro_sram_load_failed_fresh_save">加载存档失败，已使用新存档</string>
+    <string name="ingame_libretro_hardcore_off_core_setting">本次游戏已关闭硬核模式：%1$s 设为 %2$s</string>
+    <string name="ingame_libretro_core_option_blocked_hardcore">硬核模式下不允许此值</string>
     <string name="ingame_libretro_casual_save_in_hardcore">正在硬核模式下继续休闲存档</string>
 
     <string name="ingame_libretro_disc_swap_inserted">已插入%1$s</string>
+    <string name="ingame_libretro_sun_level">阳光 %1$d/%2$d</string>
     <string name="ingame_libretro_disc_swap_fallback_name">光盘%1$d</string>
 
     <string name="ingame_libretro_speedrun_default_category_name">练习</string>
@@ -392,6 +400,7 @@
     <string name="ingame_libretro_resume_success">已继续</string>
     <string name="ingame_libretro_resume_restore_failure">恢复即时存档失败</string>
     <string name="ingame_libretro_auto_restore_success">即时存档已恢复</string>
+    <string name="ingame_libretro_auto_restore_skipped_for_save">已从存档启动。续玩即时存档与存档不一致。</string>
     <string name="ingame_libretro_auto_restore_failure">恢复即时存档失败</string>
     <string name="ingame_libretro_auto_restore_response_unsupported_core">此核心不支持即时存档</string>
     <string name="ingame_libretro_auto_restore_response_success">即时存档已恢复</string>
@@ -414,6 +423,7 @@
     <string name="ingame_libretro_quickaction_load_unsupported_core">此核心不支持即时存档</string>
     <string name="ingame_libretro_quickaction_load_success">即时存档已加载</string>
     <string name="ingame_libretro_quickaction_load_failure">加载即时存档失败</string>
+    <string name="ingame_libretro_quickaction_load_replaced">该即时存档已被替换，请重新选择。</string>
     <string name="ingame_libretro_quickaction_screenshot_capture_failed">截图失败</string>
     <string name="ingame_libretro_quickaction_screenshot_success">截图已保存</string>
     <string name="ingame_libretro_quickaction_screenshot_failure">截图失败</string>

@@ -11,11 +11,11 @@ import com.nendo.argosy.data.local.dao.PlatformDao
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.local.entity.PlatformEntity
 import com.nendo.argosy.data.model.ArtSlot
+import com.nendo.argosy.data.model.FileOrigin
 import com.nendo.argosy.data.model.GameSource
 import com.nendo.argosy.data.platform.LocalPlatformIds
 import com.nendo.argosy.data.remote.steam.SteamAppData
 import com.nendo.argosy.data.remote.steam.SteamStoreApi
-import com.nendo.argosy.util.AppPaths
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +43,6 @@ class SteamRepository @Inject constructor(
     private val gameDao: GameDao,
     private val platformDao: PlatformDao,
     private val imageCacheManager: ImageCacheManager,
-    private val steamDownloadQueueDao: com.nendo.argosy.data.local.dao.SteamDownloadQueueDao,
     private val syncPreferencesRepository: com.nendo.argosy.data.preferences.SyncPreferencesRepository,
     private val gameArtDao: GameArtDao,
     private val gameScreenshotDao: GameScreenshotDao
@@ -125,7 +124,7 @@ class SteamRepository @Inject constructor(
                 publisher = appData.publishers?.firstOrNull(),
                 releaseYear = parseReleaseYear(appData.releaseDate?.date),
                 genre = appData.genres?.mapNotNull { it.description }?.joinToString(", "),
-                description = appData.shortDescription,
+                description = appData.plainShortDescription,
                 rating = appData.metacritic?.score?.toFloat(),
                 addedAt = Instant.now()
             )
@@ -172,17 +171,18 @@ class SteamRepository @Inject constructor(
                 ?.mapNotNull { it.description }
                 ?.joinToString(", ")
 
-            val updatedGame = game.copy(
-                description = appData.shortDescription ?: game.description,
-                genre = if (!storeGenres.isNullOrBlank()) storeGenres else game.genre,
-                rating = appData.metacritic?.score?.toFloat() ?: game.rating
+            gameDao.updateSteamStoreMetadata(
+                gameId = game.id,
+                description = appData.plainShortDescription,
+                genre = storeGenres?.takeIf { it.isNotBlank() },
+                rating = appData.metacritic?.score?.toFloat()
             )
-
-            gameDao.update(updatedGame)
             writeArtSources(game.id, steamAppId, game.title, appData, backgroundUrl)
             if (screenshotUrls.isNotEmpty()) gameScreenshotDao.replaceSources(game.id, screenshotUrls)
 
             Log.d(TAG, "Enriched ${game.title} with store data")
+            val updatedGame = gameDao.getById(game.id)
+                ?: return@withContext SteamResult.Error("Game not found")
             SteamResult.Success(updatedGame)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to enrich Steam game", e)
@@ -199,9 +199,8 @@ class SteamRepository @Inject constructor(
         try {
             val game = gameDao.getBySteamAppId(steamAppId)
             if (game != null) {
-                deleteInstalledFiles(game.localPath, steamAppId)
+                deleteInstalledFiles(game)
                 gameDao.clearLocalPath(game.id)
-                steamDownloadQueueDao.deleteByAppId(steamAppId)
             }
             SteamResult.Success(Unit)
         } catch (e: Exception) {
@@ -218,9 +217,8 @@ class SteamRepository @Inject constructor(
         try {
             val game = gameDao.getBySteamAppId(steamAppId)
             if (game != null) {
-                deleteInstalledFiles(game.localPath, steamAppId)
+                deleteInstalledFiles(game)
                 gameDao.delete(game.id)
-                steamDownloadQueueDao.deleteByAppId(steamAppId)
                 deleteCachedImage(steamAppId)
                 updatePlatformGameCount()
             }
@@ -231,19 +229,16 @@ class SteamRepository @Inject constructor(
         }
     }
 
-    private fun deleteInstalledFiles(localPath: String?, steamAppId: Long) {
-        if (localPath != null) {
-            val dir = File(localPath)
-            if (dir.exists()) {
-                val deleted = dir.deleteRecursively()
-                Log.d(TAG, "Deleted game files at $localPath: $deleted")
-            }
+    private fun deleteInstalledFiles(game: GameEntity) {
+        val localPath = game.localPath ?: return
+        if (game.fileOrigin != FileOrigin.STEAM_DOWNLOAD) {
+            Log.d(TAG, "Unlinking ${game.fileOrigin} install at $localPath without deleting files")
+            return
         }
-
-        val stagingDir = AppPaths.steamStagingDir(context.filesDir, steamAppId)
-        if (stagingDir.exists()) {
-            stagingDir.deleteRecursively()
-            Log.d(TAG, "Deleted staging dir for $steamAppId")
+        val dir = File(localPath)
+        if (dir.exists()) {
+            val deleted = dir.deleteRecursively()
+            Log.d(TAG, "Deleted game files at $localPath: $deleted")
         }
     }
 
@@ -261,11 +256,6 @@ class SteamRepository @Inject constructor(
             SteamResult.Error(e.message ?: "Unknown error")
         }
     }
-
-    fun observeDownloadByAppId(
-        steamAppId: Long
-    ): kotlinx.coroutines.flow.Flow<com.nendo.argosy.data.local.entity.SteamDownloadQueueEntity?> =
-        steamDownloadQueueDao.observeByAppId(steamAppId)
 
     suspend fun refreshAllMetadata(): SteamResult<Int> = withContext(Dispatchers.IO) {
         try {
@@ -296,7 +286,7 @@ class SteamRepository @Inject constructor(
                             publisher = appData.publishers?.firstOrNull() ?: game.publisher,
                             releaseYear = parseReleaseYear(appData.releaseDate?.date) ?: game.releaseYear,
                             genre = appData.genres?.mapNotNull { it.description }?.joinToString(", ") ?: game.genre,
-                            description = appData.shortDescription ?: game.description,
+                            description = appData.plainShortDescription ?: game.description,
                             rating = appData.metacritic?.score?.toFloat() ?: game.rating
                         )
                     )

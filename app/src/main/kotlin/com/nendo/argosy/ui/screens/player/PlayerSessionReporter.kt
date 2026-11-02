@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -23,17 +24,9 @@ private const val TAG = "PlayerSessionReporter"
 private const val PROGRESS_INTERVAL_MS = 10_000L
 
 /**
- * Tells the server what this client is doing with the stream it opened.
- *
- * The three reports are not telemetry. The server allocates an encoder against the play session on
- * start and only frees it when a stop arrives, so a playback that ends without one leaves an ffmpeg
- * process alive until the server's own timeout - the single most common way a client makes a
- * Jellyfin install unusable for everyone else on it. [stop] is therefore idempotent and is called
- * from every exit the player has, including the ones that are not a user decision.
- *
- * It runs on a scope of its own rather than the caller's. A stop issued while the screen is being
- * torn down has to outlive the thing that issued it, and a scope that dies with the caller cancels
- * the one request that must not be missed.
+ * Reports playback start, progress and stop for a Jellyfin play session, in issue order and on a
+ * scope of its own. [stop] is idempotent and must run on every player exit, or the server keeps the
+ * session's transcode running until its own timeout.
  */
 class PlayerSessionReporter @Inject constructor(
     private val apiClient: JellyfinApiClient
@@ -49,10 +42,31 @@ class PlayerSessionReporter @Inject constructor(
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val outbox = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+
+    @Volatile
     private var session: OpenSession? = null
+    private var reportedSession: OpenSession? = null
     private var progressJob: Job? = null
+
+    @Volatile
     private var lastPositionMs: Long = 0
+
+    @Volatile
     private var lastPaused: Boolean = false
+
+    init {
+        scope.launch {
+            for (report in outbox) {
+                runCatching { report() }
+                    .onFailure { Logger.warn(TAG, "playback report failed", it) }
+            }
+        }
+    }
+
+    private fun enqueue(report: suspend () -> Unit) {
+        outbox.trySend(report)
+    }
 
     @Suppress("LongParameterList")
     fun start(
@@ -77,7 +91,8 @@ class PlayerSessionReporter @Inject constructor(
         lastPositionMs = positionMs
         lastPaused = false
 
-        scope.launch {
+        enqueue {
+            reportedSession = open
             apiClient.reportPlaybackStart(
                 JellyfinPlaybackStartInfo(
                     itemId = open.itemId,
@@ -108,7 +123,7 @@ class PlayerSessionReporter @Inject constructor(
         setPosition(positionMs, isPaused)
         val open = session ?: return
         val event = if (isPaused) PROGRESS_EVENT_PAUSE else PROGRESS_EVENT_UNPAUSE
-        scope.launch { sendProgress(open, positionMs, isPaused, event) }
+        enqueue { sendProgress(open, positionMs, isPaused, event) }
     }
 
     fun stop(positionMs: Long) {
@@ -117,7 +132,8 @@ class PlayerSessionReporter @Inject constructor(
         progressJob?.cancel()
         progressJob = null
         val finalPosition = positionMs.coerceAtLeast(0)
-        scope.launch {
+        enqueue {
+            reportedSession = null
             apiClient.reportPlaybackStopped(
                 JellyfinPlaybackStopInfo(
                     itemId = open.itemId,
@@ -132,12 +148,13 @@ class PlayerSessionReporter @Inject constructor(
     }
 
     /**
-     * The last thing the player can do on the way out. The scope is deliberately left running: the
-     * stop request it just launched is the one report that must not be cancelled, and an idle scope
-     * with no work in it goes away with this object.
+     * The last thing the player can do on the way out. Closes the queue without cancelling it: every
+     * report already queued, the final stop included, is still sent, and nothing queued after this
+     * is.
      */
     fun release() {
         stop(lastPositionMs)
+        outbox.close()
     }
 
     /**
@@ -157,7 +174,9 @@ class PlayerSessionReporter @Inject constructor(
             while (isActive) {
                 delay(PROGRESS_INTERVAL_MS)
                 val open = session ?: break
-                sendProgress(open, lastPositionMs, lastPaused, PROGRESS_EVENT_TIME_UPDATE)
+                val positionMs = lastPositionMs
+                val isPaused = lastPaused
+                enqueue { sendProgress(open, positionMs, isPaused, PROGRESS_EVENT_TIME_UPDATE) }
             }
         }
     }
@@ -168,6 +187,7 @@ class PlayerSessionReporter @Inject constructor(
         isPaused: Boolean,
         event: String
     ) {
+        if (reportedSession !== open) return
         apiClient.reportPlaybackProgress(
             JellyfinPlaybackProgressInfo(
                 itemId = open.itemId,

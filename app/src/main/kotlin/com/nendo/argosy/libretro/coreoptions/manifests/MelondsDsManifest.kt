@@ -63,32 +63,6 @@ object MelondsDsManifest : CoreOptionManifest {
             valueLabels = mapOf("native" to "Native", "builtin" to "Built-In")
         ),
         CoreOptionDef(
-            key = "melonds_render_mode",
-            displayName = "Render Mode",
-            values = listOf("software", "opengl"),
-            defaultValue = "software",
-            description = "Software renderer, or hardware OpenGL renderer with upscaling",
-            valueLabels = mapOf("software" to "Software", "opengl" to "OpenGL")
-        ),
-        CoreOptionDef(
-            key = "melonds_opengl_resolution",
-            displayName = "Internal Resolution",
-            values = listOf("1", "2", "3", "4", "5", "6", "7", "8"),
-            defaultValue = "1",
-            description = "OpenGL upscale factor over native 256x192",
-            valueLabels = mapOf(
-                "1" to "1x (native)", "2" to "2x", "3" to "3x", "4" to "4x",
-                "5" to "5x", "6" to "6x", "7" to "7x", "8" to "8x"
-            )
-        ),
-        CoreOptionDef(
-            key = "melonds_opengl_better_polygons",
-            displayName = "Improved Polygon Splitting",
-            values = listOf("disabled", "enabled"),
-            defaultValue = "disabled",
-            description = "Reduces polygon distortion at a small performance cost (OpenGL only)"
-        ),
-        CoreOptionDef(
             key = "melonds_threaded_renderer",
             displayName = "Threaded Software Renderer",
             values = listOf("enabled", "disabled"),

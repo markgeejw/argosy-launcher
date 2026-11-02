@@ -2,6 +2,7 @@ package com.nendo.argosy.data.repository
 
 import android.content.Context
 import android.provider.Settings
+import com.nendo.argosy.data.local.dao.PlayRecordDeletionDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
 import com.nendo.argosy.data.local.dao.PlayTimeSummary
 import com.nendo.argosy.data.local.entity.PlaySessionEntity
@@ -30,6 +31,7 @@ const val MIN_DISPLAY_MS = 60_000L
 class PlayStatsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val playSessionDao: PlaySessionDao,
+    private val playRecordDeletionDao: PlayRecordDeletionDao,
     private val syncPreferencesRepository: SyncPreferencesRepository
 ) {
     suspend fun insert(session: PlaySessionEntity): Long =
@@ -56,8 +58,14 @@ class PlayStatsRepository @Inject constructor(
     suspend fun getTotalActivePlayMsByPlatform(platformSlug: String): Long =
         playSessionDao.getTotalActivePlayMsByPlatform(platformSlug)
 
-    suspend fun deleteByGame(gameId: Long) =
-        playSessionDao.deleteByGame(gameId)
+    /**
+     * Deletes the signed-in account's play history for [gameId] on this device and blocks its
+     * sessions from that instant back from being pulled or sent again.
+     */
+    suspend fun deletePlayRecords(gameId: Long) = withContext(Dispatchers.IO) {
+        val ownerUserId = syncPreferencesRepository.getRommUserId()
+        playRecordDeletionDao.deleteRecords(gameId, ownerUserId, Instant.now())
+    }
 
     /**
      * Every Play Time figure over the last [rangeDays] days. Streaks and the RomM sync

@@ -24,10 +24,20 @@ class GciSaveHandler @Inject constructor(
 ) : PlatformSaveHandler {
     companion object {
         private const val TAG = "GciSaveHandler"
+
+        fun isGciServerFileName(fileName: String): Boolean =
+            fileName.endsWith(".gci", ignoreCase = true) || fileName.endsWith(".zip", ignoreCase = true)
     }
+
+    override fun isValidCachedSavePath(path: String): Boolean =
+        File(path).extension.let { it.isEmpty() || it.equals("gci", ignoreCase = true) }
 
     override suspend fun prepareForUpload(localPath: String, context: SaveContext): PreparedSave? =
         withContext(Dispatchers.IO) {
+            if (GameCubeHeaderParser.parseGciHeader(fal.getTransformedFile(localPath)) == null) {
+                Logger.warn(TAG, "prepareForUpload: not a GCI, refusing to upload it as a GameCube save | localPath=$localPath")
+                return@withContext null
+            }
             val gciPaths = unitMembers(localPath)
             if (gciPaths.isEmpty()) {
                 Logger.debug(TAG, "prepareForUpload: No GCI files found | localPath=$localPath")
@@ -93,18 +103,20 @@ class GciSaveHandler @Inject constructor(
                 val gameCode = members.firstNotNullOfOrNull { GameCubeHeaderParser.parseGciHeader(it)?.gameId }
                     ?: return@withContext emptyList()
                 fal.mkdirs(cardDir)
-                fal.listFiles(cardDir).orEmpty()
+                val existing = fal.listFiles(cardDir).orEmpty()
                     .filter { it.isFile && it.extension.equals("gci", ignoreCase = true) }
                     .filter {
                         GameCubeHeaderParser.parseGciHeader(fal.getTransformedFile(it.path))?.gameId
                             .equals(gameCode, ignoreCase = true)
                     }
-                    .forEach { fal.delete(it.path) }
-                members.mapNotNull { member ->
+                    .map { it.path }
+                val placed = members.mapNotNull { member ->
                     val target = "$cardDir/${member.name}"
                     fal.prepareSaveAccess(target)
                     target.takeIf { fal.copyFile(member.absolutePath, target) && fal.commitSaveAccess(target) }
                 }
+                removeSupersededGcis(existing, placed, members.size)
+                placed
             } finally {
                 staged.deleteRecursively()
             }
@@ -269,17 +281,11 @@ class GciSaveHandler @Inject constructor(
             val cardDir = File(GameCubeHeaderParser.buildGciPath(baseDir, romInfo.region, "x.gci")).parent
             val existingFiles = findGciFilesInPath(baseDir, romInfo.gameId)
                 .filter { File(it).parent == cardDir }
-            if (existingFiles.isNotEmpty()) {
-                Logger.debug(TAG, "Deleting ${existingFiles.size} existing GCI file(s) for prefix ${romInfo.gameId}")
-                for (path in existingFiles) {
-                    if (fal.delete(path)) {
-                        Logger.debug(TAG, "Deleted existing | path=$path")
-                    }
-                }
-            }
+            var entryCount = 0
 
             ZipFile(zipFile).use { zip ->
                 val entries = zip.entries.toList().filter { !it.isDirectory && it.name.endsWith(".gci", ignoreCase = true) }
+                entryCount = entries.size
                 Logger.debug(TAG, "Found ${entries.size} GCI entries in bundle")
 
                 for (entry in entries) {
@@ -309,6 +315,7 @@ class GciSaveHandler @Inject constructor(
                 }
             }
 
+            removeSupersededGcis(existingFiles, extractedPaths, entryCount)
             Logger.debug(TAG, "Extraction complete | extractedFiles=${extractedPaths.size}")
             extractedPaths
         } catch (e: Exception) {
@@ -366,6 +373,17 @@ class GciSaveHandler @Inject constructor(
         } else {
             Logger.error(TAG, "Failed to copy single GCI | $targetPath")
             null
+        }
+    }
+
+    private fun removeSupersededGcis(existing: List<String>, placed: List<String>, expected: Int) {
+        if (expected == 0 || placed.size < expected) {
+            Logger.warn(TAG, "Kept ${existing.size} existing GCI file(s): placed ${placed.size} of $expected")
+            return
+        }
+        val placedNames = placed.map { File(it).name.lowercase() }.toSet()
+        existing.filter { File(it).name.lowercase() !in placedNames }.forEach { path ->
+            if (fal.delete(path)) Logger.debug(TAG, "Removed superseded GCI | path=$path")
         }
     }
 

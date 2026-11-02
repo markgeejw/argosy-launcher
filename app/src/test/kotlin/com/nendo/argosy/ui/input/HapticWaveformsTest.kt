@@ -98,15 +98,6 @@ class HapticWaveformsTest {
     }
 
     @Test
-    fun `launch is one continuous press ramping up over about 120 ms`() {
-        val launch = waveform(HapticPattern.LAUNCH_GAME)
-        assertTrue(launch.durationMs in 100L..140L)
-        assertFalse(launch.amplitudes.contains(0))
-        assertEquals(launch.amplitudes.sorted(), launch.amplitudes)
-        assertTrue(launch.amplitudes.first() < launch.amplitudes.last())
-    }
-
-    @Test
     fun `error is two heavy taps`() {
         val taps = pulses(waveform(HapticPattern.ERROR))
         assertEquals(2, taps.size)
@@ -143,16 +134,16 @@ class HapticWaveformsTest {
             HapticWaveforms.canInterrupt(HapticPattern.FOCUS_CHANGE, 100L, HapticPattern.FOCUS_CHANGE, 50L)
         )
         assertTrue(
-            HapticWaveforms.canInterrupt(HapticPattern.SELECTION, 100L, HapticPattern.LAUNCH_GAME, 50L)
+            HapticWaveforms.canInterrupt(HapticPattern.SELECTION, 100L, HapticPattern.DOWNLOAD_COMPLETE, 50L)
         )
         assertTrue(HapticWaveforms.canInterrupt(null, 0L, HapticPattern.FOCUS_CHANGE, 0L))
     }
 
     @Test
-    fun `every audible sound type carries a haptic cue`() {
-        val silent = setOf(SoundType.SILENT, SoundType.VOLUME_PREVIEW)
+    fun `every audible sound type except the game launch carries a haptic cue`() {
+        val uncued = setOf(SoundType.SILENT, SoundType.VOLUME_PREVIEW, SoundType.LAUNCH_GAME)
         SoundType.entries.forEach { sound ->
-            if (sound in silent) assertNull(sound.name, sound.hapticCue)
+            if (sound in uncued) assertNull(sound.name, sound.hapticCue)
             else assertNotNull(sound.name, sound.hapticCue)
         }
     }
@@ -167,7 +158,6 @@ class HapticWaveformsTest {
         assertEquals(HapticPattern.OPEN, SoundType.OPEN_MODAL.hapticCue)
         assertEquals(HapticPattern.DOWNLOAD_START, SoundType.DOWNLOAD_START.hapticCue)
         assertEquals(HapticPattern.DOWNLOAD_COMPLETE, SoundType.DOWNLOAD_COMPLETE.hapticCue)
-        assertEquals(HapticPattern.LAUNCH_GAME, SoundType.LAUNCH_GAME.hapticCue)
         assertEquals(HapticPattern.ERROR, SoundType.ERROR.hapticCue)
     }
 }

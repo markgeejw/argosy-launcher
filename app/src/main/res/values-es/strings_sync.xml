@@ -6,6 +6,7 @@
     <string name="sync_prelaunch_connecting">Conectando...</string>
     <string name="sync_prelaunch_connected">Conectado</string>
     <string name="sync_prelaunch_connect_failed">Error de conexión</string>
+    <string name="sync_prelaunch_timed_out">El servidor tardó demasiado</string>
     <string name="sync_prelaunch_downloading">Descargando...</string>
     <string name="sync_prelaunch_download_complete">Descarga completa</string>
     <string name="sync_prelaunch_download_failed">Error al descargar</string>
@@ -54,12 +55,10 @@
     <string name="sync_service_saves">Sincronizando partidas guardadas...</string>
     <string name="steam_service_connecting">Conectando...</string>
     <string name="steam_service_signing_in">Iniciando sesión...</string>
-    <string name="steam_service_syncing_library">Sincronizando la biblioteca de Steam...</string>
 
     <string name="sync_download_channel_name">Progreso de descarga</string>
     <string name="sync_download_channel_description">Muestra el progreso de descarga en segundo plano</string>
     <string name="sync_download_service_preparing">Preparando descarga...</string>
-    <string name="sync_download_service_steam_downloading">Descargando: %1$s</string>
     <string name="sync_download_service_extracting">Extrayendo: %1$s</string>
     <string name="sync_download_service_moving">Moviendo al almacenamiento de ROM: %1$s</string>
     <string name="sync_download_service_downloading">Descargando: %1$s</string>
@@ -144,10 +143,6 @@
     <string name="sync_steam_rate_limited_subtitle">Límite de inicios de sesión alcanzado. Inténtalo de nuevo en una hora</string>
     <string name="sync_steam_auth_expired_title">Sesión de Steam vencida</string>
     <string name="sync_steam_auth_expired_subtitle">Vuelve a iniciar sesión desde Ajustes &gt; Steam</string>
-    <string name="sync_steam_download_signed_out_title">Sesión de Steam vencida</string>
-    <string name="sync_steam_download_signed_out_subtitle">Inicia sesión desde Ajustes &gt; Steam para descargar</string>
-    <string name="sync_steam_path_blocked_title">No se puede descargar %1$s</string>
-    <string name="sync_steam_storage_blocked_title">No se puede descargar %1$s</string>
 
     <string name="sync_steam_qr_rate_limited">Límite alcanzado. Inténtalo de nuevo más tarde</string>
     <string name="sync_steam_qr_login_failed">Error al iniciar sesión: %1$s</string>

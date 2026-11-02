@@ -128,6 +128,54 @@ class SaveCacheManagerRestoreTest {
         cacheFile.delete()
     }
 
+    private fun switchGame(titleId: String) = com.nendo.argosy.data.local.entity.GameEntity(
+        id = 100L,
+        title = "Advance Wars",
+        sortTitle = "advance wars",
+        platformId = 1L,
+        platformSlug = "switch",
+        rommId = 7L,
+        igdbId = null,
+        localPath = null,
+        source = com.nendo.argosy.data.model.GameSource.ROMM_SYNCED,
+        titleId = titleId
+    )
+
+    private fun stubSwitchRestore(cacheName: String, archiveRoot: String) {
+        File(cacheBaseDir, cacheName).writeBytes(byteArrayOf(0x50, 0x4B, 0x03, 0x04))
+        coEvery { saveCacheDao.getById(4L) } returns entity(cachePath = cacheName)
+        coEvery { gameDao.getById(100L) } returns switchGame("0100300012F2A000")
+        every { saveArchiver.peekRootFolderName(any()) } returns archiveRoot
+        every { saveArchiver.isJksvFormat(any()) } returns false
+        every { saveHandlerRegistry.getFolderHandler("switch") } returns null
+        every { fal.mkdirs(any()) } returns true
+        every { fal.getTransformedFile(any()) } answers { File(firstArg<String>()) }
+        every { saveArchiver.unzipSingleFolder(any(), any()) } returns true
+    }
+
+    @Test
+    fun `a Switch cache rooted at another game's title id is never unpacked`() = runTest {
+        stubSwitchRestore("other.zip", archiveRoot = "0100000000010000")
+        val target = File(tempDir, "save/0000000000000000/PROFILE/0100300012F2A000")
+
+        val ok = manager.restoreSave(cacheId = 4L, targetPath = target.absolutePath, targetEmulatorId = "eden")
+
+        assertFalse(ok)
+        io.mockk.verify(exactly = 0) { saveArchiver.unzipSingleFolder(any(), any()) }
+    }
+
+    @Test
+    fun `a Switch cache rooted at the game's own title id or its update id is unpacked`() = runTest {
+        for (root in listOf("0100300012F2A000", "0100300012F2A800")) {
+            stubSwitchRestore("own-$root.zip", archiveRoot = root)
+            val target = File(tempDir, "save/0000000000000000/PROFILE/0100300012F2A000")
+
+            manager.restoreSave(cacheId = 4L, targetPath = target.absolutePath, targetEmulatorId = "eden")
+        }
+
+        io.mockk.verify(exactly = 2) { saveArchiver.unzipSingleFolder(any(), any()) }
+    }
+
     @Test
     fun `placing a save for a game with no RomM id creates no sync row`() = runTest {
         val target = File(tempDir, "placed.srm").apply { writeBytes(byteArrayOf(1)) }

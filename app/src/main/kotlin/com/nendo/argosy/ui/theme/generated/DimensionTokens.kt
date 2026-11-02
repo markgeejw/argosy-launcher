@@ -104,6 +104,9 @@ object DimensionTokens {
         const val saveSyncRowCover = 56
         const val saveSyncAttentionCover = 144
         const val screenMapCardWidth = 220
+        const val seatCardMaxWidth = 200
+        const val seatCardHeight = 200
+        const val seatArtSize = 104
         const val playerTransportHeight = 96
         const val playerChromePadding = 32
         const val playerScrubTrackHeight = 4

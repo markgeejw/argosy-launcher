@@ -1,5 +1,6 @@
 package com.nendo.argosy.ui.input
 
+import com.nendo.argosy.data.preferences.MenuWrapMode
 import com.nendo.argosy.data.sync.platform.MemcardInfo
 
 class MemcardPickerInputHandler(
@@ -7,22 +8,18 @@ class MemcardPickerInputHandler(
     private val getFocusIndex: () -> Int,
     private val onFocusChange: (Int) -> Unit,
     private val onSelect: (String) -> Unit,
-    private val onDismiss: () -> Unit
+    private val onDismiss: () -> Unit,
+    private val wrapMode: () -> MenuWrapMode
 ) : InputHandler {
 
-    override fun onUp(): InputResult {
-        val currentIndex = getFocusIndex()
-        if (currentIndex > 0) {
-            onFocusChange(currentIndex - 1)
-        }
-        return InputResult.HANDLED
-    }
+    override fun onUp(): InputResult = move(-1)
 
-    override fun onDown(): InputResult {
-        val cards = getCards()
-        val currentIndex = getFocusIndex()
-        if (currentIndex < cards.size - 1) {
-            onFocusChange(currentIndex + 1)
+    override fun onDown(): InputResult = move(1)
+
+    private fun move(delta: Int): InputResult {
+        val size = getCards().size
+        if (size > 0) {
+            onFocusChange(InputDispatcher.computeWrappedIndex(getFocusIndex(), delta, size - 1, wrapMode()))
         }
         return InputResult.HANDLED
     }

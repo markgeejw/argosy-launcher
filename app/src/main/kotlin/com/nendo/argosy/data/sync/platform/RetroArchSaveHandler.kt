@@ -30,14 +30,12 @@ class RetroArchSaveHandler @Inject constructor(
                 return@withContext null
             }
 
-            // File-based: return as-is, no zipping needed
             Logger.debug(TAG, "prepareForUpload: Using file directly | path=$localPath, size=${file.length()}")
             PreparedSave(file, isTemporary = false, listOf(localPath))
         }
 
     override suspend fun extractDownload(tempFile: File, context: SaveContext): ExtractResult =
         withContext(Dispatchers.IO) {
-            // Use cached path if available, otherwise discover/construct
             val targetPath = context.localSavePath
                 ?: discoverSavePath(context)
                 ?: constructSavePath(context)
@@ -109,11 +107,9 @@ class RetroArchSaveHandler @Inject constructor(
     }
 
     private fun buildSaveFileName(context: SaveContext): String {
-        // RetroArch uses ROM filename (without extension) as save filename
         if (context.romPath != null) {
             return File(context.romPath).nameWithoutExtension
         }
-        // Fallback: sanitize game title
         return context.gameTitle.replace(Regex("[^a-zA-Z0-9._-]"), "_")
     }
 }

@@ -6,7 +6,7 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import com.nendo.argosy.ui.util.clickableNoFocus
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -101,8 +101,6 @@ internal sealed class SteamItem(val key: String, val section: String) {
     data object GnStatus : SteamItem("gnStatus", "setup")
     data object GnInstall : SteamItem("gnInstall", "setup")
     data object GnStorageWarning : SteamItem("gnStorageWarning", "setup")
-    data object InstallPath : SteamItem("installPath", "setup")
-    data object InstallTriage : SteamItem("installTriage", "setup")
     data object AccountInfo : SteamItem("accountInfo", "account")
     data object SyncLibrary : SteamItem("syncLibrary", "library")
     data object AddManual : SteamItem("addManual", "library")
@@ -139,10 +137,6 @@ internal fun buildSteamItems(steam: SteamSettingsState): List<SteamItem> = build
         add(SteamItem.GnStatus)
         if (!steam.gnInstalled) add(SteamItem.GnInstall)
         if (steam.gnInstalled && !gnConfigured) add(SteamItem.GnStorageWarning)
-        if (gnConfigured) {
-            add(SteamItem.InstallPath)
-            if (steam.installedGamesByVolume.isNotEmpty()) add(SteamItem.InstallTriage)
-        }
     }
     add(SteamItem.GameNativeLibrary)
 
@@ -244,7 +238,6 @@ fun SteamSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
         steam.connectionState,
         steam.gnInstalled,
         steam.gnStoragePath,
-        steam.installedGamesByVolume,
         steam.installedLaunchers,
         steam.notInstalledLaunchers,
         steam.hasStoragePermission
@@ -346,33 +339,6 @@ fun SteamSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     isFocused = isFocused(item)
                 )
 
-                SteamItem.InstallPath -> ActionPreference(
-                    icon = Icons.Default.Folder,
-                    title = if (steam.steamInstallPathIsCustom) {
-                        stringResource(R.string.settings_steam_install_path_title_custom)
-                    } else {
-                        stringResource(R.string.settings_steam_install_path_title)
-                    },
-                    subtitle = formatPath(context, steam.steamInstallPath),
-                    trailingButtonLabel = stringResource(R.string.settings_steam_install_path_change),
-                    isFocused = isFocused(item),
-                    onClick = { viewModel.openSteamInstallPathPicker() },
-                    showResetButton = steam.steamInstallPathIsCustom,
-                    onReset = { viewModel.resetSteamInstallPath() }
-                )
-
-                SteamItem.InstallTriage -> {
-                    val summary = steam.installedGamesByVolume.entries.joinToString(", ") { (label, count) ->
-                        "$label ($count)"
-                    }
-                    InfoPreference(
-                        title = stringResource(R.string.settings_steam_install_triage_title),
-                        value = summary,
-                        icon = Icons.Default.CheckCircle,
-                        isFocused = isFocused(item)
-                    )
-                }
-
                 SteamItem.AccountInfo -> InfoPreference(
                     title = stringResource(R.string.settings_steam_account_title),
                     value = steam.username ?: stringResource(R.string.settings_steam_account_connected),
@@ -444,7 +410,7 @@ fun SteamSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                 SteamItem.RefreshMetadata -> ActionPreference(
                     icon = Icons.Default.Sync,
                     title = stringResource(R.string.settings_steam_refresh_metadata_title),
-                    subtitle = if (steam.isSyncing && steam.syncingLauncher == "refresh") {
+                    subtitle = if (steam.isSyncing && steam.syncingLauncher == com.nendo.argosy.ui.screens.settings.delegates.REFRESH_SYNC_KEY) {
                         stringResource(R.string.settings_steam_refresh_metadata_busy)
                     } else {
                         stringResource(R.string.settings_steam_refresh_metadata_subtitle)
@@ -786,11 +752,7 @@ private fun FocusableButton(
         modifier = Modifier
             .clip(RoundedCornerShape(Dimens.radiusMd))
             .background(backgroundColor)
-            .clickable(
-                onClick = onClick,
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            )
+            .clickableNoFocus(onClick = onClick)
             .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingMd),
         contentAlignment = Alignment.Center
     ) {
@@ -852,29 +814,6 @@ private fun generateQrCode(content: String, size: Int): Bitmap? {
     } catch (e: Exception) {
         null
     }
-}
-
-private fun installVolumeLabel(
-    selectedVolume: String?,
-    volumes: List<com.nendo.argosy.data.steam.SteamInstallVolume>
-): String {
-    if (selectedVolume == null) return "Automatic"
-    return volumes.find { it.target.toPreferenceValue() == selectedVolume }?.label ?: "Automatic"
-}
-
-private fun installVolumeSubtitle(
-    selectedVolume: String?,
-    volumes: List<com.nendo.argosy.data.steam.SteamInstallVolume>
-): String? {
-    val vol = if (selectedVolume == null) {
-        volumes.firstOrNull { it.target is com.nendo.argosy.data.steam.SteamInstallTarget.CustomVolume && it.hasGnPath }
-            ?: volumes.firstOrNull { it.target is com.nendo.argosy.data.steam.SteamInstallTarget.Internal && it.hasGnPath }
-    } else {
-        volumes.find { it.target.toPreferenceValue() == selectedVolume }
-    } ?: return null
-    if (!vol.hasGnPath) return "Not writable"
-    val freeGb = vol.freeBytes / (1024L * 1024L * 1024L)
-    return if (selectedVolume == null) "${vol.label} · ${freeGb}GB free" else "${freeGb}GB free"
 }
 
 @Composable

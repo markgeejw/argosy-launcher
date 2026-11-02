@@ -2,6 +2,7 @@ package com.nendo.argosy.libretro
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -14,7 +15,39 @@ class CorePortDeviceCatalogTest {
         catalogued.forEach { (coreId, platform) ->
             CorePortDeviceCatalog.portDevices(coreId, platform).forEachIndexed { port, devices ->
                 assertNotEquals("$coreId port $port", 0, devices.first().id)
+                assertEquals("$coreId port $port", 0, CorePortDeviceCatalog.autoDeviceIndex(devices.map { it.id }))
             }
+        }
+    }
+
+    @Test
+    fun `auto is the first device that is not none`() {
+        assertEquals(0, CorePortDeviceCatalog.autoDeviceIndex(listOf(1, 0, 2)))
+        assertEquals(1, CorePortDeviceCatalog.autoDeviceIndex(listOf(0, 1, 257)))
+        assertEquals(2, CorePortDeviceCatalog.autoDeviceIndex(listOf(0, 0, 3)))
+        assertNull(CorePortDeviceCatalog.autoDeviceIndex(listOf(0)))
+        assertNull(CorePortDeviceCatalog.autoDeviceIndex(emptyList()))
+    }
+
+    @Test
+    fun `the selected device is the stored one, else auto, else the first`() {
+        val ids = listOf(0, 1, 257)
+        assertEquals(2, CorePortDeviceCatalog.selectedDeviceIndex(ids, 257))
+        assertEquals(0, CorePortDeviceCatalog.selectedDeviceIndex(ids, 0))
+        assertEquals(1, CorePortDeviceCatalog.selectedDeviceIndex(ids, null))
+        assertEquals(1, CorePortDeviceCatalog.selectedDeviceIndex(ids, 513))
+        assertEquals(0, CorePortDeviceCatalog.selectedDeviceIndex(listOf(0), null))
+    }
+
+    @Test
+    fun `cores whose upstream offers one device per port, or none, have no entry`() {
+        listOf(
+            "mupen64plus_next_gles3" to "n64", "mupen64plus_next_gles2" to "n64",
+            "mgba" to "gba", "gambatte" to "gb", "vbam" to "gba", "vba_next" to "gba", "gpsp" to "gba",
+            "picodrive" to "genesis", "armsx2" to "ps2", "ppsspp" to "psp", "melonds" to "nds",
+            "melondsds" to "nds", "azahar" to "3ds", "gw" to "gw"
+        ).forEach { (coreId, platform) ->
+            assertEquals(coreId, emptyList<List<CorePortDevice>>(), CorePortDeviceCatalog.portDevices(coreId, platform))
         }
     }
 

@@ -1,6 +1,7 @@
 package com.nendo.argosy.domain.usecase.download
 
 import com.nendo.argosy.data.download.ZipExtractor
+import com.nendo.argosy.data.emulator.M3uManager
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.GameFileDao
 import com.nendo.argosy.data.local.entity.GameEntity
@@ -47,7 +48,8 @@ class FilePickerFlowUseCase @Inject constructor(
     private val controlsPreferencesRepository: ControlsPreferencesRepository,
     private val attributionRepository: StorageAttributionRepository,
     private val gameRepository: com.nendo.argosy.data.repository.GameRepository,
-    private val volumeHealth: StorageVolumeHealth
+    private val volumeHealth: StorageVolumeHealth,
+    private val m3uManager: M3uManager
 ) {
 
     /**
@@ -164,7 +166,7 @@ class FilePickerFlowUseCase @Inject constructor(
 
         val basePath = game.localPath
         val baseInDb = basePath != null && dbRows.any { it.localPath == basePath }
-        if (basePath != null && !baseInDb && File(basePath).exists()) {
+        if (basePath != null && !baseInDb && !game.isMultiDisc && File(basePath).exists()) {
             rows += FilePickerRow(
                 isHeader = false,
                 groupKey = "game",
@@ -252,6 +254,7 @@ class FilePickerFlowUseCase @Inject constructor(
                 !wantIt && onDisk != null -> {
                     if (onDisk.delete()) {
                         gameFileDao.clearLocalPath(db.id)
+                        m3uManager.recordDiscFile(gameId, db.fileName, null)
                         pruneMusicReferences(onDisk.absolutePath)
                         removed++
                     }

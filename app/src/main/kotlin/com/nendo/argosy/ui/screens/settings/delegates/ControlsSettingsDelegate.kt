@@ -106,6 +106,13 @@ class ControlsSettingsDelegate @Inject constructor(
         }
     }
 
+    fun setIgnoreControllerTouchpad(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setIgnoreControllerTouchpad(enabled)
+            _state.update { it.copy(ignoreControllerTouchpad = enabled) }
+        }
+    }
+
     fun setNavBarAutoHide(scope: CoroutineScope, enabled: Boolean) {
         scope.launch {
             preferencesRepository.setNavBarAutoHide(enabled)

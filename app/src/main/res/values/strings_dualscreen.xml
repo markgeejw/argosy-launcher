@@ -888,8 +888,6 @@
     <!-- Heading of the modal asking where a Steam game should be installed. Noun phrase, drawn in
          caps in English. "Steam" is Valve's storefront; leave it untranslated. -->
     <string name="dual_detail_steam_install_heading">INSTALL LOCATION</string>
-    <!-- Row in that modal. Verb phrase: Argosy fetches the game itself. -->
-    <string name="dual_detail_steam_install_argosy">Download via Argosy</string>
     <!-- Row in that modal. Verb phrase: the game is already installed by another app and Argosy
          should only record that. -->
     <string name="dual_detail_steam_install_external">Mark as Installed</string>

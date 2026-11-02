@@ -156,6 +156,8 @@ add_library(libretrodroid SHARED
         microphone/microphone.cpp
         microphone/microphoneinterface.h
         microphone/microphoneinterface.cpp
+        sensors/coresensors.h
+        sensors/coresensors.cpp
         rewindbuffer.h
         rewindbuffer.cpp
         achievements.h
@@ -167,6 +169,11 @@ add_library(libretrodroid SHARED
         ${SOUNDTOUCH_SOURCES}
         rcheevos_stubs.c
 )
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_sources(libretrodroid PRIVATE video_original_frame_test.cpp)
+    target_sources(libretrodroid PRIVATE shader_sensor_test.cpp)
+endif()
 
 # Support 16k pages for Android 15
 target_link_options(libretrodroid PRIVATE "-Wl,-z,max-page-size=16384")

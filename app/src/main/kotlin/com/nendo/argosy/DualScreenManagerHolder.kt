@@ -14,4 +14,17 @@ object DualScreenManagerHolder {
         set(value) {
             current.value = value
         }
+
+    private var attachedActivities = 0
+
+    @Synchronized
+    fun attach() {
+        attachedActivities++
+    }
+
+    @Synchronized
+    fun detachAndCountRemaining(): Int {
+        attachedActivities = (attachedActivities - 1).coerceAtLeast(0)
+        return attachedActivities
+    }
 }

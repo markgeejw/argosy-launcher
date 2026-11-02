@@ -66,7 +66,8 @@ class ReconcileEffectApplierTest {
             saveSyncRepository = dagger.Lazy { saveSyncRepository },
             saveCacheManager = dagger.Lazy { saveCacheManager },
             payloadCodec = SyncPayloadCodec(com.squareup.moshi.Moshi.Builder().build()),
-            syncPreferencesRepository = mockk(relaxed = true)
+            syncPreferencesRepository = mockk(relaxed = true),
+            serverSaveGate = noHoldGate()
         )
     }
 
@@ -87,6 +88,66 @@ class ReconcileEffectApplierTest {
         serverUpdatedAt = "2026-05-17T12:00:00Z",
         serverContentHash = "srv-hash"
     )
+
+    private fun gateWithActive(cachedAt: String): com.nendo.argosy.data.repository.ServerSaveGate {
+        val activeSaves = mockk<com.nendo.argosy.data.repository.ActiveSaveRepository>()
+        coEvery { activeSaves.getActiveRow(game.id) } returns com.nendo.argosy.data.local.entity.SaveCacheEntity(
+            id = 7L, gameId = game.id, emulatorId = "mgba", cachedAt = java.time.Instant.parse(cachedAt),
+            saveSize = 1, cachePath = "x/7", channelName = "autosave"
+        )
+        return com.nendo.argosy.data.repository.ServerSaveGate(activeSaves)
+    }
+
+    private fun applierWith(gate: com.nendo.argosy.data.repository.ServerSaveGate) = ReconcileEffectApplier(
+        pendingSyncQueueDao = pendingSyncQueueDao,
+        saveSyncDao = saveSyncDao,
+        gameDao = gameDao,
+        pendingConflictDao = pendingConflictDao,
+        conflictAutoResolver = conflictAutoResolver,
+        saveSyncRepository = dagger.Lazy { saveSyncRepository },
+        saveCacheManager = dagger.Lazy { saveCacheManager },
+        payloadCodec = SyncPayloadCodec(com.squareup.moshi.Moshi.Builder().build()),
+        syncPreferencesRepository = mockk(relaxed = true),
+        serverSaveGate = gate
+    )
+
+    @Test
+    fun `DOWNLOAD of a ROM-named slot older than the active save settles the stale row`() = runTest {
+        val stale = SaveSyncEntity(
+            id = 3L, gameId = game.id, rommId = 100L, emulatorId = "mgba", channelName = "g",
+            rommSaveId = 42L, syncStatus = SaveSyncEntity.STATUS_SERVER_NEWER
+        )
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(game.id, "mgba", "g", any()) } returns stale
+
+        val outcome = applierWith(gateWithActive("2026-10-27T00:00:00Z"))
+            .apply(op(ReconcileAction.DOWNLOAD, slot = "g"), sessionId = 1L)
+
+        assertEquals(0, outcome.applied)
+        coVerify(exactly = 1) { saveSyncDao.upsert(match { it.id == 3L && it.syncStatus == SaveSyncEntity.STATUS_SYNCED }) }
+        coVerify(exactly = 0) { saveSyncDao.upsert(match { it.syncStatus == SaveSyncEntity.STATUS_SERVER_NEWER }) }
+    }
+
+    @Test
+    fun `DOWNLOAD older than the active save writes nothing when no row exists`() = runTest {
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(any(), any(), any(), any()) } returns null
+
+        val outcome = applierWith(gateWithActive("2026-10-27T00:00:00Z"))
+            .apply(op(ReconcileAction.DOWNLOAD), sessionId = 1L)
+
+        assertEquals(0, outcome.applied)
+        coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+    }
+
+    @Test
+    fun `DOWNLOAD newer than the active save is still marked server newer`() = runTest {
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(any(), any(), any(), any()) } returns null
+
+        val outcome = applierWith(gateWithActive("2026-01-01T00:00:00Z"))
+            .apply(op(ReconcileAction.DOWNLOAD), sessionId = 1L)
+
+        assertEquals(1, outcome.applied)
+        coVerify { saveSyncDao.upsert(match { it.syncStatus == SaveSyncEntity.STATUS_SERVER_NEWER }) }
+    }
 
     @Test
     fun `NO_OP returns NONE without side effects`() = runTest {
@@ -268,6 +329,74 @@ class ReconcileEffectApplierTest {
 
         assertEquals(0, outcome.conflicts)
         coVerify(exactly = 0) { pendingConflictDao.upsert(any()) }
+    }
+
+    @Test
+    fun `CONFLICT dismissed while server times were unreadable stays dismissed`() = runTest {
+        coEvery {
+            conflictAutoResolver.classify(any(), any())
+        } returns ConflictAutoResolver.Resolution.AsIs
+        val existing = PendingConflictEntity(
+            gameId = game.id, rommSaveId = 555L, fileName = "save.sav", slot = "autosave", emulator = "mgba",
+            localUpdatedAt = null, serverUpdatedAt = null, localHash = null, serverHash = "srv-hash",
+            reason = "test", dismissed = true
+        )
+        coEvery {
+            pendingConflictDao.findByGameSaveAndOwner(game.id, 555L, any(), PendingConflictEntity.UNATTRIBUTED)
+        } returns existing
+
+        val outcome = applier.apply(op(ReconcileAction.CONFLICT, saveId = 555L), sessionId = null)
+
+        assertEquals(0, outcome.conflicts)
+        coVerify(exactly = 0) { pendingConflictDao.upsert(any()) }
+    }
+
+    @Test
+    fun `CONFLICT dismissed with no server time and no hash comes back when the server changes`() = runTest {
+        coEvery {
+            conflictAutoResolver.classify(any(), any())
+        } returns ConflictAutoResolver.Resolution.AsIs
+        val existing = PendingConflictEntity(
+            gameId = game.id, rommSaveId = 555L, fileName = "save.sav", slot = "autosave", emulator = "mgba",
+            localUpdatedAt = null, serverUpdatedAt = null, localHash = null, serverHash = null,
+            reason = "test", dismissed = true
+        )
+        coEvery {
+            pendingConflictDao.findByGameSaveAndOwner(game.id, 555L, any(), PendingConflictEntity.UNATTRIBUTED)
+        } returns existing
+        val noHashOp = op(ReconcileAction.CONFLICT, saveId = 555L).copy(serverContentHash = null)
+
+        val outcome = applier.apply(noHashOp, sessionId = null)
+
+        assertEquals(1, outcome.conflicts)
+    }
+
+    @Test
+    fun `DOWNLOAD with no server time anywhere is marked server newer, never settled`() = runTest {
+        val stale = SaveSyncEntity(
+            id = 3L, gameId = game.id, rommId = 100L, emulatorId = "mgba", channelName = "autosave",
+            rommSaveId = 42L, syncStatus = SaveSyncEntity.STATUS_SERVER_NEWER,
+            localUpdatedAt = java.time.Instant.parse("2026-01-01T00:00:00Z")
+        )
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(any(), any(), any(), any()) } returns stale
+        val noTimeOp = op(ReconcileAction.DOWNLOAD).copy(serverUpdatedAt = null)
+
+        val outcome = applierWith(gateWithActive("2026-10-27T00:00:00Z")).apply(noTimeOp, sessionId = 1L)
+
+        assertEquals(1, outcome.applied)
+        coVerify(exactly = 0) { saveSyncDao.upsert(match { it.syncStatus == SaveSyncEntity.STATUS_SYNCED }) }
+    }
+
+    @Test
+    fun `DOWNLOAD keeps the server time when RomM sends it with an offset`() = runTest {
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(any(), any(), any(), any()) } returns null
+        val offsetOp = op(ReconcileAction.DOWNLOAD).copy(serverUpdatedAt = "2026-10-27T07:39:57+00:00")
+
+        applier.apply(offsetOp, sessionId = 1L)
+
+        coVerify {
+            saveSyncDao.upsert(match { it.serverUpdatedAt == java.time.Instant.parse("2026-10-27T07:39:57Z") })
+        }
     }
 
     @Test

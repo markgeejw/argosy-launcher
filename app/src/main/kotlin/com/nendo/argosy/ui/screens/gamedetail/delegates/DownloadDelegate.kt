@@ -6,8 +6,6 @@ import android.net.Uri
 import com.nendo.argosy.R
 import com.nendo.argosy.data.download.DownloadManager
 import com.nendo.argosy.data.download.DownloadState
-import com.nendo.argosy.data.steam.SteamContentManager
-import com.nendo.argosy.data.steam.SteamDownloadState
 import com.nendo.argosy.data.remote.playstore.PlayStoreService
 import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.model.ArtSlot
@@ -16,7 +14,6 @@ import com.nendo.argosy.data.remote.romm.RomMResult
 import com.nendo.argosy.data.model.FilePickerRow
 import com.nendo.argosy.data.update.ApkInstallManager
 import com.nendo.argosy.domain.usecase.download.DownloadResult
-import com.nendo.argosy.ui.common.toDownloadStatus
 import com.nendo.argosy.ui.common.toNotificationText
 import com.nendo.argosy.ui.input.SoundFeedbackManager
 import com.nendo.argosy.core.input.SoundType
@@ -74,7 +71,6 @@ class DownloadDelegate @Inject constructor(
     private val playStoreService: PlayStoreService,
     private val imageCacheManager: com.nendo.argosy.data.cache.ImageCacheManager,
     private val gameRepository: com.nendo.argosy.data.repository.GameRepository,
-    private val steamContentManager: SteamContentManager,
     private val gameFileDao: com.nendo.argosy.data.local.dao.GameFileDao,
     private val filePickerFlow: com.nendo.argosy.domain.usecase.download.FilePickerFlowUseCase,
     private val artSourceRecorder: com.nendo.argosy.data.cache.ArtSourceRecorder
@@ -101,7 +97,6 @@ class DownloadDelegate @Inject constructor(
     }
 
     fun observeDownloads(scope: CoroutineScope, gameIdProvider: () -> Long, onCompleted: (Long) -> Unit) {
-        // RomM downloads
         scope.launch {
             downloadManager.state.collect { queueState ->
                 val gameId = gameIdProvider()
@@ -168,28 +163,6 @@ class DownloadDelegate @Inject constructor(
                 }
             }
         }
-
-        // Steam downloads
-        scope.launch {
-            steamContentManager.activeDownload.collect { steamDownload ->
-                val gameId = gameIdProvider()
-                if (gameId == 0L) return@collect
-
-                val game = gameRepository.getById(gameId) ?: return@collect
-                val steamAppId = game.steamAppId
-
-                if (steamDownload == null || steamAppId == null || steamDownload.appId != steamAppId) {
-                    return@collect
-                }
-
-                val result = steamDownload.state.toDownloadStatus(steamDownload.progress)
-                    ?: return@collect
-                if (steamDownload.state is SteamDownloadState.Completed) onCompleted(gameId)
-
-                val (status, progress) = result
-                _state.update { it.copy(downloadStatus = status, downloadProgress = progress) }
-            }
-        }
     }
 
     suspend fun buildFilePickerRows(gameId: Long): Pair<List<FilePickerRow>, Set<Long>>? {
@@ -206,10 +179,12 @@ class DownloadDelegate @Inject constructor(
         scope: CoroutineScope,
         gameId: Long,
         rows: List<FilePickerRow>,
-        selected: Set<Long>
+        selected: Set<Long>,
+        onApplied: () -> Unit
     ) {
         scope.launch {
             val (added, removed) = filePickerFlow.applyManagedSelection(gameId, rows, selected)
+            if (removed > 0) onApplied()
             val parts = buildList {
                 if (added > 0) {
                     add(
@@ -305,13 +280,7 @@ class DownloadDelegate @Inject constructor(
 
     fun resumeDownload(scope: CoroutineScope, gameId: Long) {
         scope.launch {
-            val game = gameRepository.getById(gameId)
-            val steamAppId = game?.steamAppId
-            if (game != null && steamAppId != null && steamContentManager.activeDownload.value?.appId == steamAppId) {
-                steamContentManager.queueDownloadOptimistic(steamAppId, game.title, gameRepository.getArt(game.id).coverPath)
-            } else {
-                downloadManager.resumeDownload(gameId)
-            }
+            downloadManager.resumeDownload(gameId)
         }
     }
 
@@ -410,9 +379,9 @@ class DownloadDelegate @Inject constructor(
         }
     }
 
-    fun deleteLocalFile(scope: CoroutineScope, gameId: Long, onGameDeleted: () -> Unit) {
+    fun deleteLocalFile(scope: CoroutineScope, gameId: Long, withSoundtrack: Boolean, onGameDeleted: () -> Unit) {
         scope.launch {
-            gameActions.deleteLocalFile(gameId)
+            gameActions.deleteLocalFile(gameId, withSoundtrack)
             notificationManager.showSuccess(
                 NotificationText.Res(R.string.gamedetail_notice_download_deleted)
             )

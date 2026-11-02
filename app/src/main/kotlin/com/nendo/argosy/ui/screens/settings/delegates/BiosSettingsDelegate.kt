@@ -358,7 +358,6 @@ class BiosSettingsDelegate @Inject constructor(
 
     fun moveActionFocus(delta: Int) {
         _state.update { state ->
-            // Both buttons are shown when totalFiles > 0, allow navigation between them
             val maxIndex = if (state.totalFiles > 0) 1 else 0
             val newIndex = (state.actionIndex + delta).coerceIn(0, maxIndex)
             state.copy(actionIndex = newIndex)

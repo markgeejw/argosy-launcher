@@ -8,6 +8,7 @@ import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +36,7 @@ import com.nendo.argosy.core.game.AchievementUi
 import com.nendo.argosy.data.preferences.SessionStateStore
 import com.nendo.argosy.data.repository.AppsRepository
 import com.nendo.argosy.ui.dualscreen.CompanionDetail
+import com.nendo.argosy.ui.dualscreen.onDisplay
 import com.nendo.argosy.ui.dualscreen.CompanionDetailScreen
 import com.nendo.argosy.ui.input.GamepadEvent
 import com.nendo.argosy.ui.input.InputResult
@@ -46,6 +48,7 @@ import com.nendo.argosy.util.LauncherSystemBars
 import com.nendo.argosy.util.installImmersiveMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -151,6 +154,7 @@ class SecondaryHomeActivity :
         } else {
             recoverThroughArgosyActivity()
         }
+        recreateWhenManagerReplaced()
 
         setContent {
             val themeState = remember { mutableStateOf(ThemeState()) }
@@ -201,13 +205,41 @@ class SecondaryHomeActivity :
         val hereDisplayId = androidx.core.content.ContextCompat.getDisplayOrDefault(this).displayId
         val showsDashboard = gameActive && dsm.primaryShowsDashboard(hereDisplayId, gameDisplay)
         val rolesSwapped by dsm.isRolesSwapped.collectAsState()
-        if (!rolesSwapped && !showsDashboard) {
-            com.nendo.argosy.ui.ArgosyApp(
-                onStartupComplete = { dsm.stopStartupGuard() }
-            )
-            return
+        val launcherShown = !rolesSwapped && !showsDashboard
+        val handoffMs = com.nendo.argosy.ui.dualscreen.companionHandoffMs(
+            showsDashboard = showsDashboard,
+            reduced = com.nendo.argosy.ui.theme.LocalMotionTier.current ==
+                com.nendo.argosy.ui.theme.MotionTier.Reduced,
+            veilMs = com.nendo.argosy.ui.theme.generated.ComponentDefaults.LaunchOverlay.veilMs
+        )
+        androidx.compose.foundation.layout.Box(
+            modifier = androidx.compose.ui.Modifier.fillMaxSize()
+        ) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = launcherShown,
+                enter = androidx.compose.animation.EnterTransition.None,
+                exit = androidx.compose.animation.fadeOut(
+                    androidx.compose.animation.core.tween(handoffMs)
+                )
+            ) {
+                com.nendo.argosy.ui.ArgosyApp(
+                    onStartupComplete = { dsm.stopStartupGuard() }
+                )
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !launcherShown,
+                enter = androidx.compose.animation.fadeIn(
+                    androidx.compose.animation.core.tween(handoffMs)
+                ),
+                exit = androidx.compose.animation.ExitTransition.None
+            ) {
+                CompanionPresentation(showsDashboard)
+            }
         }
+    }
 
+    @androidx.compose.runtime.Composable
+    private fun CompanionPresentation(showsDashboard: Boolean) {
         val slot by dsm.presentationSlot.collectAsState()
         val presentationSink = androidx.compose.runtime.remember {
             androidx.compose.ui.focus.FocusRequester()
@@ -220,21 +252,48 @@ class SecondaryHomeActivity :
                 .focusRequester(presentationSink)
                 .focusable()
         ) {
-            com.nendo.argosy.ui.dualscreen.PresentationSlotContent(slot)
+            val gameDisplay by dsm.emulatorDisplay.collectAsState()
+            val ownDisplay = androidx.compose.ui.platform.LocalView.current.display?.displayId
+            val rendered = com.nendo.argosy.ui.dualscreen.companionSlotToRender(
+                showsDashboard,
+                slot.onDisplay(ownDisplay, gameDisplay)
+            )
+            val arrivalMs = com.nendo.argosy.ui.dualscreen.dashboardArrivalMs(
+                showsDashboard = showsDashboard,
+                reduced = com.nendo.argosy.ui.theme.LocalMotionTier.current ==
+                    com.nendo.argosy.ui.theme.MotionTier.Reduced,
+                arrivalMs =
+                    com.nendo.argosy.ui.theme.generated.ComponentDefaults.LaunchOverlay.arrivalMs
+            )
+            if (showsDashboard) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = androidx.compose.ui.Modifier
+                        .fillMaxSize()
+                        .background(androidx.compose.ui.graphics.Color.Black)
+                )
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = rendered != null,
+                enter = androidx.compose.animation.fadeIn(
+                    androidx.compose.animation.core.tween(arrivalMs)
+                ),
+                exit = androidx.compose.animation.ExitTransition.None
+            ) {
+                if (rendered != null) {
+                    com.nendo.argosy.ui.dualscreen.PresentationSlotContent(rendered)
+                }
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            pointerGuard.onInFrontChanged(true)
+        }
         if (releaseUnsupportedDisplay()) return
         systemBars.apply()
         if (!::dsm.isInitialized) return
-        val currentDsm = DualScreenManagerHolder.instance
-        if (currentDsm != null && dsm !== currentDsm) {
-            android.util.Log.w("SecondaryHome", "DSM stale, reconnecting to new instance")
-            dsm = currentDsm
-            initializeCompanion()
-        }
         dsm.notifyUserActivity("companionResume")
         syncFromSessionStore()
         dsm.onCompanionResumed()
@@ -245,6 +304,23 @@ class SecondaryHomeActivity :
         isGameActive = store.hasActiveSession()
         isHardcore = store.isHardcore()
         currentChannelName = store.getChannelName()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            pointerGuard.onInFrontChanged(false)
+        }
+    }
+
+    override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
+        super.onTopResumedActivityChanged(isTopResumedActivity)
+        pointerGuard.onInFrontChanged(isTopResumedActivity)
+    }
+
+    private fun setWindowTouchable(touchable: Boolean) {
+        val flag = android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        if (touchable) window.clearFlags(flag) else window.addFlags(flag)
     }
 
     override fun onStop() {
@@ -272,6 +348,11 @@ class SecondaryHomeActivity :
     }
 
     private var mediaDimSwallowsTouch = false
+    private val pointerGuard = com.nendo.argosy.core.input.ControllerPointerGuard(
+        windowName = "companion",
+        scope = lifecycleScope,
+        setWindowTouchable = ::setWindowTouchable
+    )
 
     /**
      * A gesture that begins while the media dim holds this window, at either stage, is a wake and
@@ -280,6 +361,7 @@ class SecondaryHomeActivity :
      * moved window focus here and key focus must land where any other tap would leave it.
      */
     override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (pointerGuard.consumes(event)) return true
         if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
             val dimmed = isMediaDimmed()
             if (::dsm.isInitialized) {
@@ -375,6 +457,7 @@ class SecondaryHomeActivity :
      * one a directly-delivered motion event gets.
      */
     override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+        if (pointerGuard.consumes(event)) return true
         val isJoystick = event.isFromSource(android.view.InputDevice.SOURCE_CLASS_JOYSTICK)
         if (isJoystick && ::dsm.isInitialized && !dsm.companionHoldsPrimary.value) {
             gamepadInputHandler.resetStickMotion()
@@ -695,6 +778,17 @@ class SecondaryHomeActivity :
     private fun hostDisplayId(): Int =
         androidx.core.content.ContextCompat.getDisplayOrDefault(this).displayId
 
+    private fun recreateWhenManagerReplaced() {
+        lifecycleScope.launch {
+            DualScreenManagerHolder.instanceFlow.filterNotNull().collect { current ->
+                if (::dsm.isInitialized && current !== dsm) {
+                    android.util.Log.w("SecondaryHome", "Dual-screen manager replaced, recreating companion")
+                    recreate()
+                }
+            }
+        }
+    }
+
     private fun initializeCompanion() {
         registerDisplayListener()
         loadInitialState()
@@ -702,6 +796,9 @@ class SecondaryHomeActivity :
         dsm.registerCompanionHost(hostDisplayId(), this)
         systemBars.follow(lifecycleScope, dsm.preferencesRepository.userPreferences)
         lifecycleScope.launch { dsm.companionAchievements.collect { companionAchievements = it } }
+        pointerGuard.follow(
+            com.nendo.argosy.core.input.controllerTouchpadGuarding(dsm.playSessionTracker, dsm.preferencesRepository)
+        )
         lifecycleScope.launch {
             dsm.companionMediaVisible.collect { visible -> isMediaPanelVisible = visible }
         }

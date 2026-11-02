@@ -6,6 +6,7 @@ import android.graphics.RectF
 /**
  * How a two-screen console's single framebuffer is split across two displays. Crops are the
  * fraction trimmed from each edge and are only valid while [coreOptions] are set.
+ * [matchesScreenSize] is whether Match Game Screen Sizes applies to this console.
  */
 data class DualScreenOutput(
     val coreId: String,
@@ -13,7 +14,8 @@ data class DualScreenOutput(
     val primary: RectF,
     val secondary: RectF,
     val primaryAspect: Float,
-    val secondaryAspect: Float
+    val secondaryAspect: Float,
+    val matchesScreenSize: Boolean = false
 ) {
     /**
      * Where a touch on the second display lands in the whole frame, or null when it lands on the
@@ -55,6 +57,11 @@ data class DualScreenOutput(
     }
 
     companion object {
+        private const val AZAHAR_FRAME_ROWS = 480
+        private const val MELONDS_FRAME_ROWS = 384
+
+        private fun splitTrim(frameRows: Int): Float = 0.5f + 0.5f / frameRows
+
         /**
          * Azahar stacks the 400x240 top screen over the 320x240 bottom screen in a 400x480 frame,
          * so the lower screen is the bottom half inset by 40px on each side.
@@ -65,8 +72,8 @@ data class DualScreenOutput(
                 "citra_layout_option" to "default",
                 "citra_swap_screen" to "Top"
             ),
-            primary = RectF(0f, 0f, 0f, 0.5f),
-            secondary = RectF(0.1f, 0.5f, 0.1f, 0f),
+            primary = RectF(0f, 0f, 0f, splitTrim(AZAHAR_FRAME_ROWS)),
+            secondary = RectF(0.1f, splitTrim(AZAHAR_FRAME_ROWS), 0.1f, 0f),
             primaryAspect = 400f / 240f,
             secondaryAspect = 320f / 240f
         )
@@ -84,10 +91,11 @@ data class DualScreenOutput(
                 "melonds_screen_gap" to "0",
                 "melonds_touch_mode" to "Touch"
             ),
-            primary = RectF(0f, 0f, 0f, 0.5f),
-            secondary = RectF(0f, 0.5f, 0f, 0f),
+            primary = RectF(0f, 0f, 0f, splitTrim(MELONDS_FRAME_ROWS)),
+            secondary = RectF(0f, splitTrim(MELONDS_FRAME_ROWS), 0f, 0f),
             primaryAspect = 256f / 192f,
-            secondaryAspect = 256f / 192f
+            secondaryAspect = 256f / 192f,
+            matchesScreenSize = true
         )
 
         private val MELONDS_DS = MELONDS.copy(

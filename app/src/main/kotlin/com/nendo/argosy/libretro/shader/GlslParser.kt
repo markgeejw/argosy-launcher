@@ -29,6 +29,8 @@ object GlslParser {
 
     private val VERSION_DIRECTIVE = Regex("""^\s*#version\s+\d+.*$""")
 
+    private const val SENSOR_PREAMBLE = "#define _HAS_SENSOR_UNIFORMS\n"
+
     private val PRAGMA_PARAMETER = Regex(
         """#pragma\s+parameter\s+(\w+)\s+"([^"]+)"\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)"""
     )
@@ -118,9 +120,9 @@ precision mediump float;
             (stripped.contains("precision mediump") || stripped.contains("precision highp"))
 
         return if (needsPrecision && !hasPrecision) {
-            "$ES_PREAMBLE\n$stripped"
+            "$SENSOR_PREAMBLE$ES_PREAMBLE\n$stripped"
         } else {
-            stripped
+            "$SENSOR_PREAMBLE$stripped"
         }
     }
 

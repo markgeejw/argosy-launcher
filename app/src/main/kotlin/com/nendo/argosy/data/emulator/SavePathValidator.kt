@@ -26,6 +26,7 @@ class SavePathValidator @Inject constructor(
 ) {
     companion object {
         private const val TAG = "SavePathValidator"
+        private const val PRIVATE_APP_DATA = "/data/data/"
     }
 
     sealed class Result {
@@ -37,7 +38,12 @@ class SavePathValidator @Inject constructor(
         data object NoConfig : Result()
     }
 
-    suspend fun validateAccess(emulatorId: String, emulatorPackage: String? = null): Result {
+    suspend fun validateAccess(emulatorId: String, emulatorPackage: String? = null): Result =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            validateAccessOnIo(emulatorId, emulatorPackage)
+        }
+
+    private suspend fun validateAccessOnIo(emulatorId: String, emulatorPackage: String?): Result {
         val config = SavePathRegistry.getConfigIncludingUnsupported(emulatorId)
         if (config == null) {
             Logger.debug(TAG, "[SaveSync] VALIDATE | No config for emulator | emulator=$emulatorId")
@@ -104,6 +110,7 @@ class SavePathValidator @Inject constructor(
         val config = SavePathRegistry.getConfigIncludingUnsupported(emulatorId) ?: return PackageDataAccess.BLOCKED
         if (config.requiresRoot && !RootShell.isAvailable) return PackageDataAccess.BLOCKED
         val resolvedPaths = SavePathRegistry.resolvePathWithPackage(config, emulatorPackage, context.filesDir.absolutePath)
+        if (config.requiresRoot && resolvedPaths.any { it.startsWith(PRIVATE_APP_DATA) }) return PackageDataAccess.ROOT
         val roots = resolvedPaths.mapNotNull { packageDataRoot(it) }.distinct()
 
         val reachable = roots.firstOrNull { root ->

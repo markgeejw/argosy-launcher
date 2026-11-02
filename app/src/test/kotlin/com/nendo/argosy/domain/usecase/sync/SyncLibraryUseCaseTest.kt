@@ -9,7 +9,6 @@ import com.nendo.argosy.data.remote.romm.SyncResult
 import com.nendo.argosy.data.sync.SyncNotificationCopyResources
 import com.nendo.argosy.R
 import com.nendo.argosy.core.notification.NotificationManager
-import com.nendo.argosy.ui.screens.common.LibrarySyncBus
 import com.nendo.argosy.core.notification.NotificationProgress
 import com.nendo.argosy.core.notification.NotificationText
 import com.nendo.argosy.core.notification.NotificationType
@@ -34,7 +33,7 @@ class SyncLibraryUseCaseTest {
 
     private lateinit var romMRepository: RomMRepository
     private lateinit var notificationManager: NotificationManager
-    private lateinit var librarySyncBus: LibrarySyncBus
+    private lateinit var librarySyncBus: LibrarySyncNotifier
     private lateinit var appPreferences: AppPreferencesRepository
     private lateinit var syncPreferences: SyncPreferencesRepository
     private lateinit var useCase: SyncLibraryUseCase

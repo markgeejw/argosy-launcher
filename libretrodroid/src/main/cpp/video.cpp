@@ -138,11 +138,17 @@ bool Video::tryBuildShaderChain(const ShaderManager::Chain& shaders, std::vector
 
         shader.gScreenDensityHandle = glGetUniformLocation(shader.gProgram, "screenDensity");
 
+        shader.gOrigTextureHandle = glGetUniformLocation(shader.gProgram, "OrigTexture");
+        shader.gOrigTextureSizeHandle = glGetUniformLocation(shader.gProgram, "OrigTextureSize");
+        shader.gOrigInputSizeHandle = glGetUniformLocation(shader.gProgram, "OrigInputSize");
         shader.gInputSizeHandle = glGetUniformLocation(shader.gProgram, "InputSize");
         shader.gOutputSizeHandle = glGetUniformLocation(shader.gProgram, "OutputSize");
         shader.gFrameCountHandle = glGetUniformLocation(shader.gProgram, "FrameCount");
         shader.gFrameDirectionHandle = glGetUniformLocation(shader.gProgram, "FrameDirection");
         shader.gMVPMatrixHandle = glGetUniformLocation(shader.gProgram, "MVPMatrix");
+        shader.gGyroscopeHandle = glGetUniformLocation(shader.gProgram, "Gyroscope");
+        shader.gAccelerometerHandle = glGetUniformLocation(shader.gProgram, "Accelerometer");
+        shader.gAccelerometerRestHandle = glGetUniformLocation(shader.gProgram, "AccelerometerRest");
 
         outChain.push_back(shader);
     }
@@ -190,6 +196,20 @@ void Video::updateProgram() {
 
     shadersChain = std::move(newChain);
     renderer->setShaders(shaders);
+    shaderSensorUsage = 0;
+    for (const auto& shader : shadersChain) {
+        if (shader.gAccelerometerHandle != -1 || shader.gAccelerometerRestHandle != -1)
+            shaderSensorUsage |= SENSOR_ACCELEROMETER;
+        if (shader.gGyroscopeHandle != -1)
+            shaderSensorUsage |= SENSOR_ACCELEROMETER | SENSOR_GYROSCOPE;
+    }
+}
+
+int Video::prepareShaderAndGetSensorUsage() {
+    bool shaderPending = !loadedShaderType.has_value() || !(loadedShaderType.value() == requestedShaderConfig);
+    updateProgram();
+    if (shaderPending) isDirty = true;
+    return shaderSensorUsage;
 }
 
 void Video::renderFrame(bool force) {
@@ -242,6 +262,8 @@ void Video::renderFrame(bool force) {
     }
 
     updateProgram();
+    float originalTextureWidth = hwRenderTexture != 0 ? hwFBOWidth : getTextureWidth();
+    float originalTextureHeight = hwRenderTexture != 0 ? hwFBOHeight : getTextureHeight();
     for (int i = 0; i < shadersChain.size(); ++i) {
         auto shader = shadersChain[i];
         auto passData = renderer->getPassData(i);
@@ -277,11 +299,11 @@ void Video::renderFrame(bool force) {
         glBindTexture(GL_TEXTURE_2D, mainTexture);
         glUniform1i(shader.gTextureHandle, 0);
 
-        // Also provide original texture as "OriginalTexture" for shaders that need it
-        if (shader.gPreviousPassTextureHandle != -1) {
+        if (shader.gPreviousPassTextureHandle != -1 || shader.gOrigTextureHandle != -1) {
             glActiveTexture(GL_TEXTURE0 + 1);
             glBindTexture(GL_TEXTURE_2D, sourceTexture);
             glUniform1i(shader.gPreviousPassTextureHandle, 1);
+            glUniform1i(shader.gOrigTextureHandle, 1);
         }
 
         // Input size: for pass 0 use original, for subsequent passes use previous output size
@@ -295,7 +317,15 @@ void Video::renderFrame(bool force) {
             inputHeight = getTextureHeight();
         }
 
-        glUniform2f(shader.gTextureSizeHandle, inputWidth, inputHeight);
+        float textureWidth = i > 0 && passData.texture.has_value() ? inputWidth : originalTextureWidth;
+        float textureHeight = i > 0 && passData.texture.has_value() ? inputHeight : originalTextureHeight;
+        glUniform2f(shader.gTextureSizeHandle, textureWidth, textureHeight);
+
+        if (shader.gOrigTextureSizeHandle != -1) {
+            glUniform2f(shader.gOrigTextureSizeHandle, originalTextureWidth, originalTextureHeight);
+        }
+        if (shader.gOrigInputSizeHandle != -1)
+            glUniform2f(shader.gOrigInputSizeHandle, getTextureWidth(), getTextureHeight());
 
         glUniform1f(shader.gScreenDensityHandle, getScreenDensity());
 
@@ -304,6 +334,11 @@ void Video::renderFrame(bool force) {
 
         auto passWidth = static_cast<float>(passData.width.value_or(videoLayout.getScreenWidth()));
         auto passHeight = static_cast<float>(passData.height.value_or(videoLayout.getScreenHeight()));
+        if (isLastPass && !passData.width.has_value()) {
+            auto& bounds = videoLayout.getRelativeForegroundBounds();
+            passWidth = static_cast<float>(videoLayout.getScreenWidth()) * (bounds[2] - bounds[0]);
+            passHeight = static_cast<float>(videoLayout.getScreenHeight()) * (bounds[3] - bounds[1]);
+        }
 
         if (shader.gOutputSizeHandle != -1)
             glUniform2f(shader.gOutputSizeHandle, passWidth, passHeight);
@@ -313,6 +348,12 @@ void Video::renderFrame(bool force) {
 
         if (shader.gFrameDirectionHandle != -1)
             glUniform1i(shader.gFrameDirectionHandle, 1);
+        if (shader.gGyroscopeHandle != -1)
+            glUniform3fv(shader.gGyroscopeHandle, 1, shaderSensorState.data());
+        if (shader.gAccelerometerHandle != -1)
+            glUniform3fv(shader.gAccelerometerHandle, 1, shaderSensorState.data() + 3);
+        if (shader.gAccelerometerRestHandle != -1)
+            glUniform3fv(shader.gAccelerometerRestHandle, 1, shaderSensorState.data() + 6);
 
         if (shader.gMVPMatrixHandle != -1) {
             static const GLfloat identity[16] = {
@@ -329,7 +370,7 @@ void Video::renderFrame(bool force) {
         glDisableVertexAttribArray(shader.gvPositionHandle);
         glDisableVertexAttribArray(shader.gvCoordinateHandle);
 
-        if (shader.gPreviousPassTextureHandle != -1 && passData.texture.has_value()) {
+        if (shader.gPreviousPassTextureHandle != -1 || shader.gOrigTextureHandle != -1) {
             glActiveTexture(GL_TEXTURE0 + 1);
             glBindTexture(GL_TEXTURE_2D, 0);
         }
@@ -569,6 +610,12 @@ void Video::setIntegerScaling(bool enabled) {
 
 void Video::setTextureCrop(float left, float top, float right, float bottom) {
     videoLayout.setTextureCrop(left, top, right, bottom);
+}
+
+void Video::setShaderSensorState(const std::array<float, 9>& state) {
+    if (shaderSensorState == state) return;
+    shaderSensorState = state;
+    if (shaderSensorUsage != 0) isDirty = true;
 }
 
 void Video::setBlackFrameInsertion(bool enabled) {

@@ -26,15 +26,22 @@ import `in`.dragonbra.javasteam.steam.handlers.steamapps.SteamApps
 import `in`.dragonbra.javasteam.steam.handlers.steamapps.callback.LicenseListCallback
 import `in`.dragonbra.javasteam.steam.handlers.steamapps.callback.PICSProductInfoCallback
 import `in`.dragonbra.javasteam.steam.steamclient.callbackmgr.CallbackManager
+import `in`.dragonbra.javasteam.types.AsyncJobMultiple
 import `in`.dragonbra.javasteam.types.KeyValue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -76,10 +83,8 @@ class SteamLibraryManager @Inject constructor(
     private val steamLicenseDao: SteamLicenseDao,
     private val cachedLicenseDao: CachedLicenseDao,
     private val imageCacheManager: ImageCacheManager,
-    private val drmHazardManager: DrmHazardManager,
     private val steamRepository: dagger.Lazy<SteamRepository>,
     private val steamIgdbResolver: dagger.Lazy<com.nendo.argosy.data.repository.SteamIgdbResolver>,
-    private val steamContentManager: dagger.Lazy<SteamContentManager>,
     private val preferencesRepository: com.nendo.argosy.data.preferences.UserPreferencesRepository,
     private val syncPreferencesRepository: com.nendo.argosy.data.preferences.SyncPreferencesRepository,
     private val steamLibraryRepair: dagger.Lazy<SteamLibraryRepair>,
@@ -95,7 +100,18 @@ class SteamLibraryManager @Inject constructor(
     private val _syncState = MutableStateFlow<LibrarySyncState>(LibrarySyncState.Idle)
     val syncState: StateFlow<LibrarySyncState> = _syncState.asStateFlow()
 
+    private val _settledSyncRuns = MutableStateFlow(0L)
+
+    /**
+     * Count of sync runs that have ended, whether they completed, failed, or were skipped
+     * by the cooldown. A caller waiting for the run it triggered reads the value first and
+     * then waits for it to grow.
+     */
+    val settledSyncRuns: StateFlow<Long> = _settledSyncRuns.asStateFlow()
+
     private var syncPhase = SyncPhase.IDLE
+    private var picsFailures = 0
+    private var phaseTotal = 0
     private val pendingPackageIds = mutableSetOf<Int>()
     private val pendingAppIds = mutableSetOf<Int>()
     private val packageToAppIds = mutableMapOf<Int, List<Int>>()
@@ -118,6 +134,10 @@ class SteamLibraryManager @Inject constructor(
 
     private companion object {
         val SYNC_COOLDOWN: java.time.Duration = java.time.Duration.ofHours(24)
+        const val PICS_REQUEST_TIMEOUT_MS = 60_000L
+        const val PACKAGE_BATCH_SIZE = 100
+        const val APP_BATCH_SIZE = 50
+        const val BATCH_SPACING_MS = 500L
     }
 
     fun initialize(apps: SteamApps, cm: CallbackManager) {
@@ -137,12 +157,6 @@ class SteamLibraryManager @Inject constructor(
                 handleLicenseList(callback)
             }
         }
-
-        subscriptions += cm.subscribe(PICSProductInfoCallback::class.java) { callback ->
-            scope.launch {
-                handleProductInfo(callback)
-            }
-        }
     }
 
     fun forceSyncWithOverwrite() {
@@ -154,17 +168,21 @@ class SteamLibraryManager @Inject constructor(
     fun forceSync() {
         forceSyncRequested = true
         scope.launch {
-            val licenses = getLicenses()
-            if (licenses.isEmpty()) {
-                Log.w(TAG, "Force sync: no cached licenses available, need reconnect")
-                _syncState.value = LibrarySyncState.Error(
-                    messageRes = R.string.notif_steam_sync_error_no_cached_licenses,
-                    message = context.getString(R.string.notif_steam_sync_error_no_cached_licenses)
-                )
-                return@launch
+            try {
+                val licenses = getLicenses()
+                if (licenses.isEmpty()) {
+                    Log.w(TAG, "Force sync: no cached licenses available, need reconnect")
+                    _syncState.value = LibrarySyncState.Error(
+                        messageRes = R.string.notif_steam_sync_error_no_cached_licenses,
+                        message = context.getString(R.string.notif_steam_sync_error_no_cached_licenses)
+                    )
+                    return@launch
+                }
+                Log.d(TAG, "Force sync: re-processing ${licenses.size} licenses")
+                startSyncFromLicenses(licenses)
+            } finally {
+                _settledSyncRuns.update { it + 1 }
             }
-            Log.d(TAG, "Force sync: re-processing ${licenses.size} licenses")
-            startSyncFromLicenses(licenses)
         }
     }
 
@@ -183,15 +201,19 @@ class SteamLibraryManager @Inject constructor(
     }
 
     private suspend fun handleLicenseList(callback: LicenseListCallback) {
-        val licenses = callback.licenseList
-        cachedLicenses = licenses.toList()
-        persistLicensesToDb(licenses)
+        try {
+            val licenses = callback.licenseList
+            cachedLicenses = licenses.toList()
+            persistLicensesToDb(licenses)
 
-        if (shouldSkipSync()) {
-            return
+            if (shouldSkipSync()) {
+                return
+            }
+
+            startSyncFromLicenses(licenses)
+        } finally {
+            _settledSyncRuns.update { it + 1 }
         }
-
-        startSyncFromLicenses(licenses)
     }
 
     private suspend fun startSyncFromLicenses(licenses: List<License>) {
@@ -227,6 +249,7 @@ class SteamLibraryManager @Inject constructor(
             packageToAppIds.clear()
             gamesAdded = 0
             gamesUpdated = 0
+            picsFailures = 0
             syncPhase = SyncPhase.PACKAGES
 
             requestPackageInfo(packageIds)
@@ -234,30 +257,79 @@ class SteamLibraryManager @Inject constructor(
     }
 
     private suspend fun requestPackageInfo(packageIds: List<Int>) {
-        val apps = steamApps ?: return
+        val apps = steamApps ?: return endSyncDisconnected()
 
-        _syncState.value = LibrarySyncState.FetchingPackages(0, packageIds.size)
+        phaseTotal = packageIds.size
+        _syncState.value = LibrarySyncState.FetchingPackages(0, phaseTotal)
 
-        val batchSize = 100
-        val batches = packageIds.chunked(batchSize)
-        batches.forEachIndexed { index, batch ->
-            try {
-                val packageRequests = batch.map { PICSRequest(it) }
-                apps.picsGetProductInfo(emptyList(), packageRequests)
-                Log.d(TAG, "Requested PICS info for ${batch.size} packages")
-                if (index < batches.size - 1) kotlinx.coroutines.delay(500)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to request package PICS info", e)
+        val batches = packageIds.chunked(PACKAGE_BATCH_SIZE)
+        for ((index, batch) in batches.withIndex()) {
+            if (steamApps !== apps) return endSyncDisconnected()
+            val responses = fetchProductInfo("package", batch) {
+                apps.picsGetProductInfo(emptyList(), batch.map { PICSRequest(it) })
             }
+            responses.forEach { handlePackageInfo(it) }
+            skipUnresolved("package", batch, responses.flatMap { it.unknownPackages }, pendingPackageIds)
+            if (index < batches.lastIndex) delay(BATCH_SPACING_MS)
+        }
+
+        finishPackagePhase()
+    }
+
+    private suspend fun fetchProductInfo(
+        kind: String,
+        batch: List<Int>,
+        request: () -> AsyncJobMultiple<PICSProductInfoCallback>
+    ): List<PICSProductInfoCallback> = try {
+        val resultSet = withTimeout(PICS_REQUEST_TIMEOUT_MS) { request().toFuture().await() }
+        if (resultSet.failed || !resultSet.complete) {
+            picsFailures++
+            Log.w(TAG, "PICS $kind request for ${batch.size} ids ended incomplete")
+        }
+        resultSet.results.filterIsInstance<PICSProductInfoCallback>()
+    } catch (e: TimeoutCancellationException) {
+        picsFailures++
+        Log.e(TAG, "PICS $kind request for ${batch.size} ids timed out after ${PICS_REQUEST_TIMEOUT_MS}ms")
+        emptyList()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        picsFailures++
+        Log.e(TAG, "PICS $kind request for ${batch.size} ids failed", e)
+        emptyList()
+    }
+
+    private fun skipUnresolved(kind: String, batch: List<Int>, unknownIds: List<Int>, pending: MutableSet<Int>) {
+        val unknown = unknownIds.filter { it in pending }
+        if (unknown.isNotEmpty()) {
+            pending.removeAll(unknown.toSet())
+            Log.d(TAG, "Steam reports ${unknown.size} unknown $kind ids, skipping: $unknown")
+        }
+        val unanswered = batch.filter { it in pending }
+        if (unanswered.isNotEmpty()) {
+            pending.removeAll(unanswered.toSet())
+            Log.w(TAG, "No PICS answer for ${unanswered.size} $kind ids, skipping them this run")
         }
     }
 
-    private suspend fun handleProductInfo(callback: PICSProductInfoCallback) {
-        when (syncPhase) {
-            SyncPhase.PACKAGES -> handlePackageInfo(callback)
-            SyncPhase.APPS -> handleAppInfo(callback)
-            SyncPhase.IDLE -> {}
+    private fun endSyncDisconnected() {
+        Log.w(TAG, "Steam connection gone mid-sync, ending library sync")
+        syncPhase = SyncPhase.IDLE
+        _syncState.value = LibrarySyncState.Error(
+            messageRes = R.string.notif_steam_sync_error_not_connected,
+            message = context.getString(R.string.notif_steam_sync_error_not_connected)
+        )
+    }
+
+    private suspend fun finishPackagePhase() {
+        storeLicenses()
+        if (pendingAppIds.isEmpty()) {
+            syncPhase = SyncPhase.IDLE
+            _syncState.value = LibrarySyncState.Complete(0, 0)
+            return
         }
+        syncPhase = SyncPhase.APPS
+        requestAppInfo(pendingAppIds.toList())
     }
 
     private suspend fun handlePackageInfo(callback: PICSProductInfoCallback) {
@@ -275,25 +347,11 @@ class SteamLibraryManager @Inject constructor(
                 }
 
                 pendingPackageIds.remove(packageId)
-
-                val processed = packageToAppIds.size
-                val total = processed + pendingPackageIds.size
-                _syncState.value = LibrarySyncState.FetchingPackages(processed, total)
+                _syncState.value = LibrarySyncState.FetchingPackages(phaseTotal - pendingPackageIds.size, phaseTotal)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to process package $packageId", e)
                 pendingPackageIds.remove(packageId)
-            }
-        }
-
-        if (pendingPackageIds.isEmpty()) {
-            storeLicenses()
-            if (pendingAppIds.isNotEmpty()) {
-                syncPhase = SyncPhase.APPS
-                requestAppInfo(pendingAppIds.toList())
-            } else {
-                syncPhase = SyncPhase.IDLE
-                _syncState.value = LibrarySyncState.Complete(0, 0)
             }
         }
     }
@@ -322,23 +380,24 @@ class SteamLibraryManager @Inject constructor(
     }
 
     private suspend fun requestAppInfo(appIds: List<Int>) {
-        val apps = steamApps ?: return
+        val apps = steamApps ?: return endSyncDisconnected()
 
         Log.d(TAG, "Requesting app info for ${appIds.size} apps")
-        _syncState.value = LibrarySyncState.FetchingApps(0, appIds.size)
+        phaseTotal = appIds.size
+        _syncState.value = LibrarySyncState.FetchingApps(0, phaseTotal)
 
-        val batchSize = 50
-        val batches = appIds.chunked(batchSize)
-        batches.forEachIndexed { index, batch ->
-            try {
-                val appRequests = batch.map { PICSRequest(it) }
-                apps.picsGetProductInfo(appRequests, emptyList())
-                Log.d(TAG, "Requested PICS info for ${batch.size} apps")
-                if (index < batches.size - 1) kotlinx.coroutines.delay(500)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to request app PICS info", e)
+        val batches = appIds.chunked(APP_BATCH_SIZE)
+        for ((index, batch) in batches.withIndex()) {
+            if (steamApps !== apps) return endSyncDisconnected()
+            val responses = fetchProductInfo("app", batch) {
+                apps.picsGetProductInfo(batch.map { PICSRequest(it) }, emptyList())
             }
+            responses.forEach { handleAppInfo(it) }
+            skipUnresolved("app", batch, responses.flatMap { it.unknownApps }, pendingAppIds)
+            if (index < batches.lastIndex) delay(BATCH_SPACING_MS)
         }
+
+        finishAppPhase()
     }
 
     private suspend fun handleAppInfo(callback: PICSProductInfoCallback) {
@@ -367,43 +426,39 @@ class SteamLibraryManager @Inject constructor(
                 }
 
                 pendingAppIds.remove(appId)
-
-                val processed = gamesAdded + gamesUpdated
-                val total = processed + pendingAppIds.size
-                _syncState.value = LibrarySyncState.FetchingApps(processed, total)
+                _syncState.value = LibrarySyncState.FetchingApps(phaseTotal - pendingAppIds.size, phaseTotal)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to process app $appId", e)
                 pendingAppIds.remove(appId)
             }
         }
+    }
 
-        if (pendingAppIds.isEmpty()) {
-            updatePlatformGameCount()
-            syncPhase = SyncPhase.IDLE
+    private suspend fun finishAppPhase() {
+        updatePlatformGameCount()
+        syncPhase = SyncPhase.IDLE
+        if (picsFailures == 0) {
             lastFullSyncAt = Instant.now()
-            _syncState.value = LibrarySyncState.Complete(gamesAdded, gamesUpdated)
-            Log.d(TAG, "Library sync complete: $gamesAdded added, $gamesUpdated updated")
+        } else {
+            Log.w(TAG, "$picsFailures PICS batches failed, next license list will sync again")
+        }
+        _syncState.value = LibrarySyncState.Complete(gamesAdded, gamesUpdated)
+        Log.d(TAG, "Library sync complete: $gamesAdded added, $gamesUpdated updated")
 
-            if (wasForceSync) {
-                gameDao.resetFailedStoreEnrichment()
-            }
+        if (wasForceSync) {
+            gameDao.resetFailedStoreEnrichment()
+        }
 
-            scope.launch {
-                val discovered = steamContentManager.get().discoverLocalSteamGames()
-                Log.d(TAG, "Post-sync discovery linked $discovered installed games")
-            }
-
-            val existing = enrichmentJob
-            if (existing != null && existing.isActive) {
-                Log.d(TAG, "Enrichment already in progress, skipping")
-            } else {
-                enrichmentJob = scope.launch {
-                    steamLibraryRepair.get().restoreSources()
-                    steamLibraryRepair.get().repairCovers()
-                    enrichIncompleteGames()
-                    steamIgdbResolver.get().requestResolutionForUnresolved(force = wasForceSync)
-                }
+        val existing = enrichmentJob
+        if (existing != null && existing.isActive) {
+            Log.d(TAG, "Enrichment already in progress, skipping")
+        } else {
+            enrichmentJob = scope.launch {
+                steamLibraryRepair.get().restoreSources()
+                steamLibraryRepair.get().repairCovers()
+                enrichIncompleteGames()
+                steamIgdbResolver.get().requestResolutionForUnresolved(force = wasForceSync)
             }
         }
     }
@@ -491,13 +546,13 @@ class SteamLibraryManager @Inject constructor(
             ?.get("name")?.asString()
     }
 
-    private suspend fun updateExistingGame(existing: GameEntity, kv: KeyValue) {
+    internal suspend fun updateExistingGame(existing: GameEntity, kv: KeyValue) {
         val common = kv["common"]
         val installDir = kv["config"]?.get("installdir")?.asString()?.takeIf { it.isNotBlank() }
 
-        val updated = if (wasForceOverwrite) {
+        if (wasForceOverwrite) {
             val appId = existing.steamAppId ?: return
-            val name = common["name"]?.asString() ?: existing.title
+            val name = common["name"]?.asString()
             val libraryCapsuleUrl = "https://steamcdn-a.akamaihd.net/steam/apps/$appId/library_600x900.jpg"
             val libraryHeroUrl = "https://steamcdn-a.akamaihd.net/steam/apps/$appId/library_hero.jpg"
             val releaseDate = common["steam_release_date"]?.asString()
@@ -507,30 +562,22 @@ class SteamLibraryManager @Inject constructor(
                 ?.map { STEAM_GENRE_MAP[it] ?: it }
                 ?.joinToString(", ")
 
-            writeSteamArt(existing.id, appId, name, libraryCapsuleUrl, libraryHeroUrl)
-            existing.copy(
+            writeSteamArt(existing.id, appId, name ?: existing.title, libraryCapsuleUrl, libraryHeroUrl)
+            gameDao.updateSteamLibraryMetadata(
+                gameId = existing.id,
                 title = name,
-                sortTitle = createSortTitle(name),
-                developer = extractAssociation(common, "developer") ?: existing.developer,
-                publisher = extractAssociation(common, "publisher") ?: existing.publisher,
-                releaseYear = releaseYear ?: existing.releaseYear,
-                genre = genres ?: existing.genre,
-                steamLauncher = existing.steamLauncher ?: "native",
-                steamInstallDir = installDir ?: existing.steamInstallDir,
-                storeEnrichStatus = GameEntity.STORE_NOT_ATTEMPTED,
-                igdbId = null
+                sortTitle = name?.let(::createSortTitle),
+                developer = extractAssociation(common, "developer"),
+                publisher = extractAssociation(common, "publisher"),
+                releaseYear = releaseYear,
+                genre = genres,
+                installDir = installDir
             )
         } else {
-            existing.copy(
-                steamLauncher = existing.steamLauncher ?: "native",
-                steamInstallDir = installDir ?: existing.steamInstallDir
-            )
+            gameDao.updateSteamInstallInfo(existing.id, installDir)
         }
 
-        if (updated != existing) {
-            gameDao.update(updated)
-            Log.d(TAG, "Updated game: ${existing.title}")
-        }
+        Log.d(TAG, "Updated game: ${existing.title}")
     }
 
     fun requestLibrarySync() {

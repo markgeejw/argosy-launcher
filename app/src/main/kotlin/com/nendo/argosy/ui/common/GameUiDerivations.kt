@@ -8,7 +8,7 @@ import com.nendo.argosy.data.platform.PlatformDefinitions
 private const val ANDROID_PLATFORM_SLUG = "android"
 
 val GameEntity.displayTitleId: String?
-    get() = titleId?.takeIf { platformSlug in PlatformDefinitions.TITLE_ID_PLATFORMS }
+    get() = titleId?.takeIf { PlatformDefinitions.hasTitleId(platformSlug) }
 
 val GameEntity.isAndroidApp: Boolean
     get() = source == GameSource.ANDROID_APP || platformSlug == ANDROID_PLATFORM_SLUG

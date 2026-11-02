@@ -157,16 +157,6 @@
     <string name="storage_computed_label_computed">已于%1$s计算</string>
     <string name="storage_computed_label_never">尚未计算</string>
 
-    <!-- ================= Download foreground notification text (Steam) ================= -->
-
-    <string name="download_indicator_notification_preparing">正在准备：%1$s</string>
-    <string name="download_indicator_notification_connecting">正在连接到Steam...</string>
-    <string name="download_indicator_notification_fetching_manifest">正在获取清单：%1$s</string>
-    <string name="download_indicator_notification_unpacking">正在解压：%1$s</string>
-    <string name="download_indicator_notification_moving">正在移动：%1$s</string>
-    <string name="download_indicator_notification_cleaning">正在清理：%1$s</string>
-    <string name="download_indicator_notification_paused">已暂停：%1$s</string>
-
     <!-- ================= Title ID recheck notice ================= -->
 
     <string name="title_id_recheck_notice_updated">Title ID已更新为%1$s</string>
@@ -177,6 +167,7 @@
     <!-- ================= Steam launcher picker "no override" option ================= -->
 
     <string name="gamedetail_steam_launcher_auto">自动</string>
+    <string name="gamedetail_steam_launcher_auto_uses">使用 %1$s</string>
 
     <!-- ================= Memcard picker "use the inherited default" entry ================= -->
 

@@ -8,7 +8,10 @@ import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.social.ArgosSocialService
 import com.nendo.argosy.util.Logger
 import dagger.Lazy
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -104,15 +107,12 @@ class SocialSyncCoordinator @Inject constructor(
 
         if (payloads.isEmpty()) return 0 to pending.size
 
-        service.syncPlaySessions(payloads)
-
-        val results = withTimeoutOrNull(SYNC_RESPONSE_TIMEOUT_MS) {
-            var received: List<ArgosSocialService.SessionSyncResult>? = null
-            service.playSessionSyncResult.collect { result ->
-                received = result
-                return@collect
+        val results = coroutineScope {
+            val reply = async(start = CoroutineStart.UNDISPATCHED) {
+                withTimeoutOrNull(SYNC_RESPONSE_TIMEOUT_MS) { service.playSessionSyncResult.first() }
             }
-            received
+            service.syncPlaySessions(payloads)
+            reply.await()
         }
 
         if (results == null) {

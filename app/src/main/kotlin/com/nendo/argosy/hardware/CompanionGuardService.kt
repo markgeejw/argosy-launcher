@@ -19,6 +19,7 @@ import com.nendo.argosy.core.service.ServiceNotificationIds
 import com.nendo.argosy.core.service.startForegroundServiceSafely
 import com.nendo.argosy.util.HomeAppComponent
 import com.nendo.argosy.util.SecondaryHomeComponent
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CompanionGuardService : Service() {
 
@@ -29,14 +30,22 @@ class CompanionGuardService : Service() {
 
     companion object {
         private const val TAG = "CompanionGuard"
+        private const val ACTION_STOP = "com.nendo.argosy.STOP_COMPANION_GUARD"
+        private val awaitingForeground = AtomicBoolean(false)
 
         fun start(context: Context) {
-            context.startForegroundServiceSafely(
+            awaitingForeground.set(true)
+            val started = context.startForegroundServiceSafely(
                 Intent(context, CompanionGuardService::class.java)
             )
+            if (!started) awaitingForeground.set(false)
         }
 
         fun stop(context: Context) {
+            if (awaitingForeground.get()) {
+                val intent = Intent(context, CompanionGuardService::class.java).apply { action = ACTION_STOP }
+                if (context.startForegroundServiceSafely(intent)) return
+            }
             context.stopService(
                 Intent(context, CompanionGuardService::class.java)
             )
@@ -68,6 +77,12 @@ class CompanionGuardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForegroundNotification()
+        awaitingForeground.set(false)
+        if (intent?.action == ACTION_STOP) {
+            stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
         return START_STICKY
     }
 

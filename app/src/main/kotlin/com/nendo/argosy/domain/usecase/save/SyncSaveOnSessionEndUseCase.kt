@@ -75,19 +75,22 @@ class SyncSaveOnSessionEndUseCase @Inject constructor(
 
         val prefs = preferencesRepository.userPreferences.first()
         if (!prefs.saveSyncEnabled) {
-            Logger.debug(TAG, "[SaveSync] SESSION gameId=$gameId | Save sync disabled in preferences")
+            Logger.info(TAG, "[SaveSync] SESSION gameId=$gameId | Result=NOT_CONFIGURED | Save sync disabled in preferences")
             return Result.NotConfigured
         }
 
-        val game = gameDao.getById(gameId) ?: return Result.Error("Game not found")
+        val game = gameDao.getById(gameId) ?: run {
+            Logger.warn(TAG, "[SaveSync] SESSION gameId=$gameId | Result=ERROR | Game not found")
+            return Result.Error("Game not found")
+        }
         if (game.rommId == null) {
-            Logger.debug(TAG, "[SaveSync] SESSION gameId=$gameId | No rommId, skipping sync | game=${game.title}")
+            Logger.info(TAG, "[SaveSync] SESSION gameId=$gameId | Result=NOT_CONFIGURED | No rommId, skipping sync | game=${game.title}")
             return Result.NotConfigured
         }
 
         val emulatorId = resolveSessionEmulatorId(game, emulatorPackage)
         if (emulatorId == null) {
-            Logger.debug(TAG, "[SaveSync] SESSION gameId=$gameId | Cannot resolve emulator | launchPackage=$emulatorPackage")
+            Logger.warn(TAG, "[SaveSync] SESSION gameId=$gameId | Result=NOT_CONFIGURED | Cannot resolve emulator | launchPackage=$emulatorPackage")
             return Result.NotConfigured
         }
         Logger.debug(TAG, "[SaveSync] SESSION gameId=$gameId | Resolved emulator | emulatorId=$emulatorId, launchPackage=$emulatorPackage")
@@ -179,7 +182,7 @@ class SyncSaveOnSessionEndUseCase @Inject constructor(
             }
             is SaveSyncResult.NeedsHardcoreResolution -> {
                 Logger.warn(TAG, "[SaveSync] SESSION gameId=$gameId | Result=NEEDS_HARDCORE_RESOLUTION | Unexpected during upload")
-                Result.NotConfigured
+                Result.Error("Hardcore save requires resolution")
             }
         }
     }

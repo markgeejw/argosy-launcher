@@ -9,6 +9,10 @@ import com.nendo.argosy.core.notification.NotificationType
 import com.nendo.argosy.data.local.entity.SteamAccountEntity
 import `in`.dragonbra.javasteam.enums.EOSType
 import `in`.dragonbra.javasteam.enums.EResult
+import `in`.dragonbra.javasteam.protobufs.steamclient.SteammessagesAuthSteamclient.CAuthentication_Token_Revoke_Request
+import `in`.dragonbra.javasteam.protobufs.steamclient.SteammessagesAuthSteamclient.EAuthTokenRevokeAction
+import `in`.dragonbra.javasteam.rpc.service.Authentication
+import `in`.dragonbra.javasteam.steam.handlers.steamunifiedmessages.SteamUnifiedMessages
 import `in`.dragonbra.javasteam.steam.authentication.AuthPollResult
 import `in`.dragonbra.javasteam.steam.authentication.AuthSessionDetails
 import `in`.dragonbra.javasteam.steam.authentication.QrAuthSession
@@ -20,6 +24,7 @@ import `in`.dragonbra.javasteam.types.SteamID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,11 +36,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "SteamAuthManager"
+private const val TOKEN_REVOKE_TIMEOUT_MS = 5_000L
 
 sealed class QrAuthState {
     data object Idle : QrAuthState()
@@ -187,9 +195,6 @@ class SteamAuthManager @Inject constructor(
             _authEvents.emit(SteamAuthEvent.LoginFailed(result.name))
             when {
                 result in AUTH_FATAL_RESULTS && pendingAuthResult != null -> {
-                    // QR auth got a fresh token but login was rejected (rate limited
-                    // from prior attempts). Keep the account -- the token is valid,
-                    // just cooling down.
                     Log.w(TAG, "QR auth login rejected ($result) during cooldown, keeping account")
                     pendingAuthResult = null
                     rateLimited = true
@@ -203,7 +208,6 @@ class SteamAuthManager @Inject constructor(
                         QrAuthState.Error(context.getString(R.string.sync_steam_qr_rate_limited))
                 }
                 result in AUTH_FATAL_RESULTS -> {
-                    // Auto-login with stored token failed -- token is dead.
                     Log.w(TAG, "Auth permanently failed ($result), clearing saved account")
                     sessionDead = true
                     steamAccountDao.deactivateAll()
@@ -260,7 +264,7 @@ class SteamAuthManager @Inject constructor(
                 lastClientId = session.clientID
 
                 _qrAuthState.value = QrAuthState.WaitingForScan(session.challengeUrl)
-                Log.d(TAG, "QR challenge URL: ${session.challengeUrl}")
+                Log.d(TAG, "QR challenge ready")
 
                 startAuthPolling(session)
             } catch (e: Exception) {
@@ -380,13 +384,40 @@ class SteamAuthManager @Inject constructor(
         _qrAuthState.value = QrAuthState.Idle
     }
 
-    fun logout() {
+    /**
+     * Revokes the saved refresh token with Steam when a session is live, then disconnects and
+     * deletes the local account. A failed or slow revoke never stops the local sign-out, and
+     * the local sign-out completes even if the caller is cancelled.
+     */
+    suspend fun logout() {
+        val wasLoggedIn = _isLoggedIn.value
         _isLoggedIn.value = false
         cancelQrAuth()
-        steamClient?.disconnect()
-        scope.launch {
+        withContext(NonCancellable + Dispatchers.IO) {
+            if (wasLoggedIn) revokeSavedToken()
+            steamClient?.disconnect()
             steamAccountDao.deleteAll()
             _authEvents.emit(SteamAuthEvent.LoggedOut)
+        }
+    }
+
+    private suspend fun revokeSavedToken() {
+        val client = steamClient ?: return
+        try {
+            val token = steamAccountDao.getAnyAccount()?.refreshToken ?: return
+            val authService = client.getHandler(SteamUnifiedMessages::class.java)
+                ?.createService(Authentication::class.java)
+                ?: return
+            val request = CAuthentication_Token_Revoke_Request.newBuilder()
+                .setToken(token)
+                .setRevokeAction(EAuthTokenRevokeAction.k_EAuthTokenRevokeLogout)
+                .build()
+            val response = withTimeout(TOKEN_REVOKE_TIMEOUT_MS) {
+                authService.revokeToken(request).toFuture().await()
+            }
+            Log.d(TAG, "Steam token revoke result: ${response.result}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Steam token revoke failed, signing out locally", e)
         }
     }
 

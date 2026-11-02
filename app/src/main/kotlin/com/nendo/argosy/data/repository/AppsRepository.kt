@@ -11,7 +11,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,11 +44,38 @@ class AppsRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val packageManager: PackageManager = context.packageManager
+    private val updatingPackages = MutableStateFlow<Set<String>>(emptySet())
+
+    fun isPackageUpdating(packageName: String): Boolean = packageName in updatingPackages.value
+
+    fun isPackageMissing(packageName: String): Boolean {
+        if (isPackageUpdating(packageName)) return false
+        return try {
+            packageManager.getPackageInfo(packageName, 0)
+            false
+        } catch (_: PackageManager.NameNotFoundException) {
+            !isPackageUpdating(packageName)
+        } catch (_: RuntimeException) {
+            false
+        }
+    }
 
     val packageChanges: Flow<String> = callbackFlow {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                intent?.data?.schemeSpecificPart?.let { trySend(it) }
+                val packageName = intent?.data?.schemeSpecificPart ?: return
+                when (intent.action) {
+                    Intent.ACTION_PACKAGE_REMOVED -> {
+                        if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+                            updatingPackages.update { it + packageName }
+                            return
+                        }
+                        updatingPackages.update { it - packageName }
+                    }
+                    Intent.ACTION_PACKAGE_ADDED, Intent.ACTION_PACKAGE_REPLACED ->
+                        updatingPackages.update { it - packageName }
+                }
+                trySend(packageName)
             }
         }
 

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -77,6 +78,17 @@ class PlatformSyncQueue @Inject constructor(
         }
         scope.launch { drain() }
         return true
+    }
+
+    /**
+     * Queues a platform sync once any library sync has finished. A library sync picks its
+     * platforms when it starts, so a platform enabled while one runs is not part of it.
+     */
+    fun enqueuePlatformAfterLibrary(platformId: Long, platformName: String) {
+        scope.launch {
+            isLibraryBusy.first { !it }
+            enqueuePlatform(platformId, platformName)
+        }
     }
 
     fun enqueueLibrary(

@@ -46,7 +46,7 @@ class LauncherStartupCoordinator @Inject constructor(
 
     private val run = scope.launch(start = CoroutineStart.LAZY) {
         _status.value = R.string.ui_startup_status_initializing
-        playSessionTracker.endSession()
+        playSessionTracker.checkOrphanedSession()
 
         while (!gameRepository.awaitStorageReady(timeoutMs = STORAGE_READY_TIMEOUT_MS)) {
             Logger.warn(TAG, "Storage not ready after timeout, retrying")

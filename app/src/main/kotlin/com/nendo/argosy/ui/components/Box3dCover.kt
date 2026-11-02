@@ -1,30 +1,48 @@
 package com.nendo.argosy.ui.components
 
+import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import coil.size.Dimension
+import coil.size.Precision
+import coil.size.Scale
+import coil.size.Size
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -41,6 +59,7 @@ private const val MAX_SPINE_RATIO = 0.3f
 private const val CAMERA_DISTANCE = 3.2f
 private const val EDGE_TINT = 0xFF241F1C.toInt()
 private const val BACK_FALLBACK_SHADE = 150
+private const val SOURCE_RECHECK_MS = 5000L
 
 private data class BoxFaces(
     val front: Bitmap,
@@ -57,7 +76,9 @@ private val loggedDecodeFailures = java.util.Collections.newSetFromMap(
 
 /**
  * Interactive 3D box from flat scans: idle yaw sway, drag to rotate, settles to a safe angle.
- * Calls [onUnavailable] once and draws nothing when the front or spine scan cannot be decoded.
+ * Scans decode at the drawn height through Coil's memory cache. When the front or spine scan
+ * cannot be decoded, calls [onUnavailable], draws [fallback], and decodes again once either
+ * file changes on disk. The idle spin runs only while [isInteractive] and the host is started.
  */
 @Composable
 fun Box3dCover(
@@ -66,55 +87,105 @@ fun Box3dCover(
     backPath: String? = null,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
-    onUnavailable: () -> Unit = {}
+    onUnavailable: () -> Unit = {},
+    fallback: @Composable () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val screenHeightPx = context.resources.displayMetrics.heightPixels
     var faces by remember(frontPath, spinePath, backPath) { mutableStateOf<BoxFaces?>(null) }
-    val reportUnavailable by androidx.compose.runtime.rememberUpdatedState(onUnavailable)
-    androidx.compose.runtime.LaunchedEffect(frontPath, spinePath, backPath) {
-        val decoded = withContext(Dispatchers.IO) {
-            val front = decode(frontPath)
-            val spine = decode(spinePath)?.let(::uprightSpine)
-            if (front == null || spine == null) {
-                if (loggedDecodeFailures.add("$frontPath|$spinePath")) {
-                    Logger.warn("Box3dCover", "decode failed front=${front != null} spine=${spine != null} frontPath=$frontPath spinePath=$spinePath")
-                }
-                null
-            } else {
-                BoxFaces(front, spine, backPath?.let { decode(it) })
-            }
-        }
-        faces = decoded
-        if (decoded == null) reportUnavailable()
-    }
+    var decodeFailed by remember(frontPath, spinePath, backPath) { mutableStateOf(false) }
+    val reportUnavailable by rememberUpdatedState(onUnavailable)
+    val isStarted = rememberIsStarted()
 
     val yaw = remember(frontPath, spinePath, backPath) { Animatable(REST_YAW_DEG) }
     val pitch = remember(frontPath, spinePath, backPath) { Animatable(0f) }
     var isDragging by remember(frontPath, spinePath, backPath) { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
-    androidx.compose.runtime.LaunchedEffect(isDragging, faces, isInteractive) {
-        if (!isInteractive || isDragging || faces == null) return@LaunchedEffect
+    LaunchedEffect(isDragging, faces, isInteractive, isStarted) {
+        if (!isInteractive || !isStarted || isDragging || faces == null) return@LaunchedEffect
         while (true) {
             yaw.animateTo(yaw.value + 360f, tween(SPIN_PERIOD_MS, easing = LinearEasing))
         }
     }
 
-    val loaded = faces ?: return
+    BoxWithConstraints(modifier = modifier) {
+        val targetPx = (if (constraints.hasBoundedHeight) constraints.maxHeight else screenHeightPx)
+            .coerceAtLeast(1)
+
+        LaunchedEffect(frontPath, spinePath, backPath, targetPx, isStarted) {
+            if (!isStarted && faces != null) return@LaunchedEffect
+            var attemptedStamp: String? = null
+            while (true) {
+                val stamp = withContext(Dispatchers.IO) { sourceStamp(frontPath, spinePath) }
+                if (stamp != attemptedStamp) {
+                    attemptedStamp = stamp
+                    val decoded = loadFaces(context, frontPath, spinePath, backPath, targetPx)
+                    if (decoded != null) {
+                        faces = decoded
+                        decodeFailed = false
+                        return@LaunchedEffect
+                    }
+                    faces = null
+                    decodeFailed = true
+                    reportUnavailable()
+                }
+                if (!isStarted) return@LaunchedEffect
+                delay(SOURCE_RECHECK_MS)
+            }
+        }
+
+        val loaded = faces
+        when {
+            loaded != null -> BoxCanvas(loaded, isInteractive, yaw, pitch) { isDragging = it }
+            decodeFailed -> fallback()
+        }
+    }
+}
+
+@Composable
+private fun rememberIsStarted(): Boolean {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isStarted by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> isStarted = true
+                Lifecycle.Event.ON_STOP -> isStarted = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return isStarted
+}
+
+@Composable
+private fun BoxCanvas(
+    loaded: BoxFaces,
+    isInteractive: Boolean,
+    yaw: Animatable<Float, AnimationVector1D>,
+    pitch: Animatable<Float, AnimationVector1D>,
+    onDraggingChange: (Boolean) -> Unit
+) {
     val compositeRatio = loaded.frontRatio + loaded.spineRatio
 
     if (!isInteractive) {
-        Canvas(modifier = modifier.aspectRatio(compositeRatio)) {
+        Canvas(modifier = Modifier.aspectRatio(compositeRatio)) {
             drawBox(loaded, REST_YAW_DEG, 0f)
         }
         return
     }
 
+    val scope = rememberCoroutineScope()
     Canvas(
-        modifier = modifier
+        modifier = Modifier
             .aspectRatio(compositeRatio)
             .pointerInput(loaded) {
                 detectDragGestures(
-                    onDragStart = { isDragging = true },
+                    onDragStart = { onDraggingChange(true) },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         scope.launch {
@@ -132,10 +203,10 @@ fun Box3dCover(
                                 pitch.value.coerceIn(-SAFE_TILT_DEG, SAFE_TILT_DEG),
                                 spring(stiffness = Spring.StiffnessLow, dampingRatio = 0.8f)
                             )
-                            isDragging = false
+                            onDraggingChange(false)
                         }
                     },
-                    onDragCancel = { isDragging = false }
+                    onDragCancel = { onDraggingChange(false) }
                 )
             }
     ) {
@@ -282,10 +353,38 @@ private fun normalizeDegrees(deg: Float): Float {
     return d
 }
 
-private fun decode(path: String): Bitmap? {
-    val file = File(path)
-    if (!file.exists()) return null
-    return BitmapFactory.decodeFile(path)
+private fun sourceStamp(frontPath: String, spinePath: String): String =
+    listOf(File(frontPath), File(spinePath)).joinToString("|") { "${it.lastModified()}:${it.length()}" }
+
+private suspend fun loadFaces(
+    context: Context,
+    frontPath: String,
+    spinePath: String,
+    backPath: String?,
+    targetPx: Int
+): BoxFaces? = withContext(Dispatchers.IO) {
+    val faceSize = Size(Dimension.Undefined, Dimension(targetPx))
+    val front = loadBitmap(context, frontPath, faceSize)
+    val spine = loadBitmap(context, spinePath, Size(targetPx, targetPx))?.let(::uprightSpine)
+    if (front == null || spine == null) {
+        if (loggedDecodeFailures.add("$frontPath|$spinePath")) {
+            Logger.warn("Box3dCover", "decode failed front=${front != null} spine=${spine != null} frontPath=$frontPath spinePath=$spinePath")
+        }
+        return@withContext null
+    }
+    BoxFaces(front, spine, backPath?.let { loadBitmap(context, it, faceSize) })
+}
+
+private suspend fun loadBitmap(context: Context, path: String, size: Size): Bitmap? {
+    val request = ImageRequest.Builder(context)
+        .data(File(path))
+        .size(size)
+        .scale(Scale.FIT)
+        .precision(Precision.INEXACT)
+        .allowHardware(false)
+        .build()
+    val result = context.imageLoader.execute(request) as? SuccessResult ?: return null
+    return (result.drawable as? BitmapDrawable)?.bitmap
 }
 
 /** ScreenScraper side scans arrive portrait for some systems and landscape for others; the box geometry assumes portrait. */

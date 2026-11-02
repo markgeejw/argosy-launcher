@@ -2,8 +2,10 @@ package com.nendo.argosy.data.repository
 
 import com.nendo.argosy.data.repository.SaveSyncApiClient.Companion.isTimestampSaveName
 import com.nendo.argosy.data.repository.SaveSyncApiClient.Companion.parseTimestamp
+import com.nendo.argosy.data.repository.SaveSyncApiClient.Companion.parseTimestampOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -50,19 +52,18 @@ class SaveSyncTimestampTest {
     }
 
     @Test
-    fun `parseTimestamp handles RomM format without timezone`() {
-        // RomM sometimes returns timestamps without timezone info.
-        // OffsetDateTime.parse handles "2026-02-28T12:09:00" if we fall through to Instant.parse
-        // which will fail, then OffsetDateTime which will fail, then ZonedDateTime which will fail,
-        // so this should return ~now as fallback. This documents the current behavior.
-        val before = Instant.now()
-        val result = parseTimestamp("2026-02-28T12:09:00")
-        val after = Instant.now()
-        // Without timezone, all parsers fail -> falls through to Instant.now()
-        assertTrue(
-            "No-timezone format should fallback to now",
-            !result.isBefore(before.minusSeconds(1)) && !result.isAfter(after.plusSeconds(1))
+    fun `parseTimestamp reads a timestamp without a zone as UTC`() {
+        assertEquals(Instant.parse("2026-02-28T12:09:00Z"), parseTimestamp("2026-02-28T12:09:00"))
+        assertEquals(Instant.parse("2026-02-28T12:09:00Z"), parseTimestamp("2026-02-28 12:09:00"))
+    }
+
+    @Test
+    fun `parseTimestampOrNull keeps sub-millisecond precision and refuses garbage`() {
+        assertEquals(
+            Instant.parse("2026-02-28T12:09:00.123456Z"),
+            parseTimestampOrNull("2026-02-28T12:09:00.123456+00:00")
         )
+        assertNull(parseTimestampOrNull("not-a-date"))
     }
 
     // --- isTimestampSaveName (tested via TIMESTAMP_ONLY_PATTERN) ---

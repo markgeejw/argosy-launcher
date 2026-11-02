@@ -20,6 +20,7 @@ class CheatSessionManager(
     private val gameDao: GameDao,
     private val cheatsRepository: CheatsRepository,
     private val canSerialize: () -> Boolean,
+    private val isHardcore: () -> Boolean,
     private val scope: CoroutineScope
 ) {
     val memoryScanner = MemoryScanner()
@@ -81,6 +82,7 @@ class CheatSessionManager(
     }
 
     fun handleToggleCheat(cheatId: Long, enabled: Boolean) {
+        if (enabled && isHardcore()) return
         scope.launch {
             if (enabled) {
                 sessionTainted = true
@@ -93,6 +95,7 @@ class CheatSessionManager(
     }
 
     fun handleCreateCheat(address: Int, value: Int, description: String) {
+        if (isHardcore()) return
         scope.launch {
             val maxIndex = cheatDao.getMaxCheatIndex(gameId) ?: -1
             val code = String.format("%06X:%02X", address, value)
@@ -118,7 +121,7 @@ class CheatSessionManager(
             cheatDao.updateCode(cheatId, code)
             val cheat = cheats.find { it.id == cheatId }
             cheats = cheatsRepository.getCheatsForGame(gameId)
-            if (cheat?.enabled == true) {
+            if (cheat?.enabled == true && !isHardcore()) {
                 val updatedCheat = cheats.find { it.id == cheatId }
                 if (updatedCheat != null) {
                     retroView?.setCheat(updatedCheat.cheatIndex, true, updatedCheat.code)
@@ -177,7 +180,7 @@ class CheatSessionManager(
         val view = retroView ?: return
         cheatsNeedReset = false
         cycleCheatsThroughState(view)
-        applyAllEnabledCheats(false)
+        applyAllEnabledCheats(isHardcore())
         Log.d(TAG, "Flushed cheat reset cycle")
     }
 
@@ -202,6 +205,7 @@ class CheatSessionManager(
         val view = retroView ?: return
         val cheat = cheats.find { it.id == cheatId } ?: return
         if (enabled) {
+            if (isHardcore()) return
             view.setCheat(cheat.cheatIndex, true, cheat.code)
         } else {
             view.setCheat(cheat.cheatIndex, false, cheat.code)

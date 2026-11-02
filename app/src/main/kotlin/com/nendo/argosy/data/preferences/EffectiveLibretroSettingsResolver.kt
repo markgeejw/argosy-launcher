@@ -42,6 +42,8 @@ class EffectiveLibretroSettingsResolver @Inject constructor(
             fastForwardEnabled = perPlatform?.fastForwardEnabled ?: global.fastForwardEnabled,
             fastForwardSpeed = perPlatform?.fastForwardSpeed ?: global.fastForwardSpeed,
             fastForwardMode = global.fastForwardMode,
+            selectAsBack = global.selectAsBack,
+            dualScreenMatchSize = global.dualScreenMatchSize,
             fastForwardPreservePitch = global.fastForwardPreservePitch,
             rewindEnabled = if (isHeavyPlatform) false
                            else (perPlatform?.rewindEnabled ?: global.rewindEnabled),
@@ -49,6 +51,7 @@ class EffectiveLibretroSettingsResolver @Inject constructor(
             rewindBufferDuration = perPlatform?.rewindBufferDuration ?: global.rewindBufferDuration,
             forceSoftwareTiming = perPlatform?.vsync?.let { !it } ?: global.forceSoftwareTiming,
             rumbleEnabled = perPlatform?.rumbleEnabled ?: global.rumbleEnabled,
+            motionEnabled = perPlatform?.motionEnabled ?: global.motionEnabled,
             limitHotkeysToPlayer1 = global.limitHotkeysToPlayer1,
             analogAsDpad = perPlatform?.analogAsDpad
                 ?: !PlatformWeightRegistry.hasAnalogStick(platformSlug),

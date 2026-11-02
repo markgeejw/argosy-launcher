@@ -30,7 +30,6 @@ object ApkAssetMatcher {
         if (apkAssets.isEmpty()) return ApkMatchResult.NoMatch
         if (apkAssets.size == 1) return ApkMatchResult.SingleMatch(apkAssets.first(), null)
 
-        // If user previously selected a variant, try to use it
         if (storedVariant != null) {
             val storedMatch = apkAssets.find { asset ->
                 asset.name.contains(storedVariant, ignoreCase = true)
@@ -40,20 +39,16 @@ object ApkAssetMatcher {
             }
         }
 
-        // Check if these are device-type variants (not just ABI variants)
-        // If APK names differ by more than just ABI suffix, show picker
         if (hasDeviceTypeVariants(apkAssets)) {
             return ApkMatchResult.MultipleMatches(apkAssets)
         }
 
-        // Try to match by device ABI
         val patterns = ABI_PATTERNS[deviceAbi] ?: ABI_PATTERNS["arm64-v8a"]!!
 
         for (pattern in patterns) {
             val matches = apkAssets.filter { asset ->
                 asset.name.contains(pattern, ignoreCase = true)
             }
-            // Only auto-select if exactly one APK matches this ABI
             if (matches.size == 1) {
                 return ApkMatchResult.SingleMatch(matches.first(), pattern)
             }
@@ -72,7 +67,6 @@ object ApkAssetMatcher {
     }
 
     private fun hasDeviceTypeVariants(apkAssets: List<GitHubAsset>): Boolean {
-        // Known device-type variant keywords that indicate user should choose
         val deviceVariantKeywords = listOf(
             "chromeos", "handheld", "tablet", "phone", "tv", "desktop",
             "performance", "accuracy", "balanced",
@@ -84,7 +78,6 @@ object ApkAssetMatcher {
             deviceVariantKeywords.any { keyword -> nameLower.contains(keyword) }
         }
 
-        // If multiple APKs have device-type keywords, show picker
         return matchCount >= 2
     }
 

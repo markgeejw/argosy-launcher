@@ -154,13 +154,6 @@ class SessionStateStore(context: Context) {
     fun getDisplayRoleOverride(): String =
         prefs.getString(KEY_DISPLAY_ROLE_OVERRIDE, "AUTO") ?: "AUTO"
 
-    fun setDualScreenInputFocus(focus: String) {
-        prefs.edit().putString(KEY_DUAL_SCREEN_INPUT_FOCUS, focus).apply()
-    }
-
-    fun getDualScreenInputFocus(): String =
-        prefs.getString(KEY_DUAL_SCREEN_INPUT_FOCUS, "AUTO") ?: "AUTO"
-
     fun setRolesSwapped(swapped: Boolean) {
         prefs.edit().putBoolean(KEY_ROLES_SWAPPED, swapped).commit()
     }
@@ -246,7 +239,6 @@ class SessionStateStore(context: Context) {
         private const val KEY_SWAP_START_SELECT = "swap_start_select"
         private const val KEY_CONTROLLER_LAYOUT = "controller_layout"
         private const val KEY_DISPLAY_ROLE_OVERRIDE = "display_role_override"
-        private const val KEY_DUAL_SCREEN_INPUT_FOCUS = "dual_screen_input_focus"
         private const val KEY_ROLES_SWAPPED = "roles_swapped"
         private const val KEY_SESSION_START_TIME = "session_start_time"
         private const val KEY_EMULATOR_PACKAGE = "emulator_package"

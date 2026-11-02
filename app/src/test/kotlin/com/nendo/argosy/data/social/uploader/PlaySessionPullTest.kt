@@ -1,8 +1,11 @@
 package com.nendo.argosy.data.social.uploader
 
 import com.nendo.argosy.data.local.dao.GameDao
+import com.nendo.argosy.data.local.dao.PlayRecordDeletionDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
+import com.nendo.argosy.data.local.entity.PlayRecordDeletionEntity
 import com.nendo.argosy.data.local.entity.PlaySessionEntity
+import com.nendo.argosy.data.model.PlayRecordCutoffs
 import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.remote.romm.RomMApi
 import com.nendo.argosy.data.remote.romm.RomMCapabilities
@@ -27,6 +30,9 @@ class PlaySessionPullTest {
         coEvery { insert(any()) } returns 1L
         coEvery { getLatestRommStartForDevice(any(), any()) } returns null
     }
+    private val playRecordDeletionDao: PlayRecordDeletionDao = mockk {
+        coEvery { getForOwner(any()) } returns emptyList()
+    }
     private val gameDao: GameDao = mockk {
         coEvery { getByRommId(any()) } returns null
     }
@@ -43,7 +49,13 @@ class PlaySessionPullTest {
         every { getApi() } returns api
         every { getDeviceId() } returns "dev-this"
     }
-    private val pull = PlaySessionPull(playSessionDao, gameDao, syncPreferencesRepository, connectionManager)
+    private val pull = PlaySessionPull(
+        playSessionDao,
+        playRecordDeletionDao,
+        gameDao,
+        syncPreferencesRepository,
+        connectionManager
+    )
 
     private val otherDevice = RomMDevice(
         id = "dev-other",
@@ -68,7 +80,13 @@ class PlaySessionPullTest {
     fun `sessions whose server id is already held are not inserted again`() = runTest {
         coEvery { playSessionDao.getHeldRommSessionIds(listOf(1L, 2L, 3L)) } returns listOf(2L)
 
-        val added = pull.insertMissing(listOf(remote(1), remote(2), remote(3)), otherDevice, 7L, unresolved)
+        val added = pull.insertMissing(
+            listOf(remote(1), remote(2), remote(3)),
+            otherDevice,
+            7L,
+            PlayRecordCutoffs.NONE,
+            unresolved
+        )
 
         assertEquals(2, added)
         val inserted = mutableListOf<PlaySessionEntity>()
@@ -82,7 +100,7 @@ class PlaySessionPullTest {
         val captured = slot<PlaySessionEntity>()
         coEvery { playSessionDao.insert(capture(captured)) } returns 1L
 
-        pull.insertMissing(listOf(remote(5)), otherDevice, 7L, unresolved)
+        pull.insertMissing(listOf(remote(5)), otherDevice, 7L, PlayRecordCutoffs.NONE, unresolved)
 
         val row = captured.captured
         assertEquals(7L, row.ownerUserId)
@@ -99,10 +117,68 @@ class PlaySessionPullTest {
     fun `a session without a rom is skipped`() = runTest {
         coEvery { playSessionDao.getHeldRommSessionIds(any()) } returns emptyList()
 
-        val added = pull.insertMissing(listOf(remote(1).copy(romId = null)), otherDevice, 7L, unresolved)
+        val added = pull.insertMissing(
+            listOf(remote(1).copy(romId = null)),
+            otherDevice,
+            7L,
+            PlayRecordCutoffs.NONE,
+            unresolved
+        )
 
         assertEquals(0, added)
         coVerify(exactly = 0) { playSessionDao.insert(any()) }
+    }
+
+    @Test
+    fun `a session of a deleted game that started before the cutoff is not stored again`() = runTest {
+        coEvery { playSessionDao.getHeldRommSessionIds(any()) } returns emptyList()
+        val cutoffs = PlayRecordCutoffs(mapOf(-99L to Instant.parse("2026-05-15T12:00:01Z")))
+
+        val added = pull.insertMissing(listOf(remote(1)), otherDevice, 7L, cutoffs, unresolved)
+
+        assertEquals(0, added)
+        coVerify(exactly = 0) { playSessionDao.insert(any()) }
+    }
+
+    @Test
+    fun `a session of a deleted game that started after the cutoff is stored`() = runTest {
+        coEvery { playSessionDao.getHeldRommSessionIds(any()) } returns emptyList()
+        val cutoffs = PlayRecordCutoffs(mapOf(-99L to Instant.parse("2026-05-15T11:59:59Z")))
+
+        val added = pull.insertMissing(listOf(remote(1)), otherDevice, 7L, cutoffs, unresolved)
+
+        assertEquals(1, added)
+        coVerify(exactly = 1) { playSessionDao.insert(any()) }
+    }
+
+    @Test
+    fun `a cutoff on another game does not hold back this game's sessions`() = runTest {
+        coEvery { playSessionDao.getHeldRommSessionIds(any()) } returns emptyList()
+        val cutoffs = PlayRecordCutoffs(mapOf(-98L to Instant.parse("2026-06-01T00:00:00Z")))
+
+        val added = pull.insertMissing(listOf(remote(1)), otherDevice, 7L, cutoffs, unresolved)
+
+        assertEquals(1, added)
+    }
+
+    @Test
+    fun `run reads the account's cutoffs once and skips the deleted game's older sessions`() = runTest {
+        coEvery { api.getDevices() } returns Response.success(listOf(otherDevice))
+        coEvery { api.getPlaySessions(null, "dev-other", null, null, 200, 0) } returns
+            Response.success(listOf(remote(1), remote(2, romId = 98L)))
+        coEvery { playSessionDao.getHeldRommSessionIds(any()) } returns emptyList()
+        coEvery { api.getRom(any()) } returns Response.error(404, okhttp3.ResponseBody.create(null, ""))
+        coEvery { playRecordDeletionDao.getForOwner(7L) } returns listOf(
+            PlayRecordDeletionEntity(gameId = -99L, ownerUserId = 7L, deletedBefore = Instant.parse("2026-06-01T00:00:00Z"))
+        )
+
+        val summary = pull.run()
+
+        assertEquals(1, summary.added)
+        val inserted = mutableListOf<PlaySessionEntity>()
+        coVerify(exactly = 1) { playSessionDao.insert(capture(inserted)) }
+        assertEquals(-98L, inserted.single().gameId)
+        coVerify(exactly = 1) { playRecordDeletionDao.getForOwner(7L) }
     }
 
     @Test

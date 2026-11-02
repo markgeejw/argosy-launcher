@@ -6,6 +6,7 @@ import com.nendo.argosy.data.emulator.ActiveSession
 import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.GameLauncher
+import com.nendo.argosy.data.emulator.LaunchProgressTracker
 import com.nendo.argosy.data.emulator.PlaySessionTracker
 import com.nendo.argosy.data.emulator.SavePathRegistry
 import com.nendo.argosy.data.emulator.SavePathValidator
@@ -39,7 +40,8 @@ class SessionEndCoordinator @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     private val gameRepository: GameRepository,
     private val savePathValidator: SavePathValidator,
-    private val gameLauncher: GameLauncher
+    private val gameLauncher: GameLauncher,
+    private val launchProgressTracker: LaunchProgressTracker
 ) {
     private val scope = SafeCoroutineScope(Dispatchers.Main.immediate, "SessionEnd")
 
@@ -76,6 +78,10 @@ class SessionEndCoordinator @Inject constructor(
         scope.launch(Dispatchers.IO) {
             val current = playSessionTracker.activeSession.value
             if (current?.emulatorPackage == session.emulatorPackage) return@launch
+            if (launchProgressTracker.launchLive.value) {
+                Log.d(TAG, "launch in progress, leaving ${session.emulatorPackage} running")
+                return@launch
+            }
             if (shouldStopAfterSession(session.emulatorPackage)) {
                 gameLauncher.forceStopEmulator(session.emulatorPackage)
             }

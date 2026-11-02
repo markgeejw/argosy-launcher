@@ -8,6 +8,7 @@ import com.nendo.argosy.data.storage.AndroidDataAccessor
 object GameNativeLauncher : SteamLauncher {
     override val packageName = "app.gamenative"
     override val displayName = "GameNative"
+    override val registryId = "gamenative"
     override val supportsScanning = true
 
     override fun createLaunchIntent(steamAppId: Long): Intent = Intent().apply {

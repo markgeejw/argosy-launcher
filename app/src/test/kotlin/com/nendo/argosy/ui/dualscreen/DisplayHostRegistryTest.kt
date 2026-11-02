@@ -38,6 +38,30 @@ class DisplayHostRegistryTest {
     }
 
     @Test
+    fun `replacing a surface answers the one it displaced`() {
+        val old = Surface("old")
+        val new = Surface("new")
+
+        assertNull(registry.register(4, old))
+        assertSame(old, registry.register(4, new))
+    }
+
+    @Test
+    fun `registering the same surface again displaces nothing`() {
+        val host = Surface("host")
+        registry.register(4, host)
+
+        assertNull(registry.register(4, host))
+    }
+
+    @Test
+    fun `a surface on another display is never displaced`() {
+        registry.register(4, Surface("lower"))
+
+        assertNull(registry.register(7, Surface("monitor")))
+    }
+
+    @Test
     fun `a replaced surface tearing down late does not unregister its replacement`() {
         val old = Surface("old")
         val new = Surface("new")

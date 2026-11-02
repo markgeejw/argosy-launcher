@@ -43,18 +43,22 @@ object SteamLaunchers {
         promptOptions.entries.find { it.value == option }?.key
 
     /**
-     * The launchers to ask between at launch, in [reporting] order: every installed launcher whose
-     * Frontend Sync folder reports the game, when there are two or more and the game is not
-     * pinned. Empty means launch without asking.
+     * Installed launch candidates. Multiple reports retain the launch-time choice;
+     * one candidate can launch directly.
      */
-    fun launchChoices(
+    fun launchCandidates(
+        storedPackage: String?,
         pinned: Boolean,
         reporting: List<String>,
         isInstalled: (String) -> Boolean
     ): List<String> {
-        if (pinned) return emptyList()
-        val installed = reporting.distinct().filter { promptOptionFor(it) != null && isInstalled(it) }
-        return if (installed.size > 1) installed else emptyList()
+        val stored = storedPackage?.takeIf { getByPackage(it) != null && isInstalled(it) }
+        if (pinned && stored != null) return listOf(stored)
+        val reported = reporting.distinct().filter { promptOptionFor(it) != null && isInstalled(it) }
+        if (reported.size > 1) return reported
+        if (stored != null) return listOf(stored)
+        if (storedPackage != null) return reported
+        return all.firstOrNull { isInstalled(it.packageName) }?.let { listOf(it.packageName) }.orEmpty()
     }
 
     /**

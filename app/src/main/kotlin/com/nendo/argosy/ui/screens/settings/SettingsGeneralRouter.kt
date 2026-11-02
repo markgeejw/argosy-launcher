@@ -26,12 +26,10 @@ import com.nendo.argosy.ui.screens.settings.sections.BiosItem
 import com.nendo.argosy.ui.screens.settings.sections.biosItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.SteamItem
 import com.nendo.argosy.ui.screens.settings.sections.StorageItem
-import com.nendo.argosy.ui.screens.settings.sections.createStorageCachesLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.createStorageGamesLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.createStorageLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.storageGamesFocusIndexOfPlatform
 import com.nendo.argosy.ui.screens.settings.sections.steamItemAtFocusIndex
-import com.nendo.argosy.ui.screens.settings.sections.storageCachesFocusIndexOfSteam
 import com.nendo.argosy.ui.screens.settings.sections.storageFocusIndexOf
 import com.nendo.argosy.ui.screens.settings.sections.storageMediaVisibleLive
 import com.nendo.argosy.ui.screens.settings.sections.storageSteamVisibleLive
@@ -209,16 +207,9 @@ internal fun routeNavigateToStorageMedia(vm: SettingsViewModel) {
     routePushSection(vm, SettingsSection.STORAGE_MEDIA)
 }
 
-internal fun routeNavigateToStorageCaches(vm: SettingsViewModel, entryFocus: Int) {
+internal fun routeNavigateToStorageCaches(vm: SettingsViewModel) {
     vm.syncDelegate.loadLibrarySettings(vm.viewModelScope)
-    vm.storageCachesDelegate.refreshOnOpen(vm.viewModelScope)
     routePushSection(vm, SettingsSection.STORAGE_CACHES)
-    if (entryFocus == CACHES_ENTRY_STEAM) {
-        vm._uiState.update { state ->
-            val steamFocus = storageCachesFocusIndexOfSteam(createStorageCachesLayoutInfo(state))
-            state.copy(focusedIndex = steamFocus.coerceAtLeast(0))
-        }
-    }
 }
 
 internal fun routeNavigateToThemeBackdrop(vm: SettingsViewModel) {

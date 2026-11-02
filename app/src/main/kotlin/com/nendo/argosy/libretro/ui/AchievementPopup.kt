@@ -153,7 +153,6 @@ private fun AchievementPopupContent(achievement: AchievementUnlock) {
                     shape = RoundedCornerShape(12.dp)
                 )
                 .drawBehind {
-                    // Subtle shine overlay at top
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
@@ -164,7 +163,6 @@ private fun AchievementPopupContent(achievement: AchievementUnlock) {
                             endY = size.height * 0.4f
                         )
                     )
-                    // Edge highlight
                     drawRect(
                         brush = Brush.horizontalGradient(
                             colors = listOf(

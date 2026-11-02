@@ -105,6 +105,13 @@ class RomMRepository @Inject constructor(
 
     fun buildMediaUrlPublic(path: String?): String? = apiClient.buildMediaUrl(path)
 
+    /**
+     * The bearer header for [url], or none when [url] is not on the connected server's
+     * scheme, host and port. Empty while disconnected or without a token.
+     */
+    fun mediaAuthHeaders(url: String, token: String?): Map<String, String> =
+        RomMMusicLibraryService.bearerHeaders(url, connectionManager.getBaseUrl(), token)
+
     fun buildCoverUrls(rom: RomMRom): List<String> = apiClient.buildCoverUrls(rom)
 
     fun buildResourceUrlPublic(path: String?): String? = apiClient.buildResourceUrl(path)

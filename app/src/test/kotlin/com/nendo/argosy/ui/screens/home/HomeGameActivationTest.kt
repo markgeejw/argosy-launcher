@@ -66,7 +66,7 @@ class HomeGameActivationTest {
                 homeGameActivation(game(needsInstall = true), GameDownloadIndicator.NONE, exact)
             )
             assertEquals(
-                HomeGameActivation.STEAM_DOWNLOAD,
+                HomeGameActivation.STEAM_LINK_LAUNCHER,
                 homeGameActivation(game(isSteamGame = true), GameDownloadIndicator.NONE, exact)
             )
         }

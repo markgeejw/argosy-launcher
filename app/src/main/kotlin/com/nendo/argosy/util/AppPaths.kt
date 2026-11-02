@@ -6,6 +6,8 @@ object AppPaths {
 
     const val STEAM_STAGING_DIR = "steam_staging"
 
+    const val STEAM_DOWNLOADS_DIR = "steam_downloads"
+
     const val SAVE_CACHE_DIR = "save_cache"
 
     const val STATE_CACHE_DIR = "state_cache"
@@ -32,10 +34,8 @@ object AppPaths {
 
     const val FAN_DUTY_PATH = "$FAN_BASE_PATH/duty"
 
-    fun steamStagingRoot(filesDir: File): File = File(filesDir, STEAM_STAGING_DIR)
-
-    fun steamStagingDir(filesDir: File, appId: Long): File =
-        File(filesDir, "$STEAM_STAGING_DIR/$appId")
+    fun retiredSteamDownloadDirs(filesDir: File): List<File> =
+        listOf(File(filesDir, STEAM_STAGING_DIR), File(filesDir, STEAM_DOWNLOADS_DIR))
 
     fun saveCacheDir(filesDir: File): File = File(filesDir, SAVE_CACHE_DIR)
 

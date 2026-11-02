@@ -162,6 +162,26 @@ class SwitchSaveHandlerIdentityTest {
     }
 
     @Test
+    fun `constructSavePath places nothing when the emulator has no profile yet`() {
+        val base = File(tempDir, "save").apply { mkdirs() }
+
+        val path = handler.constructSavePath(base.absolutePath, "01007EF00011E000", emulatorPackage = null)
+
+        org.junit.Assert.assertNull(path)
+    }
+
+    @Test
+    fun `constructSavePath uses the emulator's configured profile before its folder exists`() {
+        val base = File(tempDir, "Android/data/dev.eden.eden_emulator/files/nand/user/save").apply { mkdirs() }
+        val uuid = "7E50D36FCC874F4292138B8020B37F29"
+        every { profileParser.parseActiveProfile("dev.eden.eden_emulator", any()) } returns uuid
+
+        val path = handler.constructSavePath(base.absolutePath, "01007EF00011E000", emulatorPackage = "dev.eden.eden_emulator")
+
+        assertEquals("${base.absolutePath}/0000000000000000/$uuid/01007EF00011E000", path)
+    }
+
+    @Test
     fun `constructSavePath uses active profile for non-device titles`() {
         val base = File(tempDir, "save").apply { mkdirs() }
         val userDir = File(base, "0000000000000000").apply { mkdirs() }
@@ -182,7 +202,7 @@ class SwitchSaveHandlerIdentityTest {
 
         assertTrue(
             "Title id in output must be uppercase",
-            path.endsWith("/01006F8002326000"),
+            path.orEmpty().endsWith("/01006F8002326000"),
         )
     }
 }

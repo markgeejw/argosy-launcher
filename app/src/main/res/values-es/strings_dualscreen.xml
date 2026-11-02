@@ -441,7 +441,6 @@
     <string name="dual_detail_file_picker_choose_title">Elegir archivos</string>
 
     <string name="dual_detail_steam_install_heading">UBICACIÓN DE INSTALACIÓN</string>
-    <string name="dual_detail_steam_install_argosy">Descargar mediante Argosy</string>
     <string name="dual_detail_steam_install_external">Marcar como instalado</string>
     <string name="dual_detail_steam_install_managed_by">Administrado por %1$s</string>
 

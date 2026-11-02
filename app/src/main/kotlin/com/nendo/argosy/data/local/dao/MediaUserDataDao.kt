@@ -46,15 +46,39 @@ interface MediaUserDataDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(userData: List<MediaUserDataEntity>)
 
-    @Query(
-        "UPDATE media_user_data SET needsSync = 0 WHERE ownerUserId = :ownerUserId AND itemId = :itemId " +
-            "AND updatedAt <= :reportedAt"
-    )
-    suspend fun clearNeedsSync(ownerUserId: String, itemId: String, reportedAt: Instant)
+    /**
+     * Clears every pending flag on a row last written at or before [reportedAt]. A non-null
+     * [serverPlayback] replaces the row's position, played flag and play history.
+     */
+    @Transaction
+    suspend fun settleReport(
+        ownerUserId: String,
+        itemId: String,
+        reportedAt: Instant,
+        serverPlayback: MediaUserDataEntity?
+    ) {
+        val current = getByItem(ownerUserId, itemId) ?: return
+        if (current.updatedAt.isAfter(reportedAt)) return
+        val playback = serverPlayback ?: current
+        insert(
+            current.copy(
+                playbackPositionTicks = playback.playbackPositionTicks,
+                playedPercentage = playback.playedPercentage,
+                played = playback.played,
+                playCount = playback.playCount,
+                lastPlayedAt = playback.lastPlayedAt,
+                needsSync = false,
+                pendingPosition = false,
+                pendingPlayed = false,
+                pendingFavorite = false
+            )
+        )
+    }
 
     /**
      * Records where playback was left. Creates the row when the item has never been played, so a
      * position taken offline is stored whether or not the server has ever described this item.
+     * Marks pending only the fields whose value differs from the stored one.
      */
     @Transaction
     suspend fun recordPosition(
@@ -71,24 +95,21 @@ interface MediaUserDataDao {
         } else {
             existing?.playCount ?: 0
         }
+        val pendingPosition = existing?.pendingPosition == true ||
+            positionTicks != (existing?.playbackPositionTicks ?: 0L)
+        val pendingPlayed = existing?.pendingPlayed == true || played != (existing?.played ?: false)
+        val pendingFavorite = existing?.pendingFavorite == true
+        val base = existing ?: MediaUserDataEntity(ownerUserId = ownerUserId, itemId = itemId)
         insert(
-            existing?.copy(
+            base.copy(
                 playbackPositionTicks = positionTicks,
                 playedPercentage = playedPercentage,
                 played = played,
                 playCount = playCount,
                 lastPlayedAt = updatedAt,
-                needsSync = true,
-                updatedAt = updatedAt
-            ) ?: MediaUserDataEntity(
-                ownerUserId = ownerUserId,
-                itemId = itemId,
-                playbackPositionTicks = positionTicks,
-                playedPercentage = playedPercentage,
-                played = played,
-                playCount = playCount,
-                lastPlayedAt = updatedAt,
-                needsSync = true,
+                needsSync = pendingPosition || pendingPlayed || pendingFavorite,
+                pendingPosition = pendingPosition,
+                pendingPlayed = pendingPlayed,
                 updatedAt = updatedAt
             )
         )
@@ -102,31 +123,52 @@ interface MediaUserDataDao {
         updatedAt: Instant
     ) {
         val existing = getByItem(ownerUserId, itemId)
+        val pendingFavorite = existing?.pendingFavorite == true ||
+            isFavorite != (existing?.isFavorite ?: false)
+        val pendingPlayback = existing?.pendingPosition == true || existing?.pendingPlayed == true
+        val base = existing ?: MediaUserDataEntity(ownerUserId = ownerUserId, itemId = itemId)
         insert(
-            existing?.copy(
+            base.copy(
                 isFavorite = isFavorite,
-                needsSync = true,
-                updatedAt = updatedAt
-            ) ?: MediaUserDataEntity(
-                ownerUserId = ownerUserId,
-                itemId = itemId,
-                isFavorite = isFavorite,
-                needsSync = true,
+                needsSync = pendingFavorite || pendingPlayback,
+                pendingFavorite = pendingFavorite,
                 updatedAt = updatedAt
             )
         )
     }
 
     /**
-     * Takes the server's version of one item's watch state. A row still carrying an unreported
-     * local write is left alone: the server is authority only for state it has already been told
-     * about, and overwriting here would silently discard a position recorded offline.
+     * Takes the server's version of one item's watch state for every field group with no pending
+     * local write. Playback (position, played, play history) is one group and the favourite flag
+     * is the other. A row with anything pending keeps its own [MediaUserDataEntity.updatedAt].
      */
     @Transaction
     suspend fun applyServerState(userData: MediaUserDataEntity) {
         val existing = getByItem(userData.ownerUserId, userData.itemId)
-        if (existing?.needsSync == true) return
-        insert(userData.copy(id = existing?.id ?: 0, needsSync = false))
+        if (existing == null || !existing.needsSync) {
+            insert(
+                userData.copy(
+                    id = existing?.id ?: 0,
+                    needsSync = false,
+                    pendingPosition = false,
+                    pendingPlayed = false,
+                    pendingFavorite = false
+                )
+            )
+            return
+        }
+        val holdPlayback = existing.pendingPosition || existing.pendingPlayed
+        val playback = if (holdPlayback) existing else userData
+        insert(
+            existing.copy(
+                playbackPositionTicks = playback.playbackPositionTicks,
+                playedPercentage = playback.playedPercentage,
+                played = playback.played,
+                playCount = playback.playCount,
+                lastPlayedAt = playback.lastPlayedAt,
+                isFavorite = if (existing.pendingFavorite) existing.isFavorite else userData.isFavorite
+            )
+        )
     }
 
     @Query("DELETE FROM media_user_data WHERE ownerUserId = :ownerUserId AND itemId = :itemId")
@@ -135,6 +177,4 @@ interface MediaUserDataDao {
     @Query("DELETE FROM media_user_data WHERE ownerUserId = :ownerUserId")
     suspend fun deleteByOwner(ownerUserId: String)
 
-    @Query("DELETE FROM media_user_data WHERE ownerUserId != :ownerUserId")
-    suspend fun deleteOtherOwners(ownerUserId: String)
 }

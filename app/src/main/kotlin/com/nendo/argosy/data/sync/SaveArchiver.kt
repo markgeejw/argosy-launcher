@@ -545,14 +545,12 @@ class SaveArchiver @Inject constructor(
         Logger.debug(TAG, "[SaveSync] ARCHIVE | Extracting to temp | temp=${tempDir.name}, target=${targetFolder.absolutePath}")
 
         try {
-            // Step 1: Extract to temp directory (unrestricted cache)
             if (!unzipDirect(sourceZip, tempDir)) {
                 Logger.error(TAG, "[SaveSync] ARCHIVE | Failed to extract to temp")
                 tempDir.deleteRecursively()
                 return false
             }
 
-            // Step 2: Move from temp to target via UC Data path
             val moved = androidDataAccessor.moveDirectory(tempDir.absolutePath, targetFolder.absolutePath)
             if (!moved) {
                 Logger.error(TAG, "[SaveSync] ARCHIVE | Failed to move to target via AltAccess | target=${targetFolder.absolutePath}")
@@ -579,9 +577,6 @@ class SaveArchiver @Inject constructor(
             targetFolder.mkdirs()
             var fileCount = 0
             var totalSize = 0L
-            // ZipFile (random-access via central directory) handles data-descriptor
-            // and ZIP64 entries that ZipArchiveInputStream's streaming skip() can't.
-            // Switch save exporters (Eden/yuzu) write data-descriptor zips.
             ZipFile.builder().setFile(sourceZip).get().use { zf ->
                 val buffer = ByteArray(BUFFER_SIZE)
                 val entries = zf.entries.toList()

@@ -103,7 +103,6 @@
     <string name="settings_shell_header_accounts">CUENTAS</string>
     <string name="settings_shell_header_saves">GUARDADOS</string>
     <string name="settings_shell_header_sync_settings">AJUSTES DE SINCRONIZACIÓN</string>
-    <string name="settings_shell_header_steam">STEAM (EXPERIMENTAL)</string>
     <string name="settings_shell_header_storage">ALMACENAMIENTO</string>
     <string name="settings_shell_header_storage_games">ALMACENAMIENTO DE JUEGOS</string>
     <string name="settings_shell_header_storage_media">ALMACENAMIENTO MULTIMEDIA</string>
@@ -193,6 +192,11 @@
     <string name="settings_shell_modal_import_settings_message">Elige un archivo de copia de seguridad y los ajustes que contiene reemplazarán los tuyos. Todo lo que el archivo no incluya permanece sin cambios, y las cuentas, servidores, estado de sincronización y ubicaciones de archivos nunca se importan.</string>
     <string name="settings_shell_modal_import_settings_confirm">Elegir archivo</string>
 
+    <string name="settings_shell_modal_accessibility_title">Activar accesibilidad</string>
+    <string name="settings_shell_modal_accessibility_message">Argosy usa su servicio de accesibilidad para detectar el botón Atrás mientras otro emulador está abierto. Android advertirá que puede observar lo que escribes; Argosy solo vigila el botón Atrás durante una partida.</string>
+    <string name="settings_shell_modal_accessibility_confirm">Abrir ajustes</string>
+    <string name="settings_shell_modal_accessibility_not_now">Ahora no</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">¿Migrar descargas?</string>
     <string name="settings_shell_modal_migrate_downloads_message">¿Mover %1$d juegos (%2$s) a la nueva ubicación?</string>
     <string name="settings_shell_modal_migrate_downloads_confirm">Migrar</string>
@@ -208,9 +212,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">Plataforma</string>
     <string name="settings_shell_modal_purge_platform_message">Esto eliminará los %1$d juegos y sus archivos ROM locales. Esta acción no se puede deshacer.</string>
     <string name="settings_shell_modal_purge_platform_confirm">Purgar</string>
+    <string name="settings_shell_modal_purge_disabled_title">¿Quitar también %1$s de este dispositivo?</string>
+    <string name="settings_shell_modal_purge_disabled_message">Sus %1$d juegos ahora están ocultos. Purgar también los elimina junto con sus archivos ROM locales. Esta acción no se puede deshacer.</string>
+    <string name="settings_shell_modal_purge_disabled_keep">Conservar archivos</string>
 
     <string name="settings_shell_modal_sync_first_title">Sincronizar guardados primero</string>
     <string name="settings_shell_modal_sync_first_message">Sincroniza los guardados primero: %1$d pendientes. Restablecer la biblioteca ahora descartaría permanentemente los guardados que no se han subido.</string>
+    <string name="settings_shell_modal_purge_sync_first_message">Sincroniza los guardados primero: %1$d pendientes. Quitar esta plataforma ahora descartaría permanentemente los guardados que no se han subido. La confirmación para quitarla vuelve a aparecer cuando termine la sincronización.</string>
     <string name="settings_shell_modal_sync_first_confirm">Sincronizar ahora</string>
 
     <string name="settings_shell_modal_reset_library_title">¿Restablecer biblioteca?</string>
@@ -379,8 +387,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">Esto eliminará los shaders del catálogo descargados. Los shaders personalizados se conservan, y los shaders del catálogo se vuelven a descargar bajo demanda.</string>
     <string name="settings_shell_caches_frames_title">¿Vaciar marcos descargados?</string>
     <string name="settings_shell_caches_frames_message">Esto eliminará los marcos descargados. Se volverán a descargar bajo demanda al seleccionarlos.</string>
-    <string name="settings_shell_caches_steam_downloads_title">¿Vaciar datos de descarga de Steam?</string>
-    <string name="settings_shell_caches_steam_downloads_message">Esto eliminará las descargas de Steam preparadas y vaciará la cola de descargas. Los juegos instalados no se ven afectados, pero las descargas parciales reiniciarán desde cero.</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 
@@ -560,4 +566,5 @@
     <string name="settings_shell_footer_play_time_move">Mover</string>
     <string name="settings_shell_footer_play_time_open">Abrir</string>
     <string name="settings_shell_footer_play_time_sort">Ordenar</string>
+    <string name="settings_shell_footer_play_time_delete">Eliminar registros</string>
 </resources>

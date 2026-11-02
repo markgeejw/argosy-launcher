@@ -25,7 +25,6 @@
     <string name="notif_storage_hardreset_blocked_active_session">Fermez le jeu en cours avant de réinitialiser</string>
     <string name="notif_storage_hardreset_blocked_active_downloads">Annulez les téléchargements de jeux avant de réinitialiser</string>
     <string name="notif_storage_hardreset_blocked_emulator_download">Attendez la fin du téléchargement de l\'émulateur d\'abord</string>
-    <string name="notif_storage_hardreset_blocked_steam_download">Annulez les téléchargements Steam avant de réinitialiser</string>
     <string name="notif_storage_hardreset_blocked_media_download">Annulez le téléchargement du film ou de l\'épisode avant de réinitialiser</string>
     <string name="notif_storage_hardreset_pending_uploads_none">Synchronisez les envois de sauvegardes en attente avant de réinitialiser</string>
     <string name="notif_storage_hardreset_pending_uploads_one">Synchronisez les envois de sauvegardes en attente de %1$s avant de réinitialiser</string>
@@ -33,9 +32,6 @@
     <string name="notif_storage_hardreset_success">Réinitialisation complète terminée, relevé des fichiers supprimés enregistré - synchronisez pour reconstruire votre bibliothèque</string>
     <string name="notif_storage_hardreset_failed">Échec de la réinitialisation complète - %1$s</string>
     <string name="notif_storage_hardreset_failed_default_detail">réessayez</string>
-
-    <string name="notif_steam_path_not_accessible">Chemin d\'installation inaccessible : %1$s</string>
-    <string name="notif_steam_storage_blocked_subtitle">Stockage insuffisant (%1$dMB libres, %2$dMB requis)</string>
 
     <string name="notif_social_friend_started_playing">A commencé à jouer à %1$s</string>
     <string name="notif_social_friend_online">Est maintenant en ligne</string>
@@ -52,10 +48,8 @@
 
     <string name="notif_storage_caches_emulator_busy_precheck">Attendez la fin du téléchargement de l\'émulateur d\'abord</string>
     <string name="notif_storage_caches_driver_busy">Attendez la fin du téléchargement du pilote d\'abord</string>
-    <string name="notif_storage_caches_steam_busy_precheck">Annulez d\'abord les téléchargements Steam</string>
     <string name="notif_storage_caches_rom_extraction_busy">Impossible d\'effacer les ROM extraites pendant qu\'un jeu est en cours</string>
     <string name="notif_storage_caches_emulator_busy_runclear">Attendez la fin du téléchargement de l\'émulateur d\'abord</string>
-    <string name="notif_storage_caches_steam_busy_runclear">Annulez d\'abord les téléchargements Steam</string>
 
     <string name="notif_sync_settings_manual_syncing">Synchronisation des sauvegardes…</string>
     <string name="notif_sync_settings_manual_not_connected">Non connecté</string>
@@ -86,16 +80,12 @@
 
     <string name="notif_steam_settings_gamenative_unconfigured">Aucun dossier GameNative configuré</string>
     <string name="notif_steam_settings_gamenative_scan_title">Bibliothèque GameNative</string>
-    <string name="notif_steam_settings_install_path_changed_title">Chemin d\'installation modifié</string>
-    <plurals name="notif_steam_settings_install_path_changed_subtitle">
-        <item quantity="one">%1$d téléchargement en cours se terminera à son emplacement d\'origine. Les nouveaux téléchargements utiliseront la nouvelle destination.</item>
-        <item quantity="many">%1$d téléchargements en cours se termineront à leur emplacement d\'origine. Les nouveaux téléchargements utiliseront la nouvelle destination.</item>
-        <item quantity="other">%1$d téléchargements en cours se termineront à leur emplacement d\'origine. Les nouveaux téléchargements utiliseront la nouvelle destination.</item>
-    </plurals>
     <string name="notif_steam_settings_launcher_download_failed">Échec du téléchargement : %1$s</string>
     <string name="notif_steam_settings_library_reset">%1$d jeux Steam supprimés</string>
     <string name="notif_steam_settings_game_added">Ajouté : %1$s</string>
     <string name="notif_steam_settings_library_synced">%1$d jeux Steam ajoutés</string>
+    <string name="notif_steam_settings_metadata_refreshed">%1$d jeux Steam actualisés</string>
+    <string name="notif_steam_settings_metadata_refresh_failed">Impossible d\'actualiser les métadonnées Steam : %1$s</string>
 
     <string name="notif_jellyfin_settings_sync_title">Synchronisation des médias</string>
     <string name="notif_jellyfin_settings_sync_starting">Démarrage…</string>
@@ -139,8 +129,14 @@
     </plurals>
 
     <string name="notif_gamelaunch_no_emulator">Aucun émulateur installé pour cette plateforme</string>
+    <string name="notif_gamelaunch_busy_syncing">La synchronisation est toujours en cours. Réessayez dans un instant.</string>
+    <string name="notif_gamelaunch_busy_launching">Un autre jeu est encore en cours de lancement</string>
     <string name="notif_gamelaunch_no_rom_file">Fichier ROM introuvable</string>
     <string name="notif_gamelaunch_no_steam_launcher">Lanceur Steam non installé</string>
+    <string name="notif_gamelaunch_no_steam_launcher_installed">Aucun lanceur Steam installé. Installez-en un dans Réglages &gt; Steam.</string>
+    <string name="notif_steam_link_no_launcher_installed">Aucun lanceur Steam installé. Installez-en un dans Réglages &gt; Steam.</string>
+    <string name="notif_gamelaunch_steam_launcher_unavailable">Lanceur Steam indisponible. Choisissez un lanceur dans les détails du jeu &gt; Changer de lanceur.</string>
+    <string name="notif_gamelaunch_steam_launcher_updating">Mise à jour du lanceur. Réessayez dans un instant.</string>
     <string name="notif_gamelaunch_no_core_base">Aucun cœur disponible pour %1$s</string>
     <string name="notif_gamelaunch_no_core_with_reason">Aucun cœur disponible pour %1$s : %2$s</string>
     <string name="notif_gamelaunch_missing_discs">Disques manquants : %1$s. Consultez la fiche du jeu pour réparer.</string>
@@ -192,6 +188,7 @@
     <string name="notif_review_saved">Avis publié</string>
     <string name="notif_review_deleted">Avis supprimé</string>
     <string name="notif_review_error_offline">Non connecté à Argosy Social</string>
+    <string name="notif_social_error_offline">Non connecté à Argosy Social</string>
     <string name="notif_review_error_too_long">L\'avis est trop long</string>
     <string name="notif_review_error_invalid">Le serveur n\'a pas pu lire l\'avis</string>
     <string name="notif_review_error_server">Le serveur n\'a pas pu enregistrer l\'avis</string>

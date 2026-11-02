@@ -12,8 +12,8 @@ class QuickFriendsInputHandler(
     private val quayPassEnabled: () -> Boolean,
     private val wrapMode: () -> MenuWrapMode,
     private val onToggleQuayPass: () -> Unit,
-    private val onOpenProfile: (userId: String) -> Unit,
-    private val onEditAvatar: () -> Unit
+    private val onOpenProfile: ((userId: String) -> Unit)?,
+    private val onEditAvatar: (() -> Unit)?
 ) : InputHandler {
 
     private fun rows(): List<QuickFriendsRow> = quickFriendsRows(showQuayPass(), controller.state.value)
@@ -44,6 +44,7 @@ class QuickFriendsInputHandler(
 
     override fun onConfirm(): InputResult {
         val row = focusedRow() ?: return InputResult.UNHANDLED
+        if (opensProfile(row) && onOpenProfile == null) return InputResult.handled(SoundType.BOUNDARY)
         activate(row)
         val isToggle = row == QuickFriendsRow.QuayPass || row == QuickFriendsRow.AppearOnline
         return if (isToggle) InputResult.handled(SoundType.TOGGLE) else InputResult.HANDLED
@@ -68,13 +69,15 @@ class QuickFriendsInputHandler(
     }
 
     fun openProfile(userId: String) {
+        val open = onOpenProfile ?: return
         controller.dismissModal()
-        onOpenProfile(userId)
+        open(userId)
     }
 
     fun editAvatar() {
+        val edit = onEditAvatar ?: return
         controller.dismissModal()
-        onEditAvatar()
+        edit()
     }
 
     fun tapAction(index: Int, action: QuickFriendsAction) {
@@ -95,13 +98,16 @@ class QuickFriendsInputHandler(
         else -> false
     }
 
+    private fun opensProfile(row: QuickFriendsRow): Boolean =
+        row == QuickFriendsRow.Profile || row is QuickFriendsRow.Entry
+
     private fun activate(row: QuickFriendsRow) {
         when (row) {
-            QuickFriendsRow.Profile -> controller.state.value.localUser?.let { onOpenProfile(it.id) }
+            QuickFriendsRow.Profile -> controller.state.value.localUser?.let { onOpenProfile?.invoke(it.id) }
             QuickFriendsRow.QuayPass -> onToggleQuayPass()
             QuickFriendsRow.AppearOnline -> controller.toggleAppearOnline()
             QuickFriendsRow.Actions -> controller.openAction(controller.state.value.action)
-            is QuickFriendsRow.Entry -> onOpenProfile(row.friend.id)
+            is QuickFriendsRow.Entry -> onOpenProfile?.invoke(row.friend.id)
         }
     }
 }

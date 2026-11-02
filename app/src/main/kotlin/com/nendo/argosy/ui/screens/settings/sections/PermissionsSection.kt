@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Lock
@@ -66,6 +67,7 @@ internal sealed class PermissionsItem(
         visibleWhen = { it.isScreenCaptureRelevant }
     )
     data object DisplayOverlay : PermissionsItem("displayOverlay")
+    data object AccessibilityService : PermissionsItem("accessibilityService")
     data object LiveWallpaper : PermissionsItem(
         key = "liveWallpaper",
         visibleWhen = { it.isLiveWallpaperRelevant }
@@ -76,7 +78,7 @@ internal sealed class PermissionsItem(
         val ALL: List<PermissionsItem>
             get() = listOf(
                 InfoText, StorageAccess, UsageStats, Notifications, WriteSettings, ScreenCapture, DisplayOverlay,
-                LiveWallpaper, StatusFooter
+                AccessibilityService, LiveWallpaper, StatusFooter
             )
     }
 }
@@ -92,6 +94,7 @@ internal fun PermissionsItem.confirm(viewModel: SettingsViewModel) {
         PermissionsItem.WriteSettings -> viewModel.openWriteSettings()
         PermissionsItem.ScreenCapture -> viewModel.requestScreenCapturePermission()
         PermissionsItem.DisplayOverlay -> viewModel.openDisplayOverlaySettings()
+        PermissionsItem.AccessibilityService -> viewModel.openAccessibilitySettings()
         PermissionsItem.LiveWallpaper -> viewModel.openLiveWallpaperPicker()
         PermissionsItem.InfoText, PermissionsItem.StatusFooter -> Unit
     }
@@ -191,6 +194,15 @@ fun PermissionsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     title = stringResource(R.string.settings_permissions_display_overlay_title),
                     description = stringResource(R.string.settings_permissions_display_overlay_description),
                     isGranted = permissions.hasDisplayOverlay,
+                    isFocused = isFocused(item),
+                    onClick = { item.confirm(viewModel) }
+                )
+
+                PermissionsItem.AccessibilityService -> PermissionCard(
+                    icon = Icons.Default.Accessibility,
+                    title = stringResource(R.string.settings_permissions_accessibility_title),
+                    description = stringResource(R.string.settings_permissions_accessibility_description),
+                    isGranted = permissions.hasAccessibilityService,
                     isFocused = isFocused(item),
                     onClick = { item.confirm(viewModel) }
                 )

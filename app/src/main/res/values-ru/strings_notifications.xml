@@ -25,7 +25,6 @@
     <string name="notif_storage_hardreset_blocked_active_session">Закройте запущенную игру перед сбросом</string>
     <string name="notif_storage_hardreset_blocked_active_downloads">Отмените загрузки игр перед сбросом</string>
     <string name="notif_storage_hardreset_blocked_emulator_download">Сначала дождитесь завершения загрузки эмулятора</string>
-    <string name="notif_storage_hardreset_blocked_steam_download">Отмените загрузки Steam перед сбросом</string>
     <string name="notif_storage_hardreset_blocked_media_download">Отмените загрузку фильма или эпизода перед сбросом</string>
     <string name="notif_storage_hardreset_pending_uploads_none">Синхронизируйте ожидающие отправки сохранения перед сбросом</string>
     <string name="notif_storage_hardreset_pending_uploads_one">Синхронизируйте ожидающие сохранения пользователя %1$s перед сбросом</string>
@@ -33,9 +32,6 @@
     <string name="notif_storage_hardreset_success">Полный сброс завершён, список удалённых файлов сохранён - синхронизируйте, чтобы восстановить библиотеку</string>
     <string name="notif_storage_hardreset_failed">Не удалось выполнить полный сброс - %1$s</string>
     <string name="notif_storage_hardreset_failed_default_detail">попробуйте снова</string>
-
-    <string name="notif_steam_path_not_accessible">Путь установки недоступен: %1$s</string>
-    <string name="notif_steam_storage_blocked_subtitle">Недостаточно места (свободно %1$dMB, нужно %2$dMB)</string>
 
     <string name="notif_social_friend_started_playing">Сейчас играет в %1$s</string>
     <string name="notif_social_friend_online">Теперь в сети</string>
@@ -52,10 +48,8 @@
 
     <string name="notif_storage_caches_emulator_busy_precheck">Сначала дождитесь завершения загрузки эмулятора</string>
     <string name="notif_storage_caches_driver_busy">Сначала дождитесь завершения загрузки драйвера</string>
-    <string name="notif_storage_caches_steam_busy_precheck">Сначала отмените загрузки Steam</string>
     <string name="notif_storage_caches_rom_extraction_busy">Нельзя очистить распакованные ROM, пока запущена игра</string>
     <string name="notif_storage_caches_emulator_busy_runclear">Сначала дождитесь завершения загрузки эмулятора</string>
-    <string name="notif_storage_caches_steam_busy_runclear">Сначала отмените загрузки Steam</string>
 
     <string name="notif_sync_settings_manual_syncing">Синхронизация сохранений…</string>
     <string name="notif_sync_settings_manual_not_connected">Нет подключения</string>
@@ -86,17 +80,12 @@
 
     <string name="notif_steam_settings_gamenative_unconfigured">Папки GameNative не настроены</string>
     <string name="notif_steam_settings_gamenative_scan_title">Библиотека GameNative</string>
-    <string name="notif_steam_settings_install_path_changed_title">Путь установки изменён</string>
-    <plurals name="notif_steam_settings_install_path_changed_subtitle">
-        <item quantity="one">%1$d загрузка завершится в исходном расположении. Новые загрузки будут использовать новое расположение.</item>
-        <item quantity="few">%1$d загрузки завершатся в исходном расположении. Новые загрузки будут использовать новое расположение.</item>
-        <item quantity="many">%1$d загрузок завершатся в исходном расположении. Новые загрузки будут использовать новое расположение.</item>
-        <item quantity="other">%1$d загрузки завершатся в исходном расположении. Новые загрузки будут использовать новое расположение.</item>
-    </plurals>
     <string name="notif_steam_settings_launcher_download_failed">Ошибка загрузки: %1$s</string>
     <string name="notif_steam_settings_library_reset">Удалено игр Steam: %1$d</string>
     <string name="notif_steam_settings_game_added">Добавлено: %1$s</string>
     <string name="notif_steam_settings_library_synced">Добавлено игр Steam: %1$d</string>
+    <string name="notif_steam_settings_metadata_refreshed">Обновлено игр Steam: %1$d</string>
+    <string name="notif_steam_settings_metadata_refresh_failed">Не удалось обновить метаданные Steam: %1$s</string>
 
     <string name="notif_jellyfin_settings_sync_title">Синхронизация медиа</string>
     <string name="notif_jellyfin_settings_sync_starting">Запуск…</string>
@@ -145,8 +134,14 @@
     </plurals>
 
     <string name="notif_gamelaunch_no_emulator">Для этой платформы не установлен эмулятор</string>
+    <string name="notif_gamelaunch_busy_syncing">Синхронизация ещё идёт. Попробуйте чуть позже.</string>
+    <string name="notif_gamelaunch_busy_launching">Другая игра ещё запускается</string>
     <string name="notif_gamelaunch_no_rom_file">Файл ROM не найден</string>
     <string name="notif_gamelaunch_no_steam_launcher">Лаунчер Steam не установлен</string>
+    <string name="notif_gamelaunch_no_steam_launcher_installed">Лаунчер Steam не установлен. Установите его в разделе Настройки &gt; Steam.</string>
+    <string name="notif_steam_link_no_launcher_installed">Лаунчер Steam не установлен. Установите его в разделе Настройки &gt; Steam.</string>
+    <string name="notif_gamelaunch_steam_launcher_unavailable">Лаунчер Steam недоступен. Выберите лаунчер в сведениях об игре &gt; Сменить лаунчер.</string>
+    <string name="notif_gamelaunch_steam_launcher_updating">Лаунчер обновляется. Повторите попытку через некоторое время.</string>
     <string name="notif_gamelaunch_no_core_base">Нет доступного ядра для %1$s</string>
     <string name="notif_gamelaunch_no_core_with_reason">Нет доступного ядра для %1$s: %2$s</string>
     <string name="notif_gamelaunch_missing_discs">Отсутствуют диски: %1$s. Откройте страницу игры, чтобы исправить.</string>
@@ -199,6 +194,7 @@
     <string name="notif_review_saved">Отзыв опубликован</string>
     <string name="notif_review_deleted">Отзыв удалён</string>
     <string name="notif_review_error_offline">Нет подключения к Argosy Social</string>
+    <string name="notif_social_error_offline">Нет подключения к Argosy Social</string>
     <string name="notif_review_error_too_long">Отзыв слишком длинный</string>
     <string name="notif_review_error_invalid">Сервер не смог прочитать отзыв</string>
     <string name="notif_review_error_server">Сервер не смог сохранить отзыв</string>

@@ -39,6 +39,7 @@ import com.nendo.argosy.data.model.computeSections
 import com.nendo.argosy.data.preferences.BoxArtBorderStyle
 import com.nendo.argosy.data.preferences.GridDensity
 import com.nendo.argosy.data.preferences.LibraryLayout
+import com.nendo.argosy.data.preferences.LibraryListStyle
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.repository.SaveListStatusRepository
 import com.nendo.argosy.data.social.FriendActivity
@@ -77,12 +78,14 @@ import com.nendo.argosy.ui.screens.common.GradientExtractionDelegate
 import com.nendo.argosy.ui.screens.common.RefreshAndroidResult
 import com.nendo.argosy.ui.screens.common.DiscPickerState
 import com.nendo.argosy.ui.screens.common.GameLaunchDelegate
+import com.nendo.argosy.ui.screens.common.GameStart
 import com.nendo.argosy.ui.screens.common.PendingSiblingFocus
 import com.nendo.argosy.ui.screens.common.SyncOverlayState
 import com.nendo.argosy.ui.screens.gamedetail.CollectionItemUi
 import com.nendo.argosy.ui.screens.home.HomePlatformUi
 import com.nendo.argosy.ui.screens.home.toHomePlatformUi
 import com.nendo.argosy.ui.util.GridUtils
+import com.nendo.argosy.ui.util.heldWhile
 import com.nendo.argosy.DualScreenManagerHolder
 import com.nendo.argosy.ui.ModalResetSignal
 import com.nendo.argosy.ui.dualscreen.CompanionFact
@@ -279,6 +282,7 @@ data class LibraryUiState(
     val isCustomGridHome: Boolean = false,
     val gridDensity: GridDensity = GridDensity.NORMAL,
     val libraryLayout: LibraryLayout = LibraryLayout.GRID,
+    val libraryListStyle: LibraryListStyle = LibraryListStyle.RELAXED,
     val boxArt3d: Boolean = false,
     val saveStates: Map<Long, SaveListState> = emptyMap(),
     val friendsActivity: Map<Int, List<FriendActivity>> = emptyMap(),
@@ -459,7 +463,6 @@ class LibraryViewModel @Inject constructor(
     private val platformRepository: PlatformRepository,
     private val gameRepository: GameRepository,
     private val mediaRepository: MediaRepository,
-    private val gameStartRouter: com.nendo.argosy.ui.screens.common.GameStartRouter,
     private val collectionRepository: CollectionRepository,
     private val gameNavigationContext: GameNavigationContext,
     private val notificationManager: NotificationManager,
@@ -481,8 +484,7 @@ class LibraryViewModel @Inject constructor(
     private val gradientExtractionDelegate: GradientExtractionDelegate,
     downloadIndicatorSource: com.nendo.argosy.ui.screens.common.DownloadIndicatorSource,
     private val emulatorDetector: EmulatorDetector,
-    private val steamContentManager: com.nendo.argosy.data.steam.SteamContentManager,
-    private val steamDownloadPromptController: com.nendo.argosy.data.steam.SteamDownloadPromptController,
+    private val steamLauncherLinkController: com.nendo.argosy.data.steam.SteamLauncherLinkController,
     private val downloadFileStatusRepository: com.nendo.argosy.data.repository.DownloadFileStatusRepository,
     private val siblingChoice: com.nendo.argosy.ui.screens.common.SiblingChoiceDelegate,
     private val socialRepository: SocialRepository,
@@ -490,10 +492,15 @@ class LibraryViewModel @Inject constructor(
     private val libraryDefaultPlatformMigration: com.nendo.argosy.data.repository.LibraryDefaultPlatformMigration,
     private val showcaseSource: com.nendo.argosy.ui.common.PresentationShowcaseSource,
     private val reorderPlatforms: com.nendo.argosy.domain.usecase.platform.ReorderPlatformsUseCase,
-    private val quickNavigation: com.nendo.argosy.data.preferences.QuickNavigationSource
+    private val quickNavigation: com.nendo.argosy.data.preferences.QuickNavigationSource,
+    private val launchProgressTracker: com.nendo.argosy.data.emulator.LaunchProgressTracker
 ) : ViewModel() {
 
     val siblingChoiceState = siblingChoice.state
+
+    val gameConfirm = com.nendo.argosy.ui.common.GameConfirmController(
+        gameActions::deleteDownloadConfirm, gameActions::hideConfirm, viewModelScope
+    )
 
     private val companionOwner = SlotOwner.of("library", this)
     private val platformShowcaseOwner = SlotOwner.of("library.platforms", this)
@@ -671,7 +678,7 @@ class LibraryViewModel @Inject constructor(
         } else {
             mediaRepository.countsByLibrary()
         }
-        val cells = listOf(allGamesCell(counts.values.sum())) +
+        val cells = listOf(allGamesCell(cachedPlatformEntities.sumOf { counts[it.id] ?: 0 })) +
             cachedPlatformEntities.map { it.toLibraryCellUi(counts[it.id] ?: 0) } +
             cachedMediaLibraries.mapNotNull { library ->
                 mediaCounts[library.libraryId]?.let { library.toLibraryCellUi(it) }
@@ -764,6 +771,8 @@ class LibraryViewModel @Inject constructor(
         gameLaunchDelegate.dismissDiscPicker()
     }
 
+    val menuWrapMode get() = preferencesRepository.menuWrapMode
+
     fun setDiscPickerFocusIndex(index: Int) {
         _uiState.update { it.copy(discPickerFocusIndex = index) }
     }
@@ -813,6 +822,7 @@ class LibraryViewModel @Inject constructor(
                     it.copy(
                         gridDensity = prefs.gridDensity,
                         libraryLayout = prefs.libraryLayout,
+                        libraryListStyle = prefs.libraryListStyle,
                         boxArt3d = prefs.libraryBoxArt3d,
                         recentSearches = prefs.libraryRecentSearches,
                         isCustomGridHome = prefs.homeLayout.selected ==
@@ -1181,6 +1191,7 @@ class LibraryViewModel @Inject constructor(
                     kotlinx.coroutines.delay(100)
                     emitAll(source)
                 }
+                .heldWhile(launchProgressTracker.launchLive)
                 .collectLatest { (games, seriesIds, regionIds) ->
                     val normalizedQuery = com.nendo.argosy.util.SearchNormalizer.normalize(filters.searchQuery)
                     val platformIds = filters.platforms.map { it.id }.toSet()
@@ -1987,7 +1998,7 @@ class LibraryViewModel @Inject constructor(
                 when {
                     game.needsInstall -> installApk(game.id)
                     game.isDownloaded -> launchGame(game.id)
-                    game.source == com.nendo.argosy.data.model.GameSource.STEAM -> downloadSteamGame(game.id)
+                    game.source == com.nendo.argosy.data.model.GameSource.STEAM -> linkSteamLauncher(game.id)
                     else -> downloadGame(game.id)
                 }
                 toggleQuickMenu()
@@ -2076,8 +2087,8 @@ class LibraryViewModel @Inject constructor(
     fun dismissSiblingChoice() = siblingChoice.dismiss()
 
     fun hideGame(gameId: Long) {
-        viewModelScope.launch {
-            gameActions.hideGame(gameId)
+        gameConfirm.requestHide(gameId) {
+            viewModelScope.launch { gameActions.hideGame(gameId) }
         }
     }
 
@@ -2105,11 +2116,13 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun deleteLocalFile(gameId: Long) {
-        viewModelScope.launch {
-            gameActions.deleteLocalFile(gameId)
-            notificationManager.showSuccess(
-                NotificationText.Res(R.string.library_notice_download_deleted)
-            )
+        gameConfirm.requestDelete(gameId) { withSoundtrack ->
+            viewModelScope.launch {
+                gameActions.deleteLocalFile(gameId, withSoundtrack)
+                notificationManager.showSuccess(
+                    NotificationText.Res(R.string.library_notice_download_deleted)
+                )
+            }
         }
     }
 
@@ -2148,7 +2161,9 @@ class LibraryViewModel @Inject constructor(
             scope = viewModelScope,
             gameId = gameId,
             channelName = channelName,
-            onLaunch = { intent -> gameStartRouter.start(gameId, intent) }
+            start = GameStart(gameId, onFailure = {
+                notificationManager.showError(NotificationText.Res(R.string.notif_gamelaunch_launch_failed))
+            })
         )
     }
 
@@ -2187,8 +2202,8 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun downloadSteamGame(gameId: Long) {
-        steamDownloadPromptController.requestSteamDownload(gameId)
+    fun linkSteamLauncher(gameId: Long) {
+        steamLauncherLinkController.requestLink(gameId)
     }
 
     fun installApk(gameId: Long) {

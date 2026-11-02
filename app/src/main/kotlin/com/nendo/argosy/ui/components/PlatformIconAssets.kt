@@ -26,6 +26,7 @@ object PlatformIconAssets {
         "dsi" to "nds",
         "supergrafx" to "tg16",
         "nomad" to "genesis",
+        "scd" to "genesis",
         "mac" to "apple"
     )
 

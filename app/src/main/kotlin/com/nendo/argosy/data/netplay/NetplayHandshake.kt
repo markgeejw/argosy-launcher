@@ -205,8 +205,6 @@ class NetplayHandshake(
             )
         }
 
-        // Keep responding to peer's Pings while the peer finishes its own burst.
-        // Without this, the faster side stops responding and the slower side times out.
         val pingResponderJob = args.scope.launch {
             transport.incomingPackets
                 .filter { it.source.address == peerAddress.address && it.source.port == peerAddress.port }
@@ -216,7 +214,6 @@ class NetplayHandshake(
                     }
                 }
         }
-        // Auto-cancel after grace period - by then the driver's drainIncoming takes over
         args.scope.launch {
             delay(RTT_BURST_TIMEOUT)
             pingResponderJob.cancel()

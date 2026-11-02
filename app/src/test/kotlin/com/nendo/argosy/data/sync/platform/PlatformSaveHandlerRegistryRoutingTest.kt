@@ -60,6 +60,16 @@ class PlatformSaveHandlerRegistryRoutingTest {
     }
 
     @Test
+    fun `standalone Flycast routes to the standalone VMU names`() {
+        val standalone = mockk<PlatformSaveHandler>(relaxed = true)
+        every { dreamcastHandler.standalone } returns standalone
+        val config = SavePathRegistry.getConfigForPlatform("flycast", "dc")
+        assertNotNull("standalone flycast config must be usable", config)
+
+        assertSame(standalone, registry.getHandler(config, "dc", "flycast"))
+    }
+
+    @Test
     fun `retroarch + ppsspp folder config routes to PSP folder handler not RetroArch`() {
         val config = SavePathRegistry.getConfigForPlatform("retroarch_64", "psp")
         assertNotNull("retroarch_64_psp config must exist", config)
@@ -192,6 +202,30 @@ class PlatformSaveHandlerRegistryRoutingTest {
         val config = SavePathRegistry.getConfigForPlatform("argosy", "ps2")
 
         assertSame(registry.getHandler(config, "ps2", "argosy"), registry.getHandlerFor(7L, config, "ps2", "argosy"))
+    }
+
+    @Test
+    fun `a libretro Sigil route takes the Sigil handler where the built-in config keeps folders or GCI files`() = runTest {
+        every { sigilHandler.routes(any(), any()) } returns false
+        coEvery { sigilHandler.route(7L, any()) } returns
+            SigilRoute("ppsspp", "/data/saves/psp", null, null, libretro = true)
+
+        listOf("psp", "3ds", "wii", "gc").forEach { platform ->
+            val config = SavePathRegistry.getConfigForPlatform("argosy", platform)
+            assertTrue("built-in $platform keeps folders or GCI files", config!!.usesFolderBasedSaves || config.usesGciFormat)
+            assertTrue("built-in $platform", registry.isSigilRoutedFor(7L, config, platform, "argosy"))
+            assertSame("built-in $platform", sigilHandler, registry.getHandlerFor(7L, config, platform, "argosy"))
+        }
+    }
+
+    @Test
+    fun `no Sigil route keeps the game-agnostic handler for a folder-shaped built-in config`() = runTest {
+        every { sigilHandler.routes(any(), any()) } returns false
+        coEvery { sigilHandler.route(7L, any()) } returns null
+        val config = SavePathRegistry.getConfigForPlatform("argosy", "psp")
+
+        assertEquals(false, registry.isSigilRoutedFor(7L, config, "psp", "argosy"))
+        assertSame(registry.getHandler(config, "psp", "argosy"), registry.getHandlerFor(7L, config, "psp", "argosy"))
     }
 
     @Test

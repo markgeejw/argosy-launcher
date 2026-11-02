@@ -27,7 +27,8 @@ class HotkeyDispatcher(
     private val onSpeedrunUndoSplit: () -> Unit,
     private val onSpeedrunSkipSplit: () -> Unit,
     private val onSpeedrunToggleTimer: () -> Unit,
-    private val onSpeedrunResetTimer: () -> Unit
+    private val onSpeedrunResetTimer: () -> Unit,
+    private val onStepSunLevel: (Int) -> Unit
 ) {
     fun dispatch(config: HotkeyManager.HotkeyConfig): Boolean {
         when (config.action) {
@@ -138,6 +139,16 @@ class HotkeyDispatcher(
             }
             HotkeyAction.SPEEDRUN_RESET_TIMER -> {
                 onSpeedrunResetTimer()
+                hotkeyManager.clearState()
+                return true
+            }
+            HotkeyAction.SUN_BRIGHTER -> {
+                onStepSunLevel(1)
+                hotkeyManager.clearState()
+                return true
+            }
+            HotkeyAction.SUN_DIMMER -> {
+                onStepSunLevel(-1)
                 hotkeyManager.clearState()
                 return true
             }

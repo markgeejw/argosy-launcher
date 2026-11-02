@@ -8,7 +8,8 @@ sealed class LibretroSettingDef(
     val section: String,
     @StringRes val title: Int,
     @StringRes val subtitle: Int? = null,
-    val type: SettingType
+    val type: SettingType,
+    val appliesOnNextLaunch: Boolean = false
 ) {
     sealed class SettingType {
         /**
@@ -211,7 +212,8 @@ sealed class LibretroSettingDef(
         section = "performance",
         title = R.string.settings_libretro_def_skip_duplicate_frames_title,
         subtitle = R.string.settings_libretro_def_skip_duplicate_frames_subtitle,
-        type = SettingType.Switch
+        type = SettingType.Switch,
+        appliesOnNextLaunch = true
     )
 
     data object LowLatencyAudio : LibretroSettingDef(
@@ -219,7 +221,8 @@ sealed class LibretroSettingDef(
         section = "performance",
         title = R.string.settings_libretro_def_low_latency_audio_title,
         subtitle = R.string.settings_libretro_def_low_latency_audio_subtitle,
-        type = SettingType.Switch
+        type = SettingType.Switch,
+        appliesOnNextLaunch = true
     )
 
     data object AudioVolume : LibretroSettingDef(
@@ -263,7 +266,8 @@ sealed class LibretroSettingDef(
         section = "display",
         title = R.string.settings_libretro_def_vsync_title,
         subtitle = R.string.settings_libretro_def_vsync_subtitle,
-        type = SettingType.Switch
+        type = SettingType.Switch,
+        appliesOnNextLaunch = true
     )
 
     data object AutoSaveState : LibretroSettingDef(

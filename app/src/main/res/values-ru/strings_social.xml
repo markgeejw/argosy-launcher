@@ -25,6 +25,7 @@
 
     <string name="social_profile_hint_avatar">Аватар</string>
     <string name="social_profile_hint_view_game">Игра</string>
+    <string name="social_profile_unavailable_offline">Профиль загрузится, когда вы снова будете в сети</string>
     <string name="social_profile_hint_settings">Настройки</string>
 
     <string name="social_tabbar_feed">Лента</string>

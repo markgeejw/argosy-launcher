@@ -25,6 +25,4 @@ interface MediaSourceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(source: MediaSourceEntity)
 
-    @Query("DELETE FROM media_sources WHERE ownerUserId != :ownerUserId")
-    suspend fun deleteOtherOwners(ownerUserId: String)
 }

@@ -103,17 +103,16 @@ class ShaderPreviewRenderer {
                     GLES20.glEnableVertexAttribArray(compiled.coordHandle)
                 }
 
-                // For multi-pass: pass 0 reads original, subsequent passes read previous output
                 val mainTexture = if (i > 0) fbos[i - 1].texture else inputTexture
                 GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
                 GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mainTexture)
                 GLES20.glUniform1i(compiled.textureHandle, 0)
 
-                // Also provide original texture for shaders that need it
-                if (compiled.previousPassHandle != -1) {
+                if (compiled.previousPassHandle != -1 || compiled.origTextureHandle != -1) {
                     GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
                     GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTexture)
-                    GLES20.glUniform1i(compiled.previousPassHandle, 1)
+                    setUniformInt(compiled.previousPassHandle, 1)
+                    setUniformInt(compiled.origTextureHandle, 1)
                 }
 
                 val outW: Float
@@ -126,14 +125,18 @@ class ShaderPreviewRenderer {
                     outH = fbos[i].height.toFloat()
                 }
 
-                // Input size: for pass 0 use original, for subsequent passes use previous output
                 val inW = if (i > 0) fbos[i - 1].width.toFloat() else texW
                 val inH = if (i > 0) fbos[i - 1].height.toFloat() else texH
                 setUniformVec2(compiled.textureSizeHandle, inW, inH)
                 setUniformVec2(compiled.inputSizeHandle, inW, inH)
+                setUniformVec2(compiled.origTextureSizeHandle, texW, texH)
+                setUniformVec2(compiled.origInputSizeHandle, texW, texH)
                 setUniformVec2(compiled.outputSizeHandle, outW, outH)
                 setUniformInt(compiled.frameCountHandle, 0)
                 setUniformInt(compiled.frameDirectionHandle, 1)
+                setUniformVec3(compiled.gyroscopeHandle, 0f, 0f, 0f)
+                setUniformVec3(compiled.accelerometerHandle, 0f, 0f, 0f)
+                setUniformVec3(compiled.accelerometerRestHandle, 0f, 0f, 0f)
                 setUniformFloat(compiled.screenDensityHandle, outH / texH)
                 if (compiled.mvpMatrixHandle != -1) {
                     GLES20.glUniformMatrix4fv(compiled.mvpMatrixHandle, 1, false, IDENTITY_MATRIX, 0)
@@ -149,6 +152,10 @@ class ShaderPreviewRenderer {
 
                 if (compiled.positionHandle != -1) GLES20.glDisableVertexAttribArray(compiled.positionHandle)
                 if (compiled.coordHandle != -1) GLES20.glDisableVertexAttribArray(compiled.coordHandle)
+                if (compiled.previousPassHandle != -1 || compiled.origTextureHandle != -1) {
+                    GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+                }
                 GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
                 GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
                 GLES20.glUseProgram(0)
@@ -305,11 +312,17 @@ class ShaderPreviewRenderer {
             coordHandle = coordHandle,
             textureHandle = textureHandle,
             previousPassHandle = GLES20.glGetUniformLocation(program, "previousPass"),
+            origTextureHandle = GLES20.glGetUniformLocation(program, "OrigTexture"),
+            origTextureSizeHandle = GLES20.glGetUniformLocation(program, "OrigTextureSize"),
+            origInputSizeHandle = GLES20.glGetUniformLocation(program, "OrigInputSize"),
             textureSizeHandle = textureSizeHandle,
             inputSizeHandle = GLES20.glGetUniformLocation(program, "InputSize"),
             outputSizeHandle = GLES20.glGetUniformLocation(program, "OutputSize"),
             frameCountHandle = GLES20.glGetUniformLocation(program, "FrameCount"),
             frameDirectionHandle = GLES20.glGetUniformLocation(program, "FrameDirection"),
+            gyroscopeHandle = GLES20.glGetUniformLocation(program, "Gyroscope"),
+            accelerometerHandle = GLES20.glGetUniformLocation(program, "Accelerometer"),
+            accelerometerRestHandle = GLES20.glGetUniformLocation(program, "AccelerometerRest"),
             screenDensityHandle = GLES20.glGetUniformLocation(program, "screenDensity"),
             mvpMatrixHandle = GLES20.glGetUniformLocation(program, "MVPMatrix")
         )
@@ -358,6 +371,10 @@ class ShaderPreviewRenderer {
         if (handle != -1) GLES20.glUniform2f(handle, x, y)
     }
 
+    private fun setUniformVec3(handle: Int, x: Float, y: Float, z: Float) {
+        if (handle != -1) GLES20.glUniform3f(handle, x, y, z)
+    }
+
     private fun setUniformInt(handle: Int, value: Int) {
         if (handle != -1) GLES20.glUniform1i(handle, value)
     }
@@ -372,11 +389,17 @@ class ShaderPreviewRenderer {
         val coordHandle: Int,
         val textureHandle: Int,
         val previousPassHandle: Int,
+        val origTextureHandle: Int,
+        val origTextureSizeHandle: Int,
+        val origInputSizeHandle: Int,
         val textureSizeHandle: Int,
         val inputSizeHandle: Int,
         val outputSizeHandle: Int,
         val frameCountHandle: Int,
         val frameDirectionHandle: Int,
+        val gyroscopeHandle: Int,
+        val accelerometerHandle: Int,
+        val accelerometerRestHandle: Int,
         val screenDensityHandle: Int,
         val mvpMatrixHandle: Int
     )

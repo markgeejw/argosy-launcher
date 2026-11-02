@@ -192,13 +192,6 @@
     <string name="downloads_action_clear_finished">清除已完成</string>
     <string name="downloads_action_start_all">全部开始</string>
 
-    <string name="downloads_steam_status_preparing">正在准备&#8230;</string>
-    <string name="downloads_steam_status_connecting">正在连接Steam&#8230;</string>
-    <string name="downloads_steam_status_fetching_manifest">正在获取depot清单&#8230;</string>
-    <string name="downloads_steam_status_validating_fallback">正在验证&#8230;</string>
-    <string name="downloads_steam_status_moving">正在移动文件&#8230;</string>
-    <string name="downloads_steam_status_cleaning">正在清理&#8230;</string>
-    <string name="downloads_steam_status_depot_progress">"（%1$d/%2$d个depot）"</string>
 
     <plurals name="downloads_group_progress">
         <item quantity="other">%1$d/%2$d个文件</item>

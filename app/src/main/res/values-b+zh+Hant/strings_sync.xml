@@ -6,6 +6,7 @@
     <string name="sync_prelaunch_connecting">連線中...</string>
     <string name="sync_prelaunch_connected">已連線</string>
     <string name="sync_prelaunch_connect_failed">連線失敗</string>
+    <string name="sync_prelaunch_timed_out">伺服器回應逾時</string>
     <string name="sync_prelaunch_downloading">下載中...</string>
     <string name="sync_prelaunch_download_complete">下載完成</string>
     <string name="sync_prelaunch_download_failed">下載失敗</string>
@@ -54,12 +55,10 @@
     <string name="sync_service_saves">正在同步存檔...</string>
     <string name="steam_service_connecting">正在連線...</string>
     <string name="steam_service_signing_in">正在登入...</string>
-    <string name="steam_service_syncing_library">正在同步 Steam 庫...</string>
 
     <string name="sync_download_channel_name">下載進度</string>
     <string name="sync_download_channel_description">在背景顯示下載進度</string>
     <string name="sync_download_service_preparing">正在準備下載...</string>
-    <string name="sync_download_service_steam_downloading">下載中：%1$s</string>
     <string name="sync_download_service_extracting">解壓縮中：%1$s</string>
     <string name="sync_download_service_moving">正在移至ROM儲存空間：%1$s</string>
     <string name="sync_download_service_downloading">下載中：%1$s</string>
@@ -138,10 +137,6 @@
     <string name="sync_steam_rate_limited_subtitle">登入次數已達上限，請於一小時後再試</string>
     <string name="sync_steam_auth_expired_title">Steam連線階段已逾期</string>
     <string name="sync_steam_auth_expired_subtitle">請至設定&gt;Steam重新登入</string>
-    <string name="sync_steam_download_signed_out_title">Steam連線階段已逾期</string>
-    <string name="sync_steam_download_signed_out_subtitle">請至設定&gt;Steam登入以進行下載</string>
-    <string name="sync_steam_path_blocked_title">無法下載%1$s</string>
-    <string name="sync_steam_storage_blocked_title">無法下載%1$s</string>
 
     <string name="sync_steam_qr_rate_limited">已達速率限制，請稍後再試</string>
     <string name="sync_steam_qr_login_failed">登入失敗：%1$s</string>

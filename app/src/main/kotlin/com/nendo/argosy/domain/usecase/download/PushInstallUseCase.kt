@@ -12,6 +12,7 @@ import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.remote.romm.RomMResult
 import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.data.repository.PlatformRepository
+import com.nendo.argosy.data.update.ApkInstallManager
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -43,7 +44,8 @@ class PushInstallUseCase @Inject constructor(
     private val gameRepository: GameRepository,
     private val emulatorDetector: EmulatorDetector,
     private val builtinPreferences: BuiltinEmulatorPreferencesRepository,
-    private val downloadGameUseCase: DownloadGameUseCase
+    private val downloadGameUseCase: DownloadGameUseCase,
+    private val apkInstallManager: ApkInstallManager
 ) {
     suspend operator fun invoke(romId: Long, requestedFileIds: List<Long>): PushInstallOutcome {
         val builtinEnabled = builtinPreferences.isBuiltinLibretroEnabled().first()
@@ -59,6 +61,8 @@ class PushInstallUseCase @Inject constructor(
         if (requestedFileIds.isNotEmpty() && selection == null) {
             return PushInstallOutcome.Failed(PushInstallFailure.NO_INSTALLABLE_FILES)
         }
+
+        if (game.platformId == LocalPlatformIds.ANDROID) apkInstallManager.markPushed(game.id)
 
         return when (val result = downloadGameUseCase(game.id, selection)) {
             DownloadResult.Queued, is DownloadResult.MultiDiscQueued -> PushInstallOutcome.Queued

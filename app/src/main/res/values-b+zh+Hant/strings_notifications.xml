@@ -25,7 +25,6 @@
     <string name="notif_storage_hardreset_blocked_active_session">請先關閉執行中的遊戲再重設</string>
     <string name="notif_storage_hardreset_blocked_active_downloads">請先取消遊戲下載再重設</string>
     <string name="notif_storage_hardreset_blocked_emulator_download">請先等待模擬器下載完成</string>
-    <string name="notif_storage_hardreset_blocked_steam_download">請先取消Steam下載再重設</string>
     <string name="notif_storage_hardreset_blocked_media_download">請先取消電影或影集下載再重設</string>
     <string name="notif_storage_hardreset_pending_uploads_none">請先同步待上傳的存檔再重設</string>
     <string name="notif_storage_hardreset_pending_uploads_one">請先同步%1$s待上傳的存檔再重設</string>
@@ -33,9 +32,6 @@
     <string name="notif_storage_hardreset_success">已完成重設並儲存已移除檔案的紀錄，請同步以重建您的遊戲庫</string>
     <string name="notif_storage_hardreset_failed">重設失敗－%1$s</string>
     <string name="notif_storage_hardreset_failed_default_detail">請再試一次</string>
-
-    <string name="notif_steam_path_not_accessible">無法存取安裝路徑：%1$s</string>
-    <string name="notif_steam_storage_blocked_subtitle">儲存空間不足（剩餘%1$dMB，需要%2$dMB）</string>
 
     <string name="notif_social_friend_started_playing">開始遊玩%1$s</string>
     <string name="notif_social_friend_online">目前已上線</string>
@@ -52,10 +48,8 @@
 
     <string name="notif_storage_caches_emulator_busy_precheck">請先等待模擬器下載完成</string>
     <string name="notif_storage_caches_driver_busy">請先等待驅動程式下載完成</string>
-    <string name="notif_storage_caches_steam_busy_precheck">請先取消Steam下載</string>
     <string name="notif_storage_caches_rom_extraction_busy">遊戲執行中無法清除已解壓縮的ROM</string>
     <string name="notif_storage_caches_emulator_busy_runclear">請先等待模擬器下載完成</string>
-    <string name="notif_storage_caches_steam_busy_runclear">請先取消Steam下載</string>
 
     <string name="notif_sync_settings_manual_syncing">正在同步存檔&#8230;</string>
     <string name="notif_sync_settings_manual_not_connected">尚未連線</string>
@@ -86,14 +80,12 @@
 
     <string name="notif_steam_settings_gamenative_unconfigured">尚未設定GameNative資料夾</string>
     <string name="notif_steam_settings_gamenative_scan_title">GameNative遊戲庫</string>
-    <string name="notif_steam_settings_install_path_changed_title">安裝路徑已變更</string>
-    <plurals name="notif_steam_settings_install_path_changed_subtitle">
-        <item quantity="other">%1$d個進行中的下載將完成於原始位置，新的下載將使用新的目標位置。</item>
-    </plurals>
     <string name="notif_steam_settings_launcher_download_failed">下載失敗：%1$s</string>
     <string name="notif_steam_settings_library_reset">已移除%1$d款Steam遊戲</string>
     <string name="notif_steam_settings_game_added">已新增：%1$s</string>
     <string name="notif_steam_settings_library_synced">已新增%1$d款Steam遊戲</string>
+    <string name="notif_steam_settings_metadata_refreshed">已重新整理%1$d款Steam遊戲</string>
+    <string name="notif_steam_settings_metadata_refresh_failed">無法重新整理Steam中繼資料：%1$s</string>
 
     <string name="notif_jellyfin_settings_sync_title">正在同步媒體</string>
     <string name="notif_jellyfin_settings_sync_starting">開始中&#8230;</string>
@@ -127,8 +119,14 @@
     </plurals>
 
     <string name="notif_gamelaunch_no_emulator">此平台未安裝任何模擬器</string>
+    <string name="notif_gamelaunch_busy_syncing">同步仍在進行中，請稍後再試。</string>
+    <string name="notif_gamelaunch_busy_launching">另一款遊戲仍在啟動中</string>
     <string name="notif_gamelaunch_no_rom_file">找不到ROM檔案</string>
     <string name="notif_gamelaunch_no_steam_launcher">尚未安裝Steam啟動程式</string>
+    <string name="notif_gamelaunch_no_steam_launcher_installed">尚未安裝 Steam 啟動程式。請前往設定 &gt; Steam 安裝。</string>
+    <string name="notif_steam_link_no_launcher_installed">尚未安裝 Steam 啟動程式。請前往設定 &gt; Steam 安裝。</string>
+    <string name="notif_gamelaunch_steam_launcher_unavailable">Steam 啟動程式無法使用。請前往遊戲詳情 &gt; 變更啟動程式選擇啟動程式。</string>
+    <string name="notif_gamelaunch_steam_launcher_updating">啟動程式正在更新。請稍後再試。</string>
     <string name="notif_gamelaunch_no_core_base">%1$s沒有可用的核心</string>
     <string name="notif_gamelaunch_no_core_with_reason">%1$s沒有可用的核心：%2$s</string>
     <string name="notif_gamelaunch_missing_discs">缺少光碟：%1$s，請至遊戲詳情頁面修復。</string>
@@ -178,6 +176,7 @@
     <string name="notif_review_saved">評論已發布</string>
     <string name="notif_review_deleted">評論已刪除</string>
     <string name="notif_review_error_offline">未連線至 Argosy Social</string>
+    <string name="notif_social_error_offline">未連線至 Argosy Social</string>
     <string name="notif_review_error_too_long">評論內容過長</string>
     <string name="notif_review_error_invalid">伺服器無法讀取該評論</string>
     <string name="notif_review_error_server">伺服器無法儲存該評論</string>

@@ -27,20 +27,20 @@ interface RAApi {
         @Query("v") validation: String
     ): Response<RAAwardResponse>
 
+    /**
+     * Mirrors rcheevos rc_api_init_start_session_request (src/rapi/rc_api_user.c): `h` and `m` are
+     * sent together only when the ROM hash is known, and `l` carries the client version.
+     */
     @FormUrlEncoded
     @POST("dorequest.php")
-    /**
-     * `m` carries the ROM hash and `l` the client version, per rcheevos
-     * `src/rapi/rc_api_user.c` (rc_api_init_start_session_request). They were transposed here,
-     * so wiring a hash through would have sent an MD5 where the server expects a version string.
-     */
     suspend fun startSession(
         @Field("r") request: String = "startsession",
         @Field("u") username: String,
         @Field("t") token: String,
         @Field("g") gameId: Long,
+        @Field("h") hardcore: Int? = null,
         @Field("m") gameHash: String? = null,
-        @Field("h") hardcore: Int = 0
+        @Field("l") clientVersion: String = RCHEEVOS_VERSION
     ): Response<RAStartSessionResponse>
 
     @FormUrlEncoded
@@ -81,5 +81,6 @@ interface RAApi {
 
     companion object {
         const val BASE_URL = "https://retroachievements.org/"
+        const val RCHEEVOS_VERSION = "12.2.1"
     }
 }

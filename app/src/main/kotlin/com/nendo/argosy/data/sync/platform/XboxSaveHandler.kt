@@ -1,33 +1,36 @@
 package com.nendo.argosy.data.sync.platform
 
 import android.content.Context
+import com.nendo.argosy.data.emulator.SavePathConfig
+import com.nendo.argosy.data.emulator.SavePathRegistry
 import com.nendo.argosy.data.storage.FileAccessLayer
 import com.nendo.argosy.data.sync.SaveArchiver
-import com.nendo.argosy.data.sync.xbox.XboxHddImage
 import com.nendo.argosy.util.Logger
+import com.nendo.argosy.util.RootShell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Xbox saves live inside the emulator's hard disk image rather than on the host filesystem,
- * so this handler stages them out to a directory the rest of the sync layer can treat as an
- * ordinary save folder, and writes the staged tree back into the image on restore.
- *
- * Staging is rebuilt from the image every time rather than trusted, because the emulator
- * writes the image behind our back and a stale copy would upload a save the user has moved on
- * from. Everything between here and the server sees files.
+ * Stages a title's `E:\UDATA\<title id>` folder out of hakuX's private storage through the root
+ * daemon on every read, and copies the staged tree back, owned by hakuX, after every restore.
  */
 class XboxSaveHandler(
     private val context: Context,
-    private val fal: FileAccessLayer,
+    fal: FileAccessLayer,
     saveArchiver: SaveArchiver
 ) : FolderSaveHandler(context, fal, saveArchiver, PLATFORM_SLUG, TAG) {
 
+    override fun resolveBasePath(config: SavePathConfig, basePathOverride: String?): String? =
+        super.resolveBasePath(config, null)
+
     override fun findSaveFolderBySaveId(basePath: String, saveId: String): String? {
         val staged = stagingDir(saveId)
-        return if (materialize(basePath, saveId, staged)) staged.absolutePath else null
+        return if (stage(basePath, saveId, staged)) staged.absolutePath else null
     }
+
+    override fun findAllSaveFoldersBySaveId(basePath: String, saveId: String): List<String> =
+        listOfNotNull(findSaveFolderBySaveId(basePath, saveId))
 
     override fun constructSavePath(baseDir: String, saveId: String): String =
         stagingDir(saveId).absolutePath
@@ -35,10 +38,6 @@ class XboxSaveHandler(
     override fun isCanonicalFolderPath(savePath: String, saveId: String): Boolean =
         savePath == stagingDir(saveId).absolutePath
 
-    /**
-     * A staged path only describes a save while the image behind it still holds one, so a row
-     * cached from an image the user has since replaced must not be trusted on existence alone.
-     */
     override fun isValidCachedSavePath(path: String): Boolean =
         File(path).parentFile?.name == STAGING_ROOT
 
@@ -50,71 +49,89 @@ class XboxSaveHandler(
         val basePath = resolveBasePath(context.config, context.basePathOverride)
             ?: return@withContext null
 
-        if (!materialize(basePath, saveId, File(localPath))) {
-            Logger.debug(TAG, "prepareForUpload: image holds no save | saveId=$saveId")
+        if (!stage(basePath, saveId, File(localPath))) {
+            Logger.debug(TAG, "prepareForUpload: hakuX holds no save | saveId=$saveId")
             return@withContext null
         }
         super.prepareForUpload(localPath, context)
     }
 
-    override suspend fun extractDownload(
-        tempFile: File,
-        context: SaveContext
-    ): ExtractResult = withContext(Dispatchers.IO) {
-        val result = super.extractDownload(tempFile, context)
-        if (!result.success) return@withContext result
-
-        val saveId = context.saveId
-            ?: return@withContext result.copy(success = false, error = "No save ID for Xbox save")
-        val basePath = resolveBasePath(context.config, context.basePathOverride)
-            ?: return@withContext result.copy(success = false, error = "No Xbox disk image configured")
-        val staged = File(result.targetPath ?: return@withContext result)
-
-        val failure = withImage(basePath, writable = true) { image ->
-            when {
-                image == null -> "Xbox disk image could not be opened for writing"
-                image.isDirty -> "Xbox disk image was left mid-write by the emulator"
-                else -> runCatching { image.writeSaveInPlace(saveId, staged) }
-                    .exceptionOrNull()
-                    ?.let { it.message ?: "Failed to write the Xbox save into the disk image" }
-            }
+    override fun unpackArchive(tempFile: File, targetFolder: File, saveId: String?): Boolean {
+        if (!super.unpackArchive(tempFile, targetFolder, saveId)) return false
+        val id = saveId ?: run {
+            Logger.error(TAG, "unpackArchive: no save id, cannot place the save in hakuX")
+            return false
         }
-
-        if (failure != null) {
-            Logger.error(TAG, "extractDownload: $failure | saveId=$saveId")
-            return@withContext result.copy(success = false, error = failure)
-        }
-        result
+        return writeBack(targetFolder, id)
     }
 
-    private fun materialize(basePath: String, saveId: String, destination: File): Boolean =
-        withImage(basePath, writable = false) { image ->
-            if (image == null) {
+    private fun stage(udataPath: String, saveId: String, destination: File): Boolean {
+        destination.parentFile?.mkdirs()
+        val script = """
+            udata=${RootShell.quote(udataPath)}
+            dst=${RootShell.quote(destination.absolutePath)}
+            $FIND_TITLE_FUNCTION
+            match=${'$'}(find_title "${'$'}udata" ${RootShell.quote(saveId)})
+            rm -rf "${'$'}dst"
+            [ -n "${'$'}match" ] || exit $EXIT_ABSENT
+            cp -rp "${'$'}match" "${'$'}dst" || exit 1
+            chown -R ${android.os.Process.myUid()}:${android.os.Process.myUid()} "${'$'}dst" || exit 1
+            chmod -R u+rwX "${'$'}dst"
+            restorecon -R "${'$'}dst" 2>/dev/null
+            exit 0
+        """.trimIndent()
+        val result = RootShell.run(context, script)
+        return when (result?.exitCode) {
+            0 -> true
+            EXIT_ABSENT -> false
+            else -> {
+                Logger.error(TAG, "stage failed | saveId=$saveId exit=${result?.exitCode} output=${result?.output}")
                 false
-            } else {
-                runCatching { image.extractSave(saveId, destination) }
-                    .onFailure { Logger.error(TAG, "materialize failed | saveId=$saveId", it) }
-                    .getOrDefault(false)
             }
         }
+    }
 
-    private inline fun <T> withImage(
-        basePath: String,
-        writable: Boolean,
-        body: (XboxHddImage?) -> T
-    ): T {
-        val imagePath = "$basePath/$IMAGE_FILE"
-        val image = if (fal.exists(imagePath)) {
-            XboxHddImage.open(fal, imagePath, writable)
+    private fun writeBack(staged: File, saveId: String): Boolean {
+        val config = SavePathRegistry.getConfigForPlatform(EMULATOR_ID, PLATFORM_SLUG)
+        val udataPath = config?.let { resolveBasePath(it, null) } ?: run {
+            Logger.error(TAG, "writeBack: no hakuX save path configured")
+            return false
+        }
+        val script = """
+            src=${RootShell.quote(staged.absolutePath)}
+            udata=${RootShell.quote(udataPath)}
+            id=${RootShell.quote(saveId)}
+            $FIND_TITLE_FUNCTION
+            part="${'$'}(dirname "${'$'}udata")"
+            [ -d "${'$'}part" ] || exit $EXIT_NO_DRIVE
+            owner="${'$'}(stat -c %u:%g "${'$'}part")"
+            if [ ! -d "${'$'}udata" ]; then
+              mkdir "${'$'}udata" && chown "${'$'}owner" "${'$'}udata" && chmod 700 "${'$'}udata" || exit 1
+            fi
+            match=${'$'}(find_title "${'$'}udata" "${'$'}id")
+            target="${'$'}{match:-${'$'}udata/${'$'}(echo "${'$'}id" | tr 'A-Z' 'a-z')}"
+            tmp="${'$'}(dirname "${'$'}(dirname "${'$'}part")")/$RESTORE_TMP"
+            rm -rf "${'$'}tmp"
+            cp -rp "${'$'}src" "${'$'}tmp" || exit 1
+            chown -R "${'$'}owner" "${'$'}tmp" || exit 1
+            find "${'$'}tmp" -type d -exec chmod 700 {} +
+            find "${'$'}tmp" -type f -exec chmod 600 {} +
+            rm -rf "${'$'}target" && mv "${'$'}tmp" "${'$'}target" || exit 1
+            restorecon -R "${'$'}target" 2>/dev/null
+            exit 0
+        """.trimIndent()
+        val result = RootShell.run(context, script)
+        val placed = result?.exitCode == 0
+        if (placed) {
+            Logger.info(TAG, "writeBack: placed the save in hakuX | saveId=$saveId")
         } else {
-            Logger.debug(TAG, "No disk image at $imagePath")
-            null
+            Logger.error(
+                TAG,
+                "writeBack failed | saveId=$saveId exit=${result?.exitCode} " +
+                    "rootAvailable=${RootShell.isAvailable} output=${result?.output}"
+            )
         }
-        return try {
-            body(image)
-        } finally {
-            image?.close()
-        }
+        return placed
     }
 
     private fun stagingDir(saveId: String): File =
@@ -124,6 +141,18 @@ class XboxSaveHandler(
         const val PLATFORM_SLUG = "xbox"
         const val TAG = "XboxSaveHandler"
         const val STAGING_ROOT = "xbox-saves"
-        const val IMAGE_FILE = "hdd.img"
+        const val RESTORE_TMP = "argosy-restore-tmp"
+        const val EMULATOR_ID = "hakux"
+        const val EXIT_ABSENT = 3
+        const val EXIT_NO_DRIVE = 4
+        val FIND_TITLE_FUNCTION = """
+            find_title() {
+              want=${'$'}(echo "${'$'}2" | tr 'a-z' 'A-Z')
+              for f in "${'$'}1"/*; do
+                [ -d "${'$'}f" ] || continue
+                [ "${'$'}(basename "${'$'}f" | tr 'a-z' 'A-Z')" = "${'$'}want" ] && { echo "${'$'}f"; return; }
+              done
+            }
+        """.trimIndent()
     }
 }

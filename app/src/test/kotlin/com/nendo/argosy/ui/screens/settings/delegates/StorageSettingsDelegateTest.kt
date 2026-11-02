@@ -4,7 +4,6 @@ import android.content.Context
 import com.nendo.argosy.data.local.entity.PlatformEntity
 import com.nendo.argosy.data.platform.PlatformFolderResolver
 import com.nendo.argosy.data.platform.platformDownloadDir
-import com.nendo.argosy.data.storage.ManagedStorageAccessor
 import com.nendo.argosy.data.preferences.UserPreferences
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.repository.DatabaseAdminRepository
@@ -51,7 +50,6 @@ class StorageSettingsDelegateTest {
     private lateinit var syncPlatformUseCase: SyncPlatformUseCase
     private lateinit var platformSyncQueue: com.nendo.argosy.data.sync.PlatformSyncQueue
     private lateinit var databaseAdminRepository: DatabaseAdminRepository
-    private lateinit var managedStorageAccessor: ManagedStorageAccessor
     private lateinit var delegate: StorageSettingsDelegate
 
     @Before
@@ -67,7 +65,6 @@ class StorageSettingsDelegateTest {
         syncPlatformUseCase = mockk(relaxed = true)
         platformSyncQueue = mockk(relaxed = true)
         databaseAdminRepository = mockk(relaxed = true)
-        managedStorageAccessor = mockk(relaxed = true)
 
         delegate = delegateWith(context = mockk(relaxed = true), platformFolderResolver = mockk(relaxed = true))
     }
@@ -85,7 +82,6 @@ class StorageSettingsDelegateTest {
             platformSyncQueue = platformSyncQueue,
             databaseAdminRepository = databaseAdminRepository,
             saveCacheRepository = mockk(relaxed = true),
-            managedStorageAccessor = managedStorageAccessor,
             notificationManager = mockk(relaxed = true),
             platformFolderResolver = platformFolderResolver
         )

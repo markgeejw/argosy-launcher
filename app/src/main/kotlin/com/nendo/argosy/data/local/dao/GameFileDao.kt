@@ -179,6 +179,18 @@ interface GameFileDao {
     """)
     suspend fun rewriteLocalPathPrefix(oldPrefix: String, newPrefix: String)
 
+    @Query("""
+        UPDATE game_files SET localPath = :newPrefix || SUBSTR(localPath, LENGTH(:oldPrefix) + 1)
+        WHERE localPath = :oldPrefix OR SUBSTR(localPath, 1, LENGTH(:oldPrefix) + 1) = :oldPrefix || '/'
+    """)
+    suspend fun relocateLocalPaths(oldPrefix: String, newPrefix: String)
+
+    @Query("""
+        UPDATE game_files SET m3uPath = :newPrefix || SUBSTR(m3uPath, LENGTH(:oldPrefix) + 1)
+        WHERE m3uPath = :oldPrefix OR SUBSTR(m3uPath, 1, LENGTH(:oldPrefix) + 1) = :oldPrefix || '/'
+    """)
+    suspend fun relocateM3uPaths(oldPrefix: String, newPrefix: String)
+
     @Query("SELECT * FROM game_files WHERE gameId = :gameId AND isLaunchTarget = 1 ORDER BY category ASC, fileName ASC")
     suspend fun getVariantsForGame(gameId: Long): List<GameFileEntity>
 

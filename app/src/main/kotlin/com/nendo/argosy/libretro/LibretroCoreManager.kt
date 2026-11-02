@@ -24,6 +24,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "LibretroCoreManager"
+private val ELF_MAGIC = byteArrayOf(0x7F, 'E'.code.toByte(), 'L'.code.toByte(), 'F'.code.toByte())
 private const val CORE_HISTORY_LIMIT = 10
 
 @Singleton
@@ -77,12 +78,6 @@ class LibretroCoreManager @Inject constructor(
         }
         val known = LibretroCoreRegistry.getCoreById(selectedCoreId)
         if (known != null && platformSlug in known.platforms) return known
-        // Registry is curated metadata (BIOS reqs, size hints, isDefault) not
-        // a capability gate -- Argosy downloads cores from the libretro
-        // buildbot, so the real constraint is whether buildbot ships a
-        // matching ABI. Synthesize a CoreInfo so the download path can run
-        // against an arbitrary libretro core id; display-name falls back to
-        // EmulatorRegistry's broader list.
         val displayName = com.nendo.argosy.data.emulator.EmulatorRegistry
             .getCoresForPlatform(platformSlug)
             .firstOrNull { it.id == selectedCoreId }
@@ -131,11 +126,11 @@ class LibretroCoreManager @Inject constructor(
     suspend fun downloadCoreForPlatform(
         platformSlug: String,
         selectedCoreId: String?,
-        onProgress: ((Float) -> Unit)? = null
+        onProgress: ((fraction: Float, zipBytes: Long) -> Unit)? = null
     ): Result<String> {
         val coreInfo = resolveCoreForPlatform(platformSlug, selectedCoreId)
             ?: return Result.failure(IllegalArgumentException("No core registered for platform $platformSlug"))
-        return downloadCore(coreInfo, onProgress).map { it.absolutePath }
+        return downloadSizedCore(coreInfo, onProgress).map { it.absolutePath }
     }
 
     suspend fun downloadCoreById(coreId: String): Result<File> {
@@ -150,9 +145,6 @@ class LibretroCoreManager @Inject constructor(
             val coreInfo = LibretroCoreRegistry.getCoreByFileName(fileName)
             val minSize = (coreInfo?.estimatedSizeBytes ?: 0L) / 4
             if (minSize > 0 && downloadedCore.length() < minSize) {
-                // Soft warning only - don't delete. Auto-delete used to brick offline launches
-                // when an estimated size was too generous. dlopen will surface a real failure if
-                // the .so is genuinely broken; size alone isn't enough to throw away a working core.
                 Log.w(TAG, "Core $fileName is ${downloadedCore.length()} bytes (estimated >=$minSize). " +
                     "Using anyway; redownload from Core Management if it fails to load.")
             }
@@ -180,6 +172,11 @@ class LibretroCoreManager @Inject constructor(
     suspend fun downloadCore(
         coreInfo: LibretroCoreRegistry.CoreInfo,
         onProgress: ((Float) -> Unit)? = null
+    ): Result<File> = downloadSizedCore(coreInfo, onProgress?.let { report -> { fraction, _ -> report(fraction) } })
+
+    private suspend fun downloadSizedCore(
+        coreInfo: LibretroCoreRegistry.CoreInfo,
+        onProgress: ((fraction: Float, zipBytes: Long) -> Unit)?
     ): Result<File> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -222,35 +219,52 @@ class LibretroCoreManager @Inject constructor(
                         val n = super.read(b, off, len)
                         if (n > 0 && zipLength > 0) {
                             read += n
-                            onProgress?.invoke((read.toFloat() / zipLength).coerceIn(0f, 1f))
+                            onProgress?.invoke((read.toFloat() / zipLength).coerceIn(0f, 1f), zipLength)
                         }
                         return n
                     }
                 }
-                countingInput.use { input ->
-                    ZipInputStream(input).use { zip ->
-                        val entry = zip.nextEntry
-                        if (entry != null && entry.name == coreInfo.fileName) {
-                            targetFile.outputStream().use { output ->
-                                zip.copyTo(output)
+                val partFile = File(downloadedCoresDir, "${coreInfo.fileName}.part")
+                try {
+                    countingInput.use { input ->
+                        ZipInputStream(input).use { zip ->
+                            val entry = zip.nextEntry
+                            if (entry != null && entry.name == coreInfo.fileName) {
+                                partFile.outputStream().use { output ->
+                                    zip.copyTo(output)
+                                }
+                                if (entry.size > 0 && partFile.length() != entry.size) {
+                                    throw CoreDownloadException(
+                                        CoreDownloadFailure.Corrupted,
+                                        "Downloaded core is truncated: ${partFile.length()} of ${entry.size} bytes"
+                                    )
+                                }
+                            } else {
+                                throw IllegalStateException("Expected ${coreInfo.fileName} in zip, got ${entry?.name}")
                             }
-                        } else {
-                            throw IllegalStateException("Expected ${coreInfo.fileName} in zip, got ${entry?.name}")
                         }
                     }
-                }
-                connection.disconnect()
+                    connection.disconnect()
 
-                val fileSize = targetFile.length()
-                val minExpectedSize = coreInfo.estimatedSizeBytes / 4
-                if (fileSize < minExpectedSize) {
-                    targetFile.delete()
-                    throw CoreDownloadException(
-                        CoreDownloadFailure.Corrupted,
-                        "Downloaded core is corrupted: ${coreInfo.fileName} is $fileSize bytes, " +
-                            "expected at least $minExpectedSize bytes"
-                    )
+                    val partSize = partFile.length()
+                    val minExpectedSize = coreInfo.estimatedSizeBytes / 4
+                    if (partSize < minExpectedSize || !isElf(partFile)) {
+                        throw CoreDownloadException(
+                            CoreDownloadFailure.Corrupted,
+                            "Downloaded core is corrupted: ${coreInfo.fileName} is $partSize bytes, " +
+                                "expected an ELF library of at least $minExpectedSize bytes"
+                        )
+                    }
+                    if (!partFile.renameTo(targetFile)) {
+                        throw CoreDownloadException(
+                            CoreDownloadFailure.Unknown("Could not install ${coreInfo.fileName}"),
+                            "Could not move the downloaded core into place"
+                        )
+                    }
+                } finally {
+                    partFile.delete()
                 }
+                val fileSize = targetFile.length()
 
                 if (!targetFile.setExecutable(true)) {
                     Log.w(TAG, "Failed to set executable permission")
@@ -383,6 +397,12 @@ class LibretroCoreManager @Inject constructor(
             coreVersionDao.setCorrupt(coreInfo.coreId, !intact)
             intact
         }
+
+    private fun isElf(file: File): Boolean {
+        val magic = ByteArray(ELF_MAGIC.size)
+        val read = file.inputStream().use { it.read(magic) }
+        return read == ELF_MAGIC.size && magic.contentEquals(ELF_MAGIC)
+    }
 
     private fun computeFileHash(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")

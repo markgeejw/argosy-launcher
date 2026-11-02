@@ -77,7 +77,8 @@ private fun MoreOptionAction.toMenuEntry(
     )
     MoreOptionAction.ChangeSteamLauncher -> MoreMenuEntry.Option(
         label = context.getString(R.string.gamedetail_more_options_change_launcher),
-        value = game.steamLauncherName ?: context.getString(R.string.gamedetail_steam_launcher_auto),
+        value = if (game.steamLauncherSetManually) game.steamLauncherName
+            else context.getString(R.string.gamedetail_steam_launcher_auto),
         action = this
     )
     MoreOptionAction.SpeedrunSplits -> MoreMenuEntry.Option(

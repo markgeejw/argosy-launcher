@@ -14,6 +14,7 @@ import com.nendo.argosy.data.repository.RAAwardResult
 import com.nendo.argosy.data.repository.RAPatchFetchResult
 import com.nendo.argosy.data.repository.RetroAchievementsRepository
 import com.nendo.argosy.data.social.SocialRepository
+import com.nendo.argosy.domain.usecase.achievement.HashVerification
 import com.nendo.argosy.domain.usecase.achievement.VerifyRAGameIdUseCase
 import com.nendo.argosy.hardware.AmbientLedManager
 import com.swordfish.libretrodroid.AchievementDef
@@ -96,10 +97,12 @@ class RetroAchievementsSessionManagerTest {
         loggedIn: Boolean = true,
         raId: Long? = 4242L,
         startSucceeds: Boolean = true,
-        serverUnlocks: Set<Long> = emptySet(),
+        hardcoreUnlocks: Set<Long> = emptySet(),
+        casualUnlocks: Set<Long> = emptySet(),
         liveFetch: RAPatchFetchResult = RAPatchFetchResult.Unavailable,
         cachedPatch: RAPatchData? = null,
-        storedRows: List<AchievementEntity> = emptyList()
+        storedRows: List<AchievementEntity> = emptyList(),
+        matchedHash: String? = "0123456789abcdef0123456789abcdef"
     ): Harness {
         val gameDao = mockk<GameDao>(relaxed = true)
         val raRepository = mockk<RetroAchievementsRepository>(relaxed = true)
@@ -110,9 +113,13 @@ class RetroAchievementsSessionManagerTest {
         val verifyRAGameIdUseCase = mockk<VerifyRAGameIdUseCase>()
         coEvery { raRepository.isLoggedIn() } returns loggedIn
         coEvery { gameDao.getById(1L) } returns game(raId)
-        coEvery { verifyRAGameIdUseCase.invoke(any(), any()) } returns null
-        coEvery { raRepository.startSession(any(), any()) } returns
-            RetroAchievementsRepository.RASessionResult(success = startSucceeds, unlockedAchievements = serverUnlocks)
+        coEvery { verifyRAGameIdUseCase.verifyHash(any(), any()) } returns HashVerification(raId, matchedHash)
+        coEvery { raRepository.startSession(any(), any(), any()) } returns
+            RetroAchievementsRepository.RASessionResult(
+                success = startSucceeds,
+                hardcoreUnlocks = hardcoreUnlocks,
+                allUnlocks = hardcoreUnlocks + casualUnlocks
+            )
         coEvery { raRepository.fetchPatchData(any()) } returns liveFetch
         coEvery { raRepository.getCachedPatchData(any()) } returns cachedPatch
         coEvery { raRepository.getCachedAchievements(1L) } returns storedRows
@@ -157,8 +164,52 @@ class RetroAchievementsSessionManagerTest {
         runCurrent()
 
         assertEquals(RASessionMode.HARDCORE, harness.manager.sessionMode.value)
-        coVerify(exactly = 1) { harness.raRepository.startSession(4242L, true) }
+        coVerify(exactly = 1) { harness.raRepository.startSession(4242L, true, "0123456789abcdef0123456789abcdef") }
         assertNull(harness.manager.raConnectionInfo)
+        scope.cancel()
+    }
+
+    @Test
+    fun hardcoreIsNotClaimedWithoutAMatchedHash() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val harness = build(
+            scope,
+            requestedHardcore = true,
+            startSucceeds = true,
+            matchedHash = null,
+            hardcoreUnlocks = setOf(1L),
+            casualUnlocks = setOf(2L),
+            liveFetch = RAPatchFetchResult.Fetched(patch(achievement(1L), achievement(2L), achievement(3L)))
+        )
+
+        harness.manager.initialize(mockk<GLRetroView>(relaxed = true))
+        runCurrent()
+
+        assertEquals(RASessionMode.CASUAL, harness.manager.sessionMode.value)
+        coVerify(exactly = 1) { harness.raRepository.startSession(4242L, true, null) }
+        assertEquals(setOf(3L), harness.armedIds)
+        assertEquals(2, harness.manager.earnedAchievements)
+        scope.cancel()
+    }
+
+    @Test
+    fun aClaimedHardcoreSessionArmsAchievementsUnlockedOnlyInCasual() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val harness = build(
+            scope,
+            requestedHardcore = true,
+            startSucceeds = true,
+            hardcoreUnlocks = setOf(1L),
+            casualUnlocks = setOf(2L),
+            liveFetch = RAPatchFetchResult.Fetched(patch(achievement(1L), achievement(2L), achievement(3L)))
+        )
+
+        harness.manager.initialize(mockk<GLRetroView>(relaxed = true))
+        runCurrent()
+
+        assertEquals(RASessionMode.HARDCORE, harness.manager.sessionMode.value)
+        assertEquals(setOf(2L, 3L), harness.armedIds)
+        assertEquals(1, harness.manager.earnedAchievements)
         scope.cancel()
     }
 
@@ -188,7 +239,7 @@ class RetroAchievementsSessionManagerTest {
         runCurrent()
 
         assertEquals(RASessionMode.CASUAL, harness.manager.sessionMode.value)
-        coVerify(exactly = 0) { harness.raRepository.startSession(any(), any()) }
+        coVerify(exactly = 0) { harness.raRepository.startSession(any(), any(), any()) }
         assertFalse(harness.manager.raConnectionInfo!!.connected)
         scope.cancel()
     }
@@ -202,7 +253,7 @@ class RetroAchievementsSessionManagerTest {
         runCurrent()
 
         assertEquals(RASessionMode.CASUAL, harness.manager.sessionMode.value)
-        coVerify(exactly = 0) { harness.raRepository.startSession(any(), any()) }
+        coVerify(exactly = 0) { harness.raRepository.startSession(any(), any(), any()) }
         assertFalse(harness.manager.raConnectionInfo!!.connected)
         scope.cancel()
     }

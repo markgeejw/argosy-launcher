@@ -111,12 +111,7 @@ class ResolveMusicQueueUseCase @Inject constructor(
 
     private fun remoteSource(streamPath: String, token: String?): MusicTrackSource.Remote? {
         val url = musicLibrary.streamUrl(streamPath) ?: return null
-        val headers = if (token != null && musicLibrary.isServerOrigin(url)) {
-            mapOf("Authorization" to "Bearer $token")
-        } else {
-            emptyMap()
-        }
-        return MusicTrackSource.Remote(url, headers)
+        return MusicTrackSource.Remote(url, musicLibrary.authHeaders(url, token))
     }
 
     private fun RomMMusicTrack.fileName(): String {

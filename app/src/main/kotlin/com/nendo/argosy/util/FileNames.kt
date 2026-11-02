@@ -34,6 +34,28 @@ object FileNames {
     }
 
     /**
+     * A per-game folder name, folded the way every existing game folder already was: refused
+     * characters become `_` and trailing dots stay, so folders made by earlier versions keep
+     * resolving. A name that would be blank, `.` or `..` becomes [FALLBACK] instead, so a folder
+     * never resolves to its parent or to itself.
+     */
+    fun gameFolderName(name: String): String {
+        val folded = LEGACY_FOLDER_CHARS.replace(name, "_")
+            .replace(WHITESPACE_RUN, " ")
+            .trim()
+            .take(MAX_FOLDER_NAME)
+        return if (folded.isBlank() || folded.all { it == '.' }) FALLBACK else folded
+    }
+
+    private val LEGACY_FOLDER_CHARS = Regex("[\\\\/:*?\"<>|]")
+    private const val MAX_FOLDER_NAME = 200
+
+    /**
+     * A platform slug folded as [sanitize] folds a name, with a blank slug returned unchanged.
+     */
+    fun sanitizeSlug(slug: String): String = if (slug.isBlank()) slug else sanitize(slug)
+
+    /**
      * An archive entry path with every segment folded. Empty, `.` and `..` segments are dropped,
      * so a crafted entry cannot climb out of the directory it is being extracted into.
      */
@@ -51,6 +73,9 @@ object FileNames {
         val path = file.canonicalPath
         return path == root || path.startsWith(root + java.io.File.separator)
     }
+
+    fun isInside(file: java.io.File, dir: java.io.File): Boolean =
+        file.canonicalPath.startsWith(dir.canonicalPath + java.io.File.separator)
 
     /**
      * The comparable form of a name, for deciding whether a file on disk is the one a server

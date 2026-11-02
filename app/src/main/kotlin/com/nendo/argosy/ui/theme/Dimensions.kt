@@ -60,6 +60,9 @@ object Dimens {
     val saveSyncRowCover: Dp @Composable get() = DimensionTokens.Layout.saveSyncRowCover.dp * scale
     val saveSyncAttentionCover: Dp @Composable get() = DimensionTokens.Layout.saveSyncAttentionCover.dp * scale
     val screenMapCardWidth: Dp @Composable get() =DimensionTokens.Layout.screenMapCardWidth.dp * scale
+    val seatCardMaxWidth: Dp @Composable get() = DimensionTokens.Layout.seatCardMaxWidth.dp * scale
+    val seatCardHeight: Dp @Composable get() = DimensionTokens.Layout.seatCardHeight.dp * scale
+    val seatArtSize: Dp @Composable get() = DimensionTokens.Layout.seatArtSize.dp * scale
     val saveChannelTileWidth: Dp @Composable get() = DimensionTokens.Layout.saveChannelTileWidth.dp * scale
     val saveChannelCardWidth: Dp @Composable get() = DimensionTokens.Layout.saveChannelCardWidth.dp * scale
     val saveChannelRowHeight: Dp @Composable get() = DimensionTokens.Layout.saveChannelRowHeight.dp * scale

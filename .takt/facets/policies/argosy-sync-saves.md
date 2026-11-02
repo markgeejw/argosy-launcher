@@ -45,8 +45,8 @@ any handler or path change; it holds the per-platform rules. Sources: AGENTS.md 
   `CoreVersionExtractor.getCoreIdForEmulator`, and a state write that resolves no core never writes
   to the parent directory.
 
-## Xbox images
+## Xbox
 
-- Xbox image writing never grows or creates files and never touches qcow2 refcount tables.
-- `xbox_hdd.qcow2` keeps its write-once protection in `BiosPathRegistry`.
-- `XboxSaveHandler` rebuilds staged saves from the image on each read.
+- `XboxSaveHandler` restages from hakuX's `UDATA` folder through root on each read.
+- Every restore door reaches hakuX through `unpackArchive`'s root write-back, owned by hakuX's uid.
+- `xbox_hdd.qcow2` stays retired firmware (`BiosPathRegistry.isRetiredFirmware`), never tracked or kept.

@@ -1,8 +1,14 @@
 package com.nendo.argosy.libretro
 
+import com.nendo.argosy.data.emulator.EmulatorRegistry
+import com.nendo.argosy.data.local.dao.SaveCacheDao
+import com.nendo.argosy.data.local.dao.SaveSyncDao
 import com.nendo.argosy.data.local.entity.SaveCacheEntity
+import com.nendo.argosy.data.repository.ActiveSaveDiskJudge
 import com.nendo.argosy.data.repository.ActiveSaveRepository
 import com.nendo.argosy.data.repository.SaveCacheManager
+import com.nendo.argosy.data.sync.SaveClaim
+import com.nendo.argosy.data.sync.SaveOwnershipTracker
 import com.nendo.argosy.data.sync.platform.SigilRestore
 import com.swordfish.libretrodroid.GLRetroView
 import io.mockk.coEvery
@@ -15,6 +21,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -26,6 +33,18 @@ class SaveStateManagerTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
 
+    private val saveCacheDao: SaveCacheDao = mockk(relaxed = true)
+    private val saveSyncDao: SaveSyncDao = mockk(relaxed = true)
+    private val ownership: SaveOwnershipTracker = mockk(relaxed = true)
+    private val judge = ActiveSaveDiskJudge(saveCacheDao, saveSyncDao, ownership)
+
+    @Before
+    fun stubJudgeInputs() {
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(any(), any(), any(), any()) } returns null
+        coEvery { saveCacheDao.getAllByGameChannelAndHash(any(), any(), any(), any()) } returns emptyList()
+        coEvery { ownership.claim(any(), any()) } returns SaveClaim.Unowned
+    }
+
     private fun manager(
         activeSaveRepository: ActiveSaveRepository,
         cache: SaveCacheManager
@@ -33,13 +52,17 @@ class SaveStateManagerTest {
         val saves = tempFolder.newFolder("saves")
         val states = tempFolder.newFolder("states")
         coEvery { cache.restoreThroughSigil(any()) } returns SigilRestore.NotRouted
+        coEvery { cache.probeLocalSave(any(), any(), any()) } returns SaveCacheManager.LocalSaveProbe.Absent
         return SaveStateManager(
             savesDir = saves,
             statesDir = states,
             romPath = File(saves, "Sonic Advance.gba").absolutePath,
             gameId = GAME_ID,
             activeSaveRepository = activeSaveRepository,
-            saveCacheManager = cache
+            saveCacheManager = cache,
+            diskJudge = judge,
+            secureSaves = true,
+            ownerUserId = OWNER
         )
     }
 
@@ -108,7 +131,10 @@ class SaveStateManagerTest {
             romPath = File(saves, "Sonic Advance.gba").absolutePath,
             gameId = GAME_ID,
             activeSaveRepository = activeSaveRepository,
-            saveCacheManager = cache
+            saveCacheManager = cache,
+            diskJudge = judge,
+            secureSaves = true,
+            ownerUserId = OWNER
         )
         val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME_HARDCORE)
 
@@ -123,12 +149,14 @@ class SaveStateManagerTest {
         name: String,
         channelName: String?,
         activeSaveRepository: ActiveSaveRepository,
-        cache: SaveCacheManager
+        cache: SaveCacheManager,
+        secureSaves: Boolean = true
     ): Pair<SaveStateManager, File> {
         val saves = tempFolder.newFolder("$name-saves")
         val states = tempFolder.newFolder("$name-states")
         coEvery { cache.restoreThroughSigil(any()) } returns SigilRestore.NotRouted
         coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Duplicate(1, "h")
+        coEvery { cache.probeLocalSave(any(), any(), any()) } returns SaveCacheManager.LocalSaveProbe.Absent
         val mgr = SaveStateManager(
             savesDir = saves,
             statesDir = states,
@@ -136,9 +164,297 @@ class SaveStateManagerTest {
             gameId = GAME_ID,
             activeSaveRepository = activeSaveRepository,
             saveCacheManager = cache,
+            diskJudge = judge,
+            secureSaves = secureSaves,
+            ownerUserId = OWNER,
             channelName = channelName
         )
         return mgr to File(saves, "Sonic Advance.srm")
+    }
+
+    private fun diskHolds(cache: SaveCacheManager, primary: File, bytes: ByteArray) {
+        primary.writeBytes(bytes)
+        coEvery { cache.probeLocalSave(primary.absolutePath, GAME_ID, EmulatorRegistry.BUILTIN_ID) } returns
+            SaveCacheManager.LocalSaveProbe.Present(DISK_HASH)
+    }
+
+    private fun builtinRow(id: Long, hash: String, hardcore: Boolean = false) = cacheEntity(hardcore).copy(
+        id = id,
+        emulatorId = EmulatorRegistry.BUILTIN_ID,
+        contentHash = hash,
+        identityHash = hash,
+        channelName = "autosave"
+    )
+
+    @Test
+    fun `RESUME with a disk that matches the active version loads it and writes nothing`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, DISK_HASH)
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        val (mgr, primary) = managerInSlot("disk-matches", null, activeSaveRepository, cache)
+        val onDisk = byteArrayOf(1, 1, 1)
+        diskHolds(cache, primary, onDisk)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(onDisk, result.sramData)
+        assertArrayEquals(onDisk, primary.readBytes())
+        io.mockk.coVerify(exactly = 0) { cache.cacheAsRollback(any(), any(), any()) }
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+    }
+
+    @Test
+    fun `RESUME with no save on disk writes the active version`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        val cachedBytes = byteArrayOf(4, 4)
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { cache.getSaveBytesFromEntity(active) } returns cachedBytes
+        val (mgr, primary) = managerInSlot("disk-absent", null, activeSaveRepository, cache)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(cachedBytes, result.sramData)
+        assertArrayEquals(cachedBytes, primary.readBytes())
+        io.mockk.coVerify(exactly = 0) { cache.cacheAsRollback(any(), any(), any()) }
+    }
+
+    @Test
+    fun `RESUME with Secure Saves off adopts a differing disk save and never overwrites it`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { cache.getSaveBytesFromEntity(active) } returns byteArrayOf(4, 4)
+        coEvery {
+            cache.cacheCurrentSave(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns SaveCacheManager.CacheResult.Created(0L, 11L)
+        val (mgr, primary) = managerInSlot("adopt", null, activeSaveRepository, cache, secureSaves = false)
+        val handPlaced = byteArrayOf(7, 3, 7)
+        diskHolds(cache, primary, handPlaced)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(handPlaced, result.sramData)
+        assertArrayEquals(handPlaced, primary.readBytes())
+        io.mockk.coVerify {
+            cache.cacheCurrentSave(GAME_ID, EmulatorRegistry.BUILTIN_ID, primary.absolutePath, null, any(), any(), any(), any(), any(), true, any(), any())
+        }
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+        io.mockk.coVerify(exactly = 0) { cache.cacheAsRollback(any(), any(), any()) }
+    }
+
+    @Test
+    fun `RESUME with Secure Saves on keeps a differing disk save as a rollback before writing the active version`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        val cachedBytes = byteArrayOf(4, 4)
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { cache.getSaveBytesFromEntity(active) } returns cachedBytes
+        val (mgr, primary) = managerInSlot("rollback", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Created(0L, 12L)
+        diskHolds(cache, primary, byteArrayOf(7, 3, 7))
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(cachedBytes, result.sramData)
+        assertArrayEquals(cachedBytes, primary.readBytes())
+        io.mockk.coVerifyOrder {
+            cache.cacheAsRollback(GAME_ID, EmulatorRegistry.BUILTIN_ID, primary.absolutePath)
+            cache.getSaveBytesFromEntity(active)
+        }
+    }
+
+    @Test
+    fun `RESUME never overwrites a differing disk save whose rollback failed`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { cache.getSaveBytesFromEntity(active) } returns byteArrayOf(4, 4)
+        val (mgr, primary) = managerInSlot("rollback-failed", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Failed
+        val handPlaced = byteArrayOf(7, 3, 7)
+        diskHolds(cache, primary, handPlaced)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(handPlaced, result.sramData)
+        assertArrayEquals(handPlaced, primary.readBytes())
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+        io.mockk.coVerify(exactly = 0) { cache.restoreThroughSigil(any()) }
+    }
+
+    @Test
+    fun `RESUME with a disk save it cannot read writes nothing over it`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        val (mgr, primary) = managerInSlot("unreadable", null, activeSaveRepository, cache)
+        val onDisk = byteArrayOf(2, 2)
+        primary.writeBytes(onDisk)
+        coEvery { cache.probeLocalSave(any(), any(), any()) } returns SaveCacheManager.LocalSaveProbe.Unreadable
+
+        mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(onDisk, primary.readBytes())
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+        io.mockk.coVerify(exactly = 0) { cache.cacheAsRollback(any(), any(), any()) }
+    }
+
+    @Test
+    fun `RESUME with a disk matching a newer unsynced version activates it and writes nothing`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        val unsynced = builtinRow(13L, DISK_HASH).copy(cachedAt = Instant.ofEpochMilli(2000), needsRemoteSync = true)
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { saveCacheDao.getAllByGameChannelAndHash(GAME_ID, OWNER, "autosave", DISK_HASH) } returns listOf(unsynced)
+        val (mgr, primary) = managerInSlot("progress", null, activeSaveRepository, cache)
+        val onDisk = byteArrayOf(5, 6)
+        diskHolds(cache, primary, onDisk)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(onDisk, result.sramData)
+        io.mockk.coVerify { activeSaveRepository.activateCache(GAME_ID, 13L) }
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+        io.mockk.coVerify(exactly = 0) { cache.cacheAsRollback(any(), any(), any()) }
+    }
+
+    @Test
+    fun `the most recent save fallback adopts a differing disk save with Secure Saves off`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val newest = builtinRow(10L, "cached")
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns null
+        coEvery { cache.getMostRecentSave(GAME_ID) } returns newest
+        coEvery { cache.getSaveBytesFromEntity(newest) } returns byteArrayOf(4, 4)
+        val (mgr, primary) = managerInSlot("most-recent-adopt", null, activeSaveRepository, cache, secureSaves = false)
+        val handPlaced = byteArrayOf(7, 3, 7)
+        diskHolds(cache, primary, handPlaced)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(handPlaced, result.sramData)
+        assertArrayEquals(handPlaced, primary.readBytes())
+        io.mockk.coVerify {
+            cache.cacheCurrentSave(GAME_ID, EmulatorRegistry.BUILTIN_ID, primary.absolutePath, null, any(), any(), any(), any(), any(), true, any(), any())
+        }
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+    }
+
+    @Test
+    fun `the most recent save fallback keeps a rollback before writing with Secure Saves on`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val newest = builtinRow(10L, "cached")
+        val cachedBytes = byteArrayOf(4, 4)
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns null
+        coEvery { cache.getMostRecentSave(GAME_ID) } returns newest
+        coEvery { cache.getSaveBytesFromEntity(newest) } returns cachedBytes
+        val (mgr, primary) = managerInSlot("most-recent-rollback", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Created(0L, 12L)
+        diskHolds(cache, primary, byteArrayOf(7, 3, 7))
+
+        mgr.restoreSaveForLaunchMode(LaunchMode.RESUME)
+
+        assertArrayEquals(cachedBytes, primary.readBytes())
+        io.mockk.coVerifyOrder {
+            cache.cacheAsRollback(GAME_ID, EmulatorRegistry.BUILTIN_ID, primary.absolutePath)
+            cache.getSaveBytesFromEntity(newest)
+        }
+    }
+
+    @Test
+    fun `the hardcore fallback to the active save never overwrites a disk save whose rollback failed`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        coEvery { cache.getLatestHardcoreSave(GAME_ID) } returns null
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { cache.getSaveBytesFromEntity(active) } returns byteArrayOf(4, 4)
+        val (mgr, primary) = managerInSlot("hardcore-fallback-failed", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Failed
+        val handPlaced = byteArrayOf(7, 3, 7)
+        diskHolds(cache, primary, handPlaced)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME_HARDCORE)
+
+        assertArrayEquals(handPlaced, primary.readBytes())
+        assertArrayEquals(handPlaced, result.sramData)
+        assertTrue(result.casualSaveInHardcore)
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
+    }
+
+    @Test
+    fun `the hardcore fallback to the active save keeps a rollback before writing`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val active = builtinRow(10L, "cached")
+        val cachedBytes = byteArrayOf(4, 4)
+        coEvery { cache.getLatestHardcoreSave(GAME_ID) } returns null
+        coEvery { activeSaveRepository.getActiveRow(GAME_ID) } returns active
+        coEvery { cache.getSaveBytesFromEntity(active) } returns cachedBytes
+        val (mgr, primary) = managerInSlot("hardcore-fallback-rollback", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Created(0L, 12L)
+        diskHolds(cache, primary, byteArrayOf(7, 3, 7))
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME_HARDCORE)
+
+        assertArrayEquals(cachedBytes, primary.readBytes())
+        assertTrue(result.casualSaveInHardcore)
+        io.mockk.coVerifyOrder {
+            cache.cacheAsRollback(GAME_ID, EmulatorRegistry.BUILTIN_ID, primary.absolutePath)
+            cache.getSaveBytesFromEntity(active)
+        }
+    }
+
+    @Test
+    fun `the hardcore save keeps a rollback of a differing disk before it is written`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val hardcore = builtinRow(20L, "hardcore-cached", hardcore = true)
+        val hardcoreBytes = byteArrayOf(9, 9)
+        coEvery { cache.getLatestHardcoreSave(GAME_ID) } returns hardcore
+        coEvery { cache.isValidHardcoreSave(hardcore) } returns true
+        coEvery { cache.getSaveBytesFromEntity(hardcore) } returns hardcoreBytes
+        val (mgr, primary) = managerInSlot("hardcore-rollback", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Created(0L, 12L)
+        diskHolds(cache, primary, byteArrayOf(7, 3, 7))
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME_HARDCORE)
+
+        assertArrayEquals(hardcoreBytes, result.sramData)
+        assertFalse(result.casualSaveInHardcore)
+        io.mockk.coVerifyOrder {
+            cache.cacheAsRollback(GAME_ID, EmulatorRegistry.BUILTIN_ID, primary.absolutePath)
+            cache.getSaveBytesFromEntity(hardcore)
+        }
+    }
+
+    @Test
+    fun `the hardcore save never overwrites a disk save whose rollback failed`() = runBlocking {
+        val activeSaveRepository = mockk<ActiveSaveRepository>(relaxed = true)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        val hardcore = builtinRow(20L, "hardcore-cached", hardcore = true)
+        coEvery { cache.getLatestHardcoreSave(GAME_ID) } returns hardcore
+        coEvery { cache.isValidHardcoreSave(hardcore) } returns true
+        coEvery { cache.getSaveBytesFromEntity(hardcore) } returns byteArrayOf(9, 9)
+        val (mgr, primary) = managerInSlot("hardcore-rollback-failed", null, activeSaveRepository, cache)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Failed
+        val handPlaced = byteArrayOf(7, 3, 7)
+        diskHolds(cache, primary, handPlaced)
+
+        val result = mgr.restoreSaveForLaunchMode(LaunchMode.RESUME_HARDCORE)
+
+        assertArrayEquals(handPlaced, primary.readBytes())
+        assertTrue(result.casualSaveInHardcore)
+        io.mockk.coVerify(exactly = 0) { cache.getSaveBytesFromEntity(any()) }
     }
 
     @Test
@@ -221,6 +537,9 @@ class SaveStateManagerTest {
             gameId = GAME_ID,
             activeSaveRepository = mockk(relaxed = true),
             saveCacheManager = mockk(relaxed = true),
+            diskJudge = judge,
+            secureSaves = true,
+            ownerUserId = OWNER,
             channelName = "some-channel"
         )
         val auto = mgr.getSlotFile(SaveStateManager.AUTO_SLOT)
@@ -241,6 +560,9 @@ class SaveStateManagerTest {
             gameId = GAME_ID,
             activeSaveRepository = mockk(relaxed = true),
             saveCacheManager = mockk(relaxed = true),
+            diskJudge = judge,
+            secureSaves = true,
+            ownerUserId = OWNER,
             channelName = null
         )
         mgr.initializeFromExistingSave(null)
@@ -361,6 +683,104 @@ class SaveStateManagerTest {
         assertArrayEquals(rtc, mgr.getRtcFile().readBytes())
     }
 
+    private fun autoSlotManager(saveOnDisk: ByteArray?): SaveStateManager {
+        val mgr = manager(mockk(relaxed = true), mockk(relaxed = true))
+        mgr.initializeFromExistingSave(saveOnDisk)
+        mgr.getSlotFile(SaveStateManager.AUTO_SLOT).apply { parentFile?.mkdirs() }.writeBytes(byteArrayOf(5, 5))
+        return mgr
+    }
+
+    private fun retroView(sramAfterLoad: ByteArray, bootState: ByteArray = byteArrayOf(8)): GLRetroView =
+        mockk(relaxed = true) {
+            every { serializeState() } returns bootState
+            every { unserializePersistedState(any()) } returns true
+            every { unserializeState(any()) } returns true
+            every { serializeSRAM() } returns sramAfterLoad
+        }
+
+    @Test
+    fun `an auto state carrying the save on disk loads`() {
+        val save = byteArrayOf(1, 2, 3)
+        val view = retroView(sramAfterLoad = save)
+
+        val outcome = autoSlotManager(save).loadAutoSlotMatchingSave(view)
+
+        assertEquals(SaveStateManager.AutoLoadOutcome.LOADED, outcome)
+        verify(exactly = 0) { view.unserializeState(any()) }
+    }
+
+    @Test
+    fun `an auto state carrying different save memory gives way to the save on disk`() {
+        val bootState = byteArrayOf(8, 8)
+        val view = retroView(sramAfterLoad = byteArrayOf(9, 9, 9), bootState = bootState)
+
+        val outcome = autoSlotManager(byteArrayOf(1, 2, 3)).loadAutoSlotMatchingSave(view)
+
+        assertEquals(SaveStateManager.AutoLoadOutcome.KEPT_SAVE, outcome)
+        verify(exactly = 1) { view.unserializeState(bootState) }
+    }
+
+    @Test
+    fun `with no save on disk the auto state loads without a comparison`() {
+        val view = retroView(sramAfterLoad = byteArrayOf(9))
+
+        val outcome = autoSlotManager(saveOnDisk = null).loadAutoSlotMatchingSave(view)
+
+        assertEquals(SaveStateManager.AutoLoadOutcome.LOADED, outcome)
+        verify(exactly = 0) { view.serializeState() }
+        verify(exactly = 0) { view.unserializeState(any()) }
+    }
+
+    private fun refusedSaveManager(cache: SaveCacheManager, refused: ByteArray): SaveStateManager {
+        val mgr = manager(mockk(relaxed = true), cache)
+        mgr.getSramFile().apply { parentFile?.mkdirs() }.writeBytes(refused)
+        mgr.initializeFromExistingSave(null)
+        return mgr
+    }
+
+    private fun coreSram(bytes: ByteArray): GLRetroView = mockk(relaxed = true) {
+        every { serializeSRAM() } returns bytes
+    }
+
+    @Test
+    fun `a refused save is not overwritten before its copy exists`() {
+        val refused = byteArrayOf(4, 4, 4)
+        val mgr = refusedSaveManager(mockk(relaxed = true), refused)
+
+        mgr.holdWritesForRefusedSave()
+        mgr.saveSram(coreSram(byteArrayOf(0, 0, 0)))
+
+        assertArrayEquals(refused, mgr.getSramFile().readBytes())
+    }
+
+    @Test
+    fun `a refused save that could not be copied stays untouched`() = runBlocking {
+        val refused = byteArrayOf(4, 4, 4)
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Failed
+        val mgr = refusedSaveManager(cache, refused)
+
+        mgr.holdWritesForRefusedSave()
+        assertFalse(mgr.preserveUnloadedSave())
+        mgr.saveSram(coreSram(byteArrayOf(0, 0, 0)))
+
+        assertArrayEquals(refused, mgr.getSramFile().readBytes())
+    }
+
+    @Test
+    fun `writes resume once the refused save is copied`() = runBlocking {
+        val cache = mockk<SaveCacheManager>(relaxed = true)
+        coEvery { cache.cacheAsRollback(any(), any(), any()) } returns SaveCacheManager.CacheResult.Created(0L, 1L)
+        val mgr = refusedSaveManager(cache, byteArrayOf(4, 4, 4))
+        val fresh = byteArrayOf(7, 7, 7)
+
+        mgr.holdWritesForRefusedSave()
+        assertTrue(mgr.preserveUnloadedSave())
+        mgr.saveSram(coreSram(fresh))
+
+        assertArrayEquals(fresh, mgr.getSramFile().readBytes())
+    }
+
     private fun fillRing(mgr: SaveStateManager) {
         repeat(SaveStateManager.QUICK_RING_SIZE) { index ->
             val file = mgr.getSlotFile(SaveStateManager.QUICK_SLOT_BASE + index)
@@ -372,5 +792,7 @@ class SaveStateManagerTest {
 
     companion object {
         private const val GAME_ID = 1L
+        private const val OWNER = 3L
+        private const val DISK_HASH = "disk"
     }
 }

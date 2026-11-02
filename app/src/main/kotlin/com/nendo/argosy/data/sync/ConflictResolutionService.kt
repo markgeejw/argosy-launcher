@@ -10,6 +10,7 @@ import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.data.repository.SaveSyncResult
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +30,14 @@ class ConflictResolutionService @Inject constructor(
     private val gameDao: GameDao,
     private val saveCacheManager: dagger.Lazy<SaveCacheManager>
 ) {
+    fun observeOpenConflicts(rommUserId: Long?): Flow<List<PendingConflictEntity>> =
+        pendingConflictDao.observeOpenConflicts(PendingConflictEntity.ownerScope(rommUserId))
+
+    suspend fun resolveById(conflictId: Long, resolution: ConflictResolution): ConflictResolutionOutcome? {
+        val conflict = pendingConflictDao.getById(conflictId) ?: return null
+        return resolve(conflict, resolution)
+    }
+
     suspend fun resolve(
         conflict: PendingConflictEntity,
         resolution: ConflictResolution

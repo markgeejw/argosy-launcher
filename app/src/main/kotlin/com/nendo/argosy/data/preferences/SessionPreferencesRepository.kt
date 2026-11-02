@@ -89,8 +89,13 @@ class SessionPreferencesRepository @Inject constructor(
         }
     }
 
-    suspend fun clearActiveSession() {
+    /**
+     * Clears the persisted session. With [startedAt], only the session that started at that
+     * instant is cleared; a newer session written since is left in place.
+     */
+    suspend fun clearActiveSession(startedAt: Instant? = null) {
         dataStore.edit { prefs ->
+            if (!prefs.isSessionStartedAt(startedAt)) return@edit
             prefs.remove(Keys.ACTIVE_SESSION_GAME_ID)
             prefs.remove(Keys.ACTIVE_SESSION_EMULATOR)
             prefs.remove(Keys.ACTIVE_SESSION_START_TIME)
@@ -108,16 +113,20 @@ class SessionPreferencesRepository @Inject constructor(
      * Counts one failed save capture for the persisted session. Keeps the session for another
      * attempt and returns true until [maxAttempts] failures, then clears it and returns false.
      */
-    suspend fun keepSessionForRetry(maxAttempts: Int): Boolean {
-        var kept = false
+    suspend fun keepSessionForRetry(maxAttempts: Int, startedAt: Instant? = null): Boolean {
+        var kept = true
         dataStore.edit { prefs ->
+            if (!prefs.isSessionStartedAt(startedAt)) return@edit
             val attempts = (prefs[Keys.ACTIVE_SESSION_RECOVERY_ATTEMPTS] ?: 0) + 1
             kept = attempts < maxAttempts
             prefs[Keys.ACTIVE_SESSION_RECOVERY_ATTEMPTS] = attempts
         }
-        if (!kept) clearActiveSession()
+        if (!kept) clearActiveSession(startedAt)
         return kept
     }
+
+    private fun Preferences.isSessionStartedAt(startedAt: Instant?): Boolean =
+        startedAt == null || this[Keys.ACTIVE_SESSION_START_TIME] == startedAt.toString()
 
     suspend fun getPersistedSession(): PersistedSession? {
         return dataStore.data.first().toPersistedSession()

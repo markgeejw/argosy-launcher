@@ -109,6 +109,8 @@
     <string name="settings_installers_error_rate_limited">GitHub is limiting requests. Try again later</string>
     <!-- Error line: the repository does not exist or is private. -->
     <string name="settings_installers_error_not_found">That repository could not be reached</string>
+    <!-- Error line: the downloaded APK installs a different app than the one this entry manages. -->
+    <string name="settings_installers_error_wrong_package">The download is a different app than expected</string>
     <!-- Row title under an installed keyboard. Verb phrase: open the system screen that turns a
          keyboard on. -->
     <string name="settings_installers_ime_enable_title">Enable In System Settings</string>
@@ -316,6 +318,14 @@
     <string name="settings_interface_hide_system_status_bar_title">Hide System Status Bar</string>
     <!-- Second line of that row. Says what is hidden and how to bring it back for a moment. -->
     <string name="settings_interface_hide_system_status_bar_subtitle">Hide Android\'s status bar and notification icons. Swipe down from the top to show it</string>
+    <!-- Toggle row title. "Quick Panel" is Argosy's side panel of game settings; "Other Emulators"
+         means standalone emulator apps, as opposed to the emulators built into Argosy. -->
+    <string name="settings_interface_quick_panel_in_emulators_title">Quick Panel in Other Emulators</string>
+    <!-- Second line of that row. "Back" is the controller or system Back button. -->
+    <string name="settings_interface_quick_panel_in_emulators_subtitle">Hold Back in an emulator Argosy launched to open the quick panel. Needs Argosy\'s accessibility service</string>
+    <!-- Replaces that second line when the row is on but Android's accessibility service for Argosy
+         is switched off. Shown as a warning. -->
+    <string name="settings_interface_quick_panel_in_emulators_service_off">Accessibility service is off. Turn it on in Permissions</string>
     <!-- Setting title. Noun phrase: the picture Argosy puts behind the device's lock screen. -->
     <string name="settings_interface_lock_screen_art_title">Lock Screen Art</string>
     <!-- Setting subtitle. Explains what the switch does and warns that it takes over the lock
@@ -440,6 +450,11 @@
     <string name="settings_navigation_swap_start_select_title">Swap Start/Select</string>
     <!-- Second line of that row. -->
     <string name="settings_navigation_swap_start_select_subtitle">Flip the Start and Select button functions</string>
+    <!-- Row title. Switch: while a game runs, the touchpad on a PlayStation-style controller does
+         not act as a mouse on the launcher. -->
+    <string name="settings_navigation_ignore_controller_touchpad_title">Ignore Touchpad In Games</string>
+    <!-- Second line of that row. -->
+    <string name="settings_navigation_ignore_controller_touchpad_subtitle">A controller touchpad can\'t click the launcher while a game is running</string>
 
     <!-- Row title. Noun phrase: the short buzz the device gives when something is pressed. -->
     <string name="settings_navigation_haptic_title">Haptic Feedback</string>
@@ -532,6 +547,10 @@
     </plurals>
     <!-- Row title. Noun phrase: how dark the screen goes. -->
     <string name="settings_displays_dim_level_title">Dim Level</string>
+    <!-- Row title. Verb phrase: put the device to sleep when its clamshell lid is closed. -->
+    <string name="settings_displays_lid_sleep_title">Sleep When Lid Closes</string>
+    <!-- Second line of that row. A button pressed as the lid closes can wake the device again. -->
+    <string name="settings_displays_lid_sleep_subtitle">Puts the device back to sleep if a button press wakes it with the lid closed</string>
 
     <!-- Row title. Verb phrase: turn on use of a second screen. -->
     <string name="settings_displays_dual_screen_title">Enable Dual-screen Mode</string>
@@ -541,6 +560,12 @@
     <!-- Second line of that row on a device whose firmware refuses to host the second screen. -->
     <string name="settings_displays_dual_screen_subtitle_unsupported">This system does not allow a companion app on the secondary display; toggle off and on to retry</string>
 
+
+    <!-- Switch row title. When on, a DS game played in the built-in emulator draws both of its
+         screens at the same physical size on the device's two panels. -->
+    <string name="settings_displays_match_screen_size_title">Match Game Screen Sizes</string>
+    <!-- Second line of that switch row. -->
+    <string name="settings_displays_match_screen_size_subtitle">DS screens show at the same size and meet at the hinge</string>
 
     <!-- Row title. Noun phrase: the screen the controller drives. -->
     <string name="settings_displays_display_roles_title">Control Screen</string>
@@ -1244,6 +1269,10 @@
     <string name="settings_permissions_display_overlay_title">Display Over Other Apps</string>
     <!-- Body of that card. -->
     <string name="settings_permissions_display_overlay_description">Shows save detection notifications while playing games in external emulators.</string>
+    <!-- Card title. Names Android's accessibility service setting for Argosy. -->
+    <string name="settings_permissions_accessibility_title">Accessibility Service</string>
+    <!-- Body of that card. "Silent" means taken without a sound or visible capture prompt. -->
+    <string name="settings_permissions_accessibility_description">Lets the quick panel open over other emulators, and silent save screenshots</string>
     <!-- Card title. Noun phrase naming Argosy's animated wallpaper, which Android asks the user to apply once. -->
     <string name="settings_permissions_live_wallpaper_title">Animated Lock Screen</string>
     <!-- Body of that card. -->
@@ -1743,7 +1772,7 @@
     <string name="settings_storage_steam_tile_title">Steam &amp; PC</string>
     <!-- Second line on that tile, listing what it covers. "Staging" is the working folder a
          download is unpacked in. -->
-    <string name="settings_storage_steam_tile_subtitle">Stores, installs, and staging</string>
+    <string name="settings_storage_steam_tile_subtitle">Stores and installs</string>
 
     <!-- Row naming the folder every game is downloaded into. "ROM" is the usual term for a game
          file; leave it untranslated. -->
@@ -2148,15 +2177,6 @@
     <!-- Second line of that row otherwise. "Bezel" is the border art around the game picture. -->
     <string name="settings_caches_frames_subtitle">Downloaded bezels - re-download on demand</string>
 
-    <!-- Row that empties Steam's partly-fetched downloads. Verb phrase. -->
-    <string name="settings_caches_steam_clear_title">Clear Download Data</string>
-    <!-- Second line of that row while it is running. -->
-    <string name="settings_caches_steam_clear_busy">Clearing...</string>
-    <!-- Second line of that row while a Steam download is still going. -->
-    <string name="settings_caches_steam_clear_blocked">Cancel Steam downloads first</string>
-    <!-- Second line of that row otherwise. -->
-    <string name="settings_caches_steam_clear_subtitle">Removes staged downloads and the queue - installed games stay</string>
-
     <!-- Read-only row naming the stored posters and background pictures. Noun phrase. -->
     <string name="settings_caches_info_artwork_title">Artwork Cache</string>
     <!-- Second line of that row. -->
@@ -2190,12 +2210,6 @@
     <string name="settings_caches_info_steam_total_title">Steam &amp; PC Total</string>
     <!-- Second line of that row. -->
     <string name="settings_caches_info_steam_total_subtitle">Includes installed store games</string>
-    <!-- Read-only row naming the working folder for Steam downloads. Noun phrase. -->
-    <string name="settings_caches_info_steam_staging_title">Download Staging</string>
-    <!-- Second line of that row. "Deploy" here means moving the finished files into place. -->
-    <string name="settings_caches_info_steam_staging_subtitle">Partial downloads awaiting deploy</string>
-    <!-- Shown in place of the size while it is still being worked out. -->
-    <string name="settings_caches_info_steam_staging_computing">Computing...</string>
 
     <!-- ===== Steam section =====
          "Steam" is a game service and "GameNative" the separate app that runs its games on
@@ -2229,14 +2243,6 @@
          they are unless that app is translated too. -->
     <string name="settings_steam_gn_storage_warning_value">Open GameNative and enable \'Write to external storage\' in Settings</string>
 
-    <!-- Row naming the folder Steam games install into. Noun phrase. -->
-    <string name="settings_steam_install_path_title">Install Path</string>
-    <!-- The same row once the user has picked their own folder. -->
-    <string name="settings_steam_install_path_title_custom">Install Path (custom)</string>
-    <!-- Button on that row. Verb. -->
-    <string name="settings_steam_install_path_change">Change</string>
-    <!-- Read-only row listing where the installed games sit. Adjective plus noun. -->
-    <string name="settings_steam_install_triage_title">Installed Games</string>
     <!-- Read-only row naming the signed-in account. Noun phrase. -->
     <string name="settings_steam_account_title">Steam Account</string>
     <!-- Value of that row when signed in but the account name is unknown. Adjective. -->
@@ -2252,9 +2258,9 @@
     <!-- Second line while it reads the ownership records. %1$d is how many are done, %2$d how
          many there are. "Package" is Steam's word for a bundle of games. -->
     <string name="settings_steam_sync_packages">Fetching packages (%1$d/%2$d)...</string>
-    <!-- Second line while it reads the games. %1$d is how many are done, %2$d how many there
-         are. -->
-    <string name="settings_steam_sync_apps">Fetching games (%1$d/%2$d)...</string>
+    <!-- Second line while it checks every app the account owns (games, DLC and tools) for the
+         games to add. %1$d is how many are done, %2$d how many there are. -->
+    <string name="settings_steam_sync_apps">Checking apps (%1$d/%2$d)...</string>
     <!-- Second line when it finishes. %1$d is how many games were new, %2$d how many changed. -->
     <string name="settings_steam_sync_complete">Added %1$d, updated %2$d</string>
     <!-- Second line when it fails. %1$s is the reason. -->
@@ -2317,14 +2323,14 @@
     <!-- Heading of the panel shown before the helper app is installed. -->
     <string name="settings_steam_gn_required_title">GameNative Required</string>
     <!-- Body of that panel. "Argosy" is this app's name. -->
-    <string name="settings_steam_gn_required_message">Steam games are downloaded by Argosy and launched through GameNative. Install GameNative and enable external storage in its settings before continuing.</string>
+    <string name="settings_steam_gn_required_message">Steam games install and launch through GameNative, DroidDeck or GameHub. Install one of them before continuing.</string>
     <!-- Button on that panel. Verb phrase. -->
     <string name="settings_steam_gn_required_action">Install GameNative</string>
 
     <!-- Heading of the panel shown before signing in. Verb phrase. -->
     <string name="settings_steam_login_title">Log in to Steam</string>
     <!-- Body of that panel. -->
-    <string name="settings_steam_login_message">Connect your Steam account to sync your library and download games.</string>
+    <string name="settings_steam_login_message">Connect your Steam account to sync your library.</string>
     <!-- Button on that panel. Verb. -->
     <string name="settings_steam_login_action">Connect</string>
     <!-- Shown while the sign-in is in progress. -->
@@ -2829,6 +2835,11 @@
     <string name="settings_builtin_controls_rumble_title">Rumble</string>
     <!-- Second line of that row. -->
     <string name="settings_builtin_controls_rumble_subtitle">Enable controller vibration feedback</string>
+    <!-- Row title. Noun phrase: steering a game by tilting and turning the device through its
+         accelerometer and gyroscope, not on-screen touch controls. -->
+    <string name="settings_builtin_controls_motion_title">Motion controls</string>
+    <!-- Second line of that row. -->
+    <string name="settings_builtin_controls_motion_subtitle">Let games read the device\'s tilt and rotation</string>
     <!-- Row opening the tool that decides which pad is player one. Noun phrase. -->
     <string name="settings_builtin_controls_order_title">Controller Order</string>
     <!-- Second line of that row before any pad is assigned. -->
@@ -2846,6 +2857,8 @@
     <string name="settings_builtin_controls_controller_type_title">Player %1$d Controller</string>
     <!-- Second line under that row. -->
     <string name="settings_builtin_controls_controller_type_subtitle">The controller the game sees. Takes effect the next time a game starts.</string>
+    <!-- %1$s is a controller device name as the emulator core reports it, untranslated -->
+    <string name="settings_builtin_controls_controller_type_auto">Auto (%1$s)</string>
 
     <!-- Row title. Noun phrase: the left stick sends the same inputs as the direction pad.
          "D-Pad" is the cross-shaped direction control; keep the abbreviation. -->
@@ -2865,6 +2878,17 @@
     <string name="settings_builtin_controls_limit_hotkeys_title">Limit Hotkeys to Player 1</string>
     <!-- Second line of that row. -->
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">Only player 1 controller can trigger hotkeys</string>
+    <!-- Row title. Noun phrase: the controller's Select button reaching the app as Back. "Select"
+         and "Back" are button names. -->
+    <string name="settings_builtin_controls_select_as_back_title">Select as Back</string>
+    <!-- Second line of that row: what the three options do. -->
+    <string name="settings_builtin_controls_select_as_back_subtitle">For controllers whose Select sends Back. Auto plays Back as Select on controllers without a Select button.</string>
+    <!-- Option of that row: decide per controller. -->
+    <string name="settings_builtin_controls_select_as_back_auto">Auto</string>
+    <!-- Option of that row: Back is always Select in game. -->
+    <string name="settings_builtin_controls_select_as_back_on">On</string>
+    <!-- Option of that row: Back always opens the in-game menu. -->
+    <string name="settings_builtin_controls_select_as_back_off">Off</string>
     <!-- Row title. Verb phrase: fast forward switches on and off rather than needing a held
          button. -->
     <string name="settings_builtin_controls_toggle_ff_title">Toggle Fast Forward</string>
@@ -3366,6 +3390,11 @@
     <!-- Second line of that row. "DLC" is paid add-on content and "extcontent" a folder name;
          leave both as they are. -->
     <string name="settings_platform_combine_content_subtitle">All games in one folder, all updates and DLC in extcontent</string>
+    <!-- Row title. Switch: when on, the full library sync passes over this console. -->
+    <string name="settings_platform_skip_full_sync_title">Skip in Full Sync</string>
+    <!-- Second line of that row. "Incremental sync" is the quick sync that fetches only games
+         changed since the last one. -->
+    <string name="settings_platform_skip_full_sync_subtitle">Incremental sync still checks it for changes</string>
     <!-- Row that fetches just this console. Verb phrase. -->
     <string name="settings_platform_sync_now_title">Sync Now</string>
     <!-- Second line of that row while it runs. -->
@@ -3506,6 +3535,12 @@
     <string name="settings_library_layout_grid">Grid</string>
     <!-- Value of that row. Noun: games shown one per row with details beside the cover. -->
     <string name="settings_library_layout_list">List</string>
+    <!-- Library setting title, shown only when the layout is List. Noun: how densely the game list is drawn. -->
+    <string name="settings_library_list_style_title">List Style</string>
+    <!-- Value of that row. Adjective: one roomy row per game with cover art and details. -->
+    <string name="settings_library_list_style_relaxed">Relaxed</string>
+    <!-- Value of that row. Adjective: one thin text-only row per game, so more games fit on screen. -->
+    <string name="settings_library_list_style_compact">Compact</string>
     <!-- Library setting title. Noun: the picture drawn for each game in the library grid. -->
     <string name="settings_library_box_art_title">Box Art</string>
     <!-- Second line under the library box art setting. -->
@@ -3670,6 +3705,10 @@
     <string name="settings_hotkeys_action_toggle_timer">Start/Pause Timer</string>
     <!-- Hotkey action name. Speedrun timer verb phrase: resets the run timer to zero. -->
     <string name="settings_hotkeys_action_reset_timer">Reset Timer</string>
+    <!-- Hotkey that raises the simulated sunlight solar-sensor cartridges (Boktai) read. -->
+    <string name="settings_hotkeys_action_sun_brighter">Sunlight Up</string>
+    <!-- Hotkey that lowers the simulated sunlight solar-sensor cartridges (Boktai) read. -->
+    <string name="settings_hotkeys_action_sun_dimmer">Sunlight Down</string>
 
     <!-- ===== Input mapping modal (Settings > components > InputMappingModal) ===== -->
 
@@ -4229,19 +4268,14 @@
 
     <!-- Modal title. Noun phrase: assigning controllers to player ports. -->
     <string name="settings_controller_order_title">Controller Order</string>
-    <!-- Modal subtitle. Each connected controller has a row; pressing a button on a controller
-         moves the highlight to that controller's row. -->
-    <string name="settings_controller_order_subtitle">Press a button on any controller to find it.</string>
+    <!-- Instruction above the player cards. %1$s, %2$s and %3$s are drawn as the L, R and A button icons; keep all three. Pressing L and R together, or A, gives that controller the next player seat. -->
+    <string name="settings_controller_order_prompt">Press %1$s + %2$s or %3$s on the controller you want to use</string>
+    <!-- Line below the player cards. %1$s is drawn as the A button icon. Pressing it on a seated controller finishes. -->
+    <string name="settings_controller_order_ready">Press %1$s when you\'re ready</string>
     <!-- Footer hint. Removes every controller's player seat. -->
     <string name="settings_controller_order_hint_clear_all">Clear all</string>
     <!-- Fallback name for a controller that reports no name of its own. -->
     <string name="settings_controller_order_default_name">Controller</string>
-    <!-- Seat option for a player port. %1$d is the port number (1-4). -->
-    <string name="settings_controller_order_slot_label">P%1$d</string>
-    <!-- Seat option meaning the controller plays as no player. -->
-    <string name="settings_controller_order_seat_none">None</string>
-    <!-- Shown in place of the rows when no controller is connected. -->
-    <string name="settings_controller_order_empty">No controllers connected</string>
 
     <!-- ===== Grip controller modal (Settings > components > GripControllerModal) =====
          "Grip" is a controller attachment that clips onto the device; the UI shifts to make
@@ -4505,9 +4539,6 @@
     <string name="settings_accounts_delegate_blocker_active_downloads">Game downloads are still running. Let them finish or cancel them.</string>
     <!-- Switch-blocked reason: an emulator download is in progress. -->
     <string name="settings_accounts_delegate_blocker_emulator_download">An emulator download is still running. Let it finish or cancel it.</string>
-    <!-- Switch-blocked reason: a Steam game download is in progress. "Steam" is the third-party
-         service name, never translated. -->
-    <string name="settings_accounts_delegate_blocker_steam_download">A Steam download is still running. Let it finish or cancel it.</string>
     <!-- Switch-blocked reason: a media download is in progress. -->
     <string name="settings_accounts_delegate_blocker_media_download">A movie or episode is still downloading. Let it finish or cancel it.</string>
     <!-- Switch-blocked reason: a library sync is in progress. -->
@@ -4526,9 +4557,6 @@
     <!-- Inline error shown under the App ID field when the typed value is not a valid Steam
          App ID. -->
     <string name="settings_steam_delegate_invalid_app_id">Please enter a valid Steam App ID</string>
-    <!-- Fallback bucket label for installed Steam games whose storage volume could not be
-         matched to a known volume. -->
-    <string name="settings_steam_delegate_volume_other_label">Other</string>
 
     <!-- ===== Jellyfin settings delegate (Settings > delegates > JellyfinSettingsDelegate) =====
          "Jellyfin" is the media server software's name, never translated. -->
@@ -4786,6 +4814,7 @@
     <string name="settings_libretro_def_vsync_title">VSync</string>
     <!-- Second line of that row. -->
     <string name="settings_libretro_def_vsync_subtitle">Sync to display refresh rate</string>
+    <string name="settings_libretro_applies_next_launch">Takes effect the next time a game starts</string>
     <!-- Row title. "State" here is a save state (an emulator snapshot), not a completion status.
          "Save" is an adjective describing that snapshot, not the save-sync feature. -->
     <string name="settings_libretro_def_auto_save_state_title">Save State on Exit</string>
@@ -5086,6 +5115,12 @@
     <!-- ===== Play Time lists (platform, device, game drill-ins) ===== -->
 
     <string name="settings_play_time_list_unknown_game">Unknown game</string>
+    <!-- Confirm dialog title for erasing one game's play-time history. "Play" is the noun sense (time spent playing). -->
+    <string name="settings_play_time_delete_title">Delete play records?</string>
+    <!-- The argument is the game title. -->
+    <string name="settings_play_time_delete_message">All play history for %1$s is removed from this device. Sessions played before now are not synced back.</string>
+    <!-- Confirm button of the delete play records dialog. Verb. -->
+    <string name="settings_play_time_delete_confirm">Delete</string>
     <!-- Under a game row: its platform, then when it was last played. -->
     <string name="settings_play_time_list_game_detail">%1$s, last played %2$s</string>
     <plurals name="settings_play_time_list_sessions">

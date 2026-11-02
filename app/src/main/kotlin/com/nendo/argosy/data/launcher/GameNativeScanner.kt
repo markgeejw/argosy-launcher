@@ -46,7 +46,6 @@ object GameNativeScanner {
 
         for (storagePath in storagePaths) {
             val gnCommonPath = "${storagePath.absolutePath}/Android/data/$PACKAGE_NAME/$STEAM_COMMON_PATH"
-            // Try raw path first (SD card), then alt-access (internal)
             val commonDir = File(gnCommonPath).takeIf { it.exists() && it.canRead() }
                 ?: androidDataAccessor?.getFile(gnCommonPath)?.takeIf { it.exists() && it.canRead() }
             if (commonDir == null) {

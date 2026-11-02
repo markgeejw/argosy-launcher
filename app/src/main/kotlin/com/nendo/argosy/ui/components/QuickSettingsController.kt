@@ -504,7 +504,7 @@ class QuickSettingsController(
         }
     }
 
-    private fun confirm(onOpenDeviceAccess: () -> Unit): InputResult {
+    private fun confirm(onOpenDeviceAccess: (() -> Unit)?): InputResult {
         val snapshot = state.value
         return when (focusedItem(snapshot)) {
             QuickSettingsItem.UISounds -> {
@@ -547,6 +547,7 @@ class QuickSettingsController(
                 InputResult.handled(SoundType.TOGGLE)
             }
             QuickSettingsItem.DeviceAccess -> {
+                if (onOpenDeviceAccess == null) return InputResult.handled(SoundType.BOUNDARY)
                 onOpenDeviceAccess()
                 InputResult.HANDLED
             }
@@ -556,7 +557,7 @@ class QuickSettingsController(
 
     fun createInputHandler(
         onDismiss: () -> Unit,
-        onOpenDeviceAccess: () -> Unit
+        onOpenDeviceAccess: (() -> Unit)?
     ): InputHandler = object : InputHandler {
         override fun onUp(): InputResult = moveFocus(-1)
 

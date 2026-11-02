@@ -6,7 +6,6 @@ import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.remote.romm.RomMResult
 import com.nendo.argosy.data.remote.romm.SyncResult
 import com.nendo.argosy.core.notification.NotificationManager
-import com.nendo.argosy.ui.screens.common.LibrarySyncBus
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.core.notification.NotificationProgress
 import com.nendo.argosy.core.notification.NotificationText
@@ -50,7 +49,7 @@ sealed class SyncLibraryFailureReason {
 class SyncLibraryUseCase @Inject constructor(
     private val romMRepository: RomMRepository,
     private val notificationManager: NotificationManager,
-    private val librarySyncBus: LibrarySyncBus,
+    private val librarySyncNotifier: LibrarySyncNotifier,
     private val copy: SyncNotificationCopy,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val syncPreferencesRepository: SyncPreferencesRepository
@@ -178,7 +177,7 @@ class SyncLibraryUseCase @Inject constructor(
                             )
                         }
 
-                        librarySyncBus.emitSyncCompleted()
+                        librarySyncNotifier.emitSyncCompleted()
                         SyncLibraryResult.Success(result)
                     }
                 } catch (e: Exception) {

@@ -115,7 +115,6 @@ class DriverFetcherRepository @Inject constructor(
 
     private fun parseAdrenoModel(rawModel: String?): Int {
         val model = rawModel ?: return 0
-        // Adreno sysfs reads like "Adreno730" but human-readable EGL output is "Adreno (TM) 730".
         val number = ADRENO_REGEX.find(model)?.groupValues?.get(1) ?: return 0
         return try {
             if (number.startsWith("A", ignoreCase = true)) number.substring(1).toInt()

@@ -101,7 +101,6 @@
     <string name="settings_shell_header_accounts">KONTEN</string>
     <string name="settings_shell_header_saves">SPIELSTÄNDE</string>
     <string name="settings_shell_header_sync_settings">SYNC-EINSTELLUNGEN</string>
-    <string name="settings_shell_header_steam">STEAM (EXPERIMENTELL)</string>
     <string name="settings_shell_header_storage">SPEICHER</string>
     <string name="settings_shell_header_storage_games">SPIELE-SPEICHER</string>
     <string name="settings_shell_header_storage_media">MEDIEN-SPEICHER</string>
@@ -191,6 +190,11 @@
     <string name="settings_shell_modal_import_settings_message">Wählen Sie eine Sicherungsdatei aus; die darin genannten Einstellungen ersetzen Ihre eigenen. Alles, was die Datei auslässt, bleibt unverändert, und Konten, Server, Sync-Status und Speicherorte werden nie übernommen.</string>
     <string name="settings_shell_modal_import_settings_confirm">Datei wählen</string>
 
+    <string name="settings_shell_modal_accessibility_title">Bedienungshilfe einschalten</string>
+    <string name="settings_shell_modal_accessibility_message">Argosy nutzt seinen Bedienungshilfendienst, um die Zurück-Taste zu erkennen, während ein anderer Emulator geöffnet ist. Android warnt, dass er Ihre Eingaben beobachten kann; Argosy achtet während eines Spiels nur auf die Zurück-Taste.</string>
+    <string name="settings_shell_modal_accessibility_confirm">Einstellungen öffnen</string>
+    <string name="settings_shell_modal_accessibility_not_now">Nicht jetzt</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">Downloads migrieren?</string>
     <string name="settings_shell_modal_migrate_downloads_message">%1$d Spiele (%2$s) an den neuen Speicherort verschieben?</string>
     <string name="settings_shell_modal_migrate_downloads_confirm">Migrieren</string>
@@ -206,9 +210,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">Plattform</string>
     <string name="settings_shell_modal_purge_platform_message">Dadurch werden alle %1$d Spiele und ihre lokalen ROM-Dateien gelöscht. Dies kann nicht rückgängig gemacht werden.</string>
     <string name="settings_shell_modal_purge_platform_confirm">Bereinigen</string>
+    <string name="settings_shell_modal_purge_disabled_title">%1$s auch von diesem Gerät entfernen?</string>
+    <string name="settings_shell_modal_purge_disabled_message">Die %1$d Spiele sind jetzt ausgeblendet. Beim Bereinigen werden sie und ihre lokalen ROM-Dateien gelöscht. Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_shell_modal_purge_disabled_keep">Dateien behalten</string>
 
     <string name="settings_shell_modal_sync_first_title">Zuerst Spielstände synchronisieren</string>
     <string name="settings_shell_modal_sync_first_message">Synchronisieren Sie zuerst Ihre Spielstände - %1$d ausstehend. Ein Zurücksetzen der Bibliothek würde nicht hochgeladene Spielstände endgültig verwerfen.</string>
+    <string name="settings_shell_modal_purge_sync_first_message">Synchronisieren Sie zuerst Ihre Spielstände - %1$d ausstehend. Das Entfernen dieser Plattform würde nicht hochgeladene Spielstände endgültig verwerfen. Die Abfrage zum Entfernen erscheint nach der Synchronisierung erneut.</string>
     <string name="settings_shell_modal_sync_first_confirm">Jetzt synchronisieren</string>
 
     <string name="settings_shell_modal_reset_library_title">Bibliothek zurücksetzen?</string>
@@ -375,8 +383,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">Dadurch werden heruntergeladene Katalog-Shader gelöscht. Eigene Shader bleiben erhalten, und Katalog-Shader werden bei Bedarf erneut heruntergeladen.</string>
     <string name="settings_shell_caches_frames_title">Rahmen-Overlays leeren?</string>
     <string name="settings_shell_caches_frames_message">Dadurch werden heruntergeladene Rahmen-Overlays gelöscht. Sie werden bei Auswahl bei Bedarf erneut heruntergeladen.</string>
-    <string name="settings_shell_caches_steam_downloads_title">Steam-Download-Daten leeren?</string>
-    <string name="settings_shell_caches_steam_downloads_message">Dadurch werden vorbereitete Steam-Downloads gelöscht und die Download-Warteschlange geleert. Installierte Spiele sind davon nicht betroffen, aber unvollständige Downloads beginnen wieder bei null.</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 
@@ -544,4 +550,5 @@
     <string name="settings_shell_footer_play_time_move">Bewegen</string>
     <string name="settings_shell_footer_play_time_open">Öffnen</string>
     <string name="settings_shell_footer_play_time_sort">Sortieren</string>
+    <string name="settings_shell_footer_play_time_delete">Verlauf löschen</string>
 </resources>

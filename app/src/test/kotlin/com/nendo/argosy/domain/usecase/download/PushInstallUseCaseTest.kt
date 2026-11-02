@@ -54,7 +54,8 @@ class PushInstallUseCaseTest {
             gameRepository,
             emulatorDetector,
             builtinPreferences,
-            downloadGameUseCase
+            downloadGameUseCase,
+            mockk(relaxed = true)
         )
 
         coEvery { romMRepository.syncSingleRom(ROM_ID) } returns RomMResult.Success(game())

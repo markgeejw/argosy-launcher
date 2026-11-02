@@ -89,11 +89,45 @@ class SigilBuiltinRouteTest {
 
     @Test
     fun `the built-in-only layouts never route under RetroArch`() {
-        assertNull(SigilSaveHandler.libretroLayoutFor("psp", "ppsspp", retroArch = true))
         assertNull(SigilSaveHandler.libretroLayoutFor("psx", "pcsx_rearmed", retroArch = true))
         assertNull(SigilSaveHandler.libretroLayoutFor("3ds", "azahar", retroArch = true))
         assertNull(SigilSaveHandler.libretroLayoutFor("gc", "dolphin", retroArch = true))
         assertEquals("dolphin", SigilSaveHandler.libretroLayoutFor("wii", "dolphin", retroArch = true))
+    }
+
+    @Test
+    fun `RetroArch's PPSSPP and Citra cores route through their own layouts`() {
+        assertEquals("ppsspp", SigilSaveHandler.libretroLayoutFor("psp", "ppsspp", retroArch = true))
+        assertEquals("citra", SigilSaveHandler.libretroLayoutFor("3ds", "citra", retroArch = true))
+        assertEquals("citra", SigilSaveHandler.libretroLayoutFor("n3ds", "citra", retroArch = true))
+    }
+
+    @Test
+    fun `RetroArch PPSSPP roots at the save folder RetroArch hands the core`() = runTest {
+        val game = builtinGame("psp", "ppsspp")
+        coEvery { saveUnitResolver.layoutFor(game, RETROARCH, null) } returns "ppsspp"
+        coEvery {
+            retroArchPathResolver.resolveSaveDirectories(match { it.coreName == "ppsspp" })
+        } returns listOf(RETROARCH_PPSSPP_SAVES)
+
+        val route = handler.localRoute(GAME_ID, RETROARCH)
+
+        assertEquals("ppsspp", route?.layout)
+        assertEquals(RETROARCH_PPSSPP_SAVES, route?.root)
+    }
+
+    @Test
+    fun `RetroArch Citra roots at the Citra user folder under its save folder`() = runTest {
+        val game = builtinGame("3ds", "citra")
+        coEvery { saveUnitResolver.layoutFor(game, RETROARCH, null) } returns "citra"
+        coEvery {
+            retroArchPathResolver.resolveSaveDirectories(match { it.coreName == "citra" })
+        } returns listOf(RETROARCH_CITRA_SAVES)
+
+        val route = handler.localRoute(GAME_ID, RETROARCH)
+
+        assertEquals("citra", route?.layout)
+        assertEquals(File(RETROARCH_CITRA_SAVES, "Citra").absolutePath, route?.root)
     }
 
     @Test
@@ -175,8 +209,8 @@ class SigilBuiltinRouteTest {
 
     @Test
     fun `a built-in-only core gets no generic route under RetroArch`() = runTest {
-        val game = builtinGame("psp", "ppsspp")
-        coEvery { saveUnitResolver.layoutFor(game, RETROARCH, null) } returns "ppsspp"
+        val game = builtinGame("psx", "pcsx_rearmed")
+        coEvery { saveUnitResolver.layoutFor(game, RETROARCH, null) } returns "pcsx_rearmed"
 
         assertNull(handler.localRoute(GAME_ID, RETROARCH))
     }
@@ -186,5 +220,7 @@ class SigilBuiltinRouteTest {
         const val SAVES = "/data/user/0/com.nendo.argosy/files/libretro/saves"
         const val RETROARCH = "retroarch"
         const val RETROARCH_SNES9X_SAVES = "/storage/emulated/0/RetroArch/saves/Snes9x"
+        const val RETROARCH_PPSSPP_SAVES = "/storage/emulated/0/RetroArch/saves/PPSSPP"
+        const val RETROARCH_CITRA_SAVES = "/storage/emulated/0/RetroArch/saves"
     }
 }

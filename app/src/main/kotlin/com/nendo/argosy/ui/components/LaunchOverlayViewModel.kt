@@ -2,26 +2,38 @@ package com.nendo.argosy.ui.components
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nendo.argosy.DualScreenManagerHolder
 import com.nendo.argosy.core.input.SoundType
 import com.nendo.argosy.data.emulator.LaunchProgressTracker
 import com.nendo.argosy.domain.model.LaunchProgress
 import com.nendo.argosy.domain.model.LaunchPromptOption
 import com.nendo.argosy.domain.model.LaunchRecap
 import com.nendo.argosy.domain.model.LaunchStep
+import com.nendo.argosy.ui.components.launch.LaunchHostSignal
+import com.nendo.argosy.ui.components.launch.recordsHostStop
+import com.nendo.argosy.ui.components.launch.shouldReportHostStopped
 import com.nendo.argosy.ui.components.recap.LaunchRecapCursor
 import com.nendo.argosy.ui.components.recap.RecapCursor
 import com.nendo.argosy.ui.input.InputHandler
 import com.nendo.argosy.ui.input.InputResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val STOP_TIMEOUT_MS = 5_000L
+
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LaunchOverlayViewModel @Inject constructor(
     private val tracker: LaunchProgressTracker,
@@ -34,6 +46,29 @@ class LaunchOverlayViewModel @Inject constructor(
     val promptFocus: StateFlow<Int> = _promptFocus.asStateFlow()
 
     val recapCursorState: StateFlow<RecapCursor> = recapCursor.state
+
+    /**
+     * Whether the screen layout gives the launcher a presentation surface, followed across a
+     * dual-screen manager created or replaced after this ViewModel.
+     */
+    val hasPresentationSurface: StateFlow<Boolean> = DualScreenManagerHolder.instanceFlow
+        .flatMapLatest { it?.hasPresentationScreen ?: flowOf(false) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            DualScreenManagerHolder.instance?.hasPresentationScreen?.value ?: false
+        )
+
+    /**
+     * The display the launch placed the game on, null with no dual-screen manager.
+     */
+    val gameDisplayId: StateFlow<Int?> = DualScreenManagerHolder.instanceFlow
+        .flatMapLatest { it?.emulatorDisplay ?: flowOf(null) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            DualScreenManagerHolder.instance?.emulatorDisplay?.value
+        )
 
     init {
         viewModelScope.launch {
@@ -54,7 +89,17 @@ class LaunchOverlayViewModel @Inject constructor(
 
     fun cancel(): Boolean = tracker.cancel()
 
-    fun hostStopped() = tracker.hostStopped()
+    private var hostStopRecorded = false
+
+    /**
+     * Passes [signal] from the overlay's host to the tracker as a stop, unless the host is being
+     * recreated or, for a return, no real stop came before it.
+     */
+    fun hostSignal(signal: LaunchHostSignal, isChangingConfigurations: Boolean) {
+        if (!shouldReportHostStopped(isChangingConfigurations, signal, hostStopRecorded)) return
+        hostStopRecorded = recordsHostStop(signal)
+        tracker.hostStopped()
+    }
 
     fun recapCurrent(index: Int) {
         val count = recap?.unlocks?.size ?: return

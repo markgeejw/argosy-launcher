@@ -63,6 +63,9 @@ interface FirmwareDao {
     @Query("DELETE FROM firmware WHERE platformId = :platformId")
     suspend fun deleteByPlatform(platformId: Long)
 
+    @Query("DELETE FROM firmware WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
     @Query("SELECT * FROM firmware WHERE rommId = :rommId LIMIT 1")
     suspend fun getByRommId(rommId: Long): FirmwareEntity?
 

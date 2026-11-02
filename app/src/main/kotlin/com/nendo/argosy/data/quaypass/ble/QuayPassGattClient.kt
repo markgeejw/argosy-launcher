@@ -144,10 +144,10 @@ class QuayPassGattClient(private val application: Application) {
             if (!writeChunked(profileWrite)) return@withTimeoutOrNull null
 
             var responseBytes: ByteArray? = null
-            repeat(READ_ATTEMPTS) {
+            for (attempt in 1..READ_ATTEMPTS) {
                 responseBytes = readAssembledProfile(gatt, readChar, readChannel)
-                if (responseBytes != null) return@repeat
-                delay(READ_RETRY_DELAY_MS)
+                if (responseBytes != null) break
+                if (attempt < READ_ATTEMPTS) delay(READ_RETRY_DELAY_MS)
             }
             val response = responseBytes?.let { QuayPassExchangeFrames.parseReadResponse(it) }
                 ?: return@withTimeoutOrNull null

@@ -27,6 +27,7 @@
 
     <string name="social_profile_hint_avatar">अवतार</string>
     <string name="social_profile_hint_view_game">गेम देखें</string>
+    <string name="social_profile_unavailable_offline">ऑनलाइन होते ही यह प्रोफ़ाइल लोड होगी</string>
     <string name="social_profile_hint_settings">सेटिंग्स</string>
 
     <string name="social_tabbar_feed">फ़ीड</string>

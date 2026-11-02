@@ -40,6 +40,7 @@
 
     <string name="social_profile_hint_avatar">Avatar</string>
     <string name="social_profile_hint_view_game">View Game</string>
+    <string name="social_profile_unavailable_offline">This profile loads once you are back online</string>
     <string name="social_profile_hint_settings">Settings</string>
 
     <string name="social_tabbar_feed">Feed</string>

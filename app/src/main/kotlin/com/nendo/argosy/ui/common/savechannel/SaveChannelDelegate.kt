@@ -276,10 +276,10 @@ class SaveChannelDelegate @Inject constructor(
 
     fun dismissDeleteConfirmation() = savesDelegate.dismissDeleteConfirmation()
 
-    fun confirmDeleteChannel(
+    fun confirmDelete(
         scope: CoroutineScope,
         onSaveStatusChanged: (SaveStatusEvent) -> Unit
-    ) = savesDelegate.confirmDeleteChannel(scope, onSaveStatusChanged)
+    ) = savesDelegate.confirmDelete(scope, onSaveStatusChanged)
 
     fun dismissMigrateConfirmation() = savesDelegate.dismissMigrateConfirmation()
 
@@ -314,11 +314,7 @@ class SaveChannelDelegate @Inject constructor(
     fun confirmReplaceAutoWithSlot(scope: CoroutineScope) =
         statesDelegate.confirmReplaceAutoWithSlot(scope)
 
-    @Suppress("UNUSED_PARAMETER")
-    fun secondaryAction(
-        scope: CoroutineScope,
-        onSaveStatusChanged: (SaveStatusEvent) -> Unit
-    ) {
+    fun secondaryAction() {
         val state = _state.value
         if (state.showSlotPicker) return
         if (state.showRestoreConfirmation || state.showRenameDialog ||
@@ -338,7 +334,7 @@ class SaveChannelDelegate @Inject constructor(
                             savesDelegate.showDeleteConfirmation()
                         }
                     }
-                    SaveFocusColumn.HISTORY -> savesDelegate.showSlotPicker(scope)
+                    SaveFocusColumn.HISTORY -> savesDelegate.showDeleteVersionConfirmation()
                 }
             }
             SaveTab.STATES -> statesDelegate.showStateDeleteConfirmation()
@@ -349,7 +345,7 @@ class SaveChannelDelegate @Inject constructor(
 
     fun setSlotPickerIndex(index: Int) = savesDelegate.setSlotPickerIndex(index)
 
-    fun tertiaryAction() {
+    fun tertiaryAction(scope: CoroutineScope) {
         val state = _state.value
         if (state.showSlotPicker) return
         if (state.showRestoreConfirmation || state.showRenameDialog ||
@@ -361,7 +357,7 @@ class SaveChannelDelegate @Inject constructor(
             SaveTab.SAVES -> {
                 when (state.saveFocusColumn) {
                     SaveFocusColumn.SLOTS -> savesDelegate.showRenameSlotDialog()
-                    SaveFocusColumn.HISTORY -> {}
+                    SaveFocusColumn.HISTORY -> savesDelegate.showSlotPicker(scope)
                 }
             }
             SaveTab.STATES -> {

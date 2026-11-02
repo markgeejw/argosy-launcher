@@ -100,12 +100,13 @@ class InputDispatcher(
     }
 
     /**
-     * Drops any handler waiting on a route match. Call after a dual-screen topology
-     * change so a handler subscribed for a route that will never become active doesn't
-     * remain parked indefinitely.
+     * Drops every handler waiting on a route match except those for [keepRoute]. Call after a
+     * dual-screen topology change so a handler subscribed for a route that will never become
+     * active doesn't remain parked indefinitely, while the screen for the route the app is on
+     * keeps the slot it parked before the route was published. A null [keepRoute] drops all.
      */
-    fun clearPendingViewSubscription() {
-        pendingViewSubscriptions.clear()
+    fun clearPendingViewSubscription(keepRoute: String? = null) {
+        pendingViewSubscriptions.keys.retainAll { isRouteMatch(it, keepRoute) }
     }
 
     /**

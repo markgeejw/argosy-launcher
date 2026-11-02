@@ -131,8 +131,6 @@ class EmulatorUpdateManager @Inject constructor(
                 installedEmulators.any { it.def.id == def.id }
             }
 
-            // Clean up stale update entries from alternative variants sharing a package name.
-            // Without this, users who had a prior (buggy) detection would keep a phantom update badge.
             val installedPackages = installedEmulators.map { it.def.packageName }.toSet()
             val installedIds = installedEmulators.map { it.def.id }.toSet()
             updateCheckable
@@ -175,7 +173,8 @@ class EmulatorUpdateManager @Inject constructor(
                 val result = emulatorUpdateRepository.checkForUpdate(
                     emulator = emulatorDef,
                     installedVersion = effectiveVersion,
-                    storedVariant = cached?.installedVariant
+                    storedVariant = cached?.installedVariant,
+                    installedAt = installed?.let { getInstalledAt(it.def.packageName) }
                 )
 
                 if (result is EmulatorUpdateCheckResult.UpdateAvailable) {
@@ -231,6 +230,13 @@ class EmulatorUpdateManager @Inject constructor(
             null
         }
     }
+
+    private fun getInstalledAt(packageName: String): Instant? =
+        try {
+            Instant.ofEpochMilli(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
+        }
 
     private suspend fun getLastCheckTime(): Instant? {
         return dataStore.data.map { prefs ->

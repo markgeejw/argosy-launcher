@@ -171,6 +171,8 @@
     <string name="ingame_settings_game_specific_controls_subtitle_off">Utilise votre mappage de manette global</string>
     <string name="ingame_settings_rumble_title">Vibrations</string>
     <string name="ingame_settings_rumble_subtitle">Activer les retours de vibration de la manette</string>
+    <string name="ingame_settings_motion_title">Commandes de mouvement</string>
+    <string name="ingame_settings_motion_subtitle">Permet aux jeux de lire l\'inclinaison et la rotation de l\'appareil</string>
     <string name="ingame_settings_controller_order_title">Ordre des manettes</string>
     <plurals name="ingame_settings_controller_order_assigned">
         <item quantity="one">%d manette assignée</item>
@@ -181,6 +183,7 @@
     <string name="ingame_settings_controller_type_title">Manette du joueur %1$d</string>
     <string name="ingame_settings_controller_type_pending">Sera appliqué au prochain lancement</string>
     <string name="ingame_settings_controller_type_core_default">Choisi par le core</string>
+    <string name="ingame_settings_controller_type_auto">Auto (%1$s)</string>
     <string name="ingame_settings_controller_grip_title">Poignée de manette</string>
     <string name="ingame_settings_controller_grip_subtitle">Déplacer l\'interface hors de la zone couverte par la poignée</string>
     <string name="ingame_settings_input_mapping_title">Mappage des touches</string>
@@ -193,6 +196,8 @@
     <string name="ingame_settings_hotkeys_subtitle">Configurer les raccourcis pour le menu, l\'avance rapide et le rembobinage</string>
     <string name="ingame_settings_limit_hotkeys_title">Limiter les raccourcis au joueur 1</string>
     <string name="ingame_settings_limit_hotkeys_subtitle">Seule la manette du joueur 1 peut déclencher les raccourcis</string>
+    <string name="ingame_settings_select_as_back_title">Select comme Retour</string>
+    <string name="ingame_settings_select_as_back_subtitle">Pour les manettes dont Select envoie Retour. Auto traite Retour comme Select sur les manettes sans bouton Select.</string>
     <string name="ingame_settings_toggle_fast_forward_title">Basculer l\'avance rapide</string>
     <string name="ingame_settings_toggle_fast_forward_subtitle">Appuyez une fois pour démarrer, une seconde fois pour arrêter (désactivé = maintenir pour avancer rapidement)</string>
     <string name="ingame_settings_preserve_pitch_title">Préserver la hauteur audio</string>
@@ -370,9 +375,12 @@
     <string name="ingame_libretro_core_error_unknown">Une erreur inattendue s\'est produite</string>
 
     <string name="ingame_libretro_sram_load_failed_fresh_save">Échec du chargement de la sauvegarde, utilisation d\'une nouvelle sauvegarde</string>
+    <string name="ingame_libretro_hardcore_off_core_setting">Le mode hardcore est désactivé pour cette session : %1$s vaut %2$s</string>
+    <string name="ingame_libretro_core_option_blocked_hardcore">Cette valeur n\'est pas autorisée en mode hardcore</string>
     <string name="ingame_libretro_casual_save_in_hardcore">Poursuite d\'une sauvegarde casual en hardcore</string>
 
     <string name="ingame_libretro_disc_swap_inserted">%1$s inséré</string>
+    <string name="ingame_libretro_sun_level">Ensoleillement %1$d/%2$d</string>
     <string name="ingame_libretro_disc_swap_fallback_name">Disque %1$d</string>
 
     <string name="ingame_libretro_speedrun_default_category_name">Entraînement</string>
@@ -408,6 +416,7 @@
     <string name="ingame_libretro_resume_success">Reprise</string>
     <string name="ingame_libretro_resume_restore_failure">Échec de la restauration de l\'état</string>
     <string name="ingame_libretro_auto_restore_success">État restauré</string>
+    <string name="ingame_libretro_auto_restore_skipped_for_save">Démarré depuis votre sauvegarde. L\'état de reprise ne correspondait pas.</string>
     <string name="ingame_libretro_auto_restore_failure">Échec de la restauration de l\'état</string>
     <string name="ingame_libretro_auto_restore_response_unsupported_core">États de sauvegarde indisponibles pour ce core</string>
     <string name="ingame_libretro_auto_restore_response_success">État restauré</string>
@@ -430,6 +439,7 @@
     <string name="ingame_libretro_quickaction_load_unsupported_core">États de sauvegarde indisponibles pour ce core</string>
     <string name="ingame_libretro_quickaction_load_success">État chargé</string>
     <string name="ingame_libretro_quickaction_load_failure">Échec du chargement de l\'état</string>
+    <string name="ingame_libretro_quickaction_load_replaced">Cet état a été remplacé. Sélectionnez-le à nouveau.</string>
     <string name="ingame_libretro_quickaction_screenshot_capture_failed">Échec de la capture</string>
     <string name="ingame_libretro_quickaction_screenshot_success">Capture d\'écran enregistrée</string>
     <string name="ingame_libretro_quickaction_screenshot_failure">Échec de la capture d\'écran</string>

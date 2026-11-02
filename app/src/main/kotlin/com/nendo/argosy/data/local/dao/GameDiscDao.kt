@@ -55,6 +55,12 @@ interface GameDiscDao {
     @Query("UPDATE game_discs SET localPath = :localPath WHERE id = :id")
     suspend fun updateLocalPath(id: Long, localPath: String?)
 
+    @Query("""
+        UPDATE game_discs SET localPath = :newPrefix || SUBSTR(localPath, LENGTH(:oldPrefix) + 1)
+        WHERE localPath = :oldPrefix OR SUBSTR(localPath, 1, LENGTH(:oldPrefix) + 1) = :oldPrefix || '/'
+    """)
+    suspend fun relocateLocalPaths(oldPrefix: String, newPrefix: String)
+
     @Query("UPDATE game_discs SET localPath = :localPath WHERE rommId = :rommId")
     suspend fun updateLocalPathByRommId(rommId: Long, localPath: String?)
 

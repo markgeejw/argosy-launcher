@@ -107,9 +107,8 @@ commons-compress = { group = "org.apache.commons", name = "commons-compress", ve
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
 zstd-jni = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstdJni" }
 
-# Steam (JavaSteam fork with DepotDownloader)
+# Steam (JavaSteam fork)
 javasteam = { group = "io.github.joshuatam", name = "javasteam", version.ref = "javasteam" }
-javasteam-depotdownloader = { group = "io.github.joshuatam", name = "javasteam-depotdownloader", version.ref = "javasteam" }
 spongycastle = { group = "com.madgag.spongycastle", name = "prov", version.ref = "spongycastle" }
 bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version.ref = "protobuf" }
@@ -159,4 +158,4 @@ lifecycle = [
 room = ["room-runtime", "room-ktx"]
 network = ["retrofit", "retrofit-moshi", "okhttp", "okhttp-logging", "moshi"]
 camerax = ["camerax-core", "camerax-camera2", "camerax-lifecycle", "camerax-view"]
-steam = ["javasteam", "javasteam-depotdownloader", "spongycastle", "protobuf-java"]
+steam = ["javasteam", "spongycastle", "protobuf-java"]

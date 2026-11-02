@@ -1,9 +1,6 @@
 package com.nendo.argosy.data.update
 
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -15,9 +12,13 @@ import com.nendo.argosy.data.local.dao.GameArtDao
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.resolved
 import com.nendo.argosy.data.model.GameSource
+import com.nendo.argosy.data.model.PushedApkPrompt
 import com.nendo.argosy.data.platform.LocalPlatformIds
+import com.nendo.argosy.data.remote.romm.RomMConnectionManager
+import com.nendo.argosy.data.repository.AppsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.nendo.argosy.util.SafeCoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,12 +29,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "ApkInstallManager"
-
-data class PendingApkInstall(
-    val gameId: Long,
-    val apkPath: String,
-    val expectedPackageName: String?
-)
+private const val PUSHED_PREFS = "apk_install_pushed"
+private const val PUSHED_IDS = "game_ids"
 
 sealed class ApkInstallState {
     data object Idle : ApkInstallState()
@@ -49,29 +46,42 @@ class ApkInstallManager @Inject constructor(
     private val gameDao: GameDao,
     private val gameArtDao: GameArtDao,
     private val appInstaller: AppInstaller,
-    private val imageCacheManager: ImageCacheManager
+    private val imageCacheManager: ImageCacheManager,
+    private val appsRepository: AppsRepository,
+    private val connectionManager: RomMConnectionManager
 ) {
     private val scope = SafeCoroutineScope(Dispatchers.Main, "ApkInstallManager")
 
     private val _state = MutableStateFlow<ApkInstallState>(ApkInstallState.Idle)
     val state: StateFlow<ApkInstallState> = _state.asStateFlow()
 
-    private val pendingInstalls = mutableMapOf<String, PendingApkInstall>()
+    init {
+        observeDownloadCompletions()
+        observePackageChanges()
+    }
 
-    private val packageAddedReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_PACKAGE_ADDED) {
-                val packageName = intent.data?.schemeSpecificPart ?: return
-                Log.d(TAG, "Package installed: $packageName")
-                handlePackageInstalled(packageName)
+    private fun observePackageChanges() {
+        scope.launch {
+            appsRepository.packageChanges.collect { packageName ->
+                try {
+                    linkInstalledApks(packageName.ifEmpty { null })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to link installed APKs: ${e.message}")
+                }
             }
         }
     }
 
-    private var isReceiverRegistered = false
-
-    init {
-        observeDownloadCompletions()
+    private suspend fun linkInstalledApks(changedPackage: String?) {
+        val awaiting = gameDao.getDownloadedApksAwaitingInstall(LocalPlatformIds.ANDROID)
+            .filter { changedPackage == null || it.titleId == changedPackage }
+        awaiting.forEach { game ->
+            val packageName = game.titleId ?: return@forEach
+            if (appsRepository.isPackageMissing(packageName)) return@forEach
+            linkGameToPackage(game.id, packageName)
+        }
     }
 
     private fun observeDownloadCompletions() {
@@ -106,19 +116,81 @@ class ApkInstallManager @Inject constructor(
             gameDao.update(game.copy(titleId = expectedPackageName))
         }
 
-        pendingInstalls[expectedPackageName] = PendingApkInstall(
-            gameId = event.gameId,
-            apkPath = event.localPath,
-            expectedPackageName = expectedPackageName
-        )
+        if (consumePushed(event.gameId)) {
+            _pushedPrompt.value = PushedApkPrompt(
+                gameId = event.gameId,
+                apkPath = event.localPath,
+                title = game.title,
+                packageName = expectedPackageName,
+                signerSha256 = apkSignerSha256(apkFile),
+                serverHost = runCatching { java.net.URI(connectionManager.getBaseUrl()).host }.getOrNull()
+            )
+            return
+        }
 
         _state.value = ApkInstallState.WaitingForInstall(event.gameId, event.localPath)
-
-        registerPackageReceiver()
         appInstaller.installApk(context, apkFile)
     }
 
-    private fun getApkPackageName(apkFile: File): String? {
+    private val _pushedPrompt = MutableStateFlow<PushedApkPrompt?>(null)
+    val pushedPrompt: StateFlow<PushedApkPrompt?> = _pushedPrompt.asStateFlow()
+
+    private val pushedPrefs by lazy { context.getSharedPreferences(PUSHED_PREFS, Context.MODE_PRIVATE) }
+
+    fun markPushed(gameId: Long) {
+        val ids = pushedPrefs.getStringSet(PUSHED_IDS, emptySet()).orEmpty() + gameId.toString()
+        pushedPrefs.edit().putStringSet(PUSHED_IDS, ids).apply()
+    }
+
+    private fun consumePushed(gameId: Long): Boolean {
+        val ids = pushedPrefs.getStringSet(PUSHED_IDS, emptySet()).orEmpty()
+        if (gameId.toString() !in ids) return false
+        pushedPrefs.edit().putStringSet(PUSHED_IDS, ids - gameId.toString()).apply()
+        return true
+    }
+
+    fun confirmPushedInstall() {
+        val prompt = _pushedPrompt.value ?: return
+        _pushedPrompt.value = null
+        val apk = File(prompt.apkPath)
+        if (!apk.exists()) return
+        _state.value = ApkInstallState.WaitingForInstall(prompt.gameId, prompt.apkPath)
+        appInstaller.installApk(context, apk)
+    }
+
+    fun dismissPushedInstall() {
+        _pushedPrompt.value = null
+    }
+
+    private suspend fun apkSignerSha256(apkFile: File): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { readApkSignerSha256(apkFile) }
+
+    private fun readApkSignerSha256(apkFile: File): String? = try {
+        val path = apkFile.absolutePath
+        val cert = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> context.packageManager
+                .getPackageArchiveInfo(path, PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong()))
+                ?.signingInfo?.apkContentsSigners?.firstOrNull()
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> @Suppress("DEPRECATION") context.packageManager
+                .getPackageArchiveInfo(path, PackageManager.GET_SIGNING_CERTIFICATES)
+                ?.signingInfo?.apkContentsSigners?.firstOrNull()
+            else -> @Suppress("DEPRECATION") context.packageManager
+                .getPackageArchiveInfo(path, PackageManager.GET_SIGNATURES)
+                ?.signatures?.firstOrNull()
+        }
+        cert?.toByteArray()?.let { cert ->
+            java.security.MessageDigest.getInstance("SHA-256").digest(cert)
+                .joinToString(":") { "%02X".format(it) }
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Could not read the APK signer: ${e.message}")
+        null
+    }
+
+    private suspend fun getApkPackageName(apkFile: File): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { readApkPackageName(apkFile) }
+
+    private fun readApkPackageName(apkFile: File): String? {
         return try {
             val packageInfo: PackageInfo? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageArchiveInfo(
@@ -136,85 +208,42 @@ class ApkInstallManager @Inject constructor(
         }
     }
 
-    private fun handlePackageInstalled(packageName: String) {
-        val pending = pendingInstalls.remove(packageName)
-        if (pending == null) {
-            Log.d(TAG, "Package $packageName not in pending installs")
+    private suspend fun linkGameToPackage(gameId: Long, packageName: String) {
+        val game = gameDao.getById(gameId) ?: return
+        val apkPath = game.localPath
+        val holder = gameDao.getByPackageName(packageName)?.takeIf { it.id != game.id }
+        if (holder != null && holder.rommId != null) {
+            Log.w(TAG, "Package $packageName already owned by game ${holder.id} with rommId, leaving ${game.id} unlinked")
+            _state.value = ApkInstallState.InstallFailed(game.id, packageName)
             return
         }
-
-        scope.launch {
-            try {
-                gameDao.getById(pending.gameId)?.let { game ->
-                    val holder = gameDao.getByPackageName(packageName)?.takeIf { it.id != game.id }
-                    if (holder != null && holder.rommId != null) {
-                        Log.w(TAG, "Package $packageName already owned by game ${holder.id} with rommId, skipping link")
-                        return@let
-                    }
-                    if (holder != null) {
-                        gameArtDao.fillMissingFrom(targetGameId = game.id, sourceGameId = holder.id)
-                        gameDao.delete(holder.id)
-                    }
-                    val updatedGame = game.copy(
-                        packageName = packageName,
-                        titleId = packageName,
-                        source = GameSource.ANDROID_APP,
-                        localPath = null,
-                        isFavorite = game.isFavorite || holder?.isFavorite == true,
-                        playCount = game.playCount + (holder?.playCount ?: 0),
-                        playTimeMinutes = game.playTimeMinutes + (holder?.playTimeMinutes ?: 0),
-                        lastPlayed = listOfNotNull(game.lastPlayed, holder?.lastPlayed).maxOrNull()
-                    )
-                    gameDao.update(updatedGame)
-
-                    if (gameArtDao.resolved(game.id).coverPath.isNullOrBlank()) {
-                        imageCacheManager.queueAppIconCache(pending.gameId, packageName)
-                    }
-
-                    Log.d(TAG, "Game ${game.title} updated with package $packageName" +
-                        if (holder != null) " (merged duplicate ${holder.id})" else "")
-                }
-
-                val apkFile = File(pending.apkPath)
-                if (apkFile.exists()) {
-                    apkFile.delete()
-                    Log.d(TAG, "Deleted APK file: ${pending.apkPath}")
-                }
-
-                _state.value = ApkInstallState.InstallComplete(pending.gameId, packageName)
-
-                if (pendingInstalls.isEmpty()) {
-                    unregisterPackageReceiver()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to update game after install: ${e.message}")
-                _state.value = ApkInstallState.InstallFailed(pending.gameId, e.message ?: "Unknown error")
-            }
+        if (holder != null) {
+            gameArtDao.fillMissingFrom(targetGameId = game.id, sourceGameId = holder.id)
+            gameDao.delete(holder.id)
         }
-    }
+        gameDao.update(
+            game.copy(
+                packageName = packageName,
+                titleId = packageName,
+                source = GameSource.ANDROID_APP,
+                localPath = null,
+                isFavorite = game.isFavorite || holder?.isFavorite == true,
+                playCount = game.playCount + (holder?.playCount ?: 0),
+                playTimeMinutes = game.playTimeMinutes + (holder?.playTimeMinutes ?: 0),
+                lastPlayed = listOfNotNull(game.lastPlayed, holder?.lastPlayed).maxOrNull()
+            )
+        )
 
-    private fun registerPackageReceiver() {
-        if (isReceiverRegistered) return
-        val filter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply {
-            addDataScheme("package")
+        if (gameArtDao.resolved(game.id).coverPath.isNullOrBlank()) {
+            imageCacheManager.queueAppIconCache(game.id, packageName)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(packageAddedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(packageAddedReceiver, filter)
-        }
-        isReceiverRegistered = true
-        Log.d(TAG, "Package receiver registered")
-    }
+        Log.d(TAG, "Game ${game.title} linked to package $packageName" +
+            if (holder != null) " (merged duplicate ${holder.id})" else "")
 
-    private fun unregisterPackageReceiver() {
-        if (!isReceiverRegistered) return
-        try {
-            context.unregisterReceiver(packageAddedReceiver)
-            isReceiverRegistered = false
-            Log.d(TAG, "Package receiver unregistered")
-        } catch (_: Exception) {
+        apkPath?.let { File(it) }?.takeIf { it.exists() }?.let { apk ->
+            if (apk.delete()) Log.d(TAG, "Deleted APK file: ${apk.absolutePath}")
         }
+        _state.value = ApkInstallState.InstallComplete(game.id, packageName)
     }
 
     fun canInstallPackages(): Boolean {
@@ -244,15 +273,7 @@ class ApkInstallManager @Inject constructor(
             gameDao.update(game.copy(titleId = expectedPackageName))
         }
 
-        pendingInstalls[expectedPackageName] = PendingApkInstall(
-            gameId = gameId,
-            apkPath = localPath,
-            expectedPackageName = expectedPackageName
-        )
-
         _state.value = ApkInstallState.WaitingForInstall(gameId, localPath)
-
-        registerPackageReceiver()
         appInstaller.installApk(context, apkFile)
         return true
     }

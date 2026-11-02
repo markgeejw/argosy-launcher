@@ -119,6 +119,17 @@ data class PlayShareRow(
     val topGames: List<PlayTimeSlotGame>
 )
 
+/**
+ * The slot a presentation surface on [displayId] draws: [PresentationSlot.Fallback] in place of
+ * the in-game panel unless the game is known to run on another display.
+ */
+fun PresentationSlot.onDisplay(displayId: Int?, gameDisplayId: Int?): PresentationSlot =
+    if (this is PresentationSlot.InGame && (gameDisplayId == null || displayId == gameDisplayId)) {
+        PresentationSlot.Fallback
+    } else {
+        this
+    }
+
 data class TimelineDot(
     val hasActivity: Boolean,
     val color: androidx.compose.ui.graphics.Color,

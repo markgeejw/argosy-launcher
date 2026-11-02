@@ -2,8 +2,12 @@ package com.nendo.argosy.ui.components
 
 import androidx.compose.foundation.background
 import com.nendo.argosy.ui.util.clickableNoFocus
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.nendo.argosy.ui.primitives.ActionButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -159,9 +163,35 @@ fun CenteredModal(
             content()
 
             if (footerHints != null) {
-                FooterHints(hints = footerHints, onHintClick = onHintClick)
+                ModalActions(hints = footerHints, onHintClick = onHintClick)
             }
         }
+    }
+}
+
+@Composable
+private fun ModalActions(hints: List<Pair<InputButton, String>>, onHintClick: ((InputButton) -> Unit)?) {
+    val actions = hints.filter { it.first == InputButton.A || it.first == InputButton.B }
+        .sortedBy { if (it.first == InputButton.B) 0 else 1 }
+    val others = hints.filterNot { it.first == InputButton.A || it.first == InputButton.B }
+    if (actions.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(Dimens.spacingMd))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm, Alignment.CenterHorizontally)
+        ) {
+            actions.forEach { (button, label) ->
+                ActionButton(
+                    label = label,
+                    onClick = { onHintClick?.invoke(button) },
+                    primary = button == InputButton.A,
+                    glyph = button
+                )
+            }
+        }
+    }
+    if (others.isNotEmpty()) {
+        FooterHints(hints = others, onHintClick = onHintClick)
     }
 }
 
@@ -210,7 +240,7 @@ fun NestedModal(
             content()
 
             if (footerHints != null) {
-                FooterHints(hints = footerHints, onHintClick = onHintClick)
+                ModalActions(hints = footerHints, onHintClick = onHintClick)
             }
         }
     }

@@ -3,6 +3,8 @@ package com.nendo.argosy.di
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import com.nendo.argosy.core.input.AppEventFeedback
+import com.nendo.argosy.core.media.SfxCacheCleaner
 import com.nendo.argosy.data.preferences.AccountPreferenceStoreRegistry
 import com.nendo.argosy.data.preferences.AccountScopedDataStore
 import com.nendo.argosy.data.preferences.dataStore
@@ -11,10 +13,13 @@ import com.nendo.argosy.data.storage.FileAccessLayerImpl
 import com.nendo.argosy.data.sync.SyncNotificationCopyResources
 import com.nendo.argosy.domain.usecase.recap.MonthlyRecapOverride
 import com.nendo.argosy.domain.usecase.recap.PreLaunchRecapOverride
+import com.nendo.argosy.domain.usecase.sync.LibrarySyncNotifier
 import com.nendo.argosy.domain.usecase.sync.SyncNotificationCopy
 import com.nendo.argosy.hardware.AyaneoLEDController
 import com.nendo.argosy.hardware.LEDController
 import com.nendo.argosy.hardware.OdinLEDController
+import com.nendo.argosy.ui.input.SoundFeedbackManager
+import com.nendo.argosy.ui.screens.common.LibrarySyncBus
 import com.squareup.moshi.Moshi
 import dagger.Binds
 import dagger.Module
@@ -39,6 +44,18 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindSyncNotificationCopy(impl: SyncNotificationCopyResources): SyncNotificationCopy
+
+    @Binds
+    @Singleton
+    abstract fun bindLibrarySyncNotifier(impl: LibrarySyncBus): LibrarySyncNotifier
+
+    @Binds
+    @Singleton
+    abstract fun bindAppEventFeedback(impl: SoundFeedbackManager): AppEventFeedback
+
+    @Binds
+    @Singleton
+    abstract fun bindSfxCacheCleaner(impl: SoundFeedbackManager): SfxCacheCleaner
 
     @Multibinds
     abstract fun preLaunchRecapOverrides(): Set<PreLaunchRecapOverride>

@@ -120,7 +120,6 @@ class GlobalLibretroSettingsAccessor(
     }
 
     override fun reset(setting: LibretroSettingDef) {
-        // No-op for global settings
     }
 
     override fun onAction(setting: LibretroSettingDef) {

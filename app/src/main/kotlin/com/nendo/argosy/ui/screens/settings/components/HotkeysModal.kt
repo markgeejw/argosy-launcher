@@ -78,7 +78,9 @@ private val HOTKEY_ACTIONS = listOf(
     HotkeyAction.SPEEDRUN_UNDO_SPLIT,
     HotkeyAction.SPEEDRUN_SKIP_SPLIT,
     HotkeyAction.SPEEDRUN_TOGGLE_TIMER,
-    HotkeyAction.SPEEDRUN_RESET_TIMER
+    HotkeyAction.SPEEDRUN_RESET_TIMER,
+    HotkeyAction.SUN_BRIGHTER,
+    HotkeyAction.SUN_DIMMER
 )
 
 private val HOLD_DELAY_CYCLE = listOf(0L, 1000L, 2000L, 3000L)
@@ -771,6 +773,8 @@ private fun getActionDisplayName(action: HotkeyAction): String {
         HotkeyAction.SPEEDRUN_SKIP_SPLIT -> stringResource(R.string.settings_hotkeys_action_skip_split)
         HotkeyAction.SPEEDRUN_TOGGLE_TIMER -> stringResource(R.string.settings_hotkeys_action_toggle_timer)
         HotkeyAction.SPEEDRUN_RESET_TIMER -> stringResource(R.string.settings_hotkeys_action_reset_timer)
+        HotkeyAction.SUN_BRIGHTER -> stringResource(R.string.settings_hotkeys_action_sun_brighter)
+        HotkeyAction.SUN_DIMMER -> stringResource(R.string.settings_hotkeys_action_sun_dimmer)
     }
 }
 

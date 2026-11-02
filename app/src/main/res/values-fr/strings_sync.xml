@@ -6,6 +6,7 @@
     <string name="sync_prelaunch_connecting">Connexion...</string>
     <string name="sync_prelaunch_connected">Connecté</string>
     <string name="sync_prelaunch_connect_failed">Échec de la connexion</string>
+    <string name="sync_prelaunch_timed_out">Le serveur a mis trop de temps</string>
     <string name="sync_prelaunch_downloading">Téléchargement...</string>
     <string name="sync_prelaunch_download_complete">Téléchargement terminé</string>
     <string name="sync_prelaunch_download_failed">Échec du téléchargement</string>
@@ -54,12 +55,10 @@
     <string name="sync_service_saves">Synchronisation des sauvegardes...</string>
     <string name="steam_service_connecting">Connexion...</string>
     <string name="steam_service_signing_in">Authentification...</string>
-    <string name="steam_service_syncing_library">Synchronisation de la bibliothèque Steam...</string>
 
     <string name="sync_download_channel_name">Progression du téléchargement</string>
     <string name="sync_download_channel_description">Affiche la progression du téléchargement en arrière-plan</string>
     <string name="sync_download_service_preparing">Préparation du téléchargement...</string>
-    <string name="sync_download_service_steam_downloading">Téléchargement : %1$s</string>
     <string name="sync_download_service_extracting">Extraction : %1$s</string>
     <string name="sync_download_service_moving">Déplacement vers le stockage ROM : %1$s</string>
     <string name="sync_download_service_downloading">Téléchargement : %1$s</string>
@@ -144,10 +143,6 @@
     <string name="sync_steam_rate_limited_subtitle">Limite de connexion atteinte. Réessayez dans une heure</string>
     <string name="sync_steam_auth_expired_title">Session Steam expirée</string>
     <string name="sync_steam_auth_expired_subtitle">Reconnectez-vous depuis Paramètres &gt; Steam</string>
-    <string name="sync_steam_download_signed_out_title">Session Steam expirée</string>
-    <string name="sync_steam_download_signed_out_subtitle">Connectez-vous depuis Paramètres &gt; Steam pour télécharger</string>
-    <string name="sync_steam_path_blocked_title">Impossible de télécharger %1$s</string>
-    <string name="sync_steam_storage_blocked_title">Impossible de télécharger %1$s</string>
 
     <string name="sync_steam_qr_rate_limited">Limite atteinte. Réessayez plus tard</string>
     <string name="sync_steam_qr_login_failed">Échec de la connexion : %1$s</string>

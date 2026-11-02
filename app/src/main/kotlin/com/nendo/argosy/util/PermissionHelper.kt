@@ -46,19 +46,8 @@ class PermissionHelper @Inject constructor() {
         return fresh
     }
 
-    fun lastForegroundTimestamp(context: Context, packageName: String): Long? {
-        if (!hasUsageStatsPermission(context)) return null
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val now = System.currentTimeMillis()
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_BEST,
-            now - 24 * 60 * 60 * 1000L,
-            now
-        ) ?: return null
-        val target = stats.firstOrNull { it.packageName == packageName } ?: return null
-        val last = target.lastTimeUsed
-        return if (last <= 0) null else last
-    }
+    fun lastForegroundTimestamp(context: Context, packageName: String): Long? =
+        lastForegroundTimestamps(context, setOf(packageName))[packageName]
 
     /**
      * Last foreground time for each of [packageNames] that has any, from a single usage-stats
@@ -101,14 +90,16 @@ class PermissionHelper @Inject constructor() {
      * tracked separately because a package hands off between its own activities, and the one being
      * torn down can report STOPPED after its successor has already resumed.
      */
-    fun isPackageOnScreen(
-        context: Context,
-        packageName: String,
-        lookbackMs: Long = 10 * 60 * 1000L
-    ): Boolean? {
+    fun isPackageOnScreen(context: Context, packageName: String): Boolean? {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return null
         if (!hasUsageStatsPermission(context)) return null
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        return ON_SCREEN_LOOKBACKS_MS.firstNotNullOfOrNull { lookbackMs ->
+            lastLifecycleOnScreen(usm, packageName, lookbackMs)
+        }
+    }
+
+    private fun lastLifecycleOnScreen(usm: UsageStatsManager, packageName: String, lookbackMs: Long): Boolean? {
         val now = System.currentTimeMillis()
         val events = usm.queryEvents(now - lookbackMs, now)
         val event = UsageEvents.Event()
@@ -141,7 +132,7 @@ class PermissionHelper @Inject constructor() {
     fun isPackageOnScreenOrRecent(
         context: Context,
         packageName: String,
-        recencyMs: Long = 15_000
+        recencyMs: Long = RECENT_USE_WINDOW_MS
     ): Boolean {
         isPackageOnScreen(context, packageName)?.let { return it }
         return isPackageInForeground(context, packageName, recencyMs)
@@ -206,9 +197,6 @@ class PermissionHelper @Inject constructor() {
         val events = usageStatsManager.queryEvents(fromMs, toMs)
         val event = UsageEvents.Event()
 
-        // Assume active at window start: the launcher just launched the emulator
-        // with the screen on, so both are true at fromMs. If the first event is a
-        // transition away, the interval [fromMs, event] is correctly captured.
         var foregroundMs = 0L
         var lastForegroundTime: Long? = fromMs
         var hasAppEvents = false
@@ -220,7 +208,6 @@ class PermissionHelper @Inject constructor() {
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
 
-            // Screen interactive/non-interactive (API 29+)
             when (event.eventType) {
                 SCREEN_INTERACTIVE -> {
                     hasScreenEvents = true
@@ -237,7 +224,6 @@ class PermissionHelper @Inject constructor() {
                 }
             }
 
-            // App foreground/background
             if (event.packageName == packageName) {
                 when (event.eventType) {
                     UsageEvents.Event.MOVE_TO_FOREGROUND -> {
@@ -257,7 +243,6 @@ class PermissionHelper @Inject constructor() {
             }
         }
 
-        // Close open intervals at the end of the window
         if (lastForegroundTime != null) {
             foregroundMs += (toMs - lastForegroundTime).coerceAtLeast(0)
         }
@@ -265,19 +250,15 @@ class PermissionHelper @Inject constructor() {
             screenOnMs += (toMs - lastScreenOnTime).coerceAtLeast(0)
         }
 
-        // -1 signals "no data" so the caller can fall back to wall-clock time.
-        // With the fromMs initialization, no app events means emulator was in
-        // foreground the entire window (foregroundMs == totalMs). Return that
-        // directly -- it is the correct value, not a missing-data case.
-        // Only return -1 when we truly have no permission or no UsageStats access.
         val finalScreenOn = if (!hasScreenEvents) -1 else screenOnMs
 
         return SessionDurations(foregroundMs, finalScreenOn)
     }
 
     companion object {
-        // UsageEvents.Event.SCREEN_INTERACTIVE / SCREEN_NON_INTERACTIVE (API 29+)
+        const val RECENT_USE_WINDOW_MS = 15_000L
         private const val SCREEN_INTERACTIVE = 15
         private const val SCREEN_NON_INTERACTIVE = 16
+        private val ON_SCREEN_LOOKBACKS_MS = listOf(10 * 60 * 1000L, 12 * 60 * 60 * 1000L)
     }
 }

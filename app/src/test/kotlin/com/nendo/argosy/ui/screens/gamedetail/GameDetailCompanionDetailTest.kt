@@ -55,6 +55,7 @@ class GameDetailCompanionDetailTest {
                 platformSlug = "snes",
                 artUrl = "/cover.png",
                 backdropUrl = "/background.png",
+                backdropIsScreenshotOrArt = true,
                 spineUrl = "/spine.png",
                 isGameTitle = true,
                 gameId = 42,

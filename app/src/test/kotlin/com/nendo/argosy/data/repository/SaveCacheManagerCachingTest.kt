@@ -41,6 +41,7 @@ class SaveCacheManagerCachingTest {
     private val syncPreferencesRepository = mockk<com.nendo.argosy.data.preferences.SyncPreferencesRepository>(relaxed = true)
     private val savePathResolver = mockk<com.nendo.argosy.data.sync.SavePathResolver>(relaxed = true)
     private val saveHandlerRegistry = mockk<PlatformSaveHandlerRegistry>(relaxed = true)
+    private val fal = realFsFal()
 
     @Before
     fun setUp() {
@@ -54,7 +55,6 @@ class SaveCacheManagerCachingTest {
 
         coEvery { syncPreferencesRepository.isSecureSaves() } returns true
 
-        val fal = realFsFal()
         val archiver = SaveArchiver(mockk<AndroidDataAccessor>(relaxed = true), fal)
         manager = SaveCacheManager(
             context = context,
@@ -123,6 +123,44 @@ class SaveCacheManagerCachingTest {
 
         assertTrue(manager.protectBeforeOverwrite(9L, "armsx2", card.path))
         coVerify(exactly = 1) { saveCacheDao.insert(any()) }
+    }
+
+    @Test
+    fun `a save whose storage could not be refreshed is never overwritten`() = runTest {
+        val card = ps2Card(gameFolders = listOf("BASLUS-21050"))
+        every { fal.prepareSaveAccess(card.path) } returns false
+
+        assertFalse(manager.protectBeforeOverwrite(9L, "armsx2", card.path))
+        assertEquals(SaveCacheManager.CacheResult.Failed, manager.cacheAsRollback(9L, "armsx2", card.path))
+        coVerify(exactly = 0) { saveCacheDao.insert(any()) }
+    }
+
+    @Test
+    fun `an empty save folder needs no backup before a download lands`() = runTest {
+        val folder = File(tempDir, "savedir").apply { mkdirs() }
+
+        assertTrue(manager.protectBeforeOverwrite(9L, "ppsspp", folder.path))
+        coVerify(exactly = 0) { saveCacheDao.insert(any()) }
+    }
+
+    @Test
+    fun `a missing save under a readable folder needs no backup before a download lands`() = runTest {
+        val missing = File(tempDir, "saves/psp/game.srm")
+        File(tempDir, "saves").mkdirs()
+
+        assertTrue(manager.protectBeforeOverwrite(9L, "argosy", missing.path))
+    }
+
+    @Test
+    fun `a missing save under a folder that cannot be listed is not taken as absent`() = runTest {
+        val locked = File(tempDir, "locked").apply { mkdirs() }
+        val missing = File(locked, "game.srm")
+        locked.setReadable(false)
+        try {
+            assertFalse(manager.protectBeforeOverwrite(9L, "argosy", missing.path))
+        } finally {
+            locked.setReadable(true)
+        }
     }
 
     @Test

@@ -9,6 +9,7 @@ import com.nendo.argosy.data.social.uploader.PlaySessionBackfill
 import com.nendo.argosy.data.social.uploader.PlaySessionPull
 import com.nendo.argosy.ui.common.DisplayText
 import com.nendo.argosy.ui.components.recap.MonthlyRecapController
+import com.nendo.argosy.ui.screens.settings.PlayTimeDeleteConfirm
 import com.nendo.argosy.ui.screens.settings.PlayTimeEntryUi
 import com.nendo.argosy.ui.screens.settings.PlayTimeFigure
 import com.nendo.argosy.ui.screens.settings.PlayTimeGamesSortMode
@@ -53,6 +54,22 @@ class PlayTimeSettingsDelegate @Inject constructor(
                 .mapNotNull { (gameId, art) -> art.coverPath?.let { gameId to it } }
                 .toMap()
             _state.update { it.apply(snapshot, platformNames, coverPaths) }
+        }
+    }
+
+    fun requestDeleteConfirm(gameId: Long) {
+        val entry = _state.value.games.firstOrNull { it.key == gameId.toString() } ?: return
+        _state.update { it.copy(deleteConfirm = PlayTimeDeleteConfirm(gameId = gameId, gameTitle = entry.name)) }
+    }
+
+    fun dismissDeleteConfirm() = _state.update { it.copy(deleteConfirm = null) }
+
+    fun confirmDelete(scope: CoroutineScope) {
+        val confirm = _state.value.deleteConfirm ?: return
+        _state.update { it.copy(deleteConfirm = null) }
+        scope.launch {
+            playStatsRepository.deletePlayRecords(confirm.gameId)
+            load(scope)
         }
     }
 

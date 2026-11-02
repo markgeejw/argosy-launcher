@@ -118,7 +118,7 @@ fun YouTubeVideoPlayer(
                 settings.domStorageEnabled = true
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
-                settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
                 addJavascriptInterface(object {
                     @android.webkit.JavascriptInterface

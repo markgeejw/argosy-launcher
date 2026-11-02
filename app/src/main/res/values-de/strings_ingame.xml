@@ -169,6 +169,8 @@
     <string name="ingame_settings_game_specific_controls_subtitle_off">Verwendet Ihre globale Controller-Zuordnung</string>
     <string name="ingame_settings_rumble_title">Vibration</string>
     <string name="ingame_settings_rumble_subtitle">Vibrationsfeedback des Controllers aktivieren</string>
+    <string name="ingame_settings_motion_title">Bewegungssteuerung</string>
+    <string name="ingame_settings_motion_subtitle">Spiele dürfen Neigung und Drehung des Geräts auslesen</string>
     <string name="ingame_settings_controller_order_title">Controller-Reihenfolge</string>
     <plurals name="ingame_settings_controller_order_assigned">
         <item quantity="one">%d Controller zugewiesen</item>
@@ -178,6 +180,7 @@
     <string name="ingame_settings_controller_type_title">Controller von Spieler %1$d</string>
     <string name="ingame_settings_controller_type_pending">Gilt ab dem nächsten Start</string>
     <string name="ingame_settings_controller_type_core_default">Vom Core gewählt</string>
+    <string name="ingame_settings_controller_type_auto">Auto (%1$s)</string>
     <string name="ingame_settings_controller_grip_title">Controller-Griff</string>
     <string name="ingame_settings_controller_grip_subtitle">Oberfläche aus dem vom Griff verdeckten Bereich verschieben</string>
     <string name="ingame_settings_input_mapping_title">Tastenbelegung</string>
@@ -190,6 +193,8 @@
     <string name="ingame_settings_hotkeys_subtitle">Tastenkürzel für Menü, Vorlauf und Rücklauf einrichten</string>
     <string name="ingame_settings_limit_hotkeys_title">Hotkeys auf Spieler 1 beschränken</string>
     <string name="ingame_settings_limit_hotkeys_subtitle">Nur der Controller von Spieler 1 kann Hotkeys auslösen</string>
+    <string name="ingame_settings_select_as_back_title">Select als Zurück</string>
+    <string name="ingame_settings_select_as_back_subtitle">Für Controller, deren Select-Taste Zurück sendet. Automatisch nutzt Zurück als Select bei Controllern ohne Select-Taste.</string>
     <string name="ingame_settings_toggle_fast_forward_title">Vorlauf umschalten</string>
     <string name="ingame_settings_toggle_fast_forward_subtitle">Einmal drücken zum Starten, erneut zum Stoppen (aus = gedrückt halten für Vorlauf)</string>
     <string name="ingame_settings_preserve_pitch_title">Tonhöhe beibehalten</string>
@@ -361,9 +366,12 @@
     <string name="ingame_libretro_core_error_unknown">Ein unerwarteter Fehler ist aufgetreten</string>
 
     <string name="ingame_libretro_sram_load_failed_fresh_save">Spielstand konnte nicht geladen werden, neuer Spielstand wird verwendet</string>
+    <string name="ingame_libretro_hardcore_off_core_setting">Hardcore ist für diese Sitzung aus: %1$s steht auf %2$s</string>
+    <string name="ingame_libretro_core_option_blocked_hardcore">Dieser Wert ist im Hardcore-Modus nicht erlaubt</string>
     <string name="ingame_libretro_casual_save_in_hardcore">Fortsetzung eines Casual-Spielstands im Hardcore-Modus</string>
 
     <string name="ingame_libretro_disc_swap_inserted">%1$s eingelegt</string>
+    <string name="ingame_libretro_sun_level">Sonnenlicht %1$d/%2$d</string>
     <string name="ingame_libretro_disc_swap_fallback_name">Disc %1$d</string>
 
     <string name="ingame_libretro_speedrun_default_category_name">Übung</string>
@@ -399,6 +407,7 @@
     <string name="ingame_libretro_resume_success">Fortgesetzt</string>
     <string name="ingame_libretro_resume_restore_failure">Savestate konnte nicht wiederhergestellt werden</string>
     <string name="ingame_libretro_auto_restore_success">Savestate wiederhergestellt</string>
+    <string name="ingame_libretro_auto_restore_skipped_for_save">Vom Spielstand gestartet. Der Fortsetzungs-Savestate passte nicht dazu.</string>
     <string name="ingame_libretro_auto_restore_failure">Savestate konnte nicht wiederhergestellt werden</string>
     <string name="ingame_libretro_auto_restore_response_unsupported_core">Savestates für diesen Core nicht verfügbar</string>
     <string name="ingame_libretro_auto_restore_response_success">Savestate wiederhergestellt</string>
@@ -421,6 +430,7 @@
     <string name="ingame_libretro_quickaction_load_unsupported_core">Savestates für diesen Core nicht verfügbar</string>
     <string name="ingame_libretro_quickaction_load_success">Savestate geladen</string>
     <string name="ingame_libretro_quickaction_load_failure">Savestate konnte nicht geladen werden</string>
+    <string name="ingame_libretro_quickaction_load_replaced">Dieser Savestate wurde ersetzt. Wähle ihn erneut.</string>
     <string name="ingame_libretro_quickaction_screenshot_capture_failed">Aufnahme fehlgeschlagen</string>
     <string name="ingame_libretro_quickaction_screenshot_success">Screenshot gespeichert</string>
     <string name="ingame_libretro_quickaction_screenshot_failure">Screenshot fehlgeschlagen</string>

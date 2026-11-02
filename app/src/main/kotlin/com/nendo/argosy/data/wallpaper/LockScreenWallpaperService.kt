@@ -2,9 +2,11 @@ package com.nendo.argosy.data.wallpaper
 
 import android.animation.ValueAnimator
 import android.app.KeyguardManager
+import android.app.WallpaperColors
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
@@ -57,6 +59,13 @@ class LockScreenWallpaperService : WallpaperService() {
             }
             if (isPreview) preview = artManager.prepareLivePreview() else artManager.onLiveWallpaperBound()
         }
+
+        override fun onComputeColors(): WallpaperColors? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                WallpaperColors(Color.valueOf(Color.BLACK), null, null)
+            } else {
+                null
+            }
 
         override fun onDestroy() {
             preview?.cancel()

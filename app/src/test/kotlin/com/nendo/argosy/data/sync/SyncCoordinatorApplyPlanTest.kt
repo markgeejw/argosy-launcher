@@ -100,7 +100,8 @@ class SyncCoordinatorApplyPlanTest {
             saveSyncRepository = dagger.Lazy { mockSaveSyncRepository },
             saveCacheManager = dagger.Lazy { mockSaveCacheManager },
             payloadCodec = payloadCodec,
-            syncPreferencesRepository = syncPrefs
+            syncPreferencesRepository = syncPrefs,
+            serverSaveGate = noHoldGate()
         )
         coordinator = SyncCoordinator(
             context = io.mockk.mockk(relaxed = true) { io.mockk.every { filesDir } returns java.io.File(System.getProperty("java.io.tmpdir")) },

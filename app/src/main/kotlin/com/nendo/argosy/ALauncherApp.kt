@@ -6,19 +6,18 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import com.nendo.argosy.core.service.startServiceSafely
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.PlatformDao
+import com.nendo.argosy.data.launcher.GameNativeStoreSync
+import com.nendo.argosy.data.launcher.SteamLaunchers
+import com.nendo.argosy.data.repository.AppsRepository
 import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.data.cheats.CheatsDownloadObserver
 import com.nendo.argosy.data.emulator.TitleIdDownloadObserver
 import com.nendo.argosy.data.sync.SaveSyncDownloadObserver
 import com.nendo.argosy.data.update.ApkInstallManager
-import android.content.Intent
+import android.os.SystemClock
 import com.nendo.argosy.data.download.DownloadServiceController
-import com.nendo.argosy.data.steam.SteamAuthManager
-import com.nendo.argosy.data.steam.SteamContentManager
-import com.nendo.argosy.data.steam.SteamService
 import com.nendo.argosy.data.sync.SaveSyncWorker
 import com.nendo.argosy.data.sync.SocialSyncWorker
 import com.nendo.argosy.data.sync.SyncServiceController
@@ -35,10 +34,17 @@ import com.nendo.argosy.ui.coil.AppIconFetcher
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import com.nendo.argosy.util.SafeCoroutineScope
+import com.nendo.argosy.util.AppPaths
+import com.nendo.argosy.util.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
+
+private const val NEVER_REFRESHED = -1L
+private const val FOREGROUND_STEAM_REFRESH_INTERVAL_MS = 60 * 60 * 1000L
 
 @HiltAndroidApp
 class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
@@ -47,6 +53,9 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var lidSleepGuard: com.nendo.argosy.hardware.LidSleepGuard
 
     @Inject
     lateinit var userCertStore: com.nendo.argosy.data.remote.ssl.UserCertStore
@@ -68,6 +77,9 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var platformDao: PlatformDao
+
+    @Inject
+    lateinit var biosRepository: com.nendo.argosy.data.repository.BiosRepository
 
     @Inject
     lateinit var appPreferencesRepository:
@@ -105,12 +117,6 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var builtinPrefs: BuiltinEmulatorPreferencesRepository
-
-    @Inject
-    lateinit var steamAuthManager: SteamAuthManager
-
-    @Inject
-    lateinit var steamContentManager: SteamContentManager
 
     @Inject
     lateinit var quayPassService: com.nendo.argosy.data.quaypass.QuayPassService
@@ -168,9 +174,18 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     @Inject
     lateinit var homeAppAvailability: com.nendo.argosy.util.HomeAppAvailability
 
-    private val quayPassForegroundObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
+    @Inject
+    lateinit var appsRepository: AppsRepository
+
+    @Inject
+    lateinit var gameNativeStoreSync: GameNativeStoreSync
+
+    private val lastForegroundSteamRefreshAt = AtomicLong(NEVER_REFRESHED)
+
+    private val foregroundObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
         override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
             appScope.launch { quayPassCredentialManager.refreshIfNeeded() }
+            appScope.launch { refreshSteamInstallationsIfStale(SystemClock.elapsedRealtime()) }
         }
     }
 
@@ -186,7 +201,8 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
         SocialSyncWorker.schedule(this)
         CoreUpdateCheckWorker.schedule(this)
         com.nendo.argosy.data.quaypass.QuayPassCredentialRefreshWorker.schedule(this)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(quayPassForegroundObserver)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(foregroundObserver)
+        appScope.launch { observeSteamPackageChanges() }
         saveSyncDownloadObserver.start()
         cheatsDownloadObserver.start()
         titleIdDownloadObserver.start()
@@ -194,6 +210,7 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
         syncServiceController.start()
         pushInstallCoordinator.start()
         siblingGroupRepository.start()
+        lidSleepGuard.start()
         siblingGroupDownloadObserver.start()
         raPatchDownloadObserver.start()
         appScope.launch {
@@ -222,17 +239,46 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
         appScope.launch { accountSwitchCoordinator.resumeIfInterrupted() }
         appScope.launch { activeSaveRepository.resetAllActiveSaveApplied() }
         appScope.launch { libraryDefaultPlatformMigration.run() }
-        appScope.launch { autoConnectSteam() }
-        appScope.launch { steamContentManager.discoverLocalSteamGames() }
+        appScope.launch { deleteRetiredSteamDownloadDirs() }
+        appScope.launch { biosRepository.purgeRetiredFirmware() }
         syncPlatformSortOrders()
     }
 
-    private suspend fun autoConnectSteam() {
-        val account = steamAuthManager.getActiveAccount() ?: return
-        val intent = Intent(this, SteamService::class.java).apply {
-            putExtra(SteamService.EXTRA_AUTO_CONNECT, true)
+    private fun deleteRetiredSteamDownloadDirs() {
+        AppPaths.retiredSteamDownloadDirs(filesDir)
+            .filter { it.exists() }
+            .forEach { dir ->
+                if (!dir.deleteRecursively()) {
+                    Logger.warn("ArgosyApp", "Could not fully remove retired Steam download dir ${dir.name}")
+                }
+            }
+    }
+
+    internal suspend fun refreshSteamInstallationsIfStale(now: Long) {
+        val last = lastForegroundSteamRefreshAt.get()
+        if (last != NEVER_REFRESHED && now - last < FOREGROUND_STEAM_REFRESH_INTERVAL_MS) return
+        if (!lastForegroundSteamRefreshAt.compareAndSet(last, now)) return
+        try {
+            gameNativeStoreSync.refreshSteamInstallations()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.error("ArgosyApp", "Failed to refresh Steam installations on foreground", e)
         }
-        startServiceSafely(intent)
+    }
+
+    internal suspend fun observeSteamPackageChanges() {
+        appsRepository.packageChanges.collect { packageName ->
+            if (SteamLaunchers.getByPackage(packageName) != null) {
+                try {
+                    gameNativeStoreSync.refreshSteamInstallations()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.error("ArgosyApp", "Failed to refresh Steam installations after package change", e)
+                }
+            }
+        }
     }
 
     /**

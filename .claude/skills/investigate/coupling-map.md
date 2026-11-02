@@ -45,7 +45,7 @@ Lockstep set:
   nullable emulator/slot).
 
 Grill (decisions for the user):
-- Does this cross the two resolvers? Which dir must restore land in for the affected platform?
+- Does this change EmulatorResolver.resolveEmulatorForGame? Which dir must restore land in for the affected platform?
 - Does it touch the schema? Confirm the migration + version bump + schema-JSON export plan.
 - Hash vs timestamp: is conflict detection content-based or time-based for this change?
 - Multi-channel / slot semantics affected? (null channel = primary save)
@@ -106,8 +106,8 @@ Lockstep set (13 registries):
 - `data/platform/PlatformDefinitions.kt` -- `platforms`, `slugAliases`, extensions,
   TITLE_ID_PLATFORMS.
 - `data/emulator/EmulatorRegistry.kt` -- `EmulatorDef.supportedPlatforms`.
-- Two resolvers MUST agree: `EmulatorResolver.getEmulatorPackageForGame()` and
-  `GameLauncher.resolveEmulator()`.
+- `data/emulator/EmulatorResolver.kt` -- `resolveEmulatorForGame()`, the one resolver
+  launch and save paths share.
 - `libretro/LibretroCoreRegistry.kt` -- `CoreInfo.platforms`, default core.
 - `libretro/coreoptions/CoreOptionManifestRegistry.kt` (+ manifests/; match upstream tokens
   exactly or the core silently rejects).
@@ -378,8 +378,8 @@ Lockstep set:
 - `data/emulator/VariantResolver.kt` (+ `data/model/VariantCategory.kt`).
 
 Laws:
-- Two resolvers MUST agree: `GameLauncher.resolveEmulator` vs
-  `EmulatorResolver.getEmulatorPackageForGame`. Divergence lands restores in the wrong dir.
+- One resolver: `EmulatorResolver.resolveEmulatorForGame`. A second precedence chain lands
+  restores in the wrong dir.
 - Variant isolation: variants skip pre-launch/session-end sync, or a variant save clobbers
   the primary's server copy (enforced at GameLaunchDelegate `:248`/`:267` and
   PlaySessionTracker variant guards).

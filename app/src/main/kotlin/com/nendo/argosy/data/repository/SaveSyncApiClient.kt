@@ -27,6 +27,7 @@ import com.nendo.argosy.data.sync.platform.SigilSaveHandler
 import com.nendo.argosy.data.sync.platform.SwitchSaveHandler
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.util.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -37,6 +38,8 @@ import java.text.Normalizer
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+
+class SaveInventoryUnavailableException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 @Singleton
 class SaveSyncApiClient @Inject constructor(
@@ -206,18 +209,21 @@ class SaveSyncApiClient @Inject constructor(
         deviceId: String?,
         ownerUserId: Long?
     ): List<RomMSave> = withContext(Dispatchers.IO) {
-        if (api == null) return@withContext emptyList()
+        if (api == null) throw SaveInventoryUnavailableException("not connected")
 
         val response = try {
             if (deviceId != null) api.getSavesByRomWithDevice(rommId, deviceId) else api.getSavesByRom(rommId)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Logger.error(TAG, "[SaveSync] UPLOAD | getSavesByRom failed | gameId=$gameId, rommId=$rommId", e)
-            return@withContext emptyList()
+            throw SaveInventoryUnavailableException(e.message ?: "request failed", e)
         }
 
         if (!response.isSuccessful) {
             Logger.warn(TAG, "[SaveSync] UPLOAD | getSavesByRom HTTP error | gameId=$gameId, rommId=$rommId, status=${response.code()}")
-            return@withContext emptyList()
+            if (response.code() in SAVE_INVENTORY_EMPTY_STATUSES) return@withContext emptyList()
+            throw SaveInventoryUnavailableException("HTTP ${response.code()}")
         }
 
         val saves = response.body() ?: emptyList()
@@ -518,9 +524,10 @@ class SaveSyncApiClient @Inject constructor(
         coreName: String? = null,
         cachedSaveId: String? = null,
         gameId: Long? = null,
-        folderShaped: Boolean? = null
+        folderShaped: Boolean? = null,
+        emulatorPackage: String? = null
     ): String? = savePathResolver.constructSavePath(
-        emulatorId, gameTitle, platformSlug, romPath, coreName, cachedSaveId, gameId, folderShaped
+        emulatorId, gameTitle, platformSlug, romPath, coreName, cachedSaveId, gameId, folderShaped, emulatorPackage
     )
 
     suspend fun predictFolderSavePath(
@@ -585,6 +592,7 @@ class SaveSyncApiClient @Inject constructor(
         const val AUTOSAVE_SLOT_NAME = "autosave"
         internal const val MIN_VALID_SAVE_SIZE_BYTES = 100L
         internal const val AUTOCLEANUP_LIMIT = 10
+        private val SAVE_INVENTORY_EMPTY_STATUSES = setOf(403, 404)
 
         /**
          * The autosave channel is stored as either null or the literal "autosave" (a restore sets
@@ -592,6 +600,10 @@ class SaveSyncApiClient @Inject constructor(
          */
         fun isAutosaveChannel(channelName: String?): Boolean =
             channelName == null || channelName.equals(AUTOSAVE_SLOT_NAME, ignoreCase = true)
+
+        fun isLatestBucket(channelName: String?, romBaseName: String?): Boolean =
+            syncKeyOf(channelName) == AUTOSAVE_SLOT_NAME ||
+                romBaseName != null && channelName.equals(romBaseName, ignoreCase = true)
 
         fun syncKeyOf(channelName: String?): String = when {
             channelName == null -> AUTOSAVE_SLOT_NAME
@@ -646,22 +658,17 @@ class SaveSyncApiClient @Inject constructor(
             } else text
         }
 
-        internal fun parseTimestamp(timestamp: String): Instant {
-            return try {
-                Instant.parse(timestamp)
-            } catch (_: Exception) {
-                try {
-                    java.time.OffsetDateTime.parse(timestamp).toInstant()
-                } catch (_: Exception) {
-                    try {
-                        java.time.ZonedDateTime.parse(timestamp).toInstant()
-                    } catch (_: Exception) {
-                        Logger.warn(TAG, "Failed to parse timestamp: $timestamp, using current time")
-                        Instant.now()
-                    }
-                }
+        internal fun parseTimestamp(timestamp: String): Instant =
+            parseTimestampOrNull(timestamp) ?: run {
+                Logger.warn(TAG, "Failed to parse timestamp: $timestamp, using current time")
+                Instant.now()
             }
-        }
+
+        internal fun parseTimestampOrNull(timestamp: String): Instant? =
+            runCatching { Instant.parse(timestamp) }.getOrNull()
+                ?: runCatching { java.time.OffsetDateTime.parse(timestamp).toInstant() }.getOrNull()
+                ?: runCatching { java.time.ZonedDateTime.parse(timestamp).toInstant() }.getOrNull()
+                ?: com.nendo.argosy.util.parseTimestamp(timestamp)?.let(Instant::ofEpochMilli)
 
         /**
          * The channel a server save belongs to, or null for the game's latest save. The explicit
@@ -672,6 +679,36 @@ class SaveSyncApiClient @Inject constructor(
         internal fun resolveServerChannelName(save: RomMSave, romBaseName: String?): String? {
             if (isLatestSlot(save, romBaseName)) return null
             return save.slot ?: parseServerChannelNameForSync(save.fileName, romBaseName)
+        }
+
+        internal fun selectLatestServerSave(
+            serverSaves: List<RomMSave>,
+            channelName: String?,
+            romBaseName: String?,
+            preferGciZipBundle: Boolean
+        ): RomMSave? {
+            if (channelName != null) {
+                return serverSaves
+                    .filter { it.slot != null && equalsNormalized(it.slot, channelName) }
+                    .maxByOrNull { parseTimestamp(it.updatedAt) }
+                    ?: serverSaves.find {
+                        equalsNormalized(it.fileNameNoExt ?: File(it.fileName).nameWithoutExtension, channelName)
+                    }
+            }
+            val candidates = serverSaves.filter {
+                isLatestSaveFileName(it.fileName, romBaseName) ||
+                    (it.slot != null && romBaseName != null && equalsNormalized(it.slot, romBaseName))
+            }
+            val newest = candidates.maxByOrNull { parseTimestamp(it.updatedAt) }
+            val picked = if (preferGciZipBundle && candidates.size > 1) {
+                candidates.filter { it.fileName.endsWith(".zip", ignoreCase = true) }
+                    .maxByOrNull { parseTimestamp(it.updatedAt) } ?: newest
+            } else {
+                newest
+            }
+            return picked ?: serverSaves.singleOrNull()?.also { lone ->
+                Logger.warn(TAG, "[SaveSync] No filename match for romBaseName='$romBaseName'; accepting lone server save fileName='${lone.fileName}'")
+            }
         }
 
         internal fun isLatestSlot(save: RomMSave, romBaseName: String?): Boolean {

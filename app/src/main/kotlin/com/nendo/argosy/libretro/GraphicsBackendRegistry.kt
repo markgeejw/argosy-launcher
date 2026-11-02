@@ -42,8 +42,6 @@ object GraphicsBackendRegistry {
         GraphicsBackend.CoreOption("parallel_n64", "parallel-n64-gfxplugin", "parallel"),
         GraphicsBackend.CoreOption("mupen64plus_next_gles3", "mupen64plus-rdp-plugin", "parallel"),
         GraphicsBackend.CoreOption("mupen64plus_next_gles2", "mupen64plus-rdp-plugin", "parallel"),
-        GraphicsBackend.CoreOption("melonds", "melonds_opengl_renderer", null),
-        GraphicsBackend.CoreOption("melondsds", "melonds_render_mode", null),
         GraphicsBackend.CoreOption("armsx2", "armsx2_renderer", "Vulkan"),
         GraphicsBackend.FrontendApi("dolphin"),
         GraphicsBackend.FrontendApi("flycast")

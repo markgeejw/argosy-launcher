@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.nendo.argosy.R
 import com.nendo.argosy.data.preferences.ControlsPreferences
@@ -80,6 +81,7 @@ enum class QuickSettingsPage(val icon: ImageVector, @StringRes val titleRes: Int
     FRIENDS(Icons.Default.Group, R.string.ui_quick_settings_page_friends),
     QUICK(Icons.Default.Tune, R.string.ui_quick_settings_title),
     PERFORMANCE(Icons.Default.Speed, R.string.ui_quick_settings_page_performance),
+    CONNECTIONS(Icons.Default.Wifi, R.string.ui_quick_settings_page_connections),
     MUSIC(Icons.Default.MusicNote, R.string.ui_quick_settings_page_music)
 }
 
@@ -163,6 +165,8 @@ sealed class QuickSettingsItem(
         visibleWhen = { it.isSocialLinked || it.isSocialConnected }
     )
 
+    data object ConnectionsPage : QuickSettingsItem("connectionsPage", QuickSettingsPage.CONNECTIONS)
+
     data object MusicPlayer : QuickSettingsItem("musicPlayer", QuickSettingsPage.MUSIC)
 
     companion object {
@@ -183,6 +187,7 @@ sealed class QuickSettingsItem(
                 PerformanceHeader, Performance, Refresh,
                 FanHeader, Fan, FanSpeed,
                 OverlayHeader, HudOverlay,
+                ConnectionsPage,
                 MusicPlayer
             )
     }

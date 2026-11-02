@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.nendo.argosy.data.wallpaper.LockScreenScenes
 import com.nendo.argosy.hardware.FanController
+import com.nendo.argosy.hardware.FocusAccessibilityService
 import com.nendo.argosy.hardware.LEDController
 import com.nendo.argosy.hardware.ScreenCaptureManager
 import com.nendo.argosy.ui.screens.settings.PermissionsState
@@ -64,6 +65,7 @@ class PermissionsSettingsDelegate @Inject constructor(
         val hasScreenCapture = screenCaptureManager.hasPermission.value
         val isLedAvailable = ledController.isAvailable
         val hasDisplayOverlay = Settings.canDrawOverlays(application)
+        val hasAccessibilityService = FocusAccessibilityService.isEnabled(application)
 
         _state.update {
             it.copy(
@@ -75,6 +77,7 @@ class PermissionsSettingsDelegate @Inject constructor(
                 hasScreenCapture = hasScreenCapture,
                 isScreenCaptureRelevant = isLedAvailable,
                 hasDisplayOverlay = hasDisplayOverlay,
+                hasAccessibilityService = hasAccessibilityService,
                 hasLiveWallpaper = LockScreenScenes.isLiveActive(application),
                 isLiveWallpaperRelevant = LockScreenScenes.canOffer(application, lockScreenArt)
             )
@@ -120,6 +123,13 @@ class PermissionsSettingsDelegate @Inject constructor(
     fun openDisplayOverlaySettings() {
         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
             data = Uri.parse("package:${application.packageName}")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        application.startActivity(intent)
+    }
+
+    fun openAccessibilitySettings() {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         application.startActivity(intent)

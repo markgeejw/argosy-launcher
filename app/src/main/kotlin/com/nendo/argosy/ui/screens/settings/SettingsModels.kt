@@ -259,6 +259,8 @@ data class DisplayState(
     val gridDensity: GridDensity = GridDensity.NORMAL,
     val libraryLayout: com.nendo.argosy.data.preferences.LibraryLayout =
         com.nendo.argosy.data.preferences.LibraryLayout.GRID,
+    val libraryListStyle: com.nendo.argosy.data.preferences.LibraryListStyle =
+        com.nendo.argosy.data.preferences.LibraryListStyle.RELAXED,
     val backgroundBlur: Int = 0,
     val backgroundSaturation: Int = 100,
     val backgroundOpacity: Int = 100,
@@ -276,6 +278,8 @@ data class DisplayState(
     val compactFooter: Boolean = false,
     val hideSystemNavigationBar: Boolean = true,
     val hideSystemStatusBar: Boolean = true,
+    val quickPanelInEmulators: Boolean = false,
+    val showAccessibilityPrompt: Boolean = false,
     val lockScreenArt: Boolean = true,
     val homeAppAvailable: Boolean = true,
     val isDefaultHome: Boolean = false,
@@ -333,7 +337,11 @@ data class DisplayState(
     val hasScreenCapturePermission: Boolean = true,
     val hasSecondaryDisplay: Boolean = false,
     val hasPhysicalSecondaryDisplay: Boolean = false,
+    val lidSleepSupported: Boolean = false,
+    val lidSleepEnabled: Boolean = true,
     val dualScreenEnabled: Boolean = false,
+    val dualScreenMatchSize: Boolean = false,
+    val dualScreenMatchSizeAvailable: Boolean = false,
     val displayRoleOverride: DisplayRoleOverride = DisplayRoleOverride.AUTO,
     val gamesLaunchTarget: EmulatorDisplayTarget = EmulatorDisplayTarget.PRESENTATION,
     val appsLaunchTarget: EmulatorDisplayTarget = EmulatorDisplayTarget.DEFAULT,
@@ -421,6 +429,7 @@ data class ControlsState(
     val navRingRoutes: List<String> = com.nendo.argosy.ui.navigation.NavRing.DEFAULT_TOKENS,
     val quickNavigation: Boolean = true,
     val navBarAutoHide: Boolean = true,
+    val ignoreControllerTouchpad: Boolean = true,
     val showNavRingModal: Boolean = false,
     val navRingFocusIndex: Int = 0,
     val navRingReorder: com.nendo.argosy.ui.components.ListReorder<String>? = null
@@ -784,17 +793,20 @@ data class ControllerPortChoiceUi(
     val port: Int,
     val deviceIds: List<Int>,
     val deviceNames: List<String>,
-    val selectedIndex: Int
+    val selectedIndex: Int,
+    val autoIndex: Int
 )
 
 data class BuiltinControlsState(
     val controllerPorts: List<ControllerPortChoiceUi> = emptyList(),
     val rumbleEnabled: Boolean = true,
+    val motionEnabled: Boolean = true,
     val limitHotkeysToPlayer1: Boolean = true,
     val speedrunStartOnReset: Boolean = true,
     val speedrunPanelSide: String = "Right",
     val speedrunPanelWidthPercent: Int = 30,
     val fastForwardMode: com.nendo.argosy.data.local.entity.FastForwardMode = com.nendo.argosy.data.local.entity.FastForwardMode.HOLD,
+    val selectAsBack: com.nendo.argosy.data.local.entity.SelectAsBackMode = com.nendo.argosy.data.local.entity.SelectAsBackMode.AUTO,
     val fastForwardPreservePitch: Boolean = false,
     val analogAsDpad: Boolean = false,
     val dpadAsAnalog: Boolean = false,
@@ -805,6 +817,7 @@ data class BuiltinControlsState(
     val showStickMappings: Boolean = false,
     val showDpadAsAnalog: Boolean = false,
     val showRumble: Boolean = true,
+    val showMotion: Boolean = true,
     val showResetAll: Boolean = false,
     val touchEnabled: Boolean = true,
     val touchOpacityLandscape: Float = 0.45f,
@@ -968,6 +981,7 @@ data class PlatformStorageConfig(
     val downloadedCount: Int = 0,
     val syncEnabled: Boolean,
     val combineContent: Boolean = false,
+    val skipFullSync: Boolean = false,
     val customRomPath: String?,
     val effectivePath: String,
     val isExpanded: Boolean = false,
@@ -1006,6 +1020,8 @@ data class StorageState(
     val hasAllFilesAccess: Boolean = false,
     val platformConfigs: List<PlatformStorageConfig> = emptyList(),
     val showPurgePlatformConfirm: Long? = null,
+    val purgeOfferedAfterDisable: Boolean = false,
+    val purgePlatformPendingUploads: Int = 0,
     val showMigratePlatformConfirm: PlatformMigrationInfo? = null,
     val platformSettingsModalId: Long? = null,
     val platformSettingsFocusIndex: Int = 0,
@@ -1030,9 +1046,6 @@ data class StorageState(
 
 enum class StorageGamesSortMode { PLATFORM, SIZE }
 
-internal const val CACHES_ENTRY_TOP = 0
-internal const val CACHES_ENTRY_STEAM = 1
-
 data class StorageAttributionState(
     val snapshot: com.nendo.argosy.data.storage.StorageSnapshot? = null,
     val volumes: List<com.nendo.argosy.data.storage.StorageVolumeInfo> = emptyList(),
@@ -1040,13 +1053,6 @@ data class StorageAttributionState(
     val gamesSortMode: StorageGamesSortMode = StorageGamesSortMode.PLATFORM,
     val steamTileLatched: Boolean = false,
     val mediaTileLatched: Boolean = false
-)
-
-data class GameStorageDeleteConfirm(
-    val gameId: Long,
-    val title: String,
-    val hasSoundtrack: Boolean,
-    val unsyncedSaves: Int
 )
 
 data class GameStorageCategoryDeleteConfirm(
@@ -1063,7 +1069,7 @@ data class StoragePlatformGamesState(
     val games: List<com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown> = emptyList(),
     val coverPaths: Map<Long, String?> = emptyMap(),
     val highlightedCategoryIndex: Int = 0,
-    val deleteConfirm: GameStorageDeleteConfirm? = null,
+    val deleteConfirm: com.nendo.argosy.ui.common.GameConfirm.DeleteDownload? = null,
     val categoryDeleteConfirm: GameStorageCategoryDeleteConfirm? = null
 )
 
@@ -1075,15 +1081,12 @@ enum class CachesClearTarget {
     EMULATOR_APKS,
     MISC_DOWNLOADS,
     SHADERS_CATALOG,
-    FRAMES,
-    STEAM_DOWNLOADS
+    FRAMES
 }
 
 data class StorageCachesState(
     val pendingClear: CachesClearTarget? = null,
-    val busyClears: Set<CachesClearTarget> = emptySet(),
-    val steamDownloadBusy: Boolean = false,
-    val steamStagingBytes: Long? = null
+    val busyClears: Set<CachesClearTarget> = emptySet()
 )
 
 enum class PlayTimeGamesSortMode { HOURS, SESSIONS, RECENT }
@@ -1169,10 +1172,16 @@ data class PlayTimeState(
     val isUploading: Boolean = false,
     val isPulling: Boolean = false,
     val uploadNotice: com.nendo.argosy.ui.common.DisplayText? = null,
-    val pullNotice: com.nendo.argosy.ui.common.DisplayText? = null
+    val pullNotice: com.nendo.argosy.ui.common.DisplayText? = null,
+    val deleteConfirm: PlayTimeDeleteConfirm? = null
 ) {
     val isEmpty: Boolean get() = hasLoaded && sessionCount == 0
 }
+
+data class PlayTimeDeleteConfirm(
+    val gameId: Long,
+    val gameTitle: String
+)
 
 data class PlatformMigrationInfo(
     val platformId: Long,
@@ -1472,16 +1481,6 @@ data class SteamSettingsState(
     val gameNativeFoldersFocusIndex: Int = 0,
     val gameNativeFoldersActionIndex: Int = 0,
 
-    // Install volume
-    val steamInstallVolume: String? = null,
-    val availableVolumes: List<com.nendo.argosy.data.steam.SteamInstallVolume> = emptyList(),
-    val installedGamesByVolume: Map<String, Int> = emptyMap(),
-
-    // Steam install path (resolved from Steam platform's customRomPath, or default <romsRoot>/steam)
-    val steamInstallPath: String? = null,
-    // True when the Steam platform row has a non-null customRomPath (user-overridden)
-    val steamInstallPathIsCustom: Boolean = false,
-
     // Steam connection
     val connectionState: com.nendo.argosy.data.steam.SteamConnectionState =
         com.nendo.argosy.data.steam.SteamConnectionState.DISCONNECTED,
@@ -1499,6 +1498,7 @@ data class SteamSettingsState(
     // Manual add
     val showAddGameDialog: Boolean = false,
     val addGameAppId: String = "",
+    val addGameLauncherPackage: String? = null,
     val addGameError: String? = null,
     val isAddingGame: Boolean = false,
 
@@ -1606,6 +1606,7 @@ data class PermissionsState(
     val hasScreenCapture: Boolean = false,
     val isScreenCaptureRelevant: Boolean = false,
     val hasDisplayOverlay: Boolean = false,
+    val hasAccessibilityService: Boolean = false,
     val hasLiveWallpaper: Boolean = false,
     val isLiveWallpaperRelevant: Boolean = false
 ) {

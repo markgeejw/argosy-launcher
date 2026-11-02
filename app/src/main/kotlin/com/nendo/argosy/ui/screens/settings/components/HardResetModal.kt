@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.nendo.argosy.R
 import com.nendo.argosy.core.input.SoundType
 import com.nendo.argosy.data.repository.HardResetPreview
+import com.nendo.argosy.ui.components.FooterHints
 import com.nendo.argosy.ui.components.GamepadHoldTracker
 import com.nendo.argosy.ui.components.HoldToConfirmButton
 import com.nendo.argosy.ui.components.Modal
@@ -43,6 +44,7 @@ import com.nendo.argosy.ui.primitives.ModalActionButton
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalArgosyTheme
 import com.nendo.argosy.ui.theme.LocalLauncherTheme
+import com.nendo.argosy.ui.theme.generated.ComponentDefaults
 import com.nendo.argosy.util.formatBytes
 
 private const val FOCUS_CANCEL = 0
@@ -169,12 +171,13 @@ fun HardResetModal(
         }
     }
     ModalInputEffect(active = true, handler = modalHandler)
+    FooterHints(hints = emptyList())
 
     Modal(
         title = stringResource(R.string.settings_hard_reset_title),
         subtitle = stringResource(R.string.settings_hard_reset_subtitle),
         subtitleColor = theme.destructive,
-        baseWidth = 440.dp,
+        baseWidth = Dimens.modalWidthXl,
         onDismiss = if (isResetting) null else onDismiss
     ) {
         Column(
@@ -205,27 +208,30 @@ fun HardResetModal(
                 )
             }
             Spacer(modifier = Modifier.height(Dimens.spacingMd))
-            ScopeList(
-                header = stringResource(R.string.settings_hard_reset_deletes_header),
-                headerColor = theme.destructive,
-                items = listOf(
-                    stringResource(R.string.settings_hard_reset_deletes_files),
-                    stringResource(R.string.settings_hard_reset_deletes_database),
-                    stringResource(R.string.settings_hard_reset_deletes_caches)
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingLg)) {
+                ScopeList(
+                    header = stringResource(R.string.settings_hard_reset_deletes_header),
+                    headerColor = theme.destructive,
+                    items = listOf(
+                        stringResource(R.string.settings_hard_reset_deletes_files),
+                        stringResource(R.string.settings_hard_reset_deletes_database),
+                        stringResource(R.string.settings_hard_reset_deletes_caches)
+                    ),
+                    modifier = Modifier.weight(1f)
                 )
-            )
-            Spacer(modifier = Modifier.height(Dimens.spacingMd))
-            ScopeList(
-                header = stringResource(R.string.settings_hard_reset_keeps_header),
-                headerColor = semanticColors.success,
-                items = listOf(
-                    stringResource(R.string.settings_hard_reset_keeps_adopted_files),
-                    stringResource(R.string.settings_hard_reset_keeps_sign_ins),
-                    stringResource(R.string.settings_hard_reset_keeps_synced_saves),
-                    stringResource(R.string.settings_hard_reset_keeps_emulator_apps),
-                    stringResource(R.string.settings_hard_reset_keeps_music)
+                ScopeList(
+                    header = stringResource(R.string.settings_hard_reset_keeps_header),
+                    headerColor = semanticColors.success,
+                    items = listOf(
+                        stringResource(R.string.settings_hard_reset_keeps_adopted_files),
+                        stringResource(R.string.settings_hard_reset_keeps_sign_ins),
+                        stringResource(R.string.settings_hard_reset_keeps_synced_saves),
+                        stringResource(R.string.settings_hard_reset_keeps_emulator_apps),
+                        stringResource(R.string.settings_hard_reset_keeps_music)
+                    ),
+                    modifier = Modifier.weight(1f)
                 )
-            )
+            }
             if (blocked) {
                 Spacer(modifier = Modifier.height(Dimens.spacingMd))
                 Text(
@@ -270,16 +276,19 @@ fun HardResetModal(
                 )
             }
         } else {
+            val buttonHeight = ComponentDefaults.HoldButton.height.dp
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm, Alignment.End)
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 ModalActionButton(
                     label = stringResource(R.string.settings_hard_reset_cancel_button),
                     tint = theme.focusAccent,
                     restLabelColor = theme.textPrimary,
                     focused = focusIndex == FOCUS_CANCEL,
-                    onClick = onDismiss
+                    onClick = onDismiss,
+                    modifier = Modifier.height(buttonHeight)
                 )
                 if (blocked) {
                     ModalActionButton(
@@ -288,27 +297,28 @@ fun HardResetModal(
                         restLabelColor = theme.textPrimary,
                         focused = focusIndex == FOCUS_ACTION,
                         enabled = canSyncNow,
-                        onClick = { activateSyncNow() }
+                        onClick = { activateSyncNow() },
+                        modifier = Modifier.height(buttonHeight)
                     )
                 }
+                HoldToConfirmButton(
+                    label = stringResource(R.string.settings_hard_reset_hold_button),
+                    isFocused = !blocked && focusIndex == FOCUS_ACTION,
+                    enabled = !blocked,
+                    gamepadTracker = tracker,
+                    onHoldStart = onHoldStart,
+                    onConfirmed = { currentOnConfirm() },
+                    modifier = Modifier.weight(1f)
+                )
             }
-            Spacer(modifier = Modifier.height(Dimens.spacingSm))
-            HoldToConfirmButton(
-                label = stringResource(R.string.settings_hard_reset_hold_button),
-                isFocused = !blocked && focusIndex == FOCUS_ACTION,
-                enabled = !blocked,
-                gamepadTracker = tracker,
-                onHoldStart = onHoldStart,
-                onConfirmed = { currentOnConfirm() }
-            )
         }
     }
 }
 
 @Composable
-private fun ScopeList(header: String, headerColor: Color, items: List<String>) {
+private fun ScopeList(header: String, headerColor: Color, items: List<String>, modifier: Modifier = Modifier) {
     val theme = LocalArgosyTheme.current
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
         Text(
             text = header.uppercase(),
             style = MaterialTheme.typography.labelMedium,

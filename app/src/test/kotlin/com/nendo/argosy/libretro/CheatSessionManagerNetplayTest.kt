@@ -41,7 +41,8 @@ class CheatSessionManagerNetplayTest {
     private fun buildManager(
         scope: CoroutineScope,
         initialCheats: List<CheatEntity>,
-        canSerialize: Boolean = true
+        canSerialize: Boolean = true,
+        hardcore: Boolean = false
     ): Triple<CheatSessionManager, CheatDao, CheatsRepository> {
         val cheatDao = mockk<CheatDao>(relaxed = true)
         val gameDao = mockk<GameDao>(relaxed = true)
@@ -57,10 +58,28 @@ class CheatSessionManagerNetplayTest {
             gameDao = gameDao,
             cheatsRepository = repository,
             canSerialize = { canSerialize },
+            isHardcore = { hardcore },
             scope = scope
         )
-        manager.loadCheats(hardcoreMode = false)
+        manager.loadCheats(hardcoreMode = hardcore)
         return Triple(manager, cheatDao, repository)
+    }
+
+    @Test
+    fun hardcoreSessionsRefuseToEnableOrCreateCheats() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val view = mockk<GLRetroView>(relaxed = true)
+        val (manager, cheatDao, _) = buildManager(scope, listOf(cheatEntity(1L, enabled = false)), hardcore = true)
+        manager.setRetroView(view)
+        advanceUntilIdle()
+
+        manager.handleToggleCheat(1L, enabled = true)
+        manager.handleCreateCheat(address = 0x10, value = 1, description = "x")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { cheatDao.setEnabled(any(), true, any()) }
+        coVerify(exactly = 0) { cheatDao.insert(any()) }
+        verify(exactly = 0) { view.setCheat(any(), true, any()) }
     }
 
     @Test

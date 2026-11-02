@@ -160,16 +160,6 @@
     <string name="storage_computed_label_computed">Berechnet %1$s</string>
     <string name="storage_computed_label_never">Noch nicht berechnet</string>
 
-    <!-- ================= Download foreground notification text (Steam) ================= -->
-
-    <string name="download_indicator_notification_preparing">Vorbereitung: %1$s</string>
-    <string name="download_indicator_notification_connecting">Verbindung zu Steam wird hergestellt...</string>
-    <string name="download_indicator_notification_fetching_manifest">Manifest wird abgerufen: %1$s</string>
-    <string name="download_indicator_notification_unpacking">Entpacken: %1$s</string>
-    <string name="download_indicator_notification_moving">Verschieben: %1$s</string>
-    <string name="download_indicator_notification_cleaning">Aufräumen: %1$s</string>
-    <string name="download_indicator_notification_paused">Pausiert: %1$s</string>
-
     <!-- ================= Title ID recheck notice ================= -->
 
     <string name="title_id_recheck_notice_updated">Title ID aktualisiert auf %1$s</string>
@@ -180,6 +170,7 @@
     <!-- ================= Steam launcher picker "no override" option ================= -->
 
     <string name="gamedetail_steam_launcher_auto">Auto</string>
+    <string name="gamedetail_steam_launcher_auto_uses">Verwendet %1$s</string>
 
     <!-- ================= Memcard picker "use the inherited default" entry ================= -->
 

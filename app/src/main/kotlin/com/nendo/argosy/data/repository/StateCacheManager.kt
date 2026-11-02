@@ -85,8 +85,12 @@ class StateCacheManager @Inject constructor(
         private const val UNKNOWN_CORE_DIR = "unknown"
         private const val MIN_UNLOCKED_SLOTS = 3
         private const val BUFFER_SIZE = 8192
+        private const val DISPLACED_DIR = "displaced"
+        private const val DISPLACED_RETENTION_DAYS = 14L
         private val LOCAL_ONLY_STATUSES = setOf(StateCacheEntity.STATUS_LOCAL_NEWER, StateCacheEntity.STATUS_PENDING_UPLOAD)
         private val UPLOAD_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+        private val STATE_NAME_TIMESTAMP =
+            Regex("""\[(\d{4}-\d{2}-\d{2})[_ ](\d{2}-\d{2}-\d{2})(?:-(\d{3}))?]""")
         private val SLOT_REGEX = Regex("""\.state(\d+)?$""")
         private val UNDERSCORE_SLOT_REGEX = Regex("""_(\d+)\.[^.]+$""")
     }
@@ -890,14 +894,40 @@ class StateCacheManager @Inject constructor(
     private fun deleteLiveStates(files: List<File>, romPath: String): Boolean {
         var deletedAny = false
         for (file in files) {
-            if (file.delete()) {
-                File("${file.absolutePath}.png").takeIf { it.exists() }?.delete()
-                Log.d(TAG, "Deleted live state: ${file.absolutePath}")
-                deletedAny = true
-            }
+            if (displaceLiveState(file)) deletedAny = true
         }
         if (!deletedAny) Log.d(TAG, "deleteLiveStates: nothing to delete for ${File(romPath).name}")
         return deletedAny
+    }
+
+    /**
+     * Moves a live state and its screenshot out of the emulator's folder into the displaced-state
+     * store, where it stays for [DISPLACED_RETENTION_DAYS] days. False when nothing was moved.
+     */
+    fun displaceLiveState(file: File): Boolean {
+        if (!file.exists()) return false
+        val displacedDir = File(cacheBaseDir, "$DISPLACED_DIR/${System.currentTimeMillis()}")
+        return try {
+            displacedDir.mkdirs()
+            val screenshot = File("${file.absolutePath}.png")
+            file.copyTo(File(displacedDir, file.name), overwrite = true)
+            if (screenshot.exists()) screenshot.copyTo(File(displacedDir, screenshot.name), overwrite = true)
+            file.delete()
+            screenshot.delete()
+            Log.d(TAG, "Displaced live state ${file.absolutePath} to ${displacedDir.absolutePath}")
+            pruneDisplacedStates()
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not displace ${file.absolutePath}, leaving it in place", e)
+            false
+        }
+    }
+
+    private fun pruneDisplacedStates() {
+        val cutoff = System.currentTimeMillis() - DISPLACED_RETENTION_DAYS * 24 * 60 * 60 * 1000L
+        File(cacheBaseDir, DISPLACED_DIR).listFiles()
+            ?.filter { it.isDirectory && (it.name.toLongOrNull() ?: Long.MAX_VALUE) < cutoff }
+            ?.forEach { it.deleteRecursively() }
     }
 
     private suspend fun autoResumeStateFiles(
@@ -1008,23 +1038,28 @@ class StateCacheManager @Inject constructor(
                 return MultipartBody.Part.createFormData("stateFile", uploadFileName, requestBody)
             }
 
-            fun buildScreenshotPart(): MultipartBody.Part? = getScreenshotFile(state)?.let { ssFile ->
+            fun buildScreenshotPart(stateName: String): MultipartBody.Part? = getScreenshotFile(state)?.let { ssFile ->
                 val ssBody = ssFile.asRequestBody("image/png".toMediaType())
-                MultipartBody.Part.createFormData("screenshotFile", ssFile.name, ssBody)
+                MultipartBody.Part.createFormData("screenshotFile", "$stateName.png", ssBody)
             }
 
             val firstResponse = if (state.rommSaveId != null) {
+                val serverName = if (getScreenshotFile(state) != null) {
+                    runCatching { api.getState(state.rommSaveId).body()?.fileName }.getOrNull()
+                } else {
+                    null
+                }
                 api.updateState(
                     state.rommSaveId,
                     stateFile = buildStatePart(),
-                    screenshotFile = buildScreenshotPart()
+                    screenshotFile = buildScreenshotPart(serverName ?: uploadFileName)
                 )
             } else {
                 api.uploadState(
                     rommId,
                     serverEmulatorTag(state),
                     stateFile = buildStatePart(),
-                    screenshotFile = buildScreenshotPart()
+                    screenshotFile = buildScreenshotPart(uploadFileName)
                 )
             }
 
@@ -1048,7 +1083,7 @@ class StateCacheManager @Inject constructor(
                     rommId,
                     serverEmulatorTag(state),
                     stateFile = buildStatePart(),
-                    screenshotFile = buildScreenshotPart()
+                    screenshotFile = buildScreenshotPart(uploadFileName)
                 )
             } else {
                 firstResponse
@@ -1061,7 +1096,7 @@ class StateCacheManager @Inject constructor(
                     return@withContext StateCloudResult.Error("Empty response from server")
                 }
 
-                val serverTimestamp = parseTimestamp(serverState.updatedAt)
+                val serverTimestamp = SaveSyncApiClient.parseTimestampOrNull(serverState.updatedAt)
                 stateCacheDao.updateSyncState(
                     id = state.id,
                     rommSaveId = serverState.id,
@@ -1177,7 +1212,7 @@ class StateCacheManager @Inject constructor(
                 note = existing?.note,
                 rommSaveId = rommStateId,
                 syncStatus = StateCacheEntity.STATUS_SYNCED,
-                serverUpdatedAt = parseTimestamp(serverState.updatedAt) ?: now,
+                serverUpdatedAt = SaveSyncApiClient.parseTimestampOrNull(serverState.updatedAt) ?: now,
                 lastUploadedHash = contentHash,
                 ownerUserId = existing?.ownerUserId ?: ownerUserId
             )
@@ -1257,8 +1292,6 @@ class StateCacheManager @Inject constructor(
             totalMigrated += migrated
         }
 
-        // Clean up stale local entries with bad channel names
-        // from before the fix (old slot names or filenames leaked into channelName)
         val staleChannelPattern = Regex("""^state_|\.state""")
         var cleaned = 0
 
@@ -1355,12 +1388,11 @@ class StateCacheManager @Inject constructor(
                         val serverState = uploadResponse.body()
                         api.deleteSaves(RomMDeleteSavesRequest(saves = listOf(save.id)))
 
-                        // Update local cache: remove old rommSaveId reference, set new state ID
                         val oldCache = save.id.let {
                             stateCacheDao.getByRommSaveId(it, syncPreferencesRepository.getRommUserId())
                         }
                         if (oldCache != null && serverState != null) {
-                            val serverTimestamp = parseTimestamp(serverState.updatedAt)
+                            val serverTimestamp = SaveSyncApiClient.parseTimestampOrNull(serverState.updatedAt)
                             stateCacheDao.updateSyncState(
                                 id = oldCache.id,
                                 rommSaveId = serverState.id,
@@ -1426,30 +1458,24 @@ class StateCacheManager @Inject constructor(
         return md.digest().joinToString("") { "%02x".format(it) }
     }
 
-    fun parseServerStateTimestamp(timestamp: String): Instant? = parseTimestamp(timestamp)
-
+    /**
+     * The capture time a state's name carries: `[yyyy-MM-dd_HH-mm-ss]` from Argosy, or RomM's
+     * `[yyyy-MM-dd HH-mm-ss-SSS]` (web player) and `[yyyy-MM-dd_HH-mm-ss-SSS]` (server tag).
+     */
     fun parseStateFileTimestamp(fileName: String): Instant? {
-        val match = Regex("""\[(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})]""").find(fileName) ?: return null
+        val match = STATE_NAME_TIMESTAMP.find(fileName) ?: return null
+        val (date, time, millis) = match.destructured
         return try {
-            java.time.LocalDateTime.parse(match.groupValues[1], UPLOAD_TIMESTAMP_FORMAT)
+            java.time.LocalDateTime.parse("${date}_$time", UPLOAD_TIMESTAMP_FORMAT)
+                .plusNanos((millis.toLongOrNull() ?: 0L) * 1_000_000L)
                 .atZone(java.time.ZoneId.systemDefault()).toInstant()
         } catch (e: Exception) {
             null
         }
     }
 
-    fun parseTimestamp(timestamp: String): Instant? {
-        return try {
-            ZonedDateTime.parse(timestamp, DateTimeFormatter.ISO_DATE_TIME).toInstant()
-        } catch (e: Exception) {
-            try {
-                Instant.parse(timestamp)
-            } catch (e2: Exception) {
-                Log.w(TAG, "Failed to parse timestamp: $timestamp")
-                null
-            }
-        }
-    }
+    fun serverStateWrittenAt(state: RomMState): Instant? =
+        parseStateFileTimestamp(state.fileName) ?: SaveSyncApiClient.parseTimestampOrNull(state.updatedAt)
 
     fun buildUploadFileName(state: StateCacheEntity, romBaseName: String): String {
         val stateExt = when (state.slotNumber) {
@@ -1471,15 +1497,12 @@ class StateCacheManager @Inject constructor(
         val slot = save.slot ?: return null
         val stateSlotMatch = Regex("""^state_(\w+)$""").find(slot) ?: return null
         val ext = save.fileExtension?.lowercase() ?: File(save.fileName).extension.lowercase()
-        // Skip SRAM save snapshots that were uploaded alongside states
         if (ext == "srm" || ext == "zip") return null
         val slotValue = stateSlotMatch.groupValues[1]
         val stateExt = when (slotValue) {
             "auto" -> "state.auto"
             else -> "state$slotValue"
         }
-        // Strip existing state/auto extensions from the original filename
-        // Handles: .state, .state1, .auto, and .state before a timestamp like .state [ts].auto
         val baseName = save.fileName
             .replace(Regex("""\.(state\d*|auto)$"""), "")
             .replace(Regex("""\.state(?= \[)"""), "")
@@ -1494,35 +1517,29 @@ class StateCacheManager @Inject constructor(
     )
 
     fun parseStateFileName(fileName: String): ParsedStateFileName {
-        val ts = """ \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}]"""
+        val ts = """ \[\d{4}-\d{2}-\d{2}[_ ]\d{2}-\d{2}-\d{2}(?:-\d{3})?]"""
 
-        // {game} [{ts}].{channel}.state.auto
         val channelAutoMatch = Regex("""^(.+)$ts\.(.+?)\.state\.auto$""").find(fileName)
         if (channelAutoMatch != null) {
             return ParsedStateFileName(channelAutoMatch.groupValues[1], channelAutoMatch.groupValues[2], -1)
         }
-        // {game} [{ts}].state.auto  or  {game}.state.auto  or  {game}.state [{ts}].auto (legacy)
         val autoMatch = Regex("""^(.+?)(?:\.state)?(?:$ts)?\.state\.auto$|^(.+?)\.state$ts\.auto$""").find(fileName)
         if (autoMatch != null) {
             val rom = autoMatch.groupValues[1].ifEmpty { autoMatch.groupValues[2] }
             return ParsedStateFileName(rom, null, -1)
         }
-        // {game} [{ts}].{channel}.state{N}
         val channelNumberedMatch = Regex("""^(.+)$ts\.(.+?)\.state(\d+)$""").find(fileName)
         if (channelNumberedMatch != null) {
             return ParsedStateFileName(channelNumberedMatch.groupValues[1], channelNumberedMatch.groupValues[2], channelNumberedMatch.groupValues[3].toIntOrNull() ?: 0)
         }
-        // {game} [{ts}].state{N}  or  {game}.state{N}
         val numberedMatch = Regex("""^(.+?)(?:$ts)?\.state(\d+)$""").find(fileName)
         if (numberedMatch != null) {
             return ParsedStateFileName(numberedMatch.groupValues[1], null, numberedMatch.groupValues[2].toIntOrNull() ?: 0)
         }
-        // Legacy: {game} [{ts}].state (no slot number, treat as slot 0)
         val legacyMatch = Regex("""^(.+?)(?:$ts)?\.state$""").find(fileName)
         if (legacyMatch != null) {
             return ParsedStateFileName(legacyMatch.groupValues[1], null, 0)
         }
-        // Fallback
         return ParsedStateFileName(null, null, parseSlotFromFileName(fileName))
     }
 

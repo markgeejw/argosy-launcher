@@ -31,6 +31,9 @@ class GLRetroViewData(context: Context) {
     var rtcState: ByteArray? = null
     var shader: ShaderConfig = ShaderConfig.Default
     var rumbleEventsEnabled: Boolean = true
+    var motionSensorsEnabled: Boolean = true
+    var sunSensorEnabled: Boolean = false
+    var coreAccelerometerScale: Float = 1f
     var preferLowLatencyAudio: Boolean = true
     var forceSoftwareTiming: Boolean = false
     var skipDuplicateFrames: Boolean = false

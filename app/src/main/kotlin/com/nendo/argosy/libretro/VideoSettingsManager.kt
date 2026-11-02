@@ -28,7 +28,8 @@ class VideoSettingsManager(
     private val frameRegistry: FrameRegistry,
     private val scope: CoroutineScope,
     private val shaderRegistryProvider: () -> ShaderRegistry,
-    private val getRetroView: () -> GLRetroView
+    private val getRetroView: () -> GLRetroView,
+    private val setAudioVolume: (Float) -> Unit
 ) {
     var currentShader by mutableStateOf("None")
     var resolvedCustomShader: ShaderConfig = ShaderConfig.Default
@@ -48,6 +49,7 @@ class VideoSettingsManager(
     var currentRewindSpeed by mutableStateOf("1x")
     var currentRewindBufferDuration by mutableStateOf("15s")
     var currentRumbleEnabled by mutableStateOf(true)
+    var currentMotionEnabled by mutableStateOf(true)
     var currentAnalogAsDpad by mutableStateOf(false)
     var currentDpadAsAnalog by mutableStateOf(false)
     var currentFrame by mutableStateOf<String?>(null)
@@ -99,6 +101,7 @@ class VideoSettingsManager(
         currentRewindSpeed = settings.rewindSpeedDisplay
         currentRewindBufferDuration = settings.rewindBufferDurationDisplay
         currentRumbleEnabled = settings.rumbleEnabled
+        currentMotionEnabled = settings.motionEnabled
         currentAnalogAsDpad = settings.analogAsDpad
         currentDpadAsAnalog = settings.dpadAsAnalog
         currentFrame = settings.frame
@@ -477,7 +480,7 @@ class VideoSettingsManager(
                 onRewindConfigChanged?.invoke()
             }
             LibretroSettingDef.AudioVolume -> {
-                retroView.audioVolume = (value.removeSuffix("%").toIntOrNull() ?: 100) / 100f
+                setAudioVolume((value.removeSuffix("%").toIntOrNull() ?: 100) / 100f)
             }
             LibretroSettingDef.SkipDuplicateFrames,
             LibretroSettingDef.LowLatencyAudio,
@@ -594,6 +597,7 @@ class VideoSettingsManager(
                 "analogAsDpad" -> current.copy(analogAsDpad = value)
                 "dpadAsAnalog" -> current.copy(dpadAsAnalog = value)
                 "rumbleEnabled" -> current.copy(rumbleEnabled = value)
+                "motionEnabled" -> current.copy(motionEnabled = value)
                 else -> return@launch
             }
             if (updated.hasAnyOverrides()) {

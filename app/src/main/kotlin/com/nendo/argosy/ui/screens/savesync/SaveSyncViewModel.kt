@@ -4,11 +4,7 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nendo.argosy.R
-import com.nendo.argosy.data.local.dao.GameDao
-import com.nendo.argosy.data.local.dao.PendingConflictDao
 import com.nendo.argosy.data.local.dao.SaveCountByDevice
-import com.nendo.argosy.data.local.dao.SaveSyncDao
-import com.nendo.argosy.data.local.dao.getByIdsChunked
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.local.entity.PendingConflictEntity
 import com.nendo.argosy.data.local.entity.SaveSyncEntity
@@ -58,10 +54,7 @@ private const val ACTIVITY_DEBOUNCE_MS = 150L
 @HiltViewModel
 class SaveSyncViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
-    private val saveSyncDao: SaveSyncDao,
-    private val pendingConflictDao: PendingConflictDao,
     private val syncQueueManager: SyncQueueManager,
-    private val gameDao: GameDao,
     private val preferencesRepository: UserPreferencesRepository,
     private val romMRepository: RomMRepository,
     private val conflictResolutionService: ConflictResolutionService,
@@ -135,7 +128,7 @@ class SaveSyncViewModel @Inject constructor(
         val otherDevicesExpanded = values[10] as Boolean
         val gameIds = (saveRows.map { it.gameId } + conflicts.map { it.gameId } + queueState.operations.map { it.gameId })
             .distinct()
-        val gameById = if (gameIds.isEmpty()) emptyMap() else gameDao.getByIdsChunked(gameIds).associateBy { it.id }
+        val gameById = if (gameIds.isEmpty()) emptyMap() else gameRepository.getByIdsBatched(gameIds).associateBy { it.id }
         val artById = gameRepository.getArt(gameById.keys)
 
         val isConnected = connection is ConnectionState.Connected
@@ -474,22 +467,21 @@ class SaveSyncViewModel @Inject constructor(
     private fun ownedConflicts() = preferencesRepository.preferences
         .map { it.rommUserId }
         .distinctUntilChanged()
-        .flatMapLatest { pendingConflictDao.observeOpenConflicts(PendingConflictEntity.ownerScope(it)) }
+        .flatMapLatest { conflictResolutionService.observeOpenConflicts(it) }
 
     private fun ownedSaveRows() = preferencesRepository.preferences
         .map { it.rommUserId }
         .distinctUntilChanged()
-        .flatMapLatest { saveSyncDao.observeAll(it) }
+        .flatMapLatest { saveSyncRepository.observeSaveRows(it) }
 
     private fun ownedDeviceCounts() = preferencesRepository.preferences
         .map { it.rommUserId }
         .distinctUntilChanged()
-        .flatMapLatest { saveSyncDao.observeSaveCountsByDevice(it) }
+        .flatMapLatest { saveSyncRepository.observeSaveCountsByDevice(it) }
 
     private fun resolveAttention(conflictId: Long, resolution: ConflictResolution) {
         viewModelScope.launch {
-            val conflict = pendingConflictDao.getById(conflictId) ?: return@launch
-            conflictResolutionService.resolve(conflict, resolution)
+            conflictResolutionService.resolveById(conflictId, resolution)
         }
     }
 

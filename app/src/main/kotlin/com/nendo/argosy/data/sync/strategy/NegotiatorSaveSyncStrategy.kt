@@ -5,7 +5,9 @@ import com.nendo.argosy.data.remote.romm.RomMConnectionManager
 import com.nendo.argosy.data.remote.romm.RomMSyncCompletePayload
 import com.nendo.argosy.data.remote.romm.RomMSyncNegotiatePayload
 import com.nendo.argosy.data.remote.romm.RomMSyncOperation
+import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.util.Logger
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,7 +50,8 @@ class NegotiatorSaveSyncStrategy @Inject constructor(
                     fileSizeBytes = it.fileSizeBytes
                 )
             },
-            romIds = romIds
+            romIds = romIds,
+            restoreUnlisted = true
         )
 
         val response = try {
@@ -73,7 +76,7 @@ class NegotiatorSaveSyncStrategy @Inject constructor(
 
         val plan = ReconcilePlan(
             sessionId = body.sessionId,
-            operations = body.operations.map { it.toReconcileOperation() }
+            operations = newestOperationPerSyncKey(body.operations.map { it.toReconcileOperation() })
         )
         plan.operations.forEach {
             Logger.debug(
@@ -128,6 +131,23 @@ class NegotiatorSaveSyncStrategy @Inject constructor(
         private const val TAG = "NegotiatorSaveSyncStrategy"
     }
 }
+
+private val ACTION_PRECEDENCE = listOf(
+    ReconcileAction.CONFLICT,
+    ReconcileAction.DOWNLOAD,
+    ReconcileAction.UPLOAD,
+    ReconcileAction.NO_OP
+)
+
+private val SLOT_PRECEDENCE = compareBy<ReconcileOperation> { op ->
+    op.serverUpdatedAt?.let(SaveSyncApiClient::parseTimestamp) ?: Instant.MAX
+}.thenByDescending { ACTION_PRECEDENCE.indexOf(it.action) }
+
+internal fun newestOperationPerSyncKey(operations: List<ReconcileOperation>): List<ReconcileOperation> =
+    operations
+        .groupBy { it.romId to SaveSyncApiClient.syncKeyOf(it.slot) }
+        .values
+        .map { it.maxWith(SLOT_PRECEDENCE) }
 
 private fun RomMSyncOperation.toReconcileOperation(): ReconcileOperation = ReconcileOperation(
     action = when (action) {

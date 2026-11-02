@@ -49,6 +49,7 @@ suspend fun GameEntity.toHomeGameUi(
         coverAspectRatio = art?.coverAspectRatio,
         gradientColors = gradientColors,
         backgroundPath = effectiveBackground,
+        backgroundIsScreenshotOrArt = art?.backgroundPath != null || firstScreenshotUrl != null,
         boxBackPath = art?.boxBackPath?.takeIf { it.startsWith("/") },
         boxSpinePath = art?.boxSpinePath?.takeIf { it.startsWith("/") },
         box3dPath = art?.box3dPath?.takeIf { it.startsWith("/") },

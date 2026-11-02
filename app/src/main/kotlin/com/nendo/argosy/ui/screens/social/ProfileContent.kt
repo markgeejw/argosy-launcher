@@ -67,8 +67,6 @@ import kotlin.math.roundToInt
 private const val PROFILE_DISPLAY_SECTIONS = 3
 
 fun profileFocusToItemIndex(focusIndex: Int, mostPlayedCount: Int): Int {
-    // Items: AccountCard(0), StatsGrid(1), Chart(2),
-    //        MostPlayedHeader(3, if count>0), MostPlayedRows(4..3+count)
     val headerOffset = if (mostPlayedCount > 0) 1 else 0
     return when {
         focusIndex < PROFILE_DISPLAY_SECTIONS -> focusIndex

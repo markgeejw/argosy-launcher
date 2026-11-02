@@ -71,6 +71,12 @@ data class GameStorageBreakdown(
     val hasSoundtrack: Boolean get() = buckets.any { it.bucket == GameStorageBucket.SOUNDTRACK }
 }
 
+data class GameDeleteSummary(
+    val title: String,
+    val hasSoundtrack: Boolean,
+    val unsyncedSaves: Int
+)
+
 private val BUCKET_ORDER = listOf(
     GameStorageBucket.BASE, GameStorageBucket.UPDATES, GameStorageBucket.DLC,
     GameStorageBucket.HACKS, GameStorageBucket.SOUNDTRACK, GameStorageBucket.OTHER
@@ -88,6 +94,16 @@ class GameStorageBreakdownUseCase @Inject constructor(
         gameDao.getDownloadedGamesByPlatform(platformId, ownerUserId).mapNotNull { game ->
             buildBreakdown(game.id, game.title, game.source, game.localPath, game.fileSizeBytes)
         }
+    }
+
+    suspend fun deleteSummary(gameId: Long): GameDeleteSummary? = withContext(Dispatchers.IO) {
+        val game = gameDao.getById(gameId) ?: return@withContext null
+        val breakdown = buildBreakdown(game.id, game.title, game.source, game.localPath, game.fileSizeBytes)
+        GameDeleteSummary(
+            title = game.title,
+            hasSoundtrack = breakdown?.hasSoundtrack == true,
+            unsyncedSaves = saveCacheDao.countNeedingRemoteSyncForGame(gameId)
+        )
     }
 
     private suspend fun buildBreakdown(

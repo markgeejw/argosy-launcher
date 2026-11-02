@@ -1,8 +1,6 @@
 package com.nendo.argosy.ui.screens.settings.sections.input
 
 import com.nendo.argosy.core.input.SoundType
-import com.nendo.argosy.data.preferences.MenuWrapMode
-import com.nendo.argosy.ui.input.InputDispatcher.Companion.currentIsRepeat
 import com.nendo.argosy.ui.input.InputHandler
 import com.nendo.argosy.ui.input.InputResult
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
@@ -49,26 +47,6 @@ internal class EmulatorsSectionInput(
         return toggleLeftRight(direction, state.emulators.closeEmulatorOnSessionEnd) {
             viewModel.setCloseEmulatorOnSessionEnd(it)
         }
-    }
-
-    override fun onUp(): InputResult {
-        val state = viewModel.uiState.value
-        if (state.focusedIndex != 0) return InputResult.UNHANDLED
-
-        val wrapMode = state.controls.menuWrapMode
-        val shouldWrap = wrapMode == MenuWrapMode.AUTO ||
-            (wrapMode == MenuWrapMode.HARD_STOP && !currentIsRepeat)
-        if (!shouldWrap) return InputResult.UNHANDLED
-
-        val info = createEmulatorsLayoutInfo(state.emulators.platforms)
-        val lastActive = info.layout.focusableItems(Unit).indexOfLast {
-            it is EmulatorsItem.PlatformItem && it.config.platform.syncEnabled
-        }
-        if (lastActive >= 0) {
-            viewModel.setFocusIndex(lastActive)
-            return InputResult.HANDLED
-        }
-        return InputResult.UNHANDLED
     }
 
     override fun onContextMenu(): InputResult {

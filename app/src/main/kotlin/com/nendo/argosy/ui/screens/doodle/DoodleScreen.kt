@@ -2,7 +2,6 @@ package com.nendo.argosy.ui.screens.doodle
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -425,7 +424,7 @@ private fun ToolSelector(
                         if (isSelected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.surface
                     )
-                    .clickable { onToolSelect() },
+                    .clickableNoFocus { onToolSelect() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -507,7 +506,7 @@ private fun PaletteGrid(
                                         else -> Modifier
                                     }
                                 )
-                                .clickable { onColorSelect(color) }
+                                .clickableNoFocus { onColorSelect(color) }
                         )
                     }
                 }
@@ -553,7 +552,7 @@ private fun SizeSelector(
                             else -> Color.Transparent
                         }
                     )
-                    .clickable { onSizeSelect(size) }
+                    .clickableNoFocus { onSizeSelect(size) }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {

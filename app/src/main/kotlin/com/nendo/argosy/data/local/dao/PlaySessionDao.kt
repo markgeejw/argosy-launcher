@@ -44,9 +44,6 @@ interface PlaySessionDao {
     @Query("SELECT COALESCE(SUM(activePlayMs), 0) FROM play_sessions WHERE platformSlug = :platformSlug")
     suspend fun getTotalActivePlayMsByPlatform(platformSlug: String): Long
 
-    @Query("DELETE FROM play_sessions WHERE gameId = :gameId")
-    suspend fun deleteByGame(gameId: Long)
-
     @Query("UPDATE play_sessions SET gameId = :toGameId WHERE gameId = :fromGameId")
     suspend fun moveToGame(fromGameId: Long, toGameId: Long): Int
 

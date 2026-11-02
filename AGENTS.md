@@ -11,7 +11,7 @@ exception is legitimate, and the boundary where it becomes a violation again.
 
 - Layers: ui/ -> domain/ -> data/. Dependencies flow inward only.
   - domain/ is Compose-free (hard rule). Android-framework-free is
-    aspirational with known debt across 13 files (Intent in LaunchGameUseCase,
+    aspirational with known debt (Intent in LaunchGameUseCase,
     Log in several use cases, and a whole media-codec pipeline in
     MeasureTrackLoudnessUseCase); grep `^import android\.` under domain/ for
     the current list. Existing debt is not a licence - do not add new
@@ -138,8 +138,9 @@ folder resolution); "tidying" them breaks resolution.
   unscoped glob picks up worktrees and build output. Core three:
   PlatformDefinitions, EmulatorRegistry, LibretroCoreRegistry - PlatformDefinitions
   does NOT match the glob, so finding 14 is not finding everything.
-- Two resolvers that MUST agree: EmulatorResolver.getEmulatorPackageForGame
-  and GameLauncher.resolveEmulator.
+- One emulator resolver: EmulatorResolver.resolveEmulatorForGame. GameLauncher
+  launches with its def and save sync reads its package; never add a second
+  precedence chain beside it.
 - Sync engines: SyncCoordinator (negotiate/reconcile), SaveSyncOrchestrator
   (discovery/preamble), SaveSyncRepository facade + services.
 - Save id -> on-disk path, per platform: docs/save-id-to-path.md. Read it

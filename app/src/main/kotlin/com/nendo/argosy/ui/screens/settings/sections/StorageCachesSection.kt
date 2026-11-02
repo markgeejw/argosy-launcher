@@ -104,8 +104,6 @@ internal sealed class StorageCachesItem(
     data object ShadersCatalogClear : StorageCachesItem("shadersCatalogClear", "system")
     data object FramesClear : StorageCachesItem("framesClear", "system")
 
-    data object SteamClear : StorageCachesItem("steamClear", "steam", { it.steamVisible })
-
     companion object {
         const val KEY_ARTWORK_CACHE_INFO = "artworkCacheInfo"
         const val KEY_BIOS_INFO = "biosInfo"
@@ -114,7 +112,6 @@ internal sealed class StorageCachesItem(
         const val KEY_FONTS_INFO = "fontsInfo"
         const val KEY_DATABASE_INFO = "databaseInfo"
         const val KEY_STEAM_TOTAL_INFO = "steamTotalInfo"
-        const val KEY_STEAM_STAGING_INFO = "steamStagingInfo"
 
         val ALL: List<StorageCachesItem>
             get() = listOf(
@@ -138,9 +135,7 @@ internal sealed class StorageCachesItem(
                 InfoRow(KEY_DATABASE_INFO, "system"),
                 SectionSpacer("steamSpacer", "steam", { it.steamVisible }),
                 Header("steamHeader", "steam", R.string.settings_caches_section_steam, { it.steamVisible }),
-                InfoRow(KEY_STEAM_TOTAL_INFO, "steam", { it.steamVisible }),
-                InfoRow(KEY_STEAM_STAGING_INFO, "steam", { it.steamVisible }),
-                SteamClear
+                InfoRow(KEY_STEAM_TOTAL_INFO, "steam", { it.steamVisible })
             )
     }
 }
@@ -177,9 +172,6 @@ internal fun storageCachesMaxFocusIndex(info: StorageCachesLayoutInfo): Int =
 
 internal fun storageCachesSections(info: StorageCachesLayoutInfo) =
     info.layout.buildSections(info.state)
-
-internal fun storageCachesFocusIndexOfSteam(info: StorageCachesLayoutInfo): Int =
-    info.layout.focusIndexOf(StorageCachesItem.SteamClear, info.state)
 
 private fun categoryBytes(snapshot: StorageSnapshot?, category: StorageCategory): Long =
     snapshot?.categories?.get(category)?.bytes ?: 0L
@@ -496,21 +488,6 @@ fun StorageCachesSection(uiState: SettingsUiState, viewModel: SettingsViewModel)
                 isEnabled = !isBusy(CachesClearTarget.FRAMES),
                 onClick = { viewModel.requestCachesClear(CachesClearTarget.FRAMES) }
             )
-
-            StorageCachesItem.SteamClear -> ActionPreference(
-                title = stringResource(R.string.settings_caches_steam_clear_title),
-                subtitle = when {
-                    isBusy(CachesClearTarget.STEAM_DOWNLOADS) ->
-                        stringResource(R.string.settings_caches_steam_clear_busy)
-                    caches.steamDownloadBusy ->
-                        stringResource(R.string.settings_caches_steam_clear_blocked)
-                    else -> stringResource(R.string.settings_caches_steam_clear_subtitle)
-                },
-                isFocused = isFocused(item),
-                isEnabled = !isBusy(CachesClearTarget.STEAM_DOWNLOADS) && !caches.steamDownloadBusy,
-                isDangerous = true,
-                onClick = { viewModel.requestCachesClear(CachesClearTarget.STEAM_DOWNLOADS) }
-            )
         }
     }
 }
@@ -560,12 +537,6 @@ private fun CachesInfoRow(item: StorageCachesItem.InfoRow, uiState: SettingsUiSt
             stringResource(R.string.settings_caches_info_steam_total_title),
             stringResource(R.string.settings_caches_info_steam_total_subtitle),
             formatBytes(categoryBytes(snapshot, StorageCategory.STEAM))
-        )
-        StorageCachesItem.KEY_STEAM_STAGING_INFO -> Triple(
-            stringResource(R.string.settings_caches_info_steam_staging_title),
-            stringResource(R.string.settings_caches_info_steam_staging_subtitle),
-            uiState.storageCaches.steamStagingBytes?.let { formatBytes(it) }
-                ?: stringResource(R.string.settings_caches_info_steam_staging_computing)
         )
         else -> Triple(item.key, "", "")
     }

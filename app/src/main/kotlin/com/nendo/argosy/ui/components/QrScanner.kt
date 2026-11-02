@@ -156,7 +156,6 @@ private fun QrScannerView(
                             analysis
                         )
                     } catch (_: Exception) {
-                        // Camera init failed -- degrade gracefully
                     }
                 }, ContextCompat.getMainExecutor(ctx))
 
@@ -164,7 +163,6 @@ private fun QrScannerView(
             }
         )
 
-        // Viewfinder overlay
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
@@ -222,7 +220,6 @@ private class QrCodeAnalyzer(
             val result = reader.decodeWithState(BinaryBitmap(HybridBinarizer(source)))
             onQrCodeScanned(result.text)
         } catch (_: NotFoundException) {
-            // No QR in frame -- expected
         } finally {
             reader.reset()
             imageProxy.close()

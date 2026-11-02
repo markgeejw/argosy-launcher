@@ -3,6 +3,8 @@ package com.nendo.argosy.ui.screens.common
 import android.content.Context
 import android.os.Bundle
 import com.nendo.argosy.DualScreenManagerHolder
+import com.nendo.argosy.data.emulator.BothScreensHost
+import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.preferences.EmulatorDisplayTarget
 import com.nendo.argosy.data.preferences.SessionStateStore
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
@@ -30,20 +32,28 @@ class EmulatorLaunchTargetResolver @Inject constructor(
 ) {
     private val sessionStateStore by lazy { SessionStateStore(context) }
 
-    suspend fun launchOptionsFor(gameId: Long, overrideDisplayId: Int? = null): Bundle? {
+    suspend fun launchOptionsFor(
+        gameId: Long,
+        overrideDisplayId: Int? = null,
+        emulatorPackage: String? = null
+    ): Bundle? {
         val rolesSwapped = sessionStateStore.isRolesSwapped()
-        val displayId = overrideDisplayId ?: targetDisplayId(
-            stored = EmulatorDisplayTarget.fromString(
-                emulatorConfigRepository.getEffectiveDisplayTarget(gameId)
-            ),
-            gamesDefault = preferencesRepository.userPreferences.first().gamesDisplayTarget,
-            rolesSwapped = rolesSwapped
-        )
+        val displayId = displayAffinityHelper.usableDisplayId(overrideDisplayId)
+            ?: bothScreensDisplayId(emulatorPackage)
+            ?: targetDisplayId(
+                stored = EmulatorDisplayTarget.fromString(
+                    emulatorConfigRepository.getEffectiveDisplayTarget(gameId)
+                ),
+                gamesDefault = preferencesRepository.userPreferences.first().gamesDisplayTarget,
+                rolesSwapped = rolesSwapped
+            )
         DualScreenManagerHolder.instance?.setEmulatorDisplay(placedOn(displayId, rolesSwapped))
-        return displayAffinityHelper.getActivityOptions(
-            forEmulator = true,
-            rolesSwapped = rolesSwapped,
-            overrideDisplayId = displayId
+        return GameLaunchOptions.forDisplay(
+            displayAffinityHelper.launchDisplayId(
+                forEmulator = true,
+                rolesSwapped = rolesSwapped,
+                overrideDisplayId = displayId
+            )
         )
     }
 
@@ -63,10 +73,21 @@ class EmulatorLaunchTargetResolver @Inject constructor(
         rolesSwapped: Boolean
     ): Int? = displayAffinityHelper.getDisplayTargetId(placementTarget(stored, gamesDefault), rolesSwapped)
 
+    private fun bothScreensDisplayId(emulatorPackage: String?): Int? {
+        val host = emulatorPackage?.let(::bothScreensHostOf) ?: return null
+        return displayAffinityHelper.bothScreensDisplayId(host)
+    }
+
     private fun placedOn(displayId: Int?, rolesSwapped: Boolean): Int =
         displayId ?: displayAffinityHelper.getEmulatorDisplayId(rolesSwapped)
 
     companion object {
+        fun bothScreensHostOf(packageName: String): BothScreensHost? =
+            (EmulatorRegistry.getByPackage(packageName)
+                ?: EmulatorRegistry.findFamilyForPackage(packageName)
+                    ?.let { EmulatorRegistry.createDefFromFamily(it, packageName) })
+                ?.bothScreensHost
+
         fun placementTarget(
             stored: EmulatorDisplayTarget,
             gamesDefault: EmulatorDisplayTarget

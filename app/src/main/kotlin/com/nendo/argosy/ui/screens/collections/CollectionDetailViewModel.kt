@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -158,7 +159,7 @@ class CollectionDetailViewModel @Inject constructor(
     private fun loadPinStatus() {
         viewModelScope.launch {
             val isPinned = isPinnedUseCase.isRegularPinned(collectionId)
-            _modalState.value = _modalState.value.copy(isPinned = isPinned)
+            _modalState.update { it.copy(isPinned = isPinned) }
         }
     }
 
@@ -247,7 +248,7 @@ class CollectionDetailViewModel @Inject constructor(
         state.showEditDialog || state.showDeleteDialog || state.showRemoveGameDialog
 
     private fun setFocus(index: Int) {
-        _modalState.value = _modalState.value.copy(focusedIndex = index)
+        _modalState.update { it.copy(focusedIndex = index) }
         if (!_modalState.value.searchActive) positions.set(stickyKey, index)
     }
 
@@ -305,35 +306,41 @@ class CollectionDetailViewModel @Inject constructor(
     fun openSearch() {
         if (_modalState.value.searchActive) return
         preSearchIndex = uiState.value.focusedIndex
-        _modalState.value = _modalState.value.copy(
-            searchActive = true,
-            searchQuery = "",
-            focusedIndex = 0
-        )
+        _modalState.update {
+            it.copy(
+                searchActive = true,
+                searchQuery = "",
+                focusedIndex = 0
+            )
+        }
     }
 
     fun closeSearch() {
         if (!_modalState.value.searchActive) return
-        _modalState.value = _modalState.value.copy(
-            searchActive = false,
-            searchQuery = "",
-            focusedIndex = preSearchIndex
-        )
+        _modalState.update {
+            it.copy(
+                searchActive = false,
+                searchQuery = "",
+                focusedIndex = preSearchIndex
+            )
+        }
     }
 
     fun setSearchQuery(query: String) {
-        _modalState.value = _modalState.value.copy(searchQuery = query, focusedIndex = 0)
+        _modalState.update { it.copy(searchQuery = query, focusedIndex = 0) }
     }
 
     fun showOptionsModal() {
-        _modalState.value = _modalState.value.copy(
-            showOptionsModal = true,
-            optionsModalFocusIndex = 0
-        )
+        _modalState.update {
+            it.copy(
+                showOptionsModal = true,
+                optionsModalFocusIndex = 0
+            )
+        }
     }
 
     fun hideOptionsModal() {
-        _modalState.value = _modalState.value.copy(showOptionsModal = false)
+        _modalState.update { it.copy(showOptionsModal = false) }
     }
 
     fun moveOptionsFocus(delta: Int) {
@@ -344,7 +351,7 @@ class CollectionDetailViewModel @Inject constructor(
         val maxIndex = optionCount - 1
         val currentIndex = _modalState.value.optionsModalFocusIndex
         val newIndex = (currentIndex + delta).coerceIn(0, maxIndex)
-        _modalState.value = _modalState.value.copy(optionsModalFocusIndex = newIndex)
+        _modalState.update { it.copy(optionsModalFocusIndex = newIndex) }
     }
 
     fun selectOption(option: CollectionOption) {
@@ -404,34 +411,38 @@ class CollectionDetailViewModel @Inject constructor(
     }
 
     fun showEditDialog() {
-        _modalState.value = _modalState.value.copy(showEditDialog = true)
+        _modalState.update { it.copy(showEditDialog = true) }
     }
 
     fun hideEditDialog() {
-        _modalState.value = _modalState.value.copy(showEditDialog = false)
+        _modalState.update { it.copy(showEditDialog = false) }
     }
 
     fun showDeleteDialog() {
-        _modalState.value = _modalState.value.copy(showDeleteDialog = true)
+        _modalState.update { it.copy(showDeleteDialog = true) }
     }
 
     fun hideDeleteDialog() {
-        _modalState.value = _modalState.value.copy(showDeleteDialog = false)
+        _modalState.update { it.copy(showDeleteDialog = false) }
     }
 
     fun showRemoveGameDialog() {
         val game = uiState.value.focusedGame ?: return
-        _modalState.value = _modalState.value.copy(
-            gameToRemove = game,
-            showRemoveGameDialog = true
-        )
+        _modalState.update {
+            it.copy(
+                gameToRemove = game,
+                showRemoveGameDialog = true
+            )
+        }
     }
 
     fun hideRemoveGameDialog() {
-        _modalState.value = _modalState.value.copy(
-            showRemoveGameDialog = false,
-            gameToRemove = null
-        )
+        _modalState.update {
+            it.copy(
+                showRemoveGameDialog = false,
+                gameToRemove = null
+            )
+        }
     }
 
     fun confirmRemoveGame() {
@@ -472,7 +483,7 @@ class CollectionDetailViewModel @Inject constructor(
             } else {
                 pinCollectionUseCase.pinRegular(collectionId)
             }
-            _modalState.value = _modalState.value.copy(isPinned = !isPinned)
+            _modalState.update { it.copy(isPinned = !isPinned) }
         }
     }
 
@@ -483,9 +494,9 @@ class CollectionDetailViewModel @Inject constructor(
 
         lastRefreshTime = now
         viewModelScope.launch {
-            _modalState.value = _modalState.value.copy(isRefreshing = true)
+            _modalState.update { it.copy(isRefreshing = true) }
             refreshAllCollectionsUseCase()
-            _modalState.value = _modalState.value.copy(isRefreshing = false)
+            _modalState.update { it.copy(isRefreshing = false) }
             _refreshTrigger.value++
         }
     }

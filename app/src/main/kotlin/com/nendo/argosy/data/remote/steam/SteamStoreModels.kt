@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.remote.steam
 
+import android.text.Html
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
@@ -34,7 +35,12 @@ data class SteamAppData(
     @Json(name = "release_date") val releaseDate: SteamReleaseDate?,
     @Json(name = "background") val background: String?,
     @Json(name = "background_raw") val backgroundRaw: String?
-)
+) {
+    val plainShortDescription: String?
+        get() = shortDescription
+            ?.let { Html.fromHtml(it, Html.FROM_HTML_MODE_LEGACY).toString().trim() }
+            ?.takeIf { it.isNotEmpty() }
+}
 
 @JsonClass(generateAdapter = true)
 data class SteamPlatforms(

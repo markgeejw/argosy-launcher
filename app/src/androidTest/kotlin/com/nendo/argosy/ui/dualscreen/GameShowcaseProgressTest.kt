@@ -47,6 +47,7 @@ class GameShowcaseProgressTest {
                 )
             }
         }
+        compose.mainClock.advanceTimeBy(1_000)
 
         compose.onNodeWithText(completionist).assertIsDisplayed()
         compose.onNodeWithText(finished).assertIsDisplayed()
@@ -69,6 +70,7 @@ class GameShowcaseProgressTest {
                 )
             }
         }
+        compose.mainClock.advanceTimeBy(1_000)
 
         compose.onNodeWithText(completionist).assertIsDisplayed()
         compose.runOnIdle { stats.value = CompanionGameStats(status = "finished") }

@@ -9,13 +9,8 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /**
- * FileProvider that also answers DocumentsContract-style projections
- * (mime_type, _size, last_modified, document_id) in addition to OpenableColumns.
- *
- * Some emulators (e.g. NetherSX2's FileHelper.statFile) query content URIs with a
- * DocumentsContract projection and expect rows in that shape. The stock androidx
- * FileProvider silently drops unknown columns, producing a cursor with fewer
- * columns than the caller expects and crashing on index access.
+ * A FileProvider that answers DocumentsContract columns (mime_type, _size, last_modified,
+ * document_id) as well as OpenableColumns, which emulators such as NetherSX2 read on launch.
  */
 class ArgosyFileProvider : FileProvider() {
 
@@ -36,12 +31,19 @@ class ArgosyFileProvider : FileProvider() {
     }
 
     private fun resolveFile(uri: Uri): File? {
-        val rawPath = uri.encodedPath ?: return null
-        val decoded = Uri.decode(rawPath) ?: return null
-        val segments = decoded.trimStart('/').split('/', limit = 2)
-        if (segments.size < 2) return null
-        val absolute = "/" + segments[1]
-        return File(absolute).takeIf { it.exists() }
+        val decoded = Uri.decode(uri.encodedPath ?: return null) ?: return null
+        return resolveProviderPath(decoded, roots())?.takeIf { it.exists() }
+    }
+
+    private fun roots(): Map<String, File> {
+        val context = context ?: return emptyMap()
+        return listOfNotNull(
+            ROOT_STORAGE to File("/storage"),
+            ROOT_MNT to File("/mnt"),
+            context.getExternalFilesDir(null)?.let { ROOT_EXTERNAL_FILES to it },
+            ROOT_INTERNAL to context.filesDir,
+            ROOT_CACHE to context.cacheDir
+        ).toMap()
     }
 
     private fun valueFor(column: String, file: File, uri: Uri): Any? = when (column) {
@@ -64,6 +66,25 @@ class ArgosyFileProvider : FileProvider() {
         private const val COLUMN_DOCUMENT_ID = "document_id"
         private const val COLUMN_FLAGS = "flags"
 
+        private const val ROOT_STORAGE = "storage"
+        private const val ROOT_MNT = "mnt"
+        private const val ROOT_EXTERNAL_FILES = "external_files"
+        private const val ROOT_INTERNAL = "internal"
+        private const val ROOT_CACHE = "cache"
+
         private val OPENABLE_COLUMNS = setOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
+
+        /**
+         * The file behind a decoded provider path such as `/storage/emulated/0/Games/x.chd`, where
+         * the first segment names one of [roots] as declared in res/xml/file_paths.xml. Null for an
+         * unknown root or a path that resolves outside its root.
+         */
+        fun resolveProviderPath(decodedPath: String, roots: Map<String, File>): File? {
+            val segments = decodedPath.trimStart('/').split('/', limit = 2)
+            if (segments.size < 2) return null
+            val root = roots[segments[0]]?.canonicalFile ?: return null
+            val file = File(root, segments[1]).canonicalFile
+            return file.takeIf { it.path.startsWith(root.path + File.separator) }
+        }
     }
 }

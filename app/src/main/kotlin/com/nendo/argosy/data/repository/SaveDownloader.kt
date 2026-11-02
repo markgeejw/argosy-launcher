@@ -27,6 +27,7 @@ import com.nendo.argosy.data.sync.platform.SigilSaveHandler
 import com.nendo.argosy.data.sync.platform.SwitchSaveHandler
 import com.nendo.argosy.data.sync.platform.UnitSaveHandler
 import com.nendo.argosy.data.titledb.TitleDbRepository
+import com.nendo.argosy.util.FileNames
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.SaveDebugLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -231,6 +232,9 @@ class SaveDownloader @Inject constructor(
             serverSave.fileName.endsWith(".zip", ignoreCase = true) && !isGciFormat)
         val isSwitchEmulator = sigilRoot == null && resolvedEmulatorId in SaveSyncApiClient.SWITCH_EMULATOR_IDS
         Logger.debug(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | Save info | fileName=${serverSave.fileName}, isFolderBased=$isFolderBased, isGciFormat=$isGciFormat, isSwitchEmulator=$isSwitchEmulator")
+        if (isNonGciSaveForGciGame(gameId, resolvedEmulatorId, serverSave.fileName)) {
+            return@withContext SaveSyncResult.NoSaveFound
+        }
 
         var strandedCardToMigrate: String? = null
         val preDownloadTargetPath = if (sigilRoot != null) {
@@ -315,7 +319,7 @@ class SaveDownloader @Inject constructor(
                 )
             } else discovered
 
-            (retried ?: savePathResolver.constructSavePath(resolvedEmulatorId, game.title, game.platformSlug, game.localPath, preferredCore, game.saveId ?: game.titleId, gameId, folderShaped = false)).also {
+            (retried ?: savePathResolver.constructSavePath(resolvedEmulatorId, game.title, game.platformSlug, game.localPath, preferredCore, game.saveId ?: game.titleId, gameId, folderShaped = false, emulatorPackage = emulatorPackage)).also {
                 Logger.debug(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | File save path | cached=${syncEntity.localSavePath != null}, discovered=${retried != null}, path=$it")
             }
         }
@@ -381,15 +385,12 @@ class SaveDownloader @Inject constructor(
         try {
             val downloadPath = serverSave.downloadPath
             val caps = client.getCapabilities()
-            // Only RomM 4.9+ supports the optimistic=false fence; older servers use the raw asset URL.
             val useDeviceEndpoint = caps.supportsDeviceSyncMode && deviceId != null
             if (!useDeviceEndpoint && downloadPath == null) {
                 Logger.warn(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | No download path in server save response")
                 return@withContext SaveSyncResult.Error("No download path available")
             }
 
-            // Skip if a previous attempt at this exact server-side timestamp produced
-            // a corrupt zip; resume only when the server copy changes (re-upload).
             val serverFingerprint = (downloadPath?.substringAfter("?timestamp=", "") ?: "")
                 .ifEmpty { serverSave.updatedAt ?: "" }
             if (serverFingerprint.isNotEmpty()) {
@@ -431,7 +432,6 @@ class SaveDownloader @Inject constructor(
             }
             val contentLength = response.headers()["Content-Length"]?.toLongOrNull() ?: -1
             if (!response.isSuccessful) {
-                // 404 content = orphan (metadata exists, file missing); drop row like the getSave 404 path.
                 if (response.code() == 404) {
                     Logger.debug(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | Content missing (HTTP 404), dropping orphan tracking row | saveId=$saveId, syncEntityId=${syncEntity.id}")
                     saveSyncDao.deleteById(syncEntity.id)
@@ -449,7 +449,7 @@ class SaveDownloader @Inject constructor(
                     Logger.error(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | Insufficient cache disk space for zip")
                     return@withContext SaveSyncResult.Error("Insufficient disk space")
                 }
-                tempZipFile = File(context.cacheDir, "dl_${gameId}_${System.nanoTime()}_${serverSave.fileName}")
+                tempZipFile = File(context.cacheDir, "dl_${gameId}_${System.nanoTime()}_${FileNames.sanitize(serverSave.fileName)}")
                 val body = response.body()
                 if (body == null) {
                     Logger.error(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | Response body is null")
@@ -539,12 +539,6 @@ class SaveDownloader @Inject constructor(
                             serverTimestamp = serverFingerprint,
                             error = result.error ?: "corrupt zip"
                         )
-                        // Auto-recovery: server zip is corrupt, push the (good) local
-                        // copy over it. Successful upload will produce a new server
-                        // timestamp, so the next sync clears the corrupt mark and
-                        // resumes normal flow. If the upload also fails, we fall
-                        // through with the original error and the skip-cache prevents
-                        // futile retries.
                         Logger.warn(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | Server zip corrupt - auto-recovering by uploading local save | timestamp=$serverFingerprint")
                         val recoveryResult = try {
                             saveUploader.get().uploadSave(
@@ -765,8 +759,7 @@ class SaveDownloader @Inject constructor(
 
             val effectiveChannelName = channelName ?: syncEntity.channelName
             val romBaseName = game.localPath?.let { File(it).nameWithoutExtension }
-            val isLatestSave = SaveSyncApiClient.syncKeyOf(effectiveChannelName) == SaveSyncApiClient.AUTOSAVE_SLOT_NAME ||
-                romBaseName != null && effectiveChannelName.equals(romBaseName, ignoreCase = true)
+            val isLatestSave = SaveSyncApiClient.isLatestBucket(effectiveChannelName, romBaseName)
 
             val cacheChannelName = if (isLatestSave) null else effectiveChannelName
             val cacheIsLocked = !isLatestSave
@@ -867,6 +860,7 @@ class SaveDownloader @Inject constructor(
             Logger.error(TAG, "downloadSaveAsChannel: getSave failed", e)
             return@withContext false
         } ?: return@withContext false
+        if (isNonGciSaveForGciGame(gameId, emulatorId, serverSave.fileName)) return@withContext false
 
         val response = try {
             val dlPath = serverSave.downloadPath
@@ -920,6 +914,19 @@ class SaveDownloader @Inject constructor(
         }
     }
 
+    private suspend fun isNonGciSaveForGciGame(gameId: Long, emulatorId: String?, fileName: String): Boolean {
+        val game = gameDao.getById(gameId) ?: return false
+        val resolvedEmulatorId = emulatorId
+            ?: emulatorResolver.getEmulatorIdForGame(gameId, game.platformId, game.platformSlug)
+            ?: return false
+        val config = SavePathRegistry.getConfigForPlatform(resolvedEmulatorId, game.platformSlug)
+        if (config?.usesGciFormat != true) return false
+        if (apiClient.get().isSigilRoutedFor(gameId, config, game.platformSlug, resolvedEmulatorId)) return false
+        if (GciSaveHandler.isGciServerFileName(fileName)) return false
+        Logger.info(TAG, "[SaveSync] DOWNLOAD gameId=$gameId | Skipped: server save is not a GameCube memory card file | fileName=$fileName")
+        return true
+    }
+
     suspend fun downloadAndCacheSave(
         serverSaveId: Long,
         gameId: Long,
@@ -967,6 +974,7 @@ class SaveDownloader @Inject constructor(
             Logger.error(TAG, "downloadToCache: getSave failed", e)
             return@withContext null
         } ?: return@withContext null
+        if (isNonGciSaveForGciGame(gameId, null, serverSave.fileName)) return@withContext null
 
         val response = try {
             val dlPath = serverSave.downloadPath

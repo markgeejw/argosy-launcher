@@ -22,7 +22,11 @@ Reimagined UI for dual-display devices (e.g., AYN Thor).
 
 **Modal state**: Upper screen handles input directly (e.g., Start menu).
 
-## Cross-Process Communication
+## Shared State
 
-Uses `SessionStateStore` (SharedPreferences) for state sync between main and companion processes.
-Broadcasts for live updates, SharedPreferences for startup reads.
+Both displays run in one process: `ArgosyActivity` and `SecondaryHomeActivity` declare no
+`android:process`, so they share the same Hilt singletons. Live state is read from those singletons
+directly; for example, `ArgosyApp` and `PresentationSlotContent` both read launch progress from
+the one `LaunchProgressTracker`. `SessionStateStore` (SharedPreferences) holds what must outlive the
+process: the active game session (including the display the game runs on) and display flags, read
+back when the launcher restarts under a running game.

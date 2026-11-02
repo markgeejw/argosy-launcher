@@ -38,6 +38,7 @@ class LibretroHotkeyDispatcher(
     private val onSpeedrunSkipSplit: () -> Unit,
     private val onSpeedrunToggleTimer: () -> Unit,
     private val onSpeedrunResetTimer: () -> Unit,
+    private val onStepSunLevel: (Int) -> Unit,
     private val onHotkeyFired: () -> Unit = {}
 ) {
     var isFastForwarding: Boolean by androidx.compose.runtime.mutableStateOf(false)
@@ -67,7 +68,8 @@ class LibretroHotkeyDispatcher(
         onSpeedrunUndoSplit = onSpeedrunUndoSplit,
         onSpeedrunSkipSplit = onSpeedrunSkipSplit,
         onSpeedrunToggleTimer = onSpeedrunToggleTimer,
-        onSpeedrunResetTimer = onSpeedrunResetTimer
+        onSpeedrunResetTimer = onSpeedrunResetTimer,
+        onStepSunLevel = onStepSunLevel
     )
 
     init {

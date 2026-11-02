@@ -56,39 +56,6 @@ object MelondsManifest : CoreOptionManifest {
             defaultValue = "disabled",
             description = "Runs software rendering on a separate thread for better performance"
         ),
-        CoreOptionDef(
-            key = "melonds_opengl_renderer",
-            displayName = "OpenGL Renderer (Restart)",
-            values = listOf("disabled", "enabled"),
-            defaultValue = "disabled",
-            description = "Uses hardware-accelerated OpenGL rendering instead of software"
-        ),
-        CoreOptionDef(
-            key = "melonds_opengl_resolution",
-            displayName = "OpenGL Internal Resolution",
-            values = listOf(
-                "1x native (256x192)", "2x native (512x384)", "3x native (768x576)",
-                "4x native (1024x768)", "5x native (1280x960)", "6x native (1536x1152)",
-                "7x native (1792x1344)", "8x native (2048x1536)"
-            ),
-            defaultValue = "1x native (256x192)",
-            description = "Sets the 3D rendering resolution when using the OpenGL renderer"
-        ),
-        CoreOptionDef(
-            key = "melonds_opengl_better_polygons",
-            displayName = "OpenGL Improved Polygon Splitting",
-            values = listOf("disabled", "enabled"),
-            defaultValue = "disabled",
-            description = "Reduces polygon seam artifacts at higher internal resolutions"
-        ),
-        CoreOptionDef(
-            key = "melonds_opengl_filtering",
-            displayName = "OpenGL Filtering",
-            values = listOf("nearest", "linear"),
-            defaultValue = "nearest",
-            description = "Sets the texture filtering method for OpenGL rendering",
-            valueLabels = mapOf("nearest" to "Nearest Neighbor", "linear" to "Bilinear")
-        ),
         // Audio
         CoreOptionDef(
             key = "melonds_mic_input",

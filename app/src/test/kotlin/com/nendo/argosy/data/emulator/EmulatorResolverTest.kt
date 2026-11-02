@@ -51,6 +51,7 @@ class EmulatorResolverTest {
         coEvery { emulatorConfigDao.getByGameId(any()) } returns null
         coEvery { emulatorConfigDao.getDefaultForPlatform(any()) } returns null
         every { emulatorDetector.getPreferredEmulator(any(), any()) } returns null
+        every { emulatorDetector.getByPackage(any()) } answers { EmulatorRegistry.getByPackage(firstArg()) }
         every { installedAppResolver.isAppInstalled(any()) } returns false
         every { libretroCoreMgr.isPlatformSupported(any()) } returns false
         stubDetectorWith()
@@ -213,6 +214,39 @@ class EmulatorResolverTest {
         val result = resolver.getEmulatorPackageForGame(1L, 10L, "psx")
 
         assertEquals(adHocPackage, result)
+    }
+
+    @Test
+    fun `an ad-hoc binding launches as a synthesized def carrying its display name`() = runTest {
+        val adHocPackage = "com.custom.emulator"
+        coEvery { emulatorConfigDao.getDefaultForPlatform(10L) } returns createConfig(
+            platformId = 10L,
+            packageName = adHocPackage,
+            displayName = "Custom Emu",
+            isDefault = true
+        )
+        stubDetectorWith()
+        every { installedAppResolver.isAppInstalled(adHocPackage) } returns true
+
+        val def = resolver.resolveEmulatorForGame(1L, 10L, "psx")
+
+        assertEquals(adHocPackage, def?.packageName)
+        assertEquals("Custom Emu", def?.displayName)
+    }
+
+    @Test
+    fun `the preferred def comes back itself when another def shares its package`() = runTest {
+        val shared = EmulatorRegistry.getAll()
+            .groupBy { it.packageName }
+            .values
+            .first { it.size > 1 }
+        val second = shared[1]
+        stubDetectorWith(installedEmulator(second))
+        every { emulatorDetector.getPreferredEmulator("ps2", true) } returns installedEmulator(second)
+
+        val def = resolver.resolveEmulatorForGame(1L, 10L, "ps2")
+
+        assertEquals(second.id, def?.id)
     }
 
     @Test

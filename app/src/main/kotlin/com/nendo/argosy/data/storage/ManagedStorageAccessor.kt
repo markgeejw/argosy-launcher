@@ -313,7 +313,6 @@ class ManagedStorageAccessor @Inject constructor(
         val baseUri = DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, documentId)
         val documentUri = applyManagedParameter(baseUri, relativePath)
 
-        // Try to open existing file first
         try {
             android.util.Log.d("ManagedStorageAccessor", "openOutputStream managed fallback: $documentUri")
             val stream = contentResolver.openOutputStream(documentUri, "wt")
@@ -322,7 +321,6 @@ class ManagedStorageAccessor @Inject constructor(
             android.util.Log.d("ManagedStorageAccessor", "openOutputStream managed failed (may need create): ${e.message}")
         }
 
-        // File may not exist, try to create it
         return try {
             val fileName = relativePath.substringAfterLast('/')
             val parentPath = relativePath.substringBeforeLast('/', "")

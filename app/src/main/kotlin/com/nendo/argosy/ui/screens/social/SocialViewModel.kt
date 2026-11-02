@@ -309,16 +309,17 @@ class SocialViewModel @Inject constructor(
                 )
                 NotifState(notifications, unread, loading, hasMore)
             }.collect { ns ->
-                val current = _uiState.value
-                _uiState.value = current.copy(
-                    notifications = ns.notifications,
-                    unreadCount = ns.unread,
-                    isLoadingNotifications = ns.loading,
-                    notificationsHasMore = ns.hasMore,
-                    focusedNotificationIndex = current.focusedNotificationIndex.coerceIn(
-                        0, ns.notifications.size.coerceAtLeast(1) - 1
+                _uiState.update { current ->
+                    current.copy(
+                        notifications = ns.notifications,
+                        unreadCount = ns.unread,
+                        isLoadingNotifications = ns.loading,
+                        notificationsHasMore = ns.hasMore,
+                        focusedNotificationIndex = current.focusedNotificationIndex.coerceIn(
+                            0, ns.notifications.size.coerceAtLeast(1) - 1
+                        )
                     )
-                )
+                }
             }
         }
 
@@ -337,16 +338,17 @@ class SocialViewModel @Inject constructor(
                 )
                 CommunityState(communityEvents, follows, loading, hasMore)
             }.collect { cs ->
-                val current = _uiState.value
-                _uiState.value = current.copy(
-                    communityEvents = cs.events,
-                    communityFollows = cs.follows,
-                    isCommunityLoading = cs.loading,
-                    communityHasMore = cs.hasMore,
-                    focusedEventIndex = if (current.feedMode == FeedMode.COMMUNITY) {
-                        current.focusedEventIndex.coerceIn(0, cs.events.size.coerceAtLeast(1) - 1)
-                    } else current.focusedEventIndex
-                )
+                _uiState.update { current ->
+                    current.copy(
+                        communityEvents = cs.events,
+                        communityFollows = cs.follows,
+                        isCommunityLoading = cs.loading,
+                        communityHasMore = cs.hasMore,
+                        focusedEventIndex = if (current.feedMode == FeedMode.COMMUNITY) {
+                            current.focusedEventIndex.coerceIn(0, cs.events.size.coerceAtLeast(1) - 1)
+                        } else current.focusedEventIndex
+                    )
+                }
             }
         }
 
@@ -363,13 +365,15 @@ class SocialViewModel @Inject constructor(
 
         viewModelScope.launch {
             preferencesRepository.userPreferences.collect { prefs ->
-                _uiState.value = _uiState.value.copy(
-                    socialOnlineStatus = prefs.socialOnlineStatusEnabled,
-                    socialShowNowPlaying = prefs.socialShowNowPlaying,
-                    socialNotifyFriendOnline = prefs.socialNotifyFriendOnline,
-                    socialNotifyFriendPlaying = prefs.socialNotifyFriendPlaying,
-                    socialSuppressNotificationsInGame = prefs.socialSuppressNotificationsInGame
-                )
+                _uiState.update {
+                    it.copy(
+                        socialOnlineStatus = prefs.socialOnlineStatusEnabled,
+                        socialShowNowPlaying = prefs.socialShowNowPlaying,
+                        socialNotifyFriendOnline = prefs.socialNotifyFriendOnline,
+                        socialNotifyFriendPlaying = prefs.socialNotifyFriendPlaying,
+                        socialSuppressNotificationsInGame = prefs.socialSuppressNotificationsInGame
+                    )
+                }
             }
         }
 
@@ -388,11 +392,13 @@ class SocialViewModel @Inject constructor(
                 } else {
                     _uiState.value.localIgdbIds
                 }
-                _uiState.value = _uiState.value.copy(
-                    userProfile = profile,
-                    isLoadingProfile = loading,
-                    localIgdbIds = igdbIds
-                )
+                _uiState.update {
+                    it.copy(
+                        userProfile = profile,
+                        isLoadingProfile = loading,
+                        localIgdbIds = igdbIds
+                    )
+                }
             }
         }
     }
@@ -412,7 +418,7 @@ class SocialViewModel @Inject constructor(
         val current = _uiState.value
         val newMode = if (current.feedMode == FeedMode.FRIENDS) FeedMode.COMMUNITY else FeedMode.FRIENDS
         Log.d(TAG, "toggleFeedMode: ${current.feedMode} -> $newMode")
-        _uiState.value = current.copy(feedMode = newMode, focusedEventIndex = 0)
+        _uiState.update { it.copy(feedMode = newMode, focusedEventIndex = 0) }
         if (newMode == FeedMode.COMMUNITY && current.communityEvents.isEmpty()) {
             socialRepository.requestCommunityFeed()
             socialRepository.requestCommunityFollows()
@@ -420,13 +426,15 @@ class SocialViewModel @Inject constructor(
     }
 
     fun showCommunitySearch() {
-        _uiState.value = _uiState.value.copy(
-            showCommunitySearch = true,
-            communitySearchQuery = "",
-            communitySearchResults = emptyList(),
-            communitySearchFocusIndex = 0,
-            communitySearchFieldFocused = true
-        )
+        _uiState.update {
+            it.copy(
+                showCommunitySearch = true,
+                communitySearchQuery = "",
+                communitySearchResults = emptyList(),
+                communitySearchFocusIndex = 0,
+                communitySearchFieldFocused = true
+            )
+        }
         viewModelScope.launch {
             val items = gameRepository.getRecentlyPlayed(10).toGamePickerItems(gameRepository)
             _uiState.update { it.copy(communitySearchResults = items) }
@@ -434,15 +442,17 @@ class SocialViewModel @Inject constructor(
     }
 
     fun hideCommunitySearch() {
-        _uiState.value = _uiState.value.copy(showCommunitySearch = false)
+        _uiState.update { it.copy(showCommunitySearch = false) }
         communitySearchJob?.cancel()
     }
 
     fun updateCommunitySearchQuery(query: String) {
-        _uiState.value = _uiState.value.copy(
-            communitySearchQuery = query,
-            communitySearchFocusIndex = 0
-        )
+        _uiState.update {
+            it.copy(
+                communitySearchQuery = query,
+                communitySearchFocusIndex = 0
+            )
+        }
         communitySearchJob?.cancel()
         if (query.isBlank()) {
             viewModelScope.launch {
@@ -463,18 +473,20 @@ class SocialViewModel @Inject constructor(
         val maxIndex = state.communitySearchResults.size - 1
         if (maxIndex < 0) return
         val newIndex = (state.communitySearchFocusIndex + delta).coerceIn(0, maxIndex)
-        _uiState.value = state.copy(communitySearchFocusIndex = newIndex)
+        _uiState.update { it.copy(communitySearchFocusIndex = newIndex) }
     }
 
     fun focusCommunitySearchField() {
-        _uiState.value = _uiState.value.copy(communitySearchFieldFocused = true)
+        _uiState.update { it.copy(communitySearchFieldFocused = true) }
     }
 
     fun focusCommunitySearchList() {
-        _uiState.value = _uiState.value.copy(
-            communitySearchFieldFocused = false,
-            communitySearchFocusIndex = 0
-        )
+        _uiState.update {
+            it.copy(
+                communitySearchFieldFocused = false,
+                communitySearchFocusIndex = 0
+            )
+        }
     }
 
     fun toggleCommunityFollow(igdbId: Int) {
@@ -488,7 +500,7 @@ class SocialViewModel @Inject constructor(
 
     fun refresh() {
         Log.d(TAG, "refresh: resetting focusIndex and reloading")
-        _uiState.value = _uiState.value.copy(focusedEventIndex = 0)
+        _uiState.update { it.copy(focusedEventIndex = 0) }
         loadFeed()
     }
 
@@ -498,7 +510,7 @@ class SocialViewModel @Inject constructor(
         val newOrdinal = (currentOrdinal + delta).coerceIn(0, tabs.size - 1)
         if (newOrdinal != currentOrdinal) {
             Log.d(TAG, "switchTab: ${tabs[currentOrdinal]} -> ${tabs[newOrdinal]}")
-            _uiState.value = _uiState.value.copy(selectedTab = tabs[newOrdinal])
+            _uiState.update { it.copy(selectedTab = tabs[newOrdinal]) }
             return true
         }
         return false
@@ -517,7 +529,7 @@ class SocialViewModel @Inject constructor(
 
         if (newIndex != currentIndex) {
             Log.v(TAG, "moveFocus: $currentIndex -> $newIndex (of ${events.size})")
-            _uiState.value = state.copy(focusedEventIndex = newIndex)
+            _uiState.update { it.copy(focusedEventIndex = newIndex) }
 
             if (newIndex >= events.size - 3 && state.activeFeedHasMore && !state.activeFeedLoading) {
                 Log.d(TAG, "moveFocus: near end (index $newIndex of ${events.size}), triggering loadMore")
@@ -539,7 +551,7 @@ class SocialViewModel @Inject constructor(
         val newIndex = (currentIndex + delta).coerceIn(0, state.friendsTabCount - 1)
         if (newIndex != currentIndex) {
             Log.v(TAG, "moveFriendFocus: $currentIndex -> $newIndex")
-            _uiState.value = state.copy(focusedFriendIndex = newIndex)
+            _uiState.update { it.copy(focusedFriendIndex = newIndex) }
             return true
         }
         return false
@@ -551,7 +563,7 @@ class SocialViewModel @Inject constructor(
         val currentIndex = state.focusedNotificationIndex
         val newIndex = (currentIndex + delta).coerceIn(0, state.notifications.size - 1)
         if (newIndex != currentIndex) {
-            _uiState.value = state.copy(focusedNotificationIndex = newIndex)
+            _uiState.update { it.copy(focusedNotificationIndex = newIndex) }
             if (newIndex >= state.notifications.size - 3 && state.notificationsHasMore && !state.isLoadingNotifications) {
                 socialRepository.loadMoreNotifications()
             }
@@ -567,7 +579,7 @@ class SocialViewModel @Inject constructor(
         val newIndex = (currentIndex + delta).coerceIn(0, maxIndex)
         if (newIndex != currentIndex) {
             Log.v(TAG, "moveProfileFocus: $currentIndex -> $newIndex")
-            _uiState.value = state.copy(profileFocusIndex = newIndex)
+            _uiState.update { it.copy(profileFocusIndex = newIndex) }
             return true
         }
         return false
@@ -658,21 +670,22 @@ class SocialViewModel @Inject constructor(
         val event = _uiState.value.focusedEvent
         Log.d(TAG, "reportCurrentEvent: event=${event?.id}, reason=${reason.value}")
         event?.let {
-            socialRepository.reportEvent(it.id, reason.value)
-            socialRepository.hideEvent(it.id)
+            if (socialRepository.reportEvent(it.id, reason.value)) {
+                socialRepository.hideEvent(it.id)
+            }
         }
     }
 
     fun showAvatarModal() {
-        _uiState.value = _uiState.value.copy(showAvatarModal = true, avatarModalFocusIndex = 0)
+        _uiState.update { it.copy(showAvatarModal = true, avatarModalFocusIndex = 0) }
     }
 
     fun hideAvatarModal() {
-        _uiState.value = _uiState.value.copy(showAvatarModal = false)
+        _uiState.update { it.copy(showAvatarModal = false) }
     }
 
     fun moveAvatarModalFocus(delta: Int) {
-        _uiState.value = _uiState.value.let { state ->
+        _uiState.update { state ->
             val count = state.avatarModalOptions.size
             state.copy(avatarModalFocusIndex = (state.avatarModalFocusIndex + delta).mod(count))
         }

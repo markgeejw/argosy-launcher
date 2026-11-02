@@ -38,6 +38,13 @@ object PlatformWeightRegistry {
         "dreamcast"
     )
 
+    private val platformsWithMotion = setOf(
+        "gb", "gbc", "gba",
+        "nds", "dsi",
+        "3ds",
+        "wii"
+    )
+
     private val platformsWithoutCheats = setOf(
         "gc", "wii",
         "ps2", "psp", "vita",
@@ -53,6 +60,9 @@ object PlatformWeightRegistry {
 
     fun hasRumble(platformSlug: String): Boolean =
         PlatformDefinitions.getCanonicalSlug(platformSlug) in platformsWithRumble
+
+    fun hasMotion(platformSlug: String): Boolean =
+        PlatformDefinitions.getCanonicalSlug(platformSlug) in platformsWithMotion
 
     fun supportsCheats(platformSlug: String): Boolean =
         PlatformDefinitions.getCanonicalSlug(platformSlug) !in platformsWithoutCheats

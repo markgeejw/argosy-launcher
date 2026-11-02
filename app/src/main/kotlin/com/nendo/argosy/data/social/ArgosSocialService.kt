@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -63,7 +64,7 @@ class ArgosSocialService @Inject constructor(
         val reason: String?
     )
 
-    private val _playSessionSyncResult = MutableSharedFlow<List<SessionSyncResult>>(replay = 1)
+    private val _playSessionSyncResult = MutableSharedFlow<List<SessionSyncResult>>(extraBufferCapacity = 1)
     val playSessionSyncResult: SharedFlow<List<SessionSyncResult>> = _playSessionSyncResult.asSharedFlow()
 
     private val activeGamesReplies = MutableSharedFlow<List<ActiveGameRow>>(extraBufferCapacity = 1)
@@ -272,16 +273,28 @@ class ArgosSocialService @Inject constructor(
                 }
             }
 
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                if (webSocket !== this@ArgosSocialService.webSocket) return
+                Log.d(TAG, "Social WebSocket closing by server: $code $reason")
+                handleServerClose(code)
+                webSocket.close(1000, null)
+            }
+
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (webSocket !== this@ArgosSocialService.webSocket) return
-                stopHeartbeat()
                 Log.d(TAG, "Social WebSocket closed: $code $reason")
-                _connectionState.value = ConnectionState.Disconnected
-                if (shouldReconnect && code != 1000) {
-                    scheduleReconnect()
-                }
+                handleServerClose(code)
             }
         })
+    }
+
+    private fun handleServerClose(code: Int) {
+        stopHeartbeat()
+        webSocket = null
+        _connectionState.update { ConnectionState.Disconnected }
+        if (shouldReconnect && code != 1000) {
+            scheduleReconnect()
+        }
     }
 
     internal fun handleMessageForTest(text: String) = handleMessage(text)
@@ -1137,13 +1150,11 @@ class ArgosSocialService @Inject constructor(
         Log.d(TAG, "getFriendCode: sent=$sent, webSocket=${webSocket != null}")
     }
 
-    fun regenerateFriendCode() {
+    fun regenerateFriendCode(): Boolean =
         send(MessageTypes.REGENERATE_FRIEND_CODE, emptyMap())
-    }
 
-    fun addFriendByCode(code: String) {
+    fun addFriendByCode(code: String): Boolean =
         send(MessageTypes.LOOKUP_FRIEND_CODE, mapOf("code" to code))
-    }
 
     fun sendFriendRequest(userId: String): Boolean {
         return send(MessageTypes.SEND_FRIEND_REQ, mapOf("user_id" to userId))
@@ -1157,7 +1168,7 @@ class ArgosSocialService @Inject constructor(
         return send(MessageTypes.REMOVE_FRIEND, mapOf("user_id" to userId))
     }
 
-    fun getFeed(limit: Int? = null, beforeId: String? = null, userId: String? = null) {
+    fun getFeed(limit: Int? = null, beforeId: String? = null, userId: String? = null): Boolean {
         Log.d(TAG, "getFeed: limit=$limit, beforeId=$beforeId, userId=$userId")
         val payload = mutableMapOf<String, Any?>()
         if (limit != null) payload["limit"] = limit
@@ -1169,7 +1180,7 @@ class ArgosSocialService @Inject constructor(
             if (payload.isNotEmpty()) put("payload", JSONObject(payload))
         }
         Log.v(TAG, "getFeed sending: $json")
-        webSocket?.send(json.toString())
+        return webSocket?.send(json.toString()) ?: false
     }
 
     fun getReviewSummary(igdbId: Int): Boolean =
@@ -1200,14 +1211,14 @@ class ArgosSocialService @Inject constructor(
     fun deleteReview(igdbId: Int): Boolean =
         send(MessageTypes.DELETE_REVIEW, mapOf("igdb_id" to igdbId))
 
-    fun likeEvent(eventId: String) {
+    fun likeEvent(eventId: String): Boolean {
         Log.d(TAG, "likeEvent: eventId=$eventId")
-        send(MessageTypes.LIKE_EVENT, mapOf("event_id" to eventId))
+        return send(MessageTypes.LIKE_EVENT, mapOf("event_id" to eventId))
     }
 
-    fun commentEvent(eventId: String, content: String) {
+    fun commentEvent(eventId: String, content: String): Boolean {
         Log.d(TAG, "commentEvent: eventId=$eventId, content=${content.take(50)}")
-        send(MessageTypes.COMMENT_EVENT, mapOf(
+        return send(MessageTypes.COMMENT_EVENT, mapOf(
             "event_id" to eventId,
             "content" to content
         ))
@@ -1218,7 +1229,7 @@ class ArgosSocialService @Inject constructor(
         send(MessageTypes.GET_EVENT_COMMENTS, mapOf("event_id" to eventId))
     }
 
-    fun getNotifications(limit: Int? = null, before: String? = null) {
+    fun getNotifications(limit: Int? = null, before: String? = null): Boolean {
         val payload = mutableMapOf<String, Any?>()
         if (limit != null) payload["limit"] = limit
         if (before != null) payload["before"] = before
@@ -1226,10 +1237,10 @@ class ArgosSocialService @Inject constructor(
             put("type", MessageTypes.GET_NOTIFICATIONS)
             if (payload.isNotEmpty()) put("payload", JSONObject(payload))
         }
-        webSocket?.send(json.toString())
+        return webSocket?.send(json.toString()) ?: false
     }
 
-    fun requestUserProfile(userId: String? = null) {
+    fun requestUserProfile(userId: String? = null): Boolean {
         Log.d(TAG, "requestUserProfile: userId=$userId")
         val payload = mutableMapOf<String, Any?>()
         if (userId != null) payload["user_id"] = userId
@@ -1237,20 +1248,19 @@ class ArgosSocialService @Inject constructor(
             put("type", MessageTypes.GET_USER_PROFILE)
             if (payload.isNotEmpty()) put("payload", JSONObject(payload))
         }
-        webSocket?.send(json.toString())
+        return webSocket?.send(json.toString()) ?: false
     }
 
-    fun markNotificationRead(notificationId: String? = null, eventId: String? = null, type: String? = null) {
+    fun markNotificationRead(notificationId: String? = null, eventId: String? = null, type: String? = null): Boolean {
         val payload = mutableMapOf<String, Any?>()
         if (notificationId != null) payload["notification_id"] = notificationId
         if (eventId != null) payload["event_id"] = eventId
         if (type != null) payload["type"] = type
-        send(MessageTypes.MARK_NOTIFICATION_READ, payload)
+        return send(MessageTypes.MARK_NOTIFICATION_READ, payload)
     }
 
-    fun markAllNotificationsRead() {
+    fun markAllNotificationsRead(): Boolean =
         send(MessageTypes.MARK_ALL_READ, emptyMap())
-    }
 
     fun getEvent(eventId: String) {
         send(MessageTypes.GET_EVENT, mapOf("event_id" to eventId))
@@ -1261,18 +1271,18 @@ class ArgosSocialService @Inject constructor(
         send(MessageTypes.DELETE_COMMENT, mapOf("comment_id" to commentId))
     }
 
-    fun hideEvent(eventId: String) {
+    fun hideEvent(eventId: String): Boolean {
         Log.d(TAG, "hideEvent: eventId=$eventId")
-        send(MessageTypes.HIDE_EVENT, mapOf("event_id" to eventId))
+        return send(MessageTypes.HIDE_EVENT, mapOf("event_id" to eventId))
     }
 
     fun toggleFavoriteFriend(friendId: String): Boolean {
         return send(MessageTypes.TOGGLE_FAVORITE_FRIEND, mapOf("friend_id" to friendId))
     }
 
-    fun reportEvent(eventId: String, reason: String? = null) {
+    fun reportEvent(eventId: String, reason: String? = null): Boolean {
         Log.d(TAG, "reportEvent: eventId=$eventId, reason=$reason")
-        send(MessageTypes.REPORT_EVENT, buildMap {
+        return send(MessageTypes.REPORT_EVENT, buildMap {
             put("event_id", eventId)
             if (reason != null) put("reason", reason)
         })
@@ -1323,9 +1333,9 @@ class ArgosSocialService @Inject constructor(
         caption: String?,
         igdbId: Int?,
         gameTitle: String?
-    ) {
+    ): Boolean {
         Log.d(TAG, "createDoodle: size=$canvasSize, dataLen=${data.length}, caption=${caption?.take(20)}")
-        send(MessageTypes.CREATE_DOODLE, mapOf(
+        return send(MessageTypes.CREATE_DOODLE, mapOf(
             "canvas_size" to canvasSize,
             "data" to data,
             "caption" to caption,
@@ -1341,9 +1351,9 @@ class ArgosSocialService @Inject constructor(
         igdbId: Int? = null,
         gameTitle: String? = null,
         public: Boolean = false
-    ) {
+    ): Boolean {
         Log.d(TAG, "createPost: bodyLen=${body.length}, hasDoodle=${doodleData != null}, igdbId=$igdbId, public=$public")
-        send(MessageTypes.CREATE_POST, buildMap {
+        return send(MessageTypes.CREATE_POST, buildMap {
             put("body", body)
             if (canvasSize != null) put("canvas_size", canvasSize)
             if (doodleData != null) put("doodle_data", doodleData)
@@ -1353,27 +1363,24 @@ class ArgosSocialService @Inject constructor(
         })
     }
 
-    fun followCommunity(igdbGameId: Int, isPrivate: Boolean = false, anonymous: Boolean = false) {
+    fun followCommunity(igdbGameId: Int, isPrivate: Boolean = false, anonymous: Boolean = false): Boolean =
         send(MessageTypes.FOLLOW_COMMUNITY, mapOf(
             "igdb_game_id" to igdbGameId,
             "private" to isPrivate,
             "anonymous" to anonymous
         ))
-    }
 
-    fun unfollowCommunity(igdbGameId: Int) {
+    fun unfollowCommunity(igdbGameId: Int): Boolean =
         send(MessageTypes.UNFOLLOW_COMMUNITY, mapOf("igdb_game_id" to igdbGameId))
-    }
 
-    fun updateCommunityFollow(igdbGameId: Int, isPrivate: Boolean, anonymous: Boolean) {
+    fun updateCommunityFollow(igdbGameId: Int, isPrivate: Boolean, anonymous: Boolean): Boolean =
         send(MessageTypes.UPDATE_COMMUNITY_FOLLOW, mapOf(
             "igdb_game_id" to igdbGameId,
             "private" to isPrivate,
             "anonymous" to anonymous
         ))
-    }
 
-    fun getCommunityFeed(igdbGameId: Int? = null, limit: Int? = null, beforeId: String? = null) {
+    fun getCommunityFeed(igdbGameId: Int? = null, limit: Int? = null, beforeId: String? = null): Boolean {
         val payload = mutableMapOf<String, Any?>()
         if (igdbGameId != null) payload["igdb_game_id"] = igdbGameId
         if (limit != null) payload["limit"] = limit
@@ -1382,7 +1389,7 @@ class ArgosSocialService @Inject constructor(
             put("type", MessageTypes.GET_COMMUNITY_FEED)
             if (payload.isNotEmpty()) put("payload", JSONObject(payload))
         }
-        webSocket?.send(json.toString())
+        return webSocket?.send(json.toString()) ?: false
     }
 
     fun getCommunityFollows() {
@@ -1393,18 +1400,17 @@ class ArgosSocialService @Inject constructor(
         send(MessageTypes.GET_USER_SETTINGS, emptyMap())
     }
 
-    fun updateUserSettings(communityAutoShare: Boolean? = null) {
+    fun updateUserSettings(communityAutoShare: Boolean? = null): Boolean {
         val payload = mutableMapOf<String, Any?>()
         if (communityAutoShare != null) payload["community_auto_share"] = communityAutoShare
-        send(MessageTypes.UPDATE_USER_SETTINGS, payload)
+        return send(MessageTypes.UPDATE_USER_SETTINGS, payload)
     }
 
-    fun updateEventVisibility(eventId: String, public: Boolean) {
+    fun updateEventVisibility(eventId: String, public: Boolean): Boolean =
         send(MessageTypes.UPDATE_EVENT_VISIBILITY, mapOf(
             "event_id" to eventId,
             "public" to public
         ))
-    }
 
     data class PlaySessionPayload(
         val userId: String,

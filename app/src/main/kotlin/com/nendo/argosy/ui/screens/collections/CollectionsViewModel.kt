@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.nendo.argosy.ui.screens.collections.dialogs.CollectionOption
@@ -378,10 +379,10 @@ class CollectionsViewModel @Inject constructor(
             val isPinned = collection.id in _pinnedCollectionIds.value
             if (isPinned) {
                 unpinCollectionUseCase.unpinRegular(collection.id)
-                _pinnedCollectionIds.value = _pinnedCollectionIds.value - collection.id
+                _pinnedCollectionIds.update { it - collection.id }
             } else {
                 pinCollectionUseCase.pinRegular(collection.id)
-                _pinnedCollectionIds.value = _pinnedCollectionIds.value + collection.id
+                _pinnedCollectionIds.update { it + collection.id }
             }
         }
     }

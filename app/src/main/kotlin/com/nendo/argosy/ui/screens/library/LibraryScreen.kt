@@ -60,7 +60,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -123,6 +122,7 @@ import com.nendo.argosy.ui.input.DiscPickerInputHandler
 import com.nendo.argosy.ui.input.MemcardPickerInputHandler
 import com.nendo.argosy.ui.input.VariantPickerInputHandler
 import com.nendo.argosy.ui.input.LocalInputDispatcher
+import com.nendo.argosy.ui.input.ModalInputEffect
 import com.nendo.argosy.ui.input.ModalPresenceEffect
 import com.nendo.argosy.ui.navigation.Screen
 import com.nendo.argosy.ui.theme.LocalBoxArtStyle
@@ -146,13 +146,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import com.nendo.argosy.data.preferences.LibraryListStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -208,7 +209,14 @@ fun LibraryScreen(
     }
 
     val density = LocalDensity.current
-    val headerHeightPx = with(density) { Dimens.headerHeightLg.toPx() }.toInt()
+    val isCompactList = uiState.isListLayout && uiState.libraryListStyle == LibraryListStyle.COMPACT
+    var compactHeaderHeightPx by remember { mutableStateOf(0) }
+    val defaultHeaderHeightPx = with(density) { Dimens.headerHeightLg.toPx() }.toInt()
+    val headerHeightPx = if (isCompactList && compactHeaderHeightPx > 0) {
+        compactHeaderHeightPx
+    } else {
+        defaultHeaderHeightPx
+    }
     val footerHeight = withNavBarClearance(Dimens.footerHeight)
     val footerHeightPx = with(density) { footerHeight.toPx() }.toInt()
 
@@ -527,6 +535,8 @@ fun LibraryScreen(
                 } else {
                     val activeFilterChips = remember(uiState.activeFilters) { uiState.activeFilters.chips }
                     LibraryHeader(
+                        compact = isCompactList,
+                        modifier = Modifier.onSizeChanged { compactHeaderHeightPx = it.height },
                         platformName = uiState.currentPlatform?.displayName
                             ?: stringResource(R.string.library_header_all_platforms),
                         gameCount = uiState.games.size,
@@ -640,7 +650,7 @@ fun LibraryScreen(
                         when {
                             game.needsInstall -> viewModel.installApk(game.id)
                             game.isDownloaded -> viewModel.launchGame(game.id)
-                            game.source == com.nendo.argosy.data.model.GameSource.STEAM -> viewModel.downloadSteamGame(game.id)
+                            game.source == com.nendo.argosy.data.model.GameSource.STEAM -> viewModel.linkSteamLauncher(game.id)
                             else -> viewModel.downloadGame(game.id)
                         }
                     },
@@ -665,7 +675,7 @@ fun LibraryScreen(
                     },
                     onDelete = {
                         viewModel.toggleQuickMenu()
-                        viewModel.deleteLocalFile(game.id)
+                        if (game.isAndroidApp) viewModel.uninstallAndroidApp(game.id) else viewModel.deleteLocalFile(game.id)
                     },
                     onRemoveFromLibrary = {
                         viewModel.toggleQuickMenu()
@@ -678,6 +688,8 @@ fun LibraryScreen(
                 )
             }
         }
+
+        com.nendo.argosy.ui.common.GameConfirmHost(viewModel.gameConfirm)
 
         AnimatedVisibility(
             visible = uiState.showAddToCollectionModal,
@@ -721,24 +733,20 @@ fun LibraryScreen(
                 getFocusIndex = { uiState.discPickerFocusIndex },
                 onFocusChange = { viewModel.setDiscPickerFocusIndex(it) },
                 onSelect = { viewModel.selectDisc(it) },
-                onDismiss = { viewModel.dismissDiscPicker() }
+                onDismiss = { viewModel.dismissDiscPicker() },
+                wrapMode = { viewModel.menuWrapMode }
             )
         }
 
-        LaunchedEffect(uiState.discPickerState) {
-            if (uiState.discPickerState != null) {
-                viewModel.setDiscPickerFocusIndex(0)
-                inputDispatcher.pushModal(discPickerInputHandler)
-            }
+        val showDiscPicker = uiState.discPickerState != null
+        LaunchedEffect(showDiscPicker) {
+            if (showDiscPicker) viewModel.setDiscPickerFocusIndex(0)
         }
-
-        DisposableEffect(uiState.discPickerState) {
-            onDispose {
-                if (uiState.discPickerState != null) {
-                    inputDispatcher.removeModal(discPickerInputHandler)
-                }
-            }
-        }
+        ModalInputEffect(
+            active = showDiscPicker,
+            handler = discPickerInputHandler,
+            inputDispatcher = inputDispatcher
+        )
 
         uiState.variantPickerState?.let { pickerState ->
             com.nendo.argosy.ui.screens.gamedetail.modals.VariantPickerModal(
@@ -755,24 +763,20 @@ fun LibraryScreen(
                 getFocusIndex = { uiState.variantPickerFocusIndex },
                 onFocusChange = { viewModel.setVariantPickerFocusIndex(it) },
                 onSelect = { viewModel.selectVariant(it) },
-                onDismiss = { viewModel.dismissVariantPicker() }
+                onDismiss = { viewModel.dismissVariantPicker() },
+                wrapMode = { viewModel.menuWrapMode }
             )
         }
 
-        LaunchedEffect(uiState.variantPickerState) {
-            if (uiState.variantPickerState != null) {
-                viewModel.setVariantPickerFocusIndex(0)
-                inputDispatcher.pushModal(variantPickerInputHandler)
-            }
+        val showVariantPicker = uiState.variantPickerState != null
+        LaunchedEffect(showVariantPicker) {
+            if (showVariantPicker) viewModel.setVariantPickerFocusIndex(0)
         }
-
-        DisposableEffect(uiState.variantPickerState) {
-            onDispose {
-                if (uiState.variantPickerState != null) {
-                    inputDispatcher.removeModal(variantPickerInputHandler)
-                }
-            }
-        }
+        ModalInputEffect(
+            active = showVariantPicker,
+            handler = variantPickerInputHandler,
+            inputDispatcher = inputDispatcher
+        )
 
         val siblingChoiceState by viewModel.siblingChoiceState.collectAsState()
         com.nendo.argosy.ui.screens.common.SiblingChoiceModalHost(
@@ -799,25 +803,20 @@ fun LibraryScreen(
                 getFocusIndex = { uiState.memcardPickerFocusIndex },
                 onFocusChange = { viewModel.setMemcardPickerFocusIndex(it) },
                 onSelect = { viewModel.selectMemcard(it) },
-                onDismiss = { viewModel.dismissMemcardPicker() }
+                onDismiss = { viewModel.dismissMemcardPicker() },
+                wrapMode = { viewModel.menuWrapMode }
             )
         }
 
         val showMemcardPicker = uiState.memcardPickerState != null
         LaunchedEffect(showMemcardPicker) {
-            if (showMemcardPicker) {
-                viewModel.setMemcardPickerFocusIndex(0)
-                inputDispatcher.pushModal(memcardPickerInputHandler)
-            }
+            if (showMemcardPicker) viewModel.setMemcardPickerFocusIndex(0)
         }
-
-        DisposableEffect(showMemcardPicker) {
-            onDispose {
-                if (showMemcardPicker) {
-                    inputDispatcher.removeModal(memcardPickerInputHandler)
-                }
-            }
-        }
+        ModalInputEffect(
+            active = showMemcardPicker,
+            handler = memcardPickerInputHandler,
+            inputDispatcher = inputDispatcher
+        )
 
 
         LetterOverlay(
@@ -835,7 +834,9 @@ private fun LibraryHeader(
     focusedGameTitle: String? = null,
     onPreviousPlatform: () -> Unit = {},
     onNextPlatform: () -> Unit = {},
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val aspectRatioClass = com.nendo.argosy.ui.theme.LocalUiScale.current.aspectRatioClass
     val maxNameLength = when (aspectRatioClass) {
@@ -853,9 +854,9 @@ private fun LibraryHeader(
 
     val surfaceColor = MaterialTheme.colorScheme.surface
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(Dimens.headerHeightLg)
+            .then(if (compact) Modifier else Modifier.height(Dimens.headerHeightLg))
             .background(
                 Brush.verticalGradient(
                     0.0f to surfaceColor,
@@ -1072,9 +1073,6 @@ private fun LibraryMasonryGrid(
     val initialIndex = remember { viewModel.gameIndexToGridIndex(uiState.focusedIndex) }
     val downloadIndicators = viewModel.downloadIndicators.collectAsState()
     val staggeredState = rememberLazyStaggeredGridState(initialFirstVisibleItemIndex = initialIndex)
-    // Local flag so the centering effect and the scroll listener read the same
-    // snapshot value with no recomposition lag (otherwise programmatic scrolls
-    // briefly look like user scrolls and wrongly flip the grid into touch mode).
     var isProgrammaticScroll by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.currentPlatformIndex) {
@@ -1141,8 +1139,6 @@ private fun LibraryMasonryGrid(
             }
     }
 
-    // Feed the real on-screen cover positions to the view model so D-pad
-    // navigation can resolve directions spatially over the masonry layout.
     val currentGridItems by rememberUpdatedState(uiState.gridItems)
     LaunchedEffect(staggeredState) {
         snapshotFlow { staggeredState.layoutInfo.visibleItemsInfo }
@@ -1271,12 +1267,7 @@ private fun LibraryGameCard(
         modifier = modifier
             .fillMaxWidth()
             .then(if (cardHeight != null) Modifier.height(cardHeight) else Modifier)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            )
+            .clickableNoFocus(onClick = onClick, onLongClick = onLongClick)
     )
 }
 
@@ -1363,12 +1354,13 @@ private fun LibraryFooter(
 @Composable
 internal fun SectionDivider(
     label: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = Dimens.spacingSm),
+            .padding(vertical = if (compact) 0.dp else Dimens.spacingSm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
     ) {

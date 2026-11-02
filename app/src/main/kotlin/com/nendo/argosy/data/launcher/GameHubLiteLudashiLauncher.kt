@@ -6,6 +6,7 @@ import android.content.Intent
 object GameHubLiteLudashiLauncher : SteamLauncher {
     override val packageName = "com.ludashi.benchmark"
     override val displayName = "GameHub Lite (Ludashi)"
+    override val registryId = "gamehub_lite"
 
     override fun createLaunchIntent(steamAppId: Long): Intent = Intent().apply {
         component = ComponentName(

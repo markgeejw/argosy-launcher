@@ -60,6 +60,7 @@ internal sealed class NavigationItem(
     data object SwapAB : NavigationItem("swapAB", "controller")
     data object SwapXY : NavigationItem("swapXY", "controller")
     data object SwapStartSelect : NavigationItem("swapStartSelect", "controller")
+    data object IgnoreControllerTouchpad : NavigationItem("ignoreControllerTouchpad", "controller")
 
     data object HapticFeedback : NavigationItem("haptic", "feedback")
     data object VibrationStrength : NavigationItem(
@@ -115,7 +116,7 @@ internal sealed class NavigationItem(
         val ALL: List<NavigationItem>
             get() = listOf(
                 ControllerHeader,
-                ControllerLayout, SwapAB, SwapXY, SwapStartSelect,
+                ControllerLayout, SwapAB, SwapXY, SwapStartSelect, IgnoreControllerTouchpad,
                 FeedbackSpacer, FeedbackHeader,
                 HapticFeedback, VibrationStrength,
                 MenusSpacer, MenusHeader,
@@ -233,6 +234,14 @@ fun NavigationSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                 isEnabled = controls.swapStartSelect,
                 isFocused = isFocused(item),
                 onToggle = { viewModel.setSwapStartSelect(it) }
+            )
+
+            NavigationItem.IgnoreControllerTouchpad -> SwitchPreference(
+                title = stringResource(R.string.settings_navigation_ignore_controller_touchpad_title),
+                subtitle = stringResource(R.string.settings_navigation_ignore_controller_touchpad_subtitle),
+                isEnabled = controls.ignoreControllerTouchpad,
+                isFocused = isFocused(item),
+                onToggle = { viewModel.setIgnoreControllerTouchpad(it) }
             )
 
             NavigationItem.QuickNavigation -> SwitchPreference(

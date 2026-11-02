@@ -114,6 +114,9 @@
     <string name="settings_interface_hide_system_nav_bar_subtitle">Скрывает кнопки Android «Назад», «Домой» и «Недавние» или панель жестов. Проведите от края экрана, чтобы показать их</string>
     <string name="settings_interface_hide_system_status_bar_title">Скрывать системную строку состояния</string>
     <string name="settings_interface_hide_system_status_bar_subtitle">Скрывает строку состояния Android и значки уведомлений. Проведите сверху вниз, чтобы показать её</string>
+    <string name="settings_interface_quick_panel_in_emulators_title">Быстрая панель в других эмуляторах</string>
+    <string name="settings_interface_quick_panel_in_emulators_subtitle">Удерживайте Назад в эмуляторе, запущенном из Argosy, чтобы открыть быструю панель. Нужна служба специальных возможностей Argosy</string>
+    <string name="settings_interface_quick_panel_in_emulators_service_off">Служба специальных возможностей выключена. Включите её в разделе «Разрешения»</string>
     <string name="settings_interface_lock_screen_art_title">Картинка экрана блокировки</string>
     <string name="settings_interface_lock_screen_art_subtitle">Пока Argosy — ваше приложение главного экрана, на экране блокировки показывается ваша библиотека или незакрытая игра. Заменяет обои экрана блокировки безвозвратно.</string>
     <string name="settings_interface_home_app_title">Доступно как приложение главного экрана</string>
@@ -180,6 +183,7 @@
     <string name="settings_installers_error_download">Не удалось загрузить</string>
     <string name="settings_installers_error_rate_limited">GitHub ограничивает запросы. Повторите позже</string>
     <string name="settings_installers_error_not_found">Не удалось открыть этот репозиторий</string>
+    <string name="settings_installers_error_wrong_package">Загружено другое приложение, а не ожидаемое</string>
     <string name="settings_installers_ime_enable_title">Включить в настройках системы</string>
     <string name="settings_installers_ime_enable_subtitle">Android разрешает включить клавиатуру только в настройках системы</string>
     <string name="settings_installers_ime_select_title">Выбрать активную клавиатуру</string>
@@ -197,6 +201,8 @@
     <string name="settings_navigation_swap_xy_subtitle">Поменять местами контекстное меню и второе действие</string>
     <string name="settings_navigation_swap_start_select_title">Поменять местами Start/Select</string>
     <string name="settings_navigation_swap_start_select_subtitle">Поменять местами функции кнопок Start и Select</string>
+    <string name="settings_navigation_ignore_controller_touchpad_title">Игнорировать тачпад в игре</string>
+    <string name="settings_navigation_ignore_controller_touchpad_subtitle">Тачпад контроллера не нажимает на лаунчер, пока идёт игра</string>
 
     <string name="settings_navigation_haptic_title">Вибрация</string>
     <string name="settings_navigation_vibration_title">Сила вибрации</string>
@@ -245,6 +251,8 @@
         <item quantity="other">%d мин</item>
     </plurals>
     <string name="settings_displays_dim_level_title">Уровень затемнения</string>
+    <string name="settings_displays_lid_sleep_title">Сон при закрытии крышки</string>
+    <string name="settings_displays_lid_sleep_subtitle">Снова усыпляет устройство, если нажатие кнопки разбудило его с закрытой крышкой</string>
 
     <string name="settings_displays_dual_screen_title">Включить режим двух экранов</string>
     <string name="settings_displays_dual_screen_subtitle">Использовать дополнительный экран как компаньон</string>
@@ -252,6 +260,8 @@
 
     <string name="settings_displays_display_roles_title">Экран управления</string>
     <string name="settings_displays_display_roles_subtitle">Экран, на котором открываются меню; второй показывает то, что вы смотрите</string>
+    <string name="settings_displays_match_screen_size_title">Одинаковый размер игровых экранов</string>
+    <string name="settings_displays_match_screen_size_subtitle">Экраны DS показываются одного размера и сходятся у шарнира</string>
     <string name="settings_displays_display_roles_auto">Авто</string>
     <string name="settings_displays_display_roles_standard">Экран-компаньон</string>
     <string name="settings_displays_display_roles_swapped">Основной экран</string>
@@ -653,6 +663,8 @@
     <string name="settings_permissions_screen_capture_description">Позволяет LED-подсветке считывать цвета экрана во время игры.</string>
     <string name="settings_permissions_display_overlay_title">Отображение поверх других приложений</string>
     <string name="settings_permissions_display_overlay_description">Показывает уведомления об обнаружении сохранений при игре во внешних эмуляторах.</string>
+    <string name="settings_permissions_accessibility_title">Служба специальных возможностей</string>
+    <string name="settings_permissions_accessibility_description">Позволяет открывать быструю панель поверх других эмуляторов и беззвучно делать снимки сохранений</string>
     <string name="settings_permissions_live_wallpaper_title">Анимированный экран блокировки</string>
     <string name="settings_permissions_live_wallpaper_description">Разрешите Argosy установить анимированный экран блокировки.</string>
     <string name="settings_lock_screen_wallpaper_label">Библиотека Argosy</string>
@@ -923,7 +935,7 @@
         <item quantity="other">%d файла</item>
     </plurals>
     <string name="settings_storage_steam_tile_title">Steam и ПК</string>
-    <string name="settings_storage_steam_tile_subtitle">Магазины, установки и временные файлы</string>
+    <string name="settings_storage_steam_tile_subtitle">Магазины и установки</string>
 
     <string name="settings_storage_rom_path_title">Общий путь ROM</string>
     <string name="settings_storage_rom_path_free">Свободно: %1$s</string>
@@ -1202,10 +1214,6 @@
     <string name="settings_caches_frames_busy">Очистка...</string>
     <string name="settings_caches_frames_subtitle">Скачанные рамки - скачиваются заново по запросу</string>
 
-    <string name="settings_caches_steam_clear_title">Очистить данные загрузок</string>
-    <string name="settings_caches_steam_clear_busy">Очистка...</string>
-    <string name="settings_caches_steam_clear_blocked">Сначала отмените загрузки Steam</string>
-    <string name="settings_caches_steam_clear_subtitle">Удаляет подготовленные загрузки и очередь - установленные игры остаются</string>
 
     <string name="settings_caches_info_artwork_title">Кэш обложек</string>
     <string name="settings_caches_info_artwork_subtitle">Постеры, фоны и другие онлайн-изображения - скачиваются заново по запросу</string>
@@ -1226,9 +1234,6 @@
     </plurals>
     <string name="settings_caches_info_steam_total_title">Всего Steam и ПК</string>
     <string name="settings_caches_info_steam_total_subtitle">Включает установленные игры из магазинов</string>
-    <string name="settings_caches_info_steam_staging_title">Временные файлы загрузок</string>
-    <string name="settings_caches_info_steam_staging_subtitle">Частичные загрузки, ожидающие установки</string>
-    <string name="settings_caches_info_steam_staging_computing">Вычисление...</string>
 
     <!-- ===== Steam section ===== -->
 
@@ -1244,10 +1249,6 @@
     <string name="settings_steam_gn_storage_warning_title">Внешнее хранилище</string>
     <string name="settings_steam_gn_storage_warning_value">Откройте GameNative и включите «Write to external storage» в настройках</string>
 
-    <string name="settings_steam_install_path_title">Путь установки</string>
-    <string name="settings_steam_install_path_title_custom">Путь установки (свой)</string>
-    <string name="settings_steam_install_path_change">Изменить</string>
-    <string name="settings_steam_install_triage_title">Установленные игры</string>
     <string name="settings_steam_account_title">Аккаунт Steam</string>
     <string name="settings_steam_account_connected">Подключено</string>
 
@@ -1255,7 +1256,7 @@
     <string name="settings_steam_sync_idle">Синхронизировать купленные игры из Steam</string>
     <string name="settings_steam_sync_licenses">Синхронизация лицензий...</string>
     <string name="settings_steam_sync_packages">Получение пакетов (%1$d/%2$d)...</string>
-    <string name="settings_steam_sync_apps">Получение игр (%1$d/%2$d)...</string>
+    <string name="settings_steam_sync_apps">Проверка приложений (%1$d/%2$d)...</string>
     <string name="settings_steam_sync_complete">Добавлено %1$d, обновлено %2$d</string>
     <string name="settings_steam_sync_error">Ошибка: %1$s</string>
 
@@ -1287,11 +1288,11 @@
     <string name="settings_steam_reset_library_subtitle">Удалить все синхронизированные игры Steam</string>
 
     <string name="settings_steam_gn_required_title">Требуется GameNative</string>
-    <string name="settings_steam_gn_required_message">Игры Steam скачиваются Argosy и запускаются через GameNative. Установите GameNative и включите внешнее хранилище в его настройках, прежде чем продолжить.</string>
+    <string name="settings_steam_gn_required_message">Игры Steam устанавливаются и запускаются через GameNative, DroidDeck или GameHub. Установите одно из этих приложений, прежде чем продолжить.</string>
     <string name="settings_steam_gn_required_action">Установить GameNative</string>
 
     <string name="settings_steam_login_title">Войти в Steam</string>
-    <string name="settings_steam_login_message">Подключите аккаунт Steam, чтобы синхронизировать библиотеку и скачивать игры.</string>
+    <string name="settings_steam_login_message">Подключите аккаунт Steam, чтобы синхронизировать библиотеку.</string>
     <string name="settings_steam_login_action">Подключить</string>
     <string name="settings_steam_connecting">Подключение...</string>
 
@@ -1562,6 +1563,8 @@
 
     <string name="settings_builtin_controls_rumble_title">Вибрация</string>
     <string name="settings_builtin_controls_rumble_subtitle">Включить вибрацию контроллера</string>
+    <string name="settings_builtin_controls_motion_title">Управление движением</string>
+    <string name="settings_builtin_controls_motion_subtitle">Разрешить играм считывать наклон и поворот устройства</string>
     <string name="settings_builtin_controls_order_title">Порядок контроллеров</string>
     <string name="settings_builtin_controls_order_subtitle">Задайте порядок игроков, нажав кнопку на каждом контроллере</string>
     <plurals name="settings_builtin_controls_order_assigned">
@@ -1574,6 +1577,7 @@
     <string name="settings_builtin_controls_mapping_subtitle">Переназначить кнопки для каждого контроллера</string>
     <string name="settings_builtin_controls_controller_type_title">Контроллер игрока %1$d</string>
     <string name="settings_builtin_controls_controller_type_subtitle">Контроллер, который видит игра. Применяется при следующем запуске игры.</string>
+    <string name="settings_builtin_controls_controller_type_auto">Авто (%1$s)</string>
 
     <string name="settings_builtin_controls_analog_as_dpad_title">Левый стик как D-Pad</string>
     <string name="settings_builtin_controls_analog_as_dpad_subtitle">Сопоставить левый аналоговый стик с D-pad</string>
@@ -1584,6 +1588,11 @@
     <string name="settings_builtin_controls_hotkeys_subtitle">Настроить сочетания для меню, перемотки вперёд и назад</string>
     <string name="settings_builtin_controls_limit_hotkeys_title">Горячие клавиши только для игрока 1</string>
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">Горячие клавиши работают только с контроллером игрока 1</string>
+    <string name="settings_builtin_controls_select_as_back_title">Select как «Назад»</string>
+    <string name="settings_builtin_controls_select_as_back_subtitle">Для контроллеров, у которых Select отправляет «Назад». В режиме «Авто» «Назад» работает как Select на контроллерах без кнопки Select.</string>
+    <string name="settings_builtin_controls_select_as_back_auto">Авто</string>
+    <string name="settings_builtin_controls_select_as_back_on">Вкл</string>
+    <string name="settings_builtin_controls_select_as_back_off">Выкл</string>
     <string name="settings_builtin_controls_toggle_ff_title">Переключение перемотки вперёд</string>
     <string name="settings_builtin_controls_toggle_ff_subtitle">Нажмите один раз, чтобы начать, ещё раз - чтобы остановить (выкл = удерживать для перемотки)</string>
     <string name="settings_builtin_controls_ff_pitch_title">Сохранять высоту звука</string>
@@ -1844,6 +1853,8 @@
     <string name="settings_platform_sync_toggle_subtitle">Включить эту платформу в синхронизацию библиотеки</string>
     <string name="settings_platform_combine_content_title">Объединить контент</string>
     <string name="settings_platform_combine_content_subtitle">Все игры в одной папке, все обновления и DLC в extcontent</string>
+    <string name="settings_platform_skip_full_sync_title">Пропускать при полной синхронизации</string>
+    <string name="settings_platform_skip_full_sync_subtitle">Инкрементная синхронизация по-прежнему проверяет изменения</string>
     <string name="settings_platform_sync_now_title">Синхронизировать сейчас</string>
     <string name="settings_platform_sync_now_busy">Синхронизация...</string>
     <string name="settings_platform_sync_now_subtitle">Синхронизировать эту платформу с RomM</string>
@@ -1935,6 +1946,9 @@
     <string name="settings_library_layout_title">Раскладка</string>
     <string name="settings_library_layout_grid">Сетка</string>
     <string name="settings_library_layout_list">Список</string>
+    <string name="settings_library_list_style_title">Стиль списка</string>
+    <string name="settings_library_list_style_relaxed">Свободный</string>
+    <string name="settings_library_list_style_compact">Компактный</string>
     <string name="settings_library_box_art_title">Обложки</string>
     <string name="settings_library_box_art_subtitle">Показывает 3D-коробку для игр, у которых она есть</string>
     <string name="settings_library_box_art_option_2d">2D-обложка</string>
@@ -2013,6 +2027,8 @@
     <string name="settings_hotkeys_action_skip_split">Пропустить сплит</string>
     <string name="settings_hotkeys_action_toggle_timer">Старт/пауза таймера</string>
     <string name="settings_hotkeys_action_reset_timer">Сбросить таймер</string>
+    <string name="settings_hotkeys_action_sun_brighter">Больше солнца</string>
+    <string name="settings_hotkeys_action_sun_dimmer">Меньше солнца</string>
 
     <!-- ===== Input mapping modal (Settings > components > InputMappingModal) ===== -->
 
@@ -2300,12 +2316,10 @@
     <!-- ===== Controller order modal (Settings > components > ControllerOrderModal) ===== -->
 
     <string name="settings_controller_order_title">Порядок контроллеров</string>
-    <string name="settings_controller_order_subtitle">Нажмите кнопку на контроллере, чтобы найти его.</string>
+    <string name="settings_controller_order_prompt">Нажмите %1$s + %2$s или %3$s на контроллере, который хотите использовать</string>
+    <string name="settings_controller_order_ready">Нажмите %1$s, когда будете готовы</string>
     <string name="settings_controller_order_hint_clear_all">Очистить все</string>
     <string name="settings_controller_order_default_name">Контроллер</string>
-    <string name="settings_controller_order_slot_label">P%1$d</string>
-    <string name="settings_controller_order_seat_none">Нет</string>
-    <string name="settings_controller_order_empty">Контроллеры не подключены</string>
 
     <!-- ===== Grip controller modal (Settings > components > GripControllerModal) ===== -->
 
@@ -2445,7 +2459,6 @@
     <string name="settings_accounts_delegate_blocker_external_game">%1$s было на экране %2$ds назад. Полностью закройте его и повторите попытку.</string>
     <string name="settings_accounts_delegate_blocker_active_downloads">Загрузки игр ещё выполняются. Дождитесь их завершения или отмените их.</string>
     <string name="settings_accounts_delegate_blocker_emulator_download">Загрузка эмулятора ещё выполняется. Дождитесь завершения или отмените её.</string>
-    <string name="settings_accounts_delegate_blocker_steam_download">Загрузка Steam ещё выполняется. Дождитесь завершения или отмените её.</string>
     <string name="settings_accounts_delegate_blocker_media_download">Фильм или эпизод ещё скачивается. Дождитесь завершения или отмените загрузку.</string>
     <string name="settings_accounts_delegate_blocker_library_sync">Выполняется синхронизация библиотеки. Дождитесь завершения и повторите попытку.</string>
     <string name="settings_accounts_delegate_blocker_netplay_session">Открыта сессия Netplay. Выйдите из неё и повторите попытку.</string>
@@ -2455,7 +2468,6 @@
     <!-- ===== Steam settings delegate ===== -->
 
     <string name="settings_steam_delegate_invalid_app_id">Введите корректный Steam App ID</string>
-    <string name="settings_steam_delegate_volume_other_label">Другое</string>
 
     <!-- ===== Jellyfin settings delegate ===== -->
 
@@ -2605,6 +2617,7 @@
     <string name="settings_libretro_def_audio_volume_subtitle" formatted="false">Уровень выхода эмулятора (100% - без изменений)</string>
     <string name="settings_libretro_def_vsync_title">VSync</string>
     <string name="settings_libretro_def_vsync_subtitle">Синхронизация с частотой обновления экрана</string>
+    <string name="settings_libretro_applies_next_launch">Вступит в силу при следующем запуске игры</string>
     <string name="settings_libretro_def_auto_save_state_title">Сохранять состояние при выходе</string>
     <string name="settings_libretro_def_auto_save_state_subtitle">Применяется только к обычным играм</string>
     <string name="settings_libretro_def_auto_restore_state_title">Восстанавливать состояние при запуске</string>
@@ -2773,6 +2786,9 @@
     </plurals>
     <string name="settings_play_time_romm_refresh_stopped">Обновление остановлено: %s</string>
     <string name="settings_play_time_list_unknown_game">Неизвестная игра</string>
+    <string name="settings_play_time_delete_title">Удалить историю игры?</string>
+    <string name="settings_play_time_delete_message">Вся история игры %1$s будет удалена с этого устройства. Сеансы до этого момента больше не будут синхронизироваться.</string>
+    <string name="settings_play_time_delete_confirm">Удалить</string>
     <string name="settings_play_time_list_game_detail">%1$s, последняя игра %2$s</string>
     <plurals name="settings_play_time_list_sessions">
         <item quantity="one">%d сессия</item>

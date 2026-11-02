@@ -20,7 +20,8 @@ data class UnifiedSaveEntry(
     val isRollback: Boolean = false,
     val isUserCreatedSlot: Boolean = false,
     val isCurrent: Boolean = false,
-    val isArchival: Boolean = false
+    val isArchival: Boolean = false,
+    val localCopyUploaded: Boolean = false
 ) {
     enum class Source { LOCAL, SERVER, BOTH }
 

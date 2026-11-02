@@ -181,16 +181,6 @@
     <string name="storage_computed_label_computed">Computed %1$s</string>
     <string name="storage_computed_label_never">Not computed yet</string>
 
-    <!-- ================= Download foreground notification text (Steam) ================= -->
-
-    <string name="download_indicator_notification_preparing">Preparing: %1$s</string>
-    <string name="download_indicator_notification_connecting">Connecting to Steam...</string>
-    <string name="download_indicator_notification_fetching_manifest">Fetching manifest: %1$s</string>
-    <string name="download_indicator_notification_unpacking">Unpacking: %1$s</string>
-    <string name="download_indicator_notification_moving">Moving: %1$s</string>
-    <string name="download_indicator_notification_cleaning">Cleaning up: %1$s</string>
-    <string name="download_indicator_notification_paused">Paused: %1$s</string>
-
     <!-- ================= Title ID recheck notice ================= -->
 
     <string name="title_id_recheck_notice_updated">Title ID updated to %1$s</string>
@@ -202,6 +192,7 @@
 
     <!-- The Steam launcher picker's default option: let the app choose which installed launcher opens the game, rather than a specific one the player pinned. -->
     <string name="gamedetail_steam_launcher_auto">Auto</string>
+    <string name="gamedetail_steam_launcher_auto_uses">Uses %1$s</string>
 
     <!-- ================= Memcard picker "use the inherited default" entry ================= -->
 

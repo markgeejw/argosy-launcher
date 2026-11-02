@@ -101,12 +101,11 @@ interface FileAccessLayer {
     fun getTransformedFile(path: String): File
 
     /**
-     * Makes the folders holding [paths] readable and writable by Argosy before a save operation
-     * reads or writes them, where the device allows it: a folder save's folder, a file save's
-     * containing folder. A no-op everywhere the saves are already reachable. Every save operation
-     * calls this once, up front, with each path it will touch.
+     * Makes the folders holding [paths] readable and writable before a save operation touches
+     * them. False when a mirrored copy of Android/data could not be refreshed and holds stale
+     * bytes, and a caller about to overwrite a save stops there.
      */
-    fun prepareSaveAccess(vararg paths: String?)
+    fun prepareSaveAccess(vararg paths: String?): Boolean
 
     /**
      * Carries what a save operation wrote under [paths] out to the real folders, where the device

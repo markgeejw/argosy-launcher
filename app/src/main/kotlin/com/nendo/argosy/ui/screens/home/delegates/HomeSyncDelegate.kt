@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -43,7 +44,7 @@ class HomeSyncDelegate @Inject constructor(
             romMRepository.initialize()
 
             val isConfigured = romMRepository.isConnected()
-            _state.value = _state.value.copy(isRommConfigured = isConfigured)
+            _state.update { it.copy(isRommConfigured = isConfigured) }
 
             if (isConfigured) {
                 val prefs = preferencesRepository.preferences.first()
@@ -54,7 +55,7 @@ class HomeSyncDelegate @Inject constructor(
                 if (isStale && !platformSyncQueue.isLibraryBusyNow()) {
                     platformSyncQueue.enqueueLibrary(
                         initializeFirst = true,
-                        changesSince = lastSync,
+                        changesSince = prefs.rommChangesWatermark ?: lastSync,
                         onComplete = onSyncComplete
                     )
                 } else {
@@ -104,10 +105,8 @@ class HomeSyncDelegate @Inject constructor(
                 if (entry.requiresActiveSteamAccount && steamAuthManager.getActiveAccount() == null) {
                     return
                 }
-                // Mark seen at show-time so the modal is one-shot - re-resumes, re-launches,
-                // and the user backgrounding the app mid-modal don't queue it up again.
                 preferencesRepository.setLastSeenVersion(currentVersion)
-                _state.value = _state.value.copy(changelogEntry = entry)
+                _state.update { it.copy(changelogEntry = entry) }
             } else {
                 preferencesRepository.setLastSeenVersion(currentVersion)
             }
@@ -117,14 +116,14 @@ class HomeSyncDelegate @Inject constructor(
     fun dismissChangelog(scope: CoroutineScope) {
         scope.launch {
             preferencesRepository.setLastSeenVersion(BuildConfig.VERSION_NAME)
-            _state.value = _state.value.copy(changelogEntry = null)
+            _state.update { it.copy(changelogEntry = null) }
         }
     }
 
     fun handleChangelogAction(scope: CoroutineScope, action: RequiredAction): RequiredAction {
         scope.launch {
             preferencesRepository.setLastSeenVersion(BuildConfig.VERSION_NAME)
-            _state.value = _state.value.copy(changelogEntry = null)
+            _state.update { it.copy(changelogEntry = null) }
         }
         return action
     }

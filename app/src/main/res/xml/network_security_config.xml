@@ -9,7 +9,8 @@
       The domains below are fixed in the app and never self-hosted. They deliver executable code
       (libretro cores are dlopen'd) or carry the app's own credentials, so they take system trust
       anchors and no cleartext regardless of what the base config allows. Removing an entry
-      re-opens that host to a user-installed CA.
+      re-opens that host to a user-installed CA. UserCertTrustManager.SYSTEM_TRUST_DOMAINS keeps
+      the same list for certificates imported inside the app, and a unit test holds the two equal.
     -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
@@ -24,6 +25,9 @@
         <domain includeSubdomains="true">githubusercontent.com</domain>
         <domain includeSubdomains="true">argosy.dev</domain>
         <domain includeSubdomains="true">retroachievements.org</domain>
+        <domain includeSubdomains="true">steampowered.com</domain>
+        <domain includeSubdomains="true">steamcommunity.com</domain>
+        <domain includeSubdomains="true">steamstatic.com</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

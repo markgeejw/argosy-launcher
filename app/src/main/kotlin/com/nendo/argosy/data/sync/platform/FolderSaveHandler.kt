@@ -275,12 +275,13 @@ open class FolderSaveHandler(
 
     private fun pruneNonCanonicalSiblings(canonicalTarget: File, saveId: String) {
         val parent = canonicalTarget.parentFile ?: return
+        val canonicalPath = fal.normalizeForDisplay(canonicalTarget.path)
         fal.listFiles(parent.path).orEmpty()
-            .filter { it.isDirectory && it.path != canonicalTarget.path }
+            .filter { it.isDirectory && it.path != canonicalPath }
             .filter { folderMatches(it.name, saveId) && !isCanonicalFolderPath(it.path, saveId) }
             .forEach {
                 Logger.warn(tag, "extractDownload: removing non-canonical sibling save folder | path=${it.path}, saveId=$saveId")
-                File(it.path).deleteRecursively()
+                fal.getTransformedFile(it.path).deleteRecursively()
             }
     }
 }

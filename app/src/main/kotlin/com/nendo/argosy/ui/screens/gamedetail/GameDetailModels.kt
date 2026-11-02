@@ -106,12 +106,12 @@ data class GameDetailUi(
     val canManageStates: Boolean = false,
     val isSteamGame: Boolean = false,
     /**
-     * Display name of the explicitly resolved Steam launcher, or null when no
-     * launcher override is stored (renders as the localized "Auto" label).
-     * Never compare this against a literal display string; the stored value
-     * this derives from is [com.nendo.argosy.data.local.entity.GameEntity.steamLauncher].
+     * Display label of the resolved Steam launcher, never compared.
+     * Launcher identity is [steamLauncherPackage].
      */
     val steamLauncherName: String? = null,
+    val steamLauncherPackage: String? = null,
+    val steamLauncherSetManually: Boolean = false,
     val isExternallyManaged: Boolean = false,
     val managingLauncherDisplayName: String? = null,
     val isAndroidApp: Boolean = false,
@@ -225,7 +225,7 @@ data class MoreOptionsContext(
 fun buildMoreOptions(ctx: MoreOptionsContext): List<MoreOptionAction> = buildList {
     val canTrackProgress = ctx.isRommGame || ctx.isAndroidApp
     val isEmulatedGame = !ctx.isSteamGame && !ctx.isAndroidApp
-    val usesTitleId = ctx.platformSlug in com.nendo.argosy.data.platform.PlatformDefinitions.TITLE_ID_PLATFORMS
+    val usesTitleId = ctx.platformSlug?.let(com.nendo.argosy.data.platform.PlatformDefinitions::hasTitleId) == true
 
     if (ctx.isDownloaded && ctx.launchDisplayCount > 1) add(MoreOptionAction.LaunchOnDisplay)
     if (ctx.canManageSaves || ctx.canManageStates) add(MoreOptionAction.ManageSaves)

@@ -88,7 +88,7 @@ internal fun QuickSectionHeader(title: String) {
 @Composable
 internal fun QuickRowFrame(
     isFocused: Boolean,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     twoLine: Boolean = false,
@@ -96,10 +96,10 @@ internal fun QuickRowFrame(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(Dimens.radiusControl)
-    val click = if (onLongClick != null && enabled) {
-        Modifier.clickableNoFocus(onClick = onClick, onLongClick = onLongClick)
-    } else {
-        Modifier.clickableNoFocus(enabled = enabled, onClick = onClick)
+    val click = when {
+        onClick == null -> Modifier
+        onLongClick != null && enabled -> Modifier.clickableNoFocus(onClick = onClick, onLongClick = onLongClick)
+        else -> Modifier.clickableNoFocus(enabled = enabled, onClick = onClick)
     }
     Column(
         modifier = modifier
@@ -202,6 +202,38 @@ internal fun QuickToggleRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+@Composable
+internal fun QuickStatusRow(
+    icon: ImageVector,
+    label: String,
+    valueText: String
+) {
+    QuickDetailRow(icon = icon, label = label, isFocused = false, onClick = null, valueText = valueText)
+}
+
+@Composable
+internal fun QuickDetailRow(
+    icon: ImageVector,
+    label: String,
+    isFocused: Boolean,
+    onClick: (() -> Unit)?,
+    valueText: String? = null,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    QuickRowFrame(isFocused = isFocused, onClick = onClick) {
+        QuickLabelLine(
+            label = label,
+            leading = { QuickRowIcon(icon, isFocused) }
+        ) {
+            if (valueText != null) {
+                Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                QuickValueText(valueText, isFocused)
+            }
+            trailing()
         }
     }
 }
@@ -343,9 +375,10 @@ internal fun QuickNoticeRow(
     message: String,
     actionLabel: String,
     isFocused: Boolean,
-    onAction: () -> Unit
+    onAction: () -> Unit,
+    enabled: Boolean = true
 ) {
-    QuickRowFrame(isFocused = isFocused, onClick = onAction) {
+    QuickRowFrame(isFocused = isFocused, onClick = onAction, enabled = enabled) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
@@ -356,7 +389,7 @@ internal fun QuickNoticeRow(
                 color = LocalArgosyTheme.current.textPrimary,
                 modifier = Modifier.weight(1f)
             )
-            ActionButton(label = actionLabel, onClick = onAction, focused = isFocused)
+            ActionButton(label = actionLabel, onClick = onAction, focused = isFocused && enabled, enabled = enabled)
         }
     }
 }

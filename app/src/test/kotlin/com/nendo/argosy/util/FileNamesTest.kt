@@ -1,7 +1,9 @@
 package com.nendo.argosy.util
 
+import com.nendo.argosy.data.platform.PlatformDefinitions
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
 
 /**
  * Pins the folding rules a downloaded name goes through. The cases that matter are the ones a
@@ -48,6 +50,39 @@ class FileNamesTest {
     fun `refuses to climb out of the extraction folder`() {
         assertEquals("etc/passwd", FileNames.sanitizeRelativePath("../../etc/passwd"))
         assertEquals("rom.bin", FileNames.sanitizeRelativePath("./rom.bin"))
+    }
+
+    @Test
+    fun `folds a climbing name into one that stays in its directory`() {
+        assertEquals("file", FileNames.sanitize(".."))
+        assertEquals("file", FileNames.sanitize("../"))
+        val dir = File("/roms/nes")
+        val placed = File(dir, FileNames.sanitize("../../x")).toPath().normalize()
+        assertEquals(dir.toPath(), placed.parent)
+    }
+
+    @Test
+    fun `keeps a blank slug blank and folds a climbing one`() {
+        assertEquals("", FileNames.sanitizeSlug(""))
+        assertEquals(" ", FileNames.sanitizeSlug(" "))
+        assertEquals("file", FileNames.sanitizeSlug(".."))
+        assertEquals("....x", FileNames.sanitizeSlug("../../x"))
+        assertEquals("gba", FileNames.sanitizeSlug("gba"))
+        assertEquals("sega-cd", FileNames.sanitizeSlug("sega-cd"))
+    }
+
+    @Test
+    fun `every known platform slug folds to itself`() {
+        val changed = PlatformDefinitions.getAll().map { it.slug }.filter { FileNames.sanitizeSlug(it) != it }
+        assertEquals(emptyList<String>(), changed)
+    }
+
+    @Test
+    fun `a relative path made only of separators folds to nothing`() {
+        assertEquals("", FileNames.sanitizeRelativePath("/"))
+        assertEquals("", FileNames.sanitizeRelativePath("\\"))
+        assertEquals("", FileNames.sanitizeRelativePath("//"))
+        assertEquals("", FileNames.sanitizeRelativePath("../."))
     }
 
     @Test

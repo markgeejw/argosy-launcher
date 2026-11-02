@@ -6,6 +6,7 @@ import android.content.Intent
 object GameHubLitePubgLauncher : SteamLauncher {
     override val packageName = "com.tencent.ig"
     override val displayName = "GameHub Lite (PUBG)"
+    override val registryId = "gamehub_lite"
 
     override fun createLaunchIntent(steamAppId: Long): Intent = Intent().apply {
         component = ComponentName(

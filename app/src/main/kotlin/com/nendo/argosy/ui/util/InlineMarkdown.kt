@@ -19,13 +19,11 @@ fun parseInlineMarkdown(
 
     while (i < len) {
         when {
-            // Escaped character
             text[i] == '\\' && i + 1 < len -> {
                 append(text[i + 1])
                 i += 2
             }
 
-            // Links: [text](url)
             text[i] == '[' -> {
                 val closeBracket = text.indexOf(']', i + 1)
                 if (closeBracket != -1 && closeBracket + 1 < len && text[closeBracket + 1] == '(') {
@@ -46,7 +44,6 @@ fun parseInlineMarkdown(
                 i++
             }
 
-            // Inline code: `code`
             text[i] == '`' -> {
                 val end = text.indexOf('`', i + 1)
                 if (end != -1) {
@@ -60,7 +57,6 @@ fun parseInlineMarkdown(
                 }
             }
 
-            // Strikethrough: ~~text~~
             text[i] == '~' && i + 1 < len && text[i + 1] == '~' -> {
                 val end = text.indexOf("~~", i + 2)
                 if (end != -1) {
@@ -74,7 +70,6 @@ fun parseInlineMarkdown(
                 }
             }
 
-            // Bold: **text** or __text__
             (text[i] == '*' && i + 1 < len && text[i + 1] == '*') ||
             (text[i] == '_' && i + 1 < len && text[i + 1] == '_') -> {
                 val marker = text.substring(i, i + 2)
@@ -90,7 +85,6 @@ fun parseInlineMarkdown(
                 }
             }
 
-            // Italic: *text* or _text_
             text[i] == '*' || text[i] == '_' -> {
                 val marker = text[i]
                 val end = text.indexOf(marker, i + 1)
@@ -105,7 +99,6 @@ fun parseInlineMarkdown(
                 }
             }
 
-            // Newline
             text[i] == '\n' -> {
                 append('\n')
                 i++

@@ -145,6 +145,10 @@ internal class PlatformDetailSectionInput(
                 viewModel.togglePlatformCombineContent(config.platform.id, direction > 0)
                 InputResult.handled(SoundType.TOGGLE)
             }
+            PlatformDetailItem.SkipFullSync -> {
+                viewModel.togglePlatformSkipFullSync(config.platform.id, direction > 0)
+                InputResult.handled(SoundType.TOGGLE)
+            }
             else -> InputResult.UNHANDLED
         }
     }

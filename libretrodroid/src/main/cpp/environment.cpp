@@ -31,6 +31,7 @@
 #include "vfs/vfs.h"
 #include "vulkan/vulkanbackend.h"
 #include "microphone/microphoneinterface.h"
+#include "sensors/coresensors.h"
 
 void Environment::initialize(
     const std::string &requiredSystemDirectory,
@@ -80,6 +81,7 @@ void Environment::deinitialize() {
     hasMemoryMap = false;
 
     rumbleStates.fill(libretrodroid::RumbleState());
+    libretrodroid::CoreSensors::getInstance().reset();
 }
 
 void Environment::updateVariable(const std::string& key, const std::string& value) {
@@ -355,6 +357,11 @@ bool Environment::handle_callback_environment(unsigned cmd, void *data) {
         case RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE:
             LOGD("Called RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE");
             ((struct retro_rumble_interface*) data)->set_rumble_state = &callback_set_rumble_state;
+            return true;
+
+        case RETRO_ENVIRONMENT_GET_SENSOR_INTERFACE:
+            LOGD("Called RETRO_ENVIRONMENT_GET_SENSOR_INTERFACE");
+            *static_cast<struct retro_sensor_interface*>(data) = libretrodroid::CoreSensors::getInterface();
             return true;
 
         case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:

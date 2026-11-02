@@ -389,12 +389,12 @@ object StatePathRegistry {
 
         val paths = config.defaultPaths.map { path ->
             expandPath(path, core)
-        }
+        }.filterNot { UNRESOLVED_TOKEN.containsMatchIn(it) }
 
         if (core != null) {
             val withoutCore = config.defaultPaths.map { path ->
                 expandPath(path.replace("/{core}", "").replace("{core}", ""))
-            }
+            }.filterNot { UNRESOLVED_TOKEN.containsMatchIn(it) }
             return paths + withoutCore
         }
 

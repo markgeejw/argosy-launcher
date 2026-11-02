@@ -2,11 +2,9 @@ package com.nendo.argosy.data.wallpaper
 
 import android.app.WallpaperManager
 import android.content.BroadcastReceiver
-import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.display.DisplayManager
@@ -24,7 +22,6 @@ import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.SafeCoroutineScope
 import com.nendo.argosy.util.SecondaryHomeComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -46,7 +43,6 @@ import javax.inject.Singleton
 private const val TAG = "LockScreenArt"
 private const val MOSAIC_LOAD_BATCH = 8
 private const val LAUNCH_DRAW_BUDGET_MS = 2_000L
-private const val LAUNCH_RECOLOR_WAIT_MS = 600L
 internal const val PREVIEW_RETRY_MS = 2_000L
 
 @Singleton
@@ -99,40 +95,14 @@ class LockScreenArtManager @Inject constructor(
     }
 
     /**
-     * Puts the game's art on the lock screen before its game screen opens, and waits for the
-     * system to finish recoloring its theme from it. A recolor applied later, while the game
-     * screen is alive, makes Android rebuild that screen.
+     * Hands the game's art to the live lock screen before its game screen opens, within a fixed
+     * load budget.
      */
     suspend fun showBeforeLaunch(gameId: Long) {
         libraryRefresh?.cancel()
-        val recolored = CompletableDeferred<Unit>()
-        val callbacks = object : ComponentCallbacks {
-            override fun onConfigurationChanged(newConfig: Configuration) {
-                recolored.complete(Unit)
-            }
-
-            @Deprecated("Required by ComponentCallbacks")
-            override fun onLowMemory() = Unit
-        }
         val startedAt = SystemClock.elapsedRealtime()
-        var armed = false
-        try {
-            val drawn = withContext(Dispatchers.IO) {
-                refresh(gameId, artLoadBudgetMs = LAUNCH_DRAW_BUDGET_MS) {
-                    context.registerComponentCallbacks(callbacks)
-                    armed = true
-                }
-            }
-            val settled = drawn && armed && withTimeoutOrNull(LAUNCH_RECOLOR_WAIT_MS) { recolored.await() } != null
-            Logger.debug(
-                TAG,
-                "showBeforeLaunch: gameId=$gameId drawn=$drawn " +
-                    "recolored=$settled " +
-                    "elapsedMs=${SystemClock.elapsedRealtime() - startedAt}"
-            )
-        } finally {
-            if (armed) context.unregisterComponentCallbacks(callbacks)
-        }
+        val drawn = withContext(Dispatchers.IO) { refresh(gameId, artLoadBudgetMs = LAUNCH_DRAW_BUDGET_MS) }
+        Logger.debug(TAG, "showBeforeLaunch: gameId=$gameId drawn=$drawn elapsedMs=${SystemClock.elapsedRealtime() - startedAt}")
     }
 
     fun showLibraryAfterCancelledLaunch() {
@@ -141,8 +111,7 @@ class LockScreenArtManager @Inject constructor(
 
     private suspend fun refresh(
         gameId: Long? = playSessionTracker.activeSession.value?.gameId,
-        artLoadBudgetMs: Long? = null,
-        beforeWrite: () -> Unit = {}
+        artLoadBudgetMs: Long? = null
     ): Boolean = mutex.withLock {
         if (!mayDraw(gameId, shownKey, isLaunch = artLoadBudgetMs != null)) {
             Logger.debug(TAG, "refresh: the launch did not set this game's art; leaving the lock screen during play | gameId=$gameId")
@@ -167,33 +136,12 @@ class LockScreenArtManager @Inject constructor(
             shownKey = null
             shownLive = live
         }
-        if (live) return@withLock showLive(gameId, width, height, artLoadBudgetMs)
-
-        val loadArt: suspend () -> Pair<String, Bitmap?>? = {
-            gameId?.let { heroArt(it, width, height) } ?: mosaicArt(width, height)
-        }
-        val art = when (val loaded = withinBudget(artLoadBudgetMs, gameId, loadArt)) {
-            null -> return@withLock false
-            else -> loaded.art
-        }
-        val (key, bitmap) = art ?: run {
-            Logger.debug(TAG, "refresh: nothing to draw | gameId=$gameId, size=${width}x$height")
+        if (!live) {
+            Logger.debug(TAG, "refresh: the live lock screen is not active; leaving the wallpaper alone")
+            clearIfApplied()
             return@withLock false
         }
-        if (bitmap == null) return@withLock false
-
-        beforeWrite()
-        val set = runCatching {
-            wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
-        }.onSuccess {
-            Logger.debug(TAG, "refresh: set the lock wallpaper | key=$key, size=${width}x$height")
-            shownKey = key
-            displayPrefs.setLockScreenArtApplied(true)
-        }.onFailure {
-            Logger.warn(TAG, "refresh: could not set the lock wallpaper | key=$key, ${it.message}")
-        }.isSuccess
-        bitmap.recycle()
-        set
+        showLive(gameId, width, height, artLoadBudgetMs)
     }
 
     private suspend fun <T> withinBudget(
@@ -276,16 +224,6 @@ class LockScreenArtManager @Inject constructor(
         }
         Logger.debug(TAG, "heroArt: no art could be loaded | gameId=$gameId")
         return null
-    }
-
-    private suspend fun mosaicArt(width: Int, height: Int): Pair<String, Bitmap?>? {
-        val grid = LockScreenArtRenderer.grid(width, height)
-        val sources = gameRepository.coversOnePerTitle().distinct()
-        val key = "mosaic:${sources.size}:${sources.take(grid.tileCount * 2).hashCode()}:${width}x$height"
-        if (key == shownKey) return key to null
-        val covers = loadCovers(sources, grid.tileCount, grid.tileWidth, grid.tileHeight)
-        val bitmap = LockScreenArtRenderer.mosaic(covers, width, height) ?: return null
-        return key to bitmap
     }
 
     private suspend fun loadCovers(sources: List<String>, count: Int, width: Int, height: Int): List<Bitmap> {

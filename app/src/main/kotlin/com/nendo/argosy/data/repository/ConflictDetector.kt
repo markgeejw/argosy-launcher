@@ -35,27 +35,7 @@ class ConflictDetector @Inject constructor() {
         channelName: String?,
         romBaseName: String?,
         isGciBundle: Boolean
-    ): RomMSave? {
-        return if (channelName != null) {
-            serverSaves
-                .filter { it.slot != null && SaveSyncApiClient.equalsNormalized(it.slot, channelName) }
-                .maxByOrNull { SaveSyncApiClient.parseTimestamp(it.updatedAt) }
-                ?: serverSaves.find {
-                    SaveSyncApiClient.equalsNormalized(File(it.fileName).nameWithoutExtension, channelName)
-                }
-        } else {
-            val candidates = serverSaves.filter { SaveSyncApiClient.isLatestSaveFileName(it.fileName, romBaseName) }
-            val pickedByName = if (isGciBundle && candidates.size > 1) {
-                candidates.find { it.fileName.endsWith(".zip", ignoreCase = true) }
-                    ?: candidates.firstOrNull()
-            } else {
-                candidates.firstOrNull()
-            }
-            pickedByName ?: serverSaves.singleOrNull()?.also { lone ->
-                Logger.warn(TAG, "[SaveSync] No filename match for romBaseName='$romBaseName'; accepting lone server save fileName='${lone.fileName}'")
-            }
-        }
-    }
+    ): RomMSave? = SaveSyncApiClient.selectLatestServerSave(serverSaves, channelName, romBaseName, isGciBundle)
 
 
     data class UploadConflictDecision(

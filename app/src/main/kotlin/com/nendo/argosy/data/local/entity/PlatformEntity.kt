@@ -20,7 +20,12 @@ data class PlatformEntity(
     val gameCount: Int = 0,
     val syncEnabled: Boolean = true,
     val customRomPath: String? = null,
-    val combineContent: Boolean = false
+    val combineContent: Boolean = false,
+    /**
+     * Left out of the full library pass. The changes pass and a sync of this platform alone
+     * still cover it.
+     */
+    val skipFullSync: Boolean = false
 )
 
 fun PlatformEntity.getDisplayName(maxLength: Int? = null): String {

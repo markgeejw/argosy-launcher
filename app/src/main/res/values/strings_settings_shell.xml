@@ -138,9 +138,7 @@
     <string name="settings_shell_header_romm" translatable="false">ROMM</string>
     <string name="settings_shell_header_saves">SAVES</string>
     <string name="settings_shell_header_sync_settings">SYNC SETTINGS</string>
-    <!-- "Steam" is Valve's proprietary storefront name; keep it as-is even if you translate the
-         rest of the heading. -->
-    <string name="settings_shell_header_steam">STEAM (EXPERIMENTAL)</string>
+    <string name="settings_shell_header_steam" translatable="false">STEAM</string>
     <!-- Proper name of the media server this launcher talks to; never translated. -->
     <string name="settings_shell_header_jellyfin" translatable="false">JELLYFIN</string>
     <!-- Proper name of the outside achievements service; never translated. -->
@@ -258,6 +256,16 @@
     <string name="settings_shell_modal_import_settings_message">Pick a backup file and the settings it names replace yours. Anything the file leaves out is untouched, and accounts, servers, sync state and file locations are never carried.</string>
     <string name="settings_shell_modal_import_settings_confirm">Choose File</string>
 
+    <!-- Title of the prompt shown after turning on the quick panel in other emulators while
+         Argosy's accessibility service is off. -->
+    <string name="settings_shell_modal_accessibility_title">Turn On Accessibility</string>
+    <!-- Body of that prompt. "Back button" is the controller or system Back button. -->
+    <string name="settings_shell_modal_accessibility_message">Argosy uses its accessibility service to see the Back button while another emulator is open. Android will warn that it can observe what you type; Argosy only watches the Back button during a game.</string>
+    <!-- Button that opens Android's accessibility settings page. -->
+    <string name="settings_shell_modal_accessibility_confirm">Open Settings</string>
+    <!-- Button that closes the prompt without opening settings; the setting stays on. -->
+    <string name="settings_shell_modal_accessibility_not_now">Not Now</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">Migrate Downloads?</string>
     <!-- %1$d is the number of games, %2$s the formatted total size, e.g. "1.2 GB". -->
     <string name="settings_shell_modal_migrate_downloads_message">Move %1$d games (%2$s) to the new location?</string>
@@ -275,9 +283,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">Platform</string>
     <string name="settings_shell_modal_purge_platform_message">This will delete all %1$d games and their local ROM files. This cannot be undone.</string>
     <string name="settings_shell_modal_purge_platform_confirm">Purge</string>
+    <string name="settings_shell_modal_purge_disabled_title">Also remove %1$s from this device?</string>
+    <string name="settings_shell_modal_purge_disabled_message">Its %1$d games are now hidden. Purging also deletes them and their local ROM files. This cannot be undone.</string>
+    <string name="settings_shell_modal_purge_disabled_keep">Keep files</string>
 
     <string name="settings_shell_modal_sync_first_title">Sync Saves First</string>
     <string name="settings_shell_modal_sync_first_message">Sync saves first - %1$d pending. Resetting the library now would permanently discard saves that have not been uploaded.</string>
+    <string name="settings_shell_modal_purge_sync_first_message">Sync saves first - %1$d pending. Removing this platform now would permanently discard saves that have not been uploaded. The removal prompt returns once the sync finishes.</string>
     <string name="settings_shell_modal_sync_first_confirm">Sync Now</string>
 
     <string name="settings_shell_modal_reset_library_title">Reset Library?</string>
@@ -438,6 +450,8 @@
     <string name="settings_shell_footer_play_time_open">Open</string>
     <!-- Play-time game list: changes the ordering. Verb. -->
     <string name="settings_shell_footer_play_time_sort">Sort</string>
+    <!-- Play-time game list: deletes the focused game's play history. Verb phrase. -->
+    <string name="settings_shell_footer_play_time_delete">Delete records</string>
     <string name="settings_shell_footer_category">Category</string>
     <!-- Trigger hint on the top-level settings list: jumps between the header groups. Noun. -->
     <string name="settings_shell_footer_main_group">Section</string>
@@ -502,8 +516,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">This will delete downloaded catalog shaders. Custom shaders are kept, and catalog shaders re-download on demand.</string>
     <string name="settings_shell_caches_frames_title">Clear Frame Overlays?</string>
     <string name="settings_shell_caches_frames_message">This will delete downloaded frame overlays. They re-download on demand when selected.</string>
-    <string name="settings_shell_caches_steam_downloads_title">Clear Steam Download Data?</string>
-    <string name="settings_shell_caches_steam_downloads_message">This will delete staged Steam downloads and clear the download queue. Installed games are not affected, but partial downloads restart from zero.</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 

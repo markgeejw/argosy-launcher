@@ -402,6 +402,35 @@ class ZipExtractorTest {
     }
 
     @Test
+    fun `a compressed multi-disc set launches disc 1 whatever the archive order`() {
+        val zipFile = File(tempDir, "game.zip")
+        createTestZip(zipFile, linkedMapOf(
+            "Game (Disc 2).cso" to "disc2",
+            "Game (Disc 1).cso" to "disc1"
+        ))
+
+        val result = ZipExtractor.extractFolderRom(zipFile, "PS2 Set", tempDir, "ps2")
+
+        assertNull(result.m3uFile)
+        assertEquals(2, result.discFiles.size)
+        assertTrue(result.launchPath.endsWith("Game (Disc 1).cso"))
+    }
+
+    @Test
+    fun `a pbp multi-disc set gets a playlist`() {
+        val zipFile = File(tempDir, "game.zip")
+        createTestZip(zipFile, mapOf(
+            "Game (Disc 1).pbp" to "disc1",
+            "Game (Disc 2).pbp" to "disc2"
+        ))
+
+        val result = ZipExtractor.extractFolderRom(zipFile, "PSX Set", tempDir, "psx")
+
+        assertNotNull(result.m3uFile)
+        assertTrue(result.launchPath.endsWith(".m3u"))
+    }
+
+    @Test
     fun `launchPath returns primary file when no m3u`() {
         val zipFile = File(tempDir, "game.zip")
         createTestZip(zipFile, mapOf("game.nsp" to "switch game"))

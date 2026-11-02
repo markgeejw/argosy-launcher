@@ -314,6 +314,7 @@ class ManagedInstallerSettingsDelegate @Inject constructor(
             InstallerFailure.DOWNLOAD -> R.string.settings_installers_error_download
             InstallerFailure.RATE_LIMITED -> R.string.settings_installers_error_rate_limited
             InstallerFailure.NOT_FOUND -> R.string.settings_installers_error_not_found
+            InstallerFailure.WRONG_PACKAGE -> R.string.settings_installers_error_wrong_package
         }
     }
 }

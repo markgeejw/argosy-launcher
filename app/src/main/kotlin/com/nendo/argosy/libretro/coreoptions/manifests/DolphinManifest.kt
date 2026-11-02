@@ -315,10 +315,10 @@ object DolphinManifest : CoreOptionManifest {
         CoreOptionDef(
             key = "dolphin_efb_scale",
             displayName = "Internal Resolution",
-            values = listOf("1", "2", "3", "4", "5", "6"),
+            values = (1..12).map { it.toString() },
             defaultValue = "1",
             description = "Sets the internal rendering resolution multiplier",
-            valueLabels = mapOf("1" to "1x (Native)", "2" to "2x", "3" to "3x", "4" to "4x", "5" to "5x", "6" to "6x")
+            valueLabels = (1..12).associate { it.toString() to if (it == 1) "1x (Native)" else "${it}x" }
         ),
         CoreOptionDef(
             key = "dolphin_shader_compilation_mode",

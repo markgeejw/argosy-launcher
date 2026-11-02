@@ -160,6 +160,31 @@ class GetUnifiedSavesUseCaseTest {
     }
 
     @Test
+    fun `a cache matched to a server save only by name is not counted as uploaded`() = runTest {
+        setupMocks(
+            localCaches = listOf(createLocalCache(id = 1, note = "checkpoint", isLocked = true)),
+            serverSaves = listOf(createServerSave(id = 10, fileName = "checkpoint.srm"))
+        )
+
+        val entry = useCase(gameId).single()
+
+        assertEquals(10L, entry.serverSaveId)
+        assertFalse(entry.localCopyUploaded)
+    }
+
+    @Test
+    fun `a cache linked to its own upload is counted as uploaded`() = runTest {
+        setupMocks(
+            localCaches = listOf(createLocalCache(id = 1, note = "checkpoint", isLocked = true).copy(rommSaveId = 10L)),
+            serverSaves = listOf(createServerSave(id = 10, fileName = "checkpoint.srm"))
+        )
+
+        val entry = useCase(gameId).single()
+
+        assertTrue(entry.localCopyUploaded)
+    }
+
+    @Test
     fun `only most recent local cache matches server save`() = runTest {
         val now = Instant.now()
         val oldCache = createLocalCache(

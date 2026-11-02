@@ -20,6 +20,7 @@ fun LibretroSettingItem(
     isPerPlatform: Boolean = false,
     enablePicker: Boolean = true,
     pickerRequestToken: Int = 0,
+    inSession: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val displayValue = accessor.getDisplayValue(setting)
@@ -27,6 +28,8 @@ fun LibretroSettingItem(
     val globalValue = accessor.getGlobalValue(setting)
 
     val subtitle = when {
+        inSession && setting.appliesOnNextLaunch ->
+            stringResource(R.string.settings_libretro_applies_next_launch)
         isPerPlatform && hasOverride -> stringResource(
             R.string.settings_shell_libretro_global_hint_template,
             formatGlobalHint(setting, globalValue)

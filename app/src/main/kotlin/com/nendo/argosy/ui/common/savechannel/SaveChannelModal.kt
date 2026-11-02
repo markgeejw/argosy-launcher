@@ -232,10 +232,9 @@ fun SaveChannelModal(
             )
         }
 
-        if (state.showDeleteConfirmation &&
-            state.deleteSelectedEntry != null) {
+        if (state.showDeleteConfirmation && state.deleteTarget != null) {
             DeleteConfirmationOverlay(
-                channelName = state.deleteSelectedEntry.channelName ?: "",
+                target = state.deleteTarget,
                 onHintClick = onHintClick
             )
         }
@@ -593,19 +592,7 @@ private fun SlotRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                    .copy(alpha = 0.6f)
-                else Color.Transparent
-            )
-            .then(
-                if (isSelected) Modifier.border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = RoundedCornerShape(8.dp)
-                ) else Modifier
-            )
+            .saveRowFocus(isSelected)
             .clickableNoFocus(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -647,19 +634,7 @@ private fun NewSlotRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                    .copy(alpha = 0.6f)
-                else Color.Transparent
-            )
-            .then(
-                if (isSelected) Modifier.border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = RoundedCornerShape(8.dp)
-                ) else Modifier
-            )
+            .saveRowFocus(isSelected)
             .clickableNoFocus(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -690,20 +665,7 @@ private fun MigrationSlotRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                    .copy(alpha = 0.4f)
-                else Color.Transparent
-            )
-            .then(
-                if (isSelected) Modifier.border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.secondary
-                        .copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp)
-                ) else Modifier
-            )
+            .saveRowFocus(isSelected)
             .clickableNoFocus(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -744,19 +706,7 @@ private fun HistoryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                    .copy(alpha = 0.6f)
-                else Color.Transparent
-            )
-            .then(
-                if (isSelected) Modifier.border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = RoundedCornerShape(8.dp)
-                ) else Modifier
-            )
+            .saveRowFocus(isSelected)
             .clickableNoFocus(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -911,6 +861,14 @@ private fun buildFooterHints(state: SaveChannelState): List<FooterHintItem> {
                                 )
                             )
                         }
+                        if (state.canDeleteArchived) {
+                            hints.add(
+                                FooterHintItem(
+                                    InputButton.Y,
+                                    stringResource(R.string.ui_save_channel_footer_delete_archived)
+                                )
+                            )
+                        }
                     }
                 }
                 SaveFocusColumn.HISTORY -> {
@@ -920,10 +878,18 @@ private fun buildFooterHints(state: SaveChannelState): List<FooterHintItem> {
                             stringResource(R.string.ui_save_channel_footer_restore_save)
                         )
                     )
-                    if (state.canLockAsSlot) {
+                    if (state.canDeleteVersion) {
                         hints.add(
                             FooterHintItem(
                                 InputButton.Y,
+                                stringResource(R.string.ui_save_channel_footer_delete_version)
+                            )
+                        )
+                    }
+                    if (state.canLockAsSlot) {
+                        hints.add(
+                            FooterHintItem(
+                                InputButton.X,
                                 stringResource(R.string.ui_save_channel_footer_save_as)
                             )
                         )
@@ -1139,18 +1105,7 @@ private fun SlotPickerRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(Dimens.radiusMd))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-                else Color.Transparent
-            )
-            .then(
-                if (isSelected) Modifier.border(
-                    width = Dimens.borderMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = RoundedCornerShape(Dimens.radiusMd)
-                ) else Modifier
-            )
+            .saveRowFocus(isSelected)
             .clickableNoFocus(onClick = onClick)
             .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1247,9 +1202,37 @@ private fun DeleteLegacyConfirmationOverlay(
 }
 
 @Composable
-private fun DeleteConfirmationOverlay(channelName: String, onHintClick: (InputButton) -> Unit) {
+private fun localDeleteNote(onServer: Boolean): String = stringResource(
+    if (onServer) R.string.ui_save_channel_delete_local_note else R.string.ui_save_channel_delete_only_copy_note
+)
+
+@Composable
+private fun DeleteConfirmationOverlay(target: SaveDeleteTarget, onHintClick: (InputButton) -> Unit) {
+    val title = when (target) {
+        is SaveDeleteTarget.Channel -> stringResource(R.string.ui_save_channel_delete_slot_title)
+        is SaveDeleteTarget.Version -> stringResource(R.string.ui_save_channel_delete_version_title)
+        is SaveDeleteTarget.Archived -> stringResource(R.string.ui_save_channel_delete_archived_title)
+    }
+    val message = when (target) {
+        is SaveDeleteTarget.Channel ->
+            stringResource(R.string.ui_save_channel_delete_slot_message, target.channelName)
+        is SaveDeleteTarget.Version -> stringResource(
+            R.string.ui_save_channel_delete_version_message,
+            formatSaveTimestamp(LocalContext.current, target.timestamp)
+        )
+        is SaveDeleteTarget.Archived -> pluralStringResource(
+            R.plurals.ui_save_channel_delete_archived_message,
+            target.cacheIds.size,
+            target.cacheIds.size
+        )
+    }
+    val note = when (target) {
+        is SaveDeleteTarget.Channel -> stringResource(R.string.ui_save_channel_delete_slot_note)
+        is SaveDeleteTarget.Version -> localDeleteNote(target.onServer)
+        is SaveDeleteTarget.Archived -> localDeleteNote(target.allOnServer)
+    }
     NestedModal(
-        title = stringResource(R.string.ui_save_channel_delete_slot_title),
+        title = title,
         footerHints = listOf(
             InputButton.A to stringResource(R.string.ui_save_channel_delete_slot_confirm),
             InputButton.B to stringResource(R.string.ui_save_channel_delete_slot_cancel)
@@ -1257,14 +1240,14 @@ private fun DeleteConfirmationOverlay(channelName: String, onHintClick: (InputBu
         onHintClick = onHintClick
     ) {
         Text(
-            text = stringResource(R.string.ui_save_channel_delete_slot_message, channelName),
+            text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
         Text(
-            text = stringResource(R.string.ui_save_channel_delete_slot_note),
+            text = note,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

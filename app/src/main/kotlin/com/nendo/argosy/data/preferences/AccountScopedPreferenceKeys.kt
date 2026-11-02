@@ -14,6 +14,7 @@ object AccountScopedPreferenceKeys {
 
     private val SYNC_WATERMARKS_AND_FILTERS = setOf(
         "last_romm_sync",
+        "romm_changes_watermark",
         "last_favorites_sync",
         "last_favorites_check",
         "last_negotiate_at",

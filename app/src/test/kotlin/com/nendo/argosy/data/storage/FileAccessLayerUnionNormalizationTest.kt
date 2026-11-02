@@ -56,6 +56,42 @@ class FileAccessLayerUnionNormalizationTest {
     }
 
     @Test
+    fun `listFiles returns the Android path when alt-access lists alt path entries`() {
+        every { androidDataAccessor.isAltAccessSupported() } returns true
+        every { androidDataAccessor.listFiles(androidPath) } returns arrayOf(File("$altPath/0100A5C00D162000"))
+
+        val result = fal.listFiles(androidPath).orEmpty()
+
+        assertEquals(listOf("$androidPath/0100A5C00D162000"), result.map { it.path })
+    }
+
+    @Test
+    fun `walk returns Android paths when alt-access walks alt path entries`() {
+        every { androidDataAccessor.isAltAccessSupported() } returns true
+        every { androidDataAccessor.walk(androidPath) } returns
+            sequenceOf(File(altPath), File("$altPath/0100A5C00D162000"))
+
+        val result = fal.walk(androidPath).map { it.path }.toList()
+
+        assertEquals(listOf(androidPath, "$androidPath/0100A5C00D162000"), result)
+    }
+
+    @Test
+    fun `managed fallback receives the Android relative path for an alt path`() {
+        every { androidDataAccessor.isAltAccessSupported() } returns false
+        every { managedStorageAccessor.listFiles(any(), any()) } returns null
+
+        fal.listFiles(altPath)
+
+        io.mockk.verify {
+            managedStorageAccessor.listFiles(
+                "primary",
+                "Android/data/dev.eden.eden_emulator/files/nand/user/save"
+            )
+        }
+    }
+
+    @Test
     fun `union skips alt-access branch when alt not supported`() {
         every { androidDataAccessor.isAltAccessSupported() } returns false
         every { androidDataAccessor.listFiles(any()) } returns null

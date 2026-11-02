@@ -29,6 +29,10 @@ sealed class SyncProgress {
         data class Launching(
             override val channelName: String?
         ) : PreLaunch()
+
+        data class TimedOut(
+            override val channelName: String?
+        ) : PreLaunch()
     }
 
     sealed class PostSession : SyncProgress() {

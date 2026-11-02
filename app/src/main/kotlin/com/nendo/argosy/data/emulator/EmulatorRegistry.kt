@@ -26,8 +26,16 @@ data class EmulatorDef(
     val defaultLaunchMethod: LaunchMethod = LaunchMethod.INTENT,
     val downloadUrl: String? = null,
     val releaseSource: ReleaseSource? = null,
-    val packagePatterns: List<String> = emptyList()
+    val packagePatterns: List<String> = emptyList(),
+    /**
+     * Set when the emulator draws its own second screen: the display its game opens on, leaving the
+     * other to the emulator. [BothScreensHost.DEFAULT_DISPLAY] is for an emulator that only puts its
+     * second screen on a display other than the default one.
+     */
+    val bothScreensHost: BothScreensHost? = null
 )
+
+enum class BothScreensHost { LARGEST_DISPLAY, DEFAULT_DISPLAY }
 
 data class EmulatorFamily(
     val baseId: String,
@@ -37,7 +45,8 @@ data class EmulatorFamily(
     val launchAction: String = Intent.ACTION_VIEW,
     val launchConfig: LaunchConfig = LaunchConfig.FileUri,
     val defaultLaunchMethod: LaunchMethod = LaunchMethod.INTENT,
-    val downloadUrl: String? = null
+    val downloadUrl: String? = null,
+    val bothScreensHost: BothScreensHost? = null
 )
 
 /**
@@ -505,6 +514,9 @@ object EmulatorRegistry {
             packageName = "info.cemu.cemu",
             displayName = "Cemu",
             supportedPlatforms = setOf("wiiu"),
+            launchConfig = LaunchConfig.Custom(
+                activityClass = "info.cemu.cemu.emulation.EmulationActivity"
+            ),
             downloadUrl = "https://github.com/SSimco/Cemu/releases",
             releaseSource = ReleaseSource.GitHub("SSimco/Cemu")
         ),
@@ -514,6 +526,9 @@ object EmulatorRegistry {
             packageName = "info.cemu.cemu",
             displayName = "Cemu (Dual Screen)",
             supportedPlatforms = setOf("wiiu"),
+            launchConfig = LaunchConfig.Custom(
+                activityClass = "info.cemu.cemu.emulation.EmulationActivity"
+            ),
             downloadUrl = "https://github.com/SapphireRhodonite/Cemu/releases",
             releaseSource = ReleaseSource.GitHub("SapphireRhodonite/Cemu")
         ),
@@ -554,7 +569,8 @@ object EmulatorRegistry {
             ),
             defaultLaunchMethod = LaunchMethod.SHELL,
             downloadUrl = "https://github.com/azahar-emu/azahar/releases",
-            releaseSource = ReleaseSource.GitHub("azahar-emu/azahar")
+            releaseSource = ReleaseSource.GitHub("azahar-emu/azahar"),
+            bothScreensHost = BothScreensHost.DEFAULT_DISPLAY
         ),
         EmulatorDef(
             id = "borked3ds",
@@ -694,7 +710,8 @@ object EmulatorRegistry {
                 defaultDataBinding = RomBindingFormat.FILE_PROVIDER
             ),
             downloadUrl = "https://github.com/SapphireRhodonite/melonDS-android/releases",
-            releaseSource = ReleaseSource.GitHub("SapphireRhodonite/melonDS-android")
+            releaseSource = ReleaseSource.GitHub("SapphireRhodonite/melonDS-android"),
+            bothScreensHost = BothScreensHost.LARGEST_DISPLAY
         ),
         EmulatorDef(
             id = "seedlessds",
@@ -707,6 +724,20 @@ object EmulatorRegistry {
             ),
             downloadUrl = "https://github.com/SapphireRhodonite/SeedlessDS/releases",
             releaseSource = ReleaseSource.GitHub("SapphireRhodonite/SeedlessDS")
+        ),
+        EmulatorDef(
+            id = "pokedaisy",
+            packageName = "com.pokedaisy.app",
+            displayName = "PokeDaisy",
+            supportedPlatforms = setOf("gb", "gbc", "gba", "nds"),
+            launchAction = Intent.ACTION_MAIN,
+            launchConfig = LaunchConfig.Custom(
+                activityClass = "com.pokedaisy.app.LaunchActivity",
+                intentExtras = mapOf("rom" to ExtraValue.FilePath)
+            ),
+            downloadUrl = "https://github.com/lidor30/pokedaisy/releases",
+            releaseSource = ReleaseSource.GitHub("lidor30/pokedaisy"),
+            bothScreensHost = BothScreensHost.LARGEST_DISPLAY
         ),
         EmulatorDef(
             id = "pizza_boy_gba",
@@ -911,6 +942,16 @@ object EmulatorRegistry {
             downloadUrl = "https://github.com/ikhoeyZX/Vita3K-Android/releases",
             releaseSource = ReleaseSource.GitHub("ikhoeyZX/Vita3K-Android")
         ),
+        EmulatorDef(
+            id = "vita3k-plus",
+            packageName = "org.vita3kplus.emulator",
+            displayName = "Vita3K+",
+            supportedPlatforms = setOf("vita"),
+            launchAction = Intent.ACTION_MAIN,
+            launchConfig = LaunchConfig.Vita3K(),
+            downloadUrl = "https://github.com/nckstwrt/Vita3K-Plus/releases",
+            releaseSource = ReleaseSource.GitHub("nckstwrt/Vita3K-Plus")
+        ),
 
         // NOTE: Redream has known Android 13+ issues - explicit activity launches fail
         // https://github.com/TapiocaFox/Daijishou/issues/487
@@ -932,7 +973,8 @@ object EmulatorRegistry {
             displayName = "Flycast",
             supportedPlatforms = setOf("dreamcast", "naomi", "atomiswave"),
             launchConfig = LaunchConfig.Custom(
-                activityClass = "com.flycast.emulator.MainActivity"
+                activityClass = "com.flycast.emulator.MainActivity",
+                defaultDataBinding = RomBindingFormat.ABSOLUTE_PATH
             ),
             defaultLaunchMethod = LaunchMethod.SHELL,
             downloadUrl = "https://play.google.com/store/apps/details?id=com.flycast.emulator"
@@ -1038,6 +1080,20 @@ object EmulatorRegistry {
             defaultLaunchMethod = LaunchMethod.SHELL,
             downloadUrl = "https://github.com/rfandango/XenDroid/releases",
             packagePatterns = listOf("xendroid.compose*")
+        ),
+        EmulatorDef(
+            id = "xendroid-plus",
+            packageName = "xendroid.compose.fork",
+            displayName = "XenDroid+",
+            supportedPlatforms = setOf("xbox360"),
+            launchAction = "xendroid.intent.action.xendroid",
+            launchConfig = LaunchConfig.Custom(
+                activityClass = "xendroid.compose.EmulatorHostActivity",
+                intentExtras = mapOf("game_uri" to ExtraValue.FilePath)
+            ),
+            defaultLaunchMethod = LaunchMethod.SHELL,
+            downloadUrl = "https://github.com/phforner0/Xendroid-Plus/releases",
+            releaseSource = ReleaseSource.GitHub("phforner0/Xendroid-Plus")
         ),
         EmulatorDef(
             id = "ax360e",
@@ -1192,11 +1248,11 @@ object EmulatorRegistry {
         "psp" to listOf(
             BUILTIN_ID, "ppsspp", "ppsspp_gold", "ppsspp_legacy", "retroarch", "retroarch_64", "retroarch_32"
         ),
-        "vita" to listOf("vita3k-zx", "vita3k"),
+        "vita" to listOf("vita3k-zx", "vita3k", "vita3k-plus"),
         "n64" to listOf(
             BUILTIN_ID, "mupen64plus_fz", "mupen64plus_fz_pro", "retroarch", "retroarch_64", "retroarch_32"
         ),
-        "nds" to listOf(BUILTIN_ID, "drastic", "seedlessds", "melonds", "melondualds", "retroarch", "retroarch_64", "retroarch_32"),
+        "nds" to listOf(BUILTIN_ID, "drastic", "seedlessds", "melonds", "melondualds", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
         "3ds" to listOf(
             "azahar", "citra_mmj", "borked3ds", "citra", BUILTIN_ID,
             "retroarch", "retroarch_64", "retroarch_32"
@@ -1205,9 +1261,9 @@ object EmulatorRegistry {
         "wii" to listOf("dolphin", "dolphin_handheld", "dolphin_cs", "retroarch", "retroarch_64", "retroarch_32"),
         "wiiu" to listOf("cemu", "cemu_dualscreen"),
         "switch" to listOf("eden", "eden_duo", "lemon", "citron", "sudachi", "ryujinx", "yuzu", "strato", "skyline"),
-        "gba" to listOf(BUILTIN_ID, "pizza_boy_gba_pro", "pizza_boy_gba", "linkboy", "retroarch", "retroarch_64", "retroarch_32"),
-        "gb" to listOf(BUILTIN_ID, "pizza_boy_gb_pro", "pizza_boy_gb", "linkboy", "retroarch", "retroarch_64", "retroarch_32"),
-        "gbc" to listOf(BUILTIN_ID, "pizza_boy_gb_pro", "pizza_boy_gb", "linkboy", "retroarch", "retroarch_64", "retroarch_32"),
+        "gba" to listOf(BUILTIN_ID, "pizza_boy_gba_pro", "pizza_boy_gba", "linkboy", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
+        "gb" to listOf(BUILTIN_ID, "pizza_boy_gb_pro", "pizza_boy_gb", "linkboy", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
+        "gbc" to listOf(BUILTIN_ID, "pizza_boy_gb_pro", "pizza_boy_gb", "linkboy", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
         "nes" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "snes" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "genesis" to listOf(BUILTIN_ID, "md_emu", "retroarch", "retroarch_64", "retroarch_32"),
@@ -1245,7 +1301,7 @@ object EmulatorRegistry {
         "pokemini" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "gameandwatch" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "xbox" to listOf("hakux"),
-        "xbox360" to listOf("xendroid", "ax360e", "ax360e_free"),
+        "xbox360" to listOf("xendroid", "ax360e", "ax360e_free", "xendroid-plus"),
         "steam" to listOf("gamehub", "gamehub_lite", "gamenative"),
         "windows" to listOf("gamenative"),
         "pc" to listOf("gamenative"),
@@ -1810,7 +1866,8 @@ object EmulatorRegistry {
                 activityClass = "org.citra.citra_emu.activities.EmulationActivity",
                 intentExtras = mapOf("SelectedGame" to ExtraValue.FilePath)
             ),
-            downloadUrl = "https://github.com/azahar-emu/azahar/releases"
+            downloadUrl = "https://github.com/azahar-emu/azahar/releases",
+            bothScreensHost = BothScreensHost.DEFAULT_DISPLAY
         ),
         EmulatorFamily(
             baseId = "borked3ds",
@@ -2074,7 +2131,8 @@ object EmulatorRegistry {
             launchAction = family.launchAction,
             launchConfig = family.launchConfig,
             defaultLaunchMethod = family.defaultLaunchMethod,
-            downloadUrl = family.downloadUrl
+            downloadUrl = family.downloadUrl,
+            bothScreensHost = family.bothScreensHost
         )
     }
 }

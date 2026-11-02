@@ -6,6 +6,7 @@ import com.nendo.argosy.data.model.ArtProvider
 import com.nendo.argosy.data.model.ArtSlot
 import com.nendo.argosy.data.model.ServerArt
 import com.nendo.argosy.data.platform.PlatformDefinitions
+import com.nendo.argosy.util.FileNames
 import com.nendo.argosy.util.Logger
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -412,10 +413,13 @@ class RomMApiClient @Inject constructor(
                 val entities = platforms.map { remote ->
                     val effectiveSlug = PlatformDefinitions.resolveImportSlug(remote.slug, remote.displayName ?: remote.name, remote.fsSlug)
                     val isSubPlatform = !effectiveSlug.equals(remote.slug, ignoreCase = true)
+                    val storedRemoteSlug = FileNames.sanitizeSlug(remote.slug)
+                    val storedFsSlug = remote.fsSlug?.let(FileNames::sanitizeSlug)
                     val existing = platformDao.getById(remote.id)
-                        ?: platformDao.getBySlugAndFsSlug(remote.slug, remote.fsSlug)
-                        ?: platformDao.getBySlug(remote.slug)
+                        ?: platformDao.getBySlugAndFsSlug(storedRemoteSlug, storedFsSlug)
+                        ?: platformDao.getBySlug(storedRemoteSlug)
                     val platformDef = PlatformDefinitions.getBySlug(effectiveSlug)
+                    val romRules = PlatformDefinitions.definitionFor(effectiveSlug)
                     val logoUrl = buildMediaUrl(remote.logoUrl)
                     val derivedNames = PlatformDefinitions.importDisplayNames(remote.slug, remote.fsSlug, effectiveSlug)
                     val normalizedName = if (isSubPlatform) {
@@ -428,19 +432,20 @@ class RomMApiClient @Inject constructor(
                     val resolvedShortName = derivedNames?.second ?: platformDef?.shortName ?: normalizedName
                     PlatformEntity(
                         id = remote.id,
-                        slug = effectiveSlug,
-                        fsSlug = remote.fsSlug,
+                        slug = FileNames.sanitizeSlug(effectiveSlug),
+                        fsSlug = storedFsSlug,
                         name = normalizedName,
                         shortName = resolvedShortName,
-                        romExtensions = platformDef?.extensions?.joinToString(",") ?: "",
+                        romExtensions = romRules?.extensions?.joinToString(",") ?: "",
                         gameCount = remote.romCount,
                         isVisible = existing?.isVisible ?: true,
                         logoPath = logoUrl ?: existing?.logoPath,
-                        sortOrder = platformDef?.sortOrder ?: existing?.sortOrder ?: 999,
+                        sortOrder = romRules?.sortOrder ?: existing?.sortOrder ?: 999,
                         lastScanned = existing?.lastScanned,
                         syncEnabled = existing?.syncEnabled ?: defaultSyncEnabled,
                         customRomPath = existing?.customRomPath,
-                        combineContent = existing?.combineContent ?: false
+                        combineContent = existing?.combineContent ?: false,
+                        skipFullSync = existing?.skipFullSync ?: false
                     )
                 }
                 entities.forEach { entity ->

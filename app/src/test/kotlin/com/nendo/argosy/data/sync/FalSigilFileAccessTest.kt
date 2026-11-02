@@ -28,6 +28,7 @@ class FalSigilFileAccessTest {
     @Before
     fun setUp() {
         every { androidData.isRestrictedAndroidPath(any()) } answers { firstArg<String>().contains("/Android/data/") }
+        every { androidData.normalizePathForDisplay(any()) } answers { firstArg() }
         every { androidData.isAltAccessSupported() } returns false
         every { root.isAvailable } returns false
     }

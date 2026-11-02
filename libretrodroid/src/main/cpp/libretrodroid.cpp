@@ -49,6 +49,7 @@
 #include "errorcodes.h"
 #include "vfs/vfs.h"
 #include "vulkan/vulkanbackend.h"
+#include "sensors/coresensors.h"
 
 namespace libretrodroid {
 
@@ -1078,6 +1079,37 @@ void LibretroDroid::setAudioVolume(float volume) {
     }
 }
 
+void LibretroDroid::setSensorReadings(
+    const std::array<float, 3>& gyroscope,
+    const std::array<float, 3>& accelerometer,
+    const std::array<float, 3>& accelerometerRest,
+    float illuminance
+) {
+    if (video) {
+        video->setShaderSensorState({
+            gyroscope[0], gyroscope[1], gyroscope[2],
+            accelerometer[0], accelerometer[1], accelerometer[2],
+            accelerometerRest[0], accelerometerRest[1], accelerometerRest[2]
+        });
+    }
+    CoreSensors::getInstance().setReadings({
+        accelerometer[0], accelerometer[1], accelerometer[2],
+        gyroscope[0], gyroscope[1], gyroscope[2],
+        illuminance
+    });
+}
+
+void LibretroDroid::handleCoreSensorRequests(const std::function<void(int)>& handler) {
+    int requested = 0;
+    if (CoreSensors::getInstance().takeRequestChange(requested)) {
+        handler(requested);
+    }
+}
+
+int LibretroDroid::prepareShaderAndGetSensorUsage() {
+    return video ? video->prepareShaderAndGetSensorUsage() : 0;
+}
+
 void LibretroDroid::setShaderConfig(ShaderManager::Config shaderConfig) {
     fragmentShaderConfig = std::move(shaderConfig);
     if (video) {
@@ -1211,6 +1243,13 @@ std::pair<int8_t*, size_t> LibretroDroid::serializeState() {
 
 void LibretroDroid::resetCheat() {
     core->retro_cheat_reset();
+}
+
+std::string LibretroDroid::coreLibraryName() {
+    if (!core || !core->retro_get_system_info) return "";
+    struct retro_system_info info {};
+    core->retro_get_system_info(&info);
+    return info.library_name ? std::string(info.library_name) : "";
 }
 
 void LibretroDroid::setCheat(unsigned index, bool enabled, const std::string& code) {

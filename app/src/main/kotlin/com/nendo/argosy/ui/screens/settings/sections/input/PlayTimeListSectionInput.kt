@@ -7,6 +7,7 @@ import com.nendo.argosy.ui.screens.settings.PlayTimeListKind
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
 import com.nendo.argosy.ui.screens.settings.sections.PlayTimeListLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.createPlayTimeListLayoutInfo
+import com.nendo.argosy.ui.screens.settings.sections.playTimeListFocusedGameId
 import com.nendo.argosy.ui.screens.settings.sections.playTimeListKindOf
 import com.nendo.argosy.ui.screens.settings.sections.playTimeListMaxFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.playTimeListSections
@@ -50,6 +51,12 @@ internal class PlayTimeListSectionInput(
             return InputResult.HANDLED
         }
         return InputResult.UNHANDLED
+    }
+
+    override fun onSecondaryAction(): InputResult {
+        val gameId = playTimeListFocusedGameId(viewModel.uiState.value) ?: return InputResult.UNHANDLED
+        viewModel.requestPlayTimeGameDelete(gameId)
+        return InputResult.handled(SoundType.OPEN_MODAL)
     }
 
     override fun onContextMenu(): InputResult {

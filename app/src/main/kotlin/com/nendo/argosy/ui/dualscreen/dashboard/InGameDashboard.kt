@@ -87,7 +87,7 @@ enum class DashboardSection(@StringRes val labelRes: Int, val icon: ImageVector)
  */
 class DashboardActions(
     val onQuickSave: () -> Unit,
-    val onLoadState: (Int) -> Unit,
+    val onLoadState: (DashboardQuickState) -> Unit,
     val onScreenshot: () -> Unit,
     val onOpenCheats: () -> Unit,
     val onOpenSettings: () -> Unit,
@@ -191,7 +191,7 @@ fun InGameDashboard(
                 wide = wide,
                 controls = controls,
                 quitArmed = android.os.SystemClock.elapsedRealtime() < quitArmedUntil,
-                showsQuit = state.quickActionsAvailable,
+                showsQuit = state.quickActionsAvailable || state.externalEmulator,
                 onSelect = selectSection,
                 onCheats = actions.onOpenCheats,
                 onSettings = actions.onOpenSettings,

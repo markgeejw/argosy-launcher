@@ -28,6 +28,9 @@ class SaveWrittenDetectionTest {
         gameId = 1L,
         activeSaveRepository = mockk(relaxed = true),
         saveCacheManager = mockk(relaxed = true),
+        diskJudge = mockk(relaxed = true),
+        secureSaves = true,
+        ownerUserId = null,
         primarySavePath = primarySavePath
     )
 

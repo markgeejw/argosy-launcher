@@ -26,7 +26,6 @@ data class StoragePreferences(
     val customBiosPath: String? = null,
     val weeklyIntegrityCheckEnabled: Boolean = true,
     val lastIntegrityCheckTime: Long? = null,
-    val steamInstallVolume: String? = null,
     val gameNativeSyncDirs: Map<GameNativeSyncFolder, String> = emptyMap()
 )
 
@@ -47,7 +46,6 @@ class StoragePreferencesRepository @Inject constructor(
         val CUSTOM_BIOS_PATH = stringPreferencesKey("custom_bios_path")
         val WEEKLY_INTEGRITY_CHECK = booleanPreferencesKey("weekly_integrity_check_enabled")
         val LAST_INTEGRITY_CHECK = longPreferencesKey("last_integrity_check_time")
-        val STEAM_INSTALL_VOLUME = stringPreferencesKey("steam_install_volume")
         val GAMENATIVE_SYNC_DIR = stringPreferencesKey("gamenative_sync_dir")
         val GAMENATIVE_SYNC_DIR_BY_FOLDER = GameNativeSyncFolder.entries.associateWith {
             stringPreferencesKey("gamenative_sync_dir_${it.slug}")
@@ -68,7 +66,6 @@ class StoragePreferencesRepository @Inject constructor(
             customBiosPath = prefs[Keys.CUSTOM_BIOS_PATH],
             weeklyIntegrityCheckEnabled = prefs[Keys.WEEKLY_INTEGRITY_CHECK] ?: true,
             lastIntegrityCheckTime = prefs[Keys.LAST_INTEGRITY_CHECK],
-            steamInstallVolume = prefs[Keys.STEAM_INSTALL_VOLUME],
             gameNativeSyncDirs = Keys.GAMENATIVE_SYNC_DIR_BY_FOLDER.mapNotNull { (folder, key) ->
                 prefs[key]?.takeIf { it.isNotBlank() }?.let { folder to it }
             }.toMap()
@@ -130,13 +127,6 @@ class StoragePreferencesRepository @Inject constructor(
 
     suspend fun setLastIntegrityCheckTime(timeMs: Long) {
         dataStore.edit { it[Keys.LAST_INTEGRITY_CHECK] = timeMs }
-    }
-
-    suspend fun setSteamInstallVolume(volume: String?) {
-        dataStore.edit { prefs ->
-            if (volume != null) prefs[Keys.STEAM_INSTALL_VOLUME] = volume
-            else prefs.remove(Keys.STEAM_INSTALL_VOLUME)
-        }
     }
 
     suspend fun setGameNativeSyncDir(folder: GameNativeSyncFolder, path: String?) {

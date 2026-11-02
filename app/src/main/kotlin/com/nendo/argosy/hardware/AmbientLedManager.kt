@@ -172,17 +172,19 @@ class AmbientLedManager @Inject constructor(
 
     fun setContext(newContext: AmbientLedContext) {
         Logger.debug(TAG, "setContext: $newContext, uiColorsInitialized=$uiColorsInitialized, hoverColors=${_state.value.hoverLeftColor != null}")
-        _state.value = _state.value.copy(context = newContext)
+        _state.update { it.copy(context = newContext) }
         if (isEnabled && shouldUpdateLeds()) {
             updateLeds()
         }
     }
 
     fun setUiColors(primary: Color, secondary: Color?) {
-        _state.value = _state.value.copy(
-            uiLeftColor = primary,
-            uiRightColor = secondary ?: primary
-        )
+        _state.update {
+            it.copy(
+                uiLeftColor = primary,
+                uiRightColor = secondary ?: primary
+            )
+        }
         uiColorsInitialized = true
         if (isEnabled && _state.value.context == AmbientLedContext.ARGOSY_UI) {
             updateLeds()
@@ -200,7 +202,7 @@ class AmbientLedManager @Inject constructor(
 
         if (_state.value.hoverLeftColor == null || !active) {
             hoverTransitionJob?.cancel()
-            _state.value = _state.value.copy(hoverLeftColor = left, hoverRightColor = right)
+            _state.update { it.copy(hoverLeftColor = left, hoverRightColor = right) }
             if (active) updateLeds()
             return
         }
@@ -215,10 +217,12 @@ class AmbientLedManager @Inject constructor(
         hoverTransitionJob = launchTransition(HOVER_FRAME_MS) { progress ->
             val endLeft = targetHoverLeft ?: return@launchTransition
             val endRight = targetHoverRight ?: endLeft
-            _state.value = _state.value.copy(
-                hoverLeftColor = lerp(startLeft, endLeft, progress),
-                hoverRightColor = lerp(startRight, endRight, progress)
-            )
+            _state.update {
+                it.copy(
+                    hoverLeftColor = lerp(startLeft, endLeft, progress),
+                    hoverRightColor = lerp(startRight, endRight, progress)
+                )
+            }
             val ctx = _state.value.context
             if (isEnabled && (ctx == AmbientLedContext.ARGOSY_UI || ctx == AmbientLedContext.GAME_HOVER)) {
                 updateLeds()
@@ -231,10 +235,12 @@ class AmbientLedManager @Inject constructor(
         hoverTransitionJob = null
         targetHoverLeft = null
         targetHoverRight = null
-        _state.value = _state.value.copy(
-            hoverLeftColor = null,
-            hoverRightColor = null
-        )
+        _state.update {
+            it.copy(
+                hoverLeftColor = null,
+                hoverRightColor = null
+            )
+        }
         if (isEnabled) {
             updateLeds()
         }
@@ -247,10 +253,12 @@ class AmbientLedManager @Inject constructor(
         if (currentLeftColors == null) {
             currentLeftColors = leftColors
             currentRightColors = rightColors
-            _state.value = _state.value.copy(
-                leftSideColors = leftColors,
-                rightSideColors = rightColors
-            )
+            _state.update {
+                it.copy(
+                    leftSideColors = leftColors,
+                    rightSideColors = rightColors
+                )
+            }
             if (isEnabled && _state.value.context == AmbientLedContext.IN_GAME) {
                 updateLeds()
             }
@@ -270,10 +278,12 @@ class AmbientLedManager @Inject constructor(
         transitionJob = launchTransition { progress ->
             currentLeftColors = lerpSideColors(startLeft, endLeft, progress)
             currentRightColors = lerpSideColors(startRight, endRight, progress)
-            _state.value = _state.value.copy(
-                leftSideColors = currentLeftColors,
-                rightSideColors = currentRightColors
-            )
+            _state.update {
+                it.copy(
+                    leftSideColors = currentLeftColors,
+                    rightSideColors = currentRightColors
+                )
+            }
             if (isEnabled && _state.value.context == AmbientLedContext.IN_GAME) {
                 updateLeds()
             }
@@ -307,10 +317,12 @@ class AmbientLedManager @Inject constructor(
         targetRightColors = null
         currentLeftColors = null
         currentRightColors = null
-        _state.value = _state.value.copy(
-            leftSideColors = null,
-            rightSideColors = null
-        )
+        _state.update {
+            it.copy(
+                leftSideColors = null,
+                rightSideColors = null
+            )
+        }
     }
 
     private var flashJob: Job? = null
@@ -479,10 +491,12 @@ class AmbientLedManager @Inject constructor(
                         val brightness = (floor + midContrib + highContrib).coerceIn(0.05f, 1f)
                         val intensity = (normMid * 0.6f + normHigh * 0.4f).coerceIn(0f, 1f)
 
-                        _state.value = _state.value.copy(
-                            brightness = brightness,
-                            intensity = intensity
-                        )
+                        _state.update {
+                            it.copy(
+                                brightness = brightness,
+                                intensity = intensity
+                            )
+                        }
 
                         if (isEnabled && shouldUpdateLeds()) {
                             updateLeds()

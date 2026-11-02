@@ -47,7 +47,9 @@
 #include "vulkan/vulkanbackend.h"
 #include "achievements_test.h"
 #include "stateloadpolicy_test.h"
+#include "sensors/coresensors.h"
 #include <rc_hash.h>
+#include <rc_libretro.h>
 
 namespace libretrodroid {
 
@@ -316,17 +318,16 @@ JNIEXPORT jboolean JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_unseri
         jbyte* data = env->GetByteArrayElements(sram, &isCopy);
         jsize size = env->GetArrayLength(sram);
 
-        LibretroDroid::getInstance().unserializeSRAM(data, size);
+        jboolean loaded = LibretroDroid::getInstance().unserializeSRAM(data, size);
 
         env->ReleaseByteArrayElements(sram, data, JNI_ABORT);
+        return loaded;
 
     } catch (std::exception &exception) {
         LOGE("Error in unserializeSRAM: %s", exception.what());
         JavaUtils::throwRetroException(env, ERROR_SERIALIZATION);
         return JNI_FALSE;
     }
-
-    return JNI_TRUE;
 }
 
 JNIEXPORT jbyteArray JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_serializeSRAM(
@@ -679,6 +680,12 @@ JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_step(
         env->CallVoidMethod(glRetroView, requestAspectRatioUpdate);
     }
 
+    LibretroDroid::getInstance().handleCoreSensorRequests([&](int requested) {
+        jclass cls = env->GetObjectClass(glRetroView);
+        jmethodID onCoreSensorsRequested = env->GetMethodID(cls, "onCoreSensorsRequested", "(I)V");
+        env->CallVoidMethod(glRetroView, onCoreSensorsRequested, requested);
+    });
+
     if (LibretroDroid::getInstance().isRumbleEnabled()) {
         LibretroDroid::getInstance().handleRumbleUpdates([&](int port, float weak, float strong) {
             jclass cls = env->GetObjectClass(glRetroView);
@@ -714,6 +721,12 @@ JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_stepForNet
         jmethodID requestAspectRatioUpdate = env->GetMethodID(cls, "refreshAspectRatio", "()V");
         env->CallVoidMethod(glRetroView, requestAspectRatioUpdate);
     }
+
+    LibretroDroid::getInstance().handleCoreSensorRequests([&](int requested) {
+        jclass cls = env->GetObjectClass(glRetroView);
+        jmethodID onCoreSensorsRequested = env->GetMethodID(cls, "onCoreSensorsRequested", "(I)V");
+        env->CallVoidMethod(glRetroView, onCoreSensorsRequested, requested);
+    });
 
     if (LibretroDroid::getInstance().isRumbleEnabled()) {
         LibretroDroid::getInstance().handleRumbleUpdates([&](int port, float weak, float strong) {
@@ -826,6 +839,47 @@ JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_setShaderC
     jobject shaderConfig
 ) {
     LibretroDroid::getInstance().setShaderConfig(JavaUtils::shaderFromJava(env, shaderConfig));
+}
+
+JNIEXPORT jint JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_prepareShaderAndGetSensorUsage(
+    JNIEnv* env, jclass
+) {
+    try {
+        return LibretroDroid::getInstance().prepareShaderAndGetSensorUsage();
+    } catch (std::exception& exception) {
+        LOGE("Error preparing shader: %s", exception.what());
+        JavaUtils::throwRetroException(env, ERROR_GENERIC);
+        return 0;
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_setSensorReadings(
+    JNIEnv*, jclass,
+    jfloat gyroX, jfloat gyroY, jfloat gyroZ,
+    jfloat accelX, jfloat accelY, jfloat accelZ,
+    jfloat restX, jfloat restY, jfloat restZ,
+    jfloat illuminance
+) {
+    LibretroDroid::getInstance().setSensorReadings(
+        {gyroX, gyroY, gyroZ},
+        {accelX, accelY, accelZ},
+        {restX, restY, restZ},
+        illuminance
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_setCoreSensorAccess(
+    JNIEnv*, jclass,
+    jint mask
+) {
+    CoreSensors::getInstance().setAccess(mask);
+}
+
+JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_setCoreAccelerometerScale(
+    JNIEnv*, jclass,
+    jfloat scale
+) {
+    CoreSensors::getInstance().setAccelerometerScale(scale);
 }
 
 JNIEXPORT void JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_setFilterMode(
@@ -1141,6 +1195,23 @@ JNIEXPORT jstring JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_compute
 
     LOGI("Computed hash for %s: %s", path, hash);
     return env->NewStringUTF(hash);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swordfish_libretrodroid_LibretroDroid_isCoreSettingAllowed(
+    JNIEnv* env,
+    jclass obj,
+    jstring key,
+    jstring value
+) {
+    if (key == nullptr || value == nullptr) return JNI_TRUE;
+    const std::string libraryName = LibretroDroid::getInstance().coreLibraryName();
+    if (libraryName.empty()) return JNI_TRUE;
+    const rc_disallowed_setting_t* disallowed = rc_libretro_get_disallowed_settings(libraryName.c_str());
+    if (disallowed == nullptr) return JNI_TRUE;
+    JniString keyStr(env, key);
+    JniString valueStr(env, value);
+    return rc_libretro_is_setting_allowed(disallowed, keyStr.stdString().c_str(), valueStr.stdString().c_str())
+        ? JNI_TRUE : JNI_FALSE;
 }
 
 }

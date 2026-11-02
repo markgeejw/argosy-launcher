@@ -185,6 +185,28 @@ class SigilSharedContainerRouteTest {
     }
 
     @Test
+    fun `a game's source paths are its own files under the root, never the shared card or the root`() = runTest {
+        every { connectionManager.snapshotsEnabled() } returns true
+        val context = SaveContext(
+            config = com.nendo.argosy.data.emulator.SavePathRegistry.getConfig(BUILTIN)!!,
+            romPath = null,
+            saveId = null,
+            emulatorPackage = null,
+            gameId = GAME_ID,
+            gameTitle = GAME.title,
+            platformSlug = GAME.platformSlug,
+            emulatorId = BUILTIN,
+            localSavePath = memcards.absolutePath
+        )
+
+        located(shared = listOf("Mcd001.ps2"), own = listOf("$ROM_STEM.ps2"))
+        assertEquals(listOf(File(memcards, "$ROM_STEM.ps2").path), handler.sourcePathsFor(memcards.absolutePath, context))
+
+        located(shared = listOf("Mcd001.ps2"), own = emptyList())
+        assertEquals(emptyList<String>(), handler.sourcePathsFor(memcards.absolutePath, context))
+    }
+
+    @Test
     fun `a folder card on disk is listed as its folder so the layout's shared card name finds it`() {
         val listing = listOf("memcards/Mcd001.ps2/_pcsx2_superblock", "memcards/Mcd001.ps2/BASLUS-20642SYS/icon.sys", "Mcd002.ps2")
 

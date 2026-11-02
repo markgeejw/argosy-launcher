@@ -47,6 +47,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.nendo.argosy.R
 import com.nendo.argosy.ui.common.rememberFileImageModel
+import com.nendo.argosy.ui.common.stackedScreenshotBackdrop
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
 import com.nendo.argosy.ui.components.FooterHint
 import com.nendo.argosy.ui.components.FooterStyleConfig
 import com.nendo.argosy.ui.components.InputButton
@@ -95,7 +99,7 @@ fun QuickMenuRandomContent(
                 label = "quickMenuRandomGame"
             ) { shown ->
                 Box(modifier = Modifier.fillMaxSize()) {
-                    RandomBackdrop(path = shown.backdropPath)
+                    RandomBackdrop(path = shown.backdropPath, isScreenshot = shown.backdropIsScreenshotOrArt)
                     RandomGameLayout(
                         game = shown,
                         onPlay = onPlay,
@@ -118,10 +122,17 @@ fun QuickMenuRandomContent(
 }
 
 @Composable
-private fun RandomBackdrop(path: String?) {
+private fun RandomBackdrop(path: String?, isScreenshot: Boolean) {
     val surface = MaterialTheme.colorScheme.surface
+    val model = rememberFileImageModel(path)
+    val context = LocalContext.current
     AsyncImage(
-        model = rememberFileImageModel(path),
+        model = remember(model, isScreenshot) {
+            ImageRequest.Builder(context)
+                .data(model)
+                .apply { if (isScreenshot) stackedScreenshotBackdrop() }
+                .build()
+        },
         contentDescription = null,
         contentScale = ContentScale.Crop,
         modifier = Modifier

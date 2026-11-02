@@ -299,8 +299,6 @@ class EmulatorSettingsDelegate @Inject constructor(
                     val updateInfo = info.updates[emulator.def.id]
 
                     if (updateInfo != null) {
-                        // If no variant stored and emulator supports GitHub updates,
-                        // fetch fresh to allow variant selection
                         if (updateInfo.installedVariant == null && emulator.def.releaseSource != null) {
                             fetchAndDownloadEmulator(emulator.def)
                         } else {
@@ -360,13 +358,6 @@ class EmulatorSettingsDelegate @Inject constructor(
             configureEmulatorUseCase.setForPlatform(platformId, platformSlug, emulator)
             onLoadSettings()
         }
-    }
-
-
-
-    fun refreshEmulators() {
-        // EmulatorDetector will refresh on next detectEmulators() call
-        // No explicit refresh needed - the ViewModel calls loadSettings() after this
     }
 
     /**
@@ -655,7 +646,6 @@ class EmulatorSettingsDelegate @Inject constructor(
             val modal = state.launchArgsModalState ?: return@update state
             val rows = launchArgsModalRows(modal)
             if (rows.isEmpty()) return@update state
-            // Locked rows stay focusable so scroll doesn't jump past them.
             val newIndex = (modal.focusIndex + delta).coerceIn(0, rows.size - 1)
             state.copy(launchArgsModalState = modal.copy(focusIndex = newIndex))
         }

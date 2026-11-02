@@ -69,6 +69,10 @@ internal class InterfaceSectionInput(
                 return toggleLeftRight(direction, state.display.hideSystemStatusBar) {
                     viewModel.setHideSystemStatusBar(it)
                 }
+            InterfaceItem.QuickPanelInEmulators ->
+                return toggleLeftRight(direction, state.display.quickPanelInEmulators) {
+                    viewModel.setQuickPanelInEmulators(it)
+                }
             InterfaceItem.LockScreenArt -> return toggleLeftRight(direction, state.display.lockScreenArt) {
                 viewModel.setLockScreenArt(it)
             }

@@ -81,6 +81,33 @@ class LocalRomClaimsTest {
     }
 
     @Test
+    fun `a cue beside its bin claims the cue, in either listing order`() {
+        val target = listOf(ClaimTarget(1, "Game (USA).chd", "Game"))
+        val forward = claimLocalEntries(target, listOf(file("Game (USA).cue"), file("Game (USA).bin")))
+        val reversed = claimLocalEntries(target, listOf(file("Game (USA).bin"), file("Game (USA).cue")))
+        assertEquals("Game (USA).cue", forward[1]?.name)
+        assertEquals("Game (USA).cue", reversed[1]?.name)
+    }
+
+    @Test
+    fun `two disc sheets for one stem claim neither`() {
+        val claims = claimLocalEntries(
+            listOf(ClaimTarget(1, "Game.chd", "Game")),
+            listOf(file("Game.cue"), file("Game.ccd"), file("Game.img"))
+        )
+        assertNull(claims[1])
+    }
+
+    @Test
+    fun `a folder sharing the stem never counts as the disc sheet`() {
+        val claims = claimLocalEntries(
+            listOf(ClaimTarget(1, "Game.chd", "Game")),
+            listOf(file("Game.bin"), file("Game.iso"), dir("Game.cue"))
+        )
+        assertNull(claims[1])
+    }
+
+    @Test
     fun `title matching only applies when the server gave no filename`() {
         val withName = claimLocalEntries(
             listOf(ClaimTarget(1, "Actual Name.md", "Sonic")),

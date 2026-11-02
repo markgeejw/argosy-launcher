@@ -2,11 +2,11 @@ package com.nendo.argosy.ui.screens.settings.delegates
 
 import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.domain.usecase.download.FilePickerFlowUseCase
-import com.nendo.argosy.domain.usecase.game.DeleteGameUseCase
 import com.nendo.argosy.domain.usecase.storage.GameStorageBreakdownUseCase
 import com.nendo.argosy.domain.usecase.storage.GameStorageBucket
+import com.nendo.argosy.ui.common.GameConfirm
+import com.nendo.argosy.ui.screens.common.GameActionsDelegate
 import com.nendo.argosy.ui.screens.settings.GameStorageCategoryDeleteConfirm
-import com.nendo.argosy.ui.screens.settings.GameStorageDeleteConfirm
 import com.nendo.argosy.ui.screens.settings.StoragePlatformGamesState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +18,7 @@ import javax.inject.Inject
 
 class StoragePlatformGamesDelegate @Inject constructor(
     private val breakdownUseCase: GameStorageBreakdownUseCase,
-    private val deleteGameUseCase: DeleteGameUseCase,
+    private val gameActions: GameActionsDelegate,
     private val filePickerFlowUseCase: FilePickerFlowUseCase,
     private val gameRepository: GameRepository
 ) {
@@ -59,7 +59,7 @@ class StoragePlatformGamesDelegate @Inject constructor(
         val game = _state.value.games.find { it.gameId == gameId } ?: return
         _state.update {
             it.copy(
-                deleteConfirm = GameStorageDeleteConfirm(
+                deleteConfirm = GameConfirm.DeleteDownload(
                     gameId = gameId,
                     title = game.title,
                     hasSoundtrack = game.hasSoundtrack,
@@ -93,8 +93,7 @@ class StoragePlatformGamesDelegate @Inject constructor(
     fun confirmDeleteGame(gameId: Long, withSoundtrack: Boolean, scope: CoroutineScope, onPlatformEmpty: () -> Unit) {
         _state.update { it.copy(deleteConfirm = null) }
         scope.launch {
-            deleteGameUseCase(gameId)
-            if (withSoundtrack) filePickerFlowUseCase.purgeSoundtrack(gameId)
+            gameActions.deleteLocalFile(gameId, withSoundtrack)
             reload(scope, onPlatformEmpty)
         }
     }

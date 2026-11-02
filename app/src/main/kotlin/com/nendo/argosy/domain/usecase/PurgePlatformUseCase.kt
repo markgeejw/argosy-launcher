@@ -1,14 +1,18 @@
 package com.nendo.argosy.domain.usecase
 
 import android.util.Log
+import androidx.room.withTransaction
+import com.nendo.argosy.data.local.ALauncherDatabase
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.PlatformDao
 import com.nendo.argosy.data.local.dao.SaveCacheDao
 import com.nendo.argosy.data.local.dao.SaveSyncDao
 import com.nendo.argosy.data.local.dao.StateCacheDao
+import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.data.storage.StorageAttributionRepository
 import com.nendo.argosy.data.storage.StorageCategory
+import com.nendo.argosy.util.DiscSheets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -37,7 +41,8 @@ class PurgePlatformUseCase @Inject constructor(
     private val stateTombstoneDao: com.nendo.argosy.data.local.dao.StateTombstoneDao,
     private val saveSyncDao: SaveSyncDao,
     private val attributionRepository: StorageAttributionRepository,
-    private val syncPreferencesRepository: com.nendo.argosy.data.preferences.SyncPreferencesRepository
+    private val syncPreferencesRepository: com.nendo.argosy.data.preferences.SyncPreferencesRepository,
+    private val database: ALauncherDatabase
 ) {
     suspend operator fun invoke(
         platformId: Long,
@@ -62,6 +67,13 @@ class PurgePlatformUseCase @Inject constructor(
                     val localPath = game.localPath ?: return@forEachIndexed
                     val file = File(localPath)
                     if (file.exists()) {
+                        if (DiscSheets.isLoader(file.name)) {
+                            val romExtensions = PlatformDefinitions.definitionFor(game.platformSlug)?.extensions.orEmpty()
+                            DiscSheets.companions(file, romExtensions).forEach { track ->
+                                val size = track.length()
+                                if (track.delete()) bytesFreed += size
+                            }
+                        }
                         bytesFreed += file.length()
                         file.delete()
                         filesDeleted++
@@ -73,18 +85,18 @@ class PurgePlatformUseCase @Inject constructor(
             }
         }
 
-        stateCacheDao.deleteByPlatform(platformId)
-        stateOwnershipDao.deleteByPlatform(platformId)
-        stateTombstoneDao.deleteByPlatform(platformId)
-        saveCacheDao.deleteByPlatform(platformId)
-        saveSyncDao.deleteByPlatform(platformId)
-
         val gamesCount = gameDao.countByPlatform(platformId, syncPreferencesRepository.getRommUserId())
-        gameDao.deleteByPlatform(platformId)
+        database.withTransaction {
+            stateCacheDao.deleteByPlatform(platformId)
+            stateOwnershipDao.deleteByPlatform(platformId)
+            stateTombstoneDao.deleteByPlatform(platformId)
+            saveCacheDao.deleteByPlatform(platformId)
+            saveSyncDao.deleteByPlatform(platformId)
+            gameDao.deleteByPlatform(platformId)
+            platformDao.updateGameCount(platformId, 0)
+            platformDao.updateSyncEnabled(platformId, false)
+        }
         Log.d(TAG, "Purge: deleted $gamesCount game records for $platformId")
-
-        platformDao.updateGameCount(platformId, 0)
-        platformDao.updateSyncEnabled(platformId, false)
         Log.d(TAG, "Purge: disabled sync for $platformId")
 
         attributionRepository.markDirty(StorageCategory.GAMES)

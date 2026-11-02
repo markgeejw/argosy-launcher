@@ -18,15 +18,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Single source of truth for picking a [PlatformSaveHandler] from a (platformSlug, emulatorId,
- * config) triple. Replaces the four ad-hoc dispatch sites that used to live in
- * [com.nendo.argosy.data.repository.SaveSyncApiClient.getHandler],
- * [com.nendo.argosy.data.sync.SavePathResolver]'s `when (platformSlug)` blocks, and the duplicate
- * platform switches in `SavePathValidator`.
- *
- * Adding a new folder-based platform = register one entry in [folderHandlers] (plus a slug
- * mapping in [PlatformDefinitions] aliases if needed). Adding a new file-based platform = inject
- * the handler and add a branch to [getHandler].
+ * Picks the [PlatformSaveHandler] for a save. Sigil handles every save shape it has a layout
+ * for; [getHandlerFor] is the per-game answer and the one sync paths use. The folder handlers
+ * read archives written before Sigil units, which pre-5.5 servers still hold.
  */
 @Singleton
 class PlatformSaveHandlerRegistry @Inject constructor(
@@ -49,8 +43,8 @@ class PlatformSaveHandlerRegistry @Inject constructor(
     private val folderHandlers: Map<String, FolderSaveHandler> = listOf(
         FolderSaveHandler(context, fal, saveArchiver, platformSlug = "vita"),
         PspFolderHandler(context, fal, saveArchiver),
-        FolderSaveHandler(context, fal, saveArchiver, platformSlug = "wii"),
-        FolderSaveHandler(context, fal, saveArchiver, platformSlug = "wiiu"),
+        CategorySplitFolderHandler(context, fal, saveArchiver, platformSlug = "wii", categoryDir = Regex("0001[0-9a-fA-F]{4}")),
+        WiiUFolderHandler(context, fal, saveArchiver),
         N3dsFolderHandler(context, fal, saveArchiver),
         Ps2FolderHandler(context, fal, saveArchiver),
         Ps3FolderHandler(context, fal, saveArchiver),
@@ -61,13 +55,6 @@ class PlatformSaveHandlerRegistry @Inject constructor(
     private fun canonicalSlug(platformSlug: String): String =
         PlatformDefinitions.getCanonicalSlug(platformSlug)
 
-    /**
-     * Resolve the handler for a save dispatch. Order matches the legacy `when` in
-     * [com.nendo.argosy.data.repository.SaveSyncApiClient.getHandler]: RetroArch first by
-     * emulator id, then GCI by config, then platform-keyed folder handlers, finally the
-     * fallback file-based default. A built-in core whose config is not folder-based takes the
-     * unit handler ahead of the platform-keyed folder handlers.
-     */
     fun getHandler(
         config: SavePathConfig?,
         platformSlug: String,
@@ -82,7 +69,9 @@ class PlatformSaveHandlerRegistry @Inject constructor(
         }
         if (emulatorId in RETROARCH_EMULATOR_IDS) return unitSaveHandler
         if (canonical == "switch") return switchSaveHandler
-        if (canonical == "dreamcast") return dreamcastSaveHandler
+        if (canonical == "dreamcast") {
+            return if (config?.emulatorId == FLYCAST_STANDALONE_ID) dreamcastSaveHandler.standalone else dreamcastSaveHandler
+        }
         if (emulatorId in UNIT_EMULATOR_IDS && config != null) return unitSaveHandler
         folderHandlers[canonical]?.let { return it }
         if (emulatorId in UNIT_EMULATOR_IDS) return unitSaveHandler
@@ -93,12 +82,16 @@ class PlatformSaveHandlerRegistry @Inject constructor(
         sigilSaveHandler.routes(config?.emulatorId ?: emulatorId, platformSlug)
 
     /**
-     * [isSigilRouted] for one game, also true for any standalone emulator route
-     * [SigilSaveHandler.route] gives the game. A libretro route never counts.
+     * [isSigilRouted] for one game, also true for any route [SigilSaveHandler.route] gives it
+     * except a libretro route whose config saves plain files. A libretro core that keeps folders
+     * or GCI files (built-in PSP, 3DS, Wii, GameCube) uploads a Sigil unit, so its download and
+     * restore have to read one back through Sigil too.
      */
-    suspend fun isSigilRoutedFor(gameId: Long, config: SavePathConfig?, platformSlug: String, emulatorId: String): Boolean =
-        isSigilRouted(config, platformSlug, emulatorId) ||
-            sigilSaveHandler.route(gameId, config?.emulatorId ?: emulatorId)?.libretro == false
+    suspend fun isSigilRoutedFor(gameId: Long, config: SavePathConfig?, platformSlug: String, emulatorId: String): Boolean {
+        if (isSigilRouted(config, platformSlug, emulatorId)) return true
+        val route = sigilSaveHandler.route(gameId, config?.emulatorId ?: emulatorId) ?: return false
+        return !route.libretro || config?.usesFolderBasedSaves == true || config?.usesGciFormat == true
+    }
 
     /**
      * [getHandler] for one game: the Sigil handler wherever [isSigilRoutedFor] routes the game.
@@ -161,6 +154,7 @@ class PlatformSaveHandlerRegistry @Inject constructor(
     fun isValidCachedSavePath(platformSlug: String, path: String): Boolean {
         val canonical = canonicalSlug(platformSlug)
         if (canonical == "switch") return switchSaveHandler.isValidCachedSavePath(path)
+        if (canonical == GAMECUBE_SLUG) return gciSaveHandler.isValidCachedSavePath(path)
         return folderHandlers[canonical]?.isValidCachedSavePath(path) ?: true
     }
 
@@ -189,6 +183,8 @@ class PlatformSaveHandlerRegistry @Inject constructor(
         private const val TAG = "PlatformSaveHandlerRegistry"
         val RETROARCH_EMULATOR_IDS = setOf("retroarch", "retroarch_64", "retroarch_32")
         val UNIT_EMULATOR_IDS = RETROARCH_EMULATOR_IDS + EmulatorRegistry.BUILTIN_ID + EmulatorRegistry.LEGACY_BUILTIN_ID
+        private const val FLYCAST_STANDALONE_ID = "flycast"
+        private const val GAMECUBE_SLUG = "gc"
     }
 }
 
@@ -870,7 +866,7 @@ private class Ps2FolderHandler(
         if (!ownerDir.exists() && !ownerDir.mkdirs()) return
 
         loose.forEach { entry ->
-            val moved = runCatching { File(entry.path).renameTo(File(ownerDir, entry.name)) }.getOrDefault(false)
+            val moved = runCatching { fal.getTransformedFile(entry.path).renameTo(File(ownerDir, entry.name)) }.getOrDefault(false)
             Logger.warn(
                 TAG,
                 "repairLooseCardEntries: relocating a stray card entry | file=${entry.name}, into=$owner, moved=$moved"

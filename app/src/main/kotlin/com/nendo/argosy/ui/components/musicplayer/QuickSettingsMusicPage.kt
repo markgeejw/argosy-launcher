@@ -104,7 +104,7 @@ private val TransportFocus = FocusIndicators(fill = true)
 private val PlayFocus = FocusIndicators(ring = true)
 
 @Composable
-fun QuickSettingsMusicPage(viewModel: MusicPlayerViewModel, onOpenRommSignIn: () -> Unit) {
+fun QuickSettingsMusicPage(viewModel: MusicPlayerViewModel, onOpenRommSignIn: (() -> Unit)?) {
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(viewModel) {
@@ -763,7 +763,7 @@ private fun MusicBrowseList(
     browse: MusicBrowseUi,
     activeSourceId: String,
     viewModel: MusicPlayerViewModel,
-    onOpenRommSignIn: () -> Unit
+    onOpenRommSignIn: (() -> Unit)?
 ) {
     val theme = LocalArgosyTheme.current
     val listState = rememberLazyListState()
@@ -811,12 +811,17 @@ private fun MusicBrowseList(
         )
         browse.notice?.let { notice ->
             val isSignIn = notice == MusicBrowseNotice.SIGN_IN_FOR_PLAYLISTS
+            val signInAction = onOpenRommSignIn.takeIf { isSignIn }
             Text(
                 text = stringResource(noticeRes(browse.kind, notice)),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isSignIn) theme.focusAccent else theme.textDim,
+                color = when {
+                    signInAction != null -> theme.focusAccent
+                    isSignIn -> theme.textMute
+                    else -> theme.textDim
+                },
                 modifier = Modifier
-                    .then(if (isSignIn) Modifier.clickableNoFocus(onClick = onOpenRommSignIn) else Modifier)
+                    .then(if (signInAction != null) Modifier.clickableNoFocus(onClick = signInAction) else Modifier)
                     .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingXs)
             )
         }

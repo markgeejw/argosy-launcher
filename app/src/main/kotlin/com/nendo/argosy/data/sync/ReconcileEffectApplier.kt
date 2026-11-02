@@ -44,7 +44,8 @@ class ReconcileEffectApplier @Inject constructor(
     private val saveSyncRepository: Lazy<SaveSyncRepository>,
     private val saveCacheManager: Lazy<com.nendo.argosy.data.repository.SaveCacheManager>,
     private val payloadCodec: SyncPayloadCodec,
-    private val syncPreferencesRepository: SyncPreferencesRepository
+    private val syncPreferencesRepository: SyncPreferencesRepository,
+    private val serverSaveGate: com.nendo.argosy.data.repository.ServerSaveGate
 ) {
 
     suspend fun apply(op: ReconcileOperation, sessionId: Long?): ReconcileEffectOutcome {
@@ -102,8 +103,8 @@ class ReconcileEffectApplier @Inject constructor(
         val existing = pendingConflictDao.findByGameSaveAndOwner(game.id, op.saveId, op.slot, ownerUserId)
         val previouslyDismissedUnchanged = existing != null &&
             existing.dismissed &&
-            existing.serverUpdatedAt == opServerTime &&
-            existing.serverHash == op.serverContentHash
+            existing.serverHash == op.serverContentHash &&
+            (existing.serverUpdatedAt == opServerTime || existing.serverUpdatedAt == null && existing.serverHash != null)
         if (previouslyDismissedUnchanged) {
             Logger.debug(TAG, "applyPlan: skipping CONFLICT for romId=${op.romId} saveId=${op.saveId} (previously dismissed, server unchanged)")
             return ReconcileEffectOutcome.NONE
@@ -189,6 +190,15 @@ class ReconcileEffectApplier @Inject constructor(
             return false
         }
         val serverTime = op.serverUpdatedAt?.let { parseInstantOrNull(it) }
+        val knownServerTime = serverTime ?: existing?.serverUpdatedAt
+        val hold = if (overridesOpenDecision) null else serverSaveGate.holdFor(game.id, game.localPath, op.slot, knownServerTime)
+        if (hold is com.nendo.argosy.data.repository.ServerSaveHold.Superseded) {
+            Logger.debug(TAG, "applyPlan DOWNLOAD: gameId=${game.id} slot=${op.slot} superseded locally: ${hold.reason}")
+            if (existing?.syncStatus == SaveSyncEntity.STATUS_SERVER_NEWER) {
+                saveSyncDao.upsert(existing.copy(syncStatus = SaveSyncEntity.STATUS_SYNCED))
+            }
+            return false
+        }
         saveSyncDao.upsert(
             SaveSyncEntity(
                 id = existing?.id ?: 0,
@@ -227,11 +237,7 @@ class ReconcileEffectApplier @Inject constructor(
         }
     }
 
-    private fun parseInstantOrNull(value: String): Instant? = try {
-        Instant.parse(value)
-    } catch (_: Exception) {
-        null
-    }
+    private fun parseInstantOrNull(value: String): Instant? = SaveSyncApiClient.parseTimestampOrNull(value)
 
     private suspend fun canonicalEmulatorId(raw: String?, game: GameEntity): String? {
         return saveSyncRepository.get().resolveEmulatorForGame(game)

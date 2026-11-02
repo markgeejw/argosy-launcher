@@ -82,6 +82,7 @@ fun GameEntity.toGameDetailUi(
         canManageStates = canManageStates,
         isSteamGame = isSteamGame,
         steamLauncherName = steamLauncherName,
+        steamLauncherSetManually = hasSteamLauncherPin,
         isExternallyManaged = isExternallyManaged,
         managingLauncherDisplayName = steamLauncher
             ?.takeIf { it != GameEntity.LAUNCHER_UNSPECIFIED }
@@ -94,5 +95,41 @@ fun GameEntity.toGameDetailUi(
         steamAppId = steamAppId,
         rommFileName = rommFileName,
         rommId = rommId
+    )
+}
+
+internal val GameEntity.hasSteamLauncherPin: Boolean
+    get() = launcherSetManually && steamLauncher != null && steamLauncher != GameEntity.LAUNCHER_UNSPECIFIED
+
+internal fun GameEntity.steamLaunchCandidates(
+    reporting: List<String>,
+    isInstalled: (String) -> Boolean
+): List<String> {
+    if (!isSteamGame) return emptyList()
+    val storedPackage = steamLauncher?.takeIf { it != GameEntity.LAUNCHER_UNSPECIFIED }
+    val pinned = hasSteamLauncherPin
+    return SteamLaunchers.launchCandidates(
+        storedPackage = storedPackage,
+        pinned = pinned,
+        reporting = if (pinned) emptyList() else reporting,
+        isInstalled = { runCatching { isInstalled(it) }.getOrDefault(false) }
+    )
+}
+
+internal fun GameDetailUi.withSteamLauncher(
+    game: GameEntity,
+    candidates: List<String>,
+    pathExists: Boolean
+): GameDetailUi {
+    if (!game.isSteamGame || id != game.id) return this
+    val storedPackage = game.steamLauncher?.takeIf { it != GameEntity.LAUNCHER_UNSPECIFIED }
+    val displayPackage = if (game.hasSteamLauncherPin) storedPackage else candidates.singleOrNull()
+    return copy(
+        steamLauncherName = displayPackage?.let { SteamLaunchers.getByPackage(it)?.displayName },
+        steamLauncherPackage = displayPackage,
+        steamLauncherSetManually = game.hasSteamLauncherPin,
+        isExternallyManaged = game.isExternallyManaged,
+        managingLauncherDisplayName = storedPackage?.let(SteamLaunchers::displayNameForPackage),
+        canPlay = candidates.isNotEmpty() && (game.isExternallyManaged || (game.localPath != null && pathExists))
     )
 }

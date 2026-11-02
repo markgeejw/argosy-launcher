@@ -642,12 +642,10 @@ class SyncSettingsDelegate @Inject constructor(
         scope.launch {
             val currentPath = _state.value.imageCachePath ?: imageCacheManager.getDefaultCachePath()
 
-            // Update state and preferences immediately
             preferencesRepository.setImageCachePath(newPath)
             imageCacheManager.setCustomCachePath(newPath)
             _state.update { it.copy(imageCachePath = newPath) }
 
-            // Migrate in background if there are existing files
             val hasExistingFiles = imageCacheManager.getCacheFileCountForBasePath(currentPath) > 0
             if (hasExistingFiles) {
                 _state.update { it.copy(isImageCacheMigrating = true) }
@@ -672,12 +670,10 @@ class SyncSettingsDelegate @Inject constructor(
             val currentPath = _state.value.imageCachePath ?: return@launch
             val defaultPath = imageCacheManager.getDefaultCachePath()
 
-            // Update state and preferences immediately
             preferencesRepository.setImageCachePath(null)
             imageCacheManager.setCustomCachePath(null)
             _state.update { it.copy(imageCachePath = null, imageCacheActionIndex = 0) }
 
-            // Migrate in background if there are existing files
             val hasExistingFiles = imageCacheManager.getCacheFileCountForBasePath(currentPath) > 0
             if (hasExistingFiles) {
                 _state.update { it.copy(isImageCacheMigrating = true) }

@@ -24,7 +24,6 @@ enum class HapticPattern {
     BOUNDARY_HIT,
     DOWNLOAD_START,
     DOWNLOAD_COMPLETE,
-    LAUNCH_GAME,
     ERROR,
     STRENGTH_PREVIEW
 }
@@ -109,7 +108,7 @@ class HapticFeedbackManager @Inject constructor(
             HapticPattern.FOCUS_CHANGE, HapticPattern.BACK, HapticPattern.TOGGLE_OFF -> VibrationEffect.EFFECT_TICK
             HapticPattern.SELECTION, HapticPattern.TOGGLE_ON, HapticPattern.STRENGTH_PREVIEW ->
                 VibrationEffect.EFFECT_CLICK
-            HapticPattern.BOUNDARY_HIT, HapticPattern.LAUNCH_GAME -> VibrationEffect.EFFECT_HEAVY_CLICK
+            HapticPattern.BOUNDARY_HIT -> VibrationEffect.EFFECT_HEAVY_CLICK
             HapticPattern.OPEN, HapticPattern.DOWNLOAD_START, HapticPattern.DOWNLOAD_COMPLETE,
             HapticPattern.ERROR -> VibrationEffect.EFFECT_DOUBLE_CLICK
         }

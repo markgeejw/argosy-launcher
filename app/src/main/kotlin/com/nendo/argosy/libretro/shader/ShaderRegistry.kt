@@ -65,7 +65,7 @@ class ShaderRegistry(private val context: Context) {
         ),
         ShaderEntry(
             "crt-hyllian", "CRT Hyllian", Category.CRT, Source.CATALOG,
-            githubPath = "crt/shaders/crt-hyllian.glsl", preInstall = true,
+            githubPath = "crt/shaders/hyllian/crt-hyllian.glsl", preInstall = true,
             description = "CRT with phosphor glow"
         ),
         ShaderEntry(
@@ -91,7 +91,7 @@ class ShaderRegistry(private val context: Context) {
         // --- CRT: Extended catalog ---
         ShaderEntry(
             "crt-hyllian-fast", "CRT Hyllian Fast", Category.CRT, Source.CATALOG,
-            githubPath = "crt/shaders/crt-hyllian-fast.glsl"
+            githubPath = "crt/shaders/hyllian/crt-hyllian-fast.glsl"
         ),
         ShaderEntry(
             "crt-lottes-fast", "CRT Lottes Fast", Category.CRT, Source.CATALOG,
@@ -127,7 +127,7 @@ class ShaderRegistry(private val context: Context) {
         ),
         ShaderEntry(
             "crt-1tap", "CRT 1-Tap", Category.CRT, Source.CATALOG,
-            githubPath = "crt/shaders/crt-1tap.glsl"
+            githubPath = "crt/shaders/crt-Ntap/crt-1tap.glsl"
         ),
         ShaderEntry(
             "crt-beam", "CRT Beam", Category.CRT, Source.CATALOG,
@@ -367,8 +367,24 @@ class ShaderRegistry(private val context: Context) {
         }
 
         if (allPasses.isEmpty()) return ShaderConfig.Default
-        return ShaderConfig.Custom(passes = allPasses)
+        return ShaderConfig.Custom(passes = withOriginalSizesBound(allPasses))
     }
+
+    /**
+     * The chain with RetroArch's `OrigInputSize` and `OrigTextureSize` bound in its first pass,
+     * where the original frame is that pass's own input. The renderer sets neither uniform.
+     */
+    fun withOriginalSizesBound(passes: List<ShaderConfig.Custom.ShaderPass>): List<ShaderConfig.Custom.ShaderPass> =
+        passes.mapIndexed { index, pass ->
+            if (index != 0) pass
+            else pass.copy(vertex = bindOriginalSizes(pass.vertex), fragment = bindOriginalSizes(pass.fragment))
+        }
+
+    private val ORIGINAL_SIZE_UNIFORM =
+        Regex("""^\s*uniform\s+(?:\w+\s+)*vec2\s+Orig(Input|Texture)Size\s*;.*$""", RegexOption.MULTILINE)
+
+    private fun bindOriginalSizes(source: String): String =
+        ORIGINAL_SIZE_UNIFORM.replace(source) { "#define Orig${it.groupValues[1]}Size ${it.groupValues[1]}Size" }
 
     private val PRAGMA_LINE = Regex("""^\s*#pragma\s+parameter\s""")
     private val DEFINE_LINE = Regex("""^(\s*#define\s+)(\w+)(\s+)([\d.eE+-]+)(.*)$""")

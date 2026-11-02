@@ -6,6 +6,7 @@
     <string name="sync_prelaunch_connecting">正在连接...</string>
     <string name="sync_prelaunch_connected">已连接</string>
     <string name="sync_prelaunch_connect_failed">连接失败</string>
+    <string name="sync_prelaunch_timed_out">服务器响应超时</string>
     <string name="sync_prelaunch_downloading">正在下载...</string>
     <string name="sync_prelaunch_download_complete">下载完成</string>
     <string name="sync_prelaunch_download_failed">下载失败</string>
@@ -54,12 +55,10 @@
     <string name="sync_service_saves">正在同步存档...</string>
     <string name="steam_service_connecting">正在连接...</string>
     <string name="steam_service_signing_in">正在登录...</string>
-    <string name="steam_service_syncing_library">正在同步 Steam 库...</string>
 
     <string name="sync_download_channel_name">下载进度</string>
     <string name="sync_download_channel_description">在后台显示下载进度</string>
     <string name="sync_download_service_preparing">正在准备下载...</string>
-    <string name="sync_download_service_steam_downloading">正在下载：%1$s</string>
     <string name="sync_download_service_extracting">正在解压：%1$s</string>
     <string name="sync_download_service_moving">正在移动到ROM存储：%1$s</string>
     <string name="sync_download_service_downloading">正在下载：%1$s</string>
@@ -138,10 +137,6 @@
     <string name="sync_steam_rate_limited_subtitle">登录频率受限，请一小时后重试</string>
     <string name="sync_steam_auth_expired_title">Steam会话已过期</string>
     <string name="sync_steam_auth_expired_subtitle">请从设置 &gt; Steam重新登录</string>
-    <string name="sync_steam_download_signed_out_title">Steam会话已过期</string>
-    <string name="sync_steam_download_signed_out_subtitle">请从设置 &gt; Steam登录以下载</string>
-    <string name="sync_steam_path_blocked_title">无法下载%1$s</string>
-    <string name="sync_steam_storage_blocked_title">无法下载%1$s</string>
 
     <string name="sync_steam_qr_rate_limited">频率受限，请稍后重试</string>
     <string name="sync_steam_qr_login_failed">登录失败：%1$s</string>

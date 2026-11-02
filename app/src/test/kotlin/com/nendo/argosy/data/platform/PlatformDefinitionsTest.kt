@@ -17,6 +17,14 @@ class PlatformDefinitionsTest {
     }
 
     @Test
+    fun `every extension Azahar recognizes belongs to the 3DS`() {
+        listOf("3ds", "cci", "cxi", "app", "3dsx", "cia", "zcci", "zcxi", "z3dsx", "zcia", "bcci", "bcxi", "bcia")
+            .forEach { ext ->
+                assertEquals(ext, listOf("3ds", "n3ds"), PlatformDefinitions.getPlatformsForExtension(ext).map { it.slug })
+            }
+    }
+
+    @Test
     fun `resolveImportSlug remaps RomM pico folder to pico8 by name`() {
         assertEquals("pico8", PlatformDefinitions.resolveImportSlug("pico", "PICO-8"))
         assertEquals("pico8", PlatformDefinitions.resolveImportSlug("pico", "Pico-8"))
@@ -88,6 +96,16 @@ class PlatformDefinitionsTest {
             "SNES Hacks" to "SNES Hacks",
             PlatformDefinitions.importDisplayNames("notaplatform", "snes-hacks", "notaplatform")
         )
+    }
+
+    @Test
+    fun `a suffixed sub-platform follows its parent's rom rules`() {
+        val neoGeoCd = requireNotNull(PlatformDefinitions.getBySlug("neogeocd"))
+        assertEquals(neoGeoCd, PlatformDefinitions.definitionFor("neo-geo-cd-hacks"))
+        assertEquals(PlatformDefinitions.getBySlug("snes"), PlatformDefinitions.definitionFor("snes-hacks"))
+        assertEquals(neoGeoCd, PlatformDefinitions.definitionFor("neogeocd"))
+        assertNull(PlatformDefinitions.getBySlug("neo-geo-cd-hacks"))
+        assertNull(PlatformDefinitions.definitionFor("notaplatform"))
     }
 
     @Test

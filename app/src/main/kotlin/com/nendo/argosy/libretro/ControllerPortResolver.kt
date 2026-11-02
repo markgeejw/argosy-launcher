@@ -9,9 +9,9 @@ import com.swordfish.libretrodroid.PortResolver
 
 /**
  * Seats each pad on its session seat, its settings-assigned port, or the port its first input
- * claims, in that order. A built-in pad leaves player one open while an external pad is connected
- * and unseated, and gives its seat back once no external pad remains. Session seats come from
- * [ControllerSeating.launchPadSeats] and never change settings assignments.
+ * claims, in that order. A built-in pad yields player one to an unseated external pad and takes
+ * it back when it is the only pad and the saved player one is absent. Session seats never change
+ * settings assignments.
  */
 class ControllerPortResolver : PortResolver {
     private var controllerOrder: Map<String, Int> = emptyMap()
@@ -66,6 +66,7 @@ class ControllerPortResolver : PortResolver {
     override fun getPort(device: InputDevice): Int {
         if (device.id == android.view.KeyCharacterMap.VIRTUAL_KEYBOARD) return 0
         val controllerId = controllerIdOf(device)
+        if (sessionSeats.isNotEmpty() && !ControllerDetector.isBuiltInPad(device)) reseatLaunchPad()
         seatOf(controllerId)?.let { return it }
         claimPort(controllerId, lowestPort = if (yieldsPlayerOne(device)) 1 else 0)
         return seatOf(controllerId) ?: 0
@@ -95,6 +96,15 @@ class ControllerPortResolver : PortResolver {
     }
 
     private fun reseatLaunchPad() {
+        val pads = connectedGamepads()
+        val loneBuiltIn = pads.singleOrNull { ControllerDetector.isBuiltInPad(it) }
+            ?.takeIf { pads.none { pad -> !ControllerDetector.isBuiltInPad(pad) } }
+        val playerOneHeldByAbsentPad = controllerOrder.entries.firstOrNull { it.value == 0 }?.key
+            ?.let { seated -> pads.none { controllerIdOf(it) == seated } } == true
+        if (loneBuiltIn != null && playerOneHeldByAbsentPad) {
+            sessionSeats = mapOf(controllerIdOf(loneBuiltIn) to 0)
+            return
+        }
         if (!docked || launchPadId == null) {
             sessionSeats = emptyMap()
             return

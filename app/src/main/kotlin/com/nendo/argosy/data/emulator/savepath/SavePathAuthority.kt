@@ -109,13 +109,11 @@ open class SavePathAuthority @Inject constructor(
      * a setting that does nothing.
      */
     fun configFor(request: SavePathRequest): SavePathConfig? =
-        (
-            request.emulatorPackage
-                ?.let { SavePathRegistry.getConfigForPlatformByPackage(it, request.platformSlug) }
-                ?: request.emulatorId?.let {
-                    SavePathRegistry.getConfigForPlatform(it, request.platformSlug)
-                }
-            )?.takeIf { it.isUsable }
+        request.emulatorPackage
+            ?.let { SavePathRegistry.getConfigForPlatformByPackage(it, request.platformSlug) }
+            ?: request.emulatorId?.let {
+                SavePathRegistry.getConfigForPlatform(it, request.platformSlug)
+            }
 
     /**
      * The one key an override is stored and read under. Every write must use this and no other,

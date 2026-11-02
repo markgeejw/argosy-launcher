@@ -406,6 +406,13 @@ class DisplaySettingsDelegate @Inject constructor(
         }
     }
 
+    fun setLibraryListStyle(scope: CoroutineScope, style: com.nendo.argosy.data.preferences.LibraryListStyle) {
+        scope.launch {
+            preferencesRepository.setLibraryListStyle(style)
+            _state.update { it.copy(libraryListStyle = style) }
+        }
+    }
+
     fun setLibraryBoxArt3d(scope: CoroutineScope, enabled: Boolean) {
         scope.launch {
             preferencesRepository.setLibraryBoxArt3d(enabled)
@@ -578,10 +585,33 @@ class DisplaySettingsDelegate @Inject constructor(
         }
     }
 
+    fun setQuickPanelInEmulators(scope: CoroutineScope, enabled: Boolean, serviceEnabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setQuickPanelInEmulators(enabled)
+            _state.update {
+                it.copy(
+                    quickPanelInEmulators = enabled,
+                    showAccessibilityPrompt = enabled && !serviceEnabled
+                )
+            }
+        }
+    }
+
+    fun dismissAccessibilityPrompt() {
+        _state.update { it.copy(showAccessibilityPrompt = false) }
+    }
+
     fun setLockScreenArt(scope: CoroutineScope, enabled: Boolean) {
         scope.launch {
             preferencesRepository.setLockScreenArt(enabled)
             _state.update { it.copy(lockScreenArt = enabled) }
+        }
+    }
+
+    fun setLidSleepEnabled(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setLidSleepEnabled(enabled)
+            _state.update { it.copy(lidSleepEnabled = enabled) }
         }
     }
 
@@ -906,6 +936,11 @@ class DisplaySettingsDelegate @Inject constructor(
     }
 
     fun isAmbientLedAvailable(): Boolean = ledController.isAvailable
+
+    fun setDualScreenMatchSize(scope: CoroutineScope, enabled: Boolean) {
+        _state.update { it.copy(dualScreenMatchSize = enabled) }
+        scope.launch { preferencesRepository.setBuiltinDualScreenMatchSize(enabled) }
+    }
 
     fun setAmbientLedEnabled(scope: CoroutineScope, enabled: Boolean) {
         scope.launch {

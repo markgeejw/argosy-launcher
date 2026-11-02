@@ -3,8 +3,6 @@ package com.nendo.argosy.ui.screens.home.delegates
 import android.content.Context
 import com.nendo.argosy.R
 import com.nendo.argosy.data.download.DownloadManager
-import com.nendo.argosy.data.steam.SteamContentManager
-import com.nendo.argosy.data.steam.SteamDownloadState
 import com.nendo.argosy.data.update.ApkInstallManager
 import com.nendo.argosy.domain.usecase.download.DownloadResult
 import com.nendo.argosy.ui.common.toNotificationText
@@ -27,7 +25,6 @@ class HomeDownloadDelegate @Inject constructor(
     private val gameActions: GameActionsDelegate,
     private val apkInstallManager: ApkInstallManager,
     private val notificationManager: NotificationManager,
-    private val steamContentManager: SteamContentManager,
     private val downloadIndicatorSource: DownloadIndicatorSource
 ) {
     val downloadIndicators: StateFlow<Map<Long, GameDownloadIndicator>> =
@@ -48,12 +45,6 @@ class HomeDownloadDelegate @Inject constructor(
                     completedGameIds.addAll(newlyCompleted)
                     onNewlyCompleted()
                 }
-            }
-        }
-
-        scope.launch {
-            steamContentManager.downloadState.collect { steamState ->
-                if (steamState is SteamDownloadState.Completed) onNewlyCompleted()
             }
         }
     }
@@ -105,9 +96,9 @@ class HomeDownloadDelegate @Inject constructor(
         downloadManager.resumeDownload(gameId)
     }
 
-    fun deleteLocalFile(scope: CoroutineScope, gameId: Long, onComplete: suspend () -> Unit) {
+    fun deleteLocalFile(scope: CoroutineScope, gameId: Long, withSoundtrack: Boolean, onComplete: suspend () -> Unit) {
         scope.launch {
-            gameActions.deleteLocalFile(gameId)
+            gameActions.deleteLocalFile(gameId, withSoundtrack)
             notificationManager.showSuccess(
                 NotificationText.Res(R.string.home_notice_download_deleted)
             )

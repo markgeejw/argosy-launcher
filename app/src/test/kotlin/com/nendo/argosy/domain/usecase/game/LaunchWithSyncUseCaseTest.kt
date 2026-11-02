@@ -14,7 +14,10 @@ import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.data.repository.SaveSyncResult
 import com.nendo.argosy.data.repository.SiblingGroupRepository
 import com.nendo.argosy.data.sync.CrossEmulatorSaveMigrator
+import com.nendo.argosy.domain.model.LaunchFailure
+import com.nendo.argosy.domain.model.LaunchStep
 import com.nendo.argosy.domain.model.SyncProgress
+import com.nendo.argosy.domain.model.failure
 import com.nendo.argosy.domain.usecase.state.PreLaunchStateSyncUseCase
 import io.mockk.coEvery
 import io.mockk.every
@@ -127,6 +130,27 @@ class LaunchWithSyncUseCaseTest {
         assertTrue(
             "A timeout is not a connection failure: $progress",
             progress.none { it is SyncProgress.PreLaunch.Connecting && it.success == false }
+        )
+    }
+
+    @Test
+    fun `a sync that gets no answer in time tells the launch the server was slow`() = runTest {
+        coEvery {
+            saveSyncRepository.preLaunchSyncForGame(gameId, rommId, emulatorId, channelName = null, secureSaves = true)
+        } coAnswers {
+            kotlinx.coroutines.delay(60_000)
+            PreLaunchSyncResult.NoServerSave
+        }
+
+        val progress = useCase.invokeWithProgress(gameId).toList()
+
+        assertEquals(
+            listOf(SyncProgress.PreLaunch.TimedOut(null), SyncProgress.Skipped),
+            progress.takeLast(2)
+        )
+        assertEquals(
+            LaunchFailure.SERVER_TIMED_OUT,
+            progress.mapNotNull { LaunchStep.Save(it).failure }.lastOrNull()
         )
     }
 

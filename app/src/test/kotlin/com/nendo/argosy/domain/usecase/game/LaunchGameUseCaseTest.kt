@@ -1,6 +1,7 @@
 package com.nendo.argosy.domain.usecase.game
 
 import android.content.Intent
+import com.nendo.argosy.data.emulator.ExternalSessionStart
 import com.nendo.argosy.data.emulator.GameLauncher
 import com.nendo.argosy.data.emulator.LaunchOrigin
 import com.nendo.argosy.data.emulator.LaunchProgressTracker
@@ -91,6 +92,21 @@ class LaunchGameUseCaseTest {
     }
 
     @Test
+    fun `a launch cancelled while its intent resolves never reaches the lock screen art`() = runTest {
+        val intent = mockk<Intent>(relaxed = true)
+        coEvery { gameLauncher.launch(123L, null, any(), any(), any(), any(), any(), any()) } answers {
+            tracker.cancel()
+            LaunchResult.Success(intent)
+        }
+
+        val result = useCase(123L)
+
+        assertEquals(LaunchResult.Cancelled, result)
+        coVerify(exactly = 0) { lockScreenArtManager.showBeforeLaunch(any()) }
+        coVerify(exactly = 0) { playSessionTracker.startSession(any(), any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
     fun `a launch the use case opened ends on its game screen`() = runTest {
         val intent = mockk<Intent>(relaxed = true)
         coEvery { gameLauncher.launch(123L, null, any(), any(), any(), any(), any(), any()) } returns LaunchResult.Success(intent)
@@ -104,7 +120,7 @@ class LaunchGameUseCaseTest {
     fun `a launch the caller opened stays open for the caller to finish`() = runTest {
         val intent = mockk<Intent>(relaxed = true)
         coEvery { gameLauncher.launch(123L, null, any(), any(), any(), any(), any(), any()) } returns LaunchResult.Success(intent)
-        val ticket = tracker.begin("Game")!!
+        val ticket = tracker.begin(123L, "Game")!!
 
         useCase(123L)
 
@@ -165,6 +181,54 @@ class LaunchGameUseCaseTest {
                 isNewGame = true
             )
         }
+    }
+
+    @Test
+    fun `an external launch whose session starts at its window returns that session and starts none`() = runTest {
+        val component = mockk<android.content.ComponentName>(relaxed = true) {
+            coEvery { packageName } returns "com.emulator.test"
+        }
+        val intent = mockk<Intent>(relaxed = true) {
+            coEvery { this@mockk.component } returns component
+            coEvery { getStringExtra("LIBRETRO") } returns "/data/cores/citra_libretro_android.so"
+        }
+        coEvery { gameLauncher.launch(123L, any(), any(), any(), 50L, any(), any(), any()) } returns
+            LaunchResult.Success(intent, variantFileId = 50L)
+
+        val result = useCase(123L, variantFileId = 50L, origin = LaunchOrigin.EXTERNAL, sessionAtWindow = true)
+
+        assertEquals(
+            ExternalSessionStart(123L, "com.emulator.test", "citra", 50L, LaunchOrigin.EXTERNAL),
+            (result as LaunchResult.Success).session
+        )
+        coVerify(exactly = 0) { playSessionTracker.startSession(any(), any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `an in-process launch and a resume owe no session at the window`() = runTest {
+        val intent = mockk<Intent>(relaxed = true)
+        coEvery { gameLauncher.launch(123L, null, false, any(), any(), any(), any(), any()) } returns
+            LaunchResult.Success(intent, inProcess = true)
+        coEvery { gameLauncher.launch(123L, null, true, any(), any(), any(), any(), any()) } returns
+            LaunchResult.Success(intent)
+
+        val inProcess = useCase(123L, sessionAtWindow = true)
+        val resumed = useCase(123L, forResume = true, sessionAtWindow = true)
+
+        assertNull((inProcess as LaunchResult.Success).session)
+        assertNull((resumed as LaunchResult.Success).session)
+        coVerify(exactly = 0) { playSessionTracker.startSession(any(), any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `an external launch that starts its own session returns none to start again`() = runTest {
+        val intent = mockk<Intent>(relaxed = true)
+        coEvery { gameLauncher.launch(123L, null, any(), any(), any(), any(), any(), any()) } returns LaunchResult.Success(intent)
+
+        val result = useCase(123L)
+
+        assertNull((result as LaunchResult.Success).session)
+        coVerify(exactly = 1) { playSessionTracker.startSession(any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test

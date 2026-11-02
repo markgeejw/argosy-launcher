@@ -584,8 +584,13 @@ class JellyfinSettingsDelegate @Inject constructor(
         scope.launch {
             if (moveFiles) {
                 mediaDirectoryManager.underRelocationLock {
-                    mediaDirectoryManager.relocate(File(oldPath), File(newPath))
+                    val result = mediaDirectoryManager.relocate(File(oldPath), File(newPath))
                     mediaRepository.repointDownloads(oldPath, newPath)
+                    val oldPrefix = File(oldPath).absolutePath.trimEnd('/')
+                    val newPrefix = File(newPath).absolutePath.trimEnd('/')
+                    result.failed.forEach { stayed ->
+                        mediaRepository.repointDownloads(newPrefix + stayed.removePrefix(oldPrefix), stayed)
+                    }
                 }
             }
             preferencesRepository.setMediaStoragePath(newPath)

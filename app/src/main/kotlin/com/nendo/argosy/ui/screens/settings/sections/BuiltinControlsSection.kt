@@ -29,6 +29,9 @@ import com.nendo.argosy.data.repository.MappingPlatforms
 import com.nendo.argosy.libretro.LibretroCoreRegistry
 import com.nendo.argosy.libretro.coreoptions.CoreControlManifestRegistry
 import com.nendo.argosy.ui.components.CyclePreference
+import com.nendo.argosy.ui.components.SegmentedPreference
+import com.nendo.argosy.data.local.entity.SelectAsBackMode
+import com.nendo.argosy.ui.common.labelRes
 import com.nendo.argosy.ui.components.NavigationPreference
 import com.nendo.argosy.ui.components.SwitchPreference
 import com.nendo.argosy.ui.input.LocalInputDispatcher
@@ -36,7 +39,6 @@ import com.nendo.argosy.ui.screens.gamedetail.components.OptionItem
 import com.nendo.argosy.ui.screens.settings.BuiltinControlsState
 import com.nendo.argosy.ui.screens.settings.SettingsUiState
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
-import com.nendo.argosy.ui.screens.settings.components.ControllerOrderModal
 import com.nendo.argosy.ui.screens.settings.components.HotkeysModal
 import com.nendo.argosy.ui.screens.settings.components.InputMappingModal
 import com.nendo.argosy.ui.screens.settings.menu.SettingsLayout
@@ -64,6 +66,8 @@ internal sealed class BuiltinControlsItem(
         { state -> state.controllerPorts.any { it.port == port } }
     )
     data object Rumble : BuiltinControlsItem("rumble", "controllers", { it.showRumble })
+    data object Motion : BuiltinControlsItem("motion", "controllers", { it.showMotion })
+    data object SelectAsBack : BuiltinControlsItem("selectAsBack", "controllers")
     data object AnalogAsDpad : BuiltinControlsItem("analogAsDpad", "sticks", { it.showStickMappings })
     data object DpadAsAnalog : BuiltinControlsItem("dpadAsAnalog", "sticks", { it.showStickMappings && it.showDpadAsAnalog })
     data object Hotkeys : BuiltinControlsItem("hotkeys", "hotkeys")
@@ -117,6 +121,8 @@ internal sealed class BuiltinControlsItem(
                 ControllerType(2),
                 ControllerType(3),
                 Rumble,
+                Motion,
+                SelectAsBack,
                 SticksHeader,
                 AnalogAsDpad,
                 DpadAsAnalog,
@@ -190,6 +196,8 @@ fun BuiltinControlsSection(
     }
     val effectiveRumble = if (isGlobal) controlsState.rumbleEnabled
         else platformSettings?.rumbleEnabled ?: controlsState.rumbleEnabled
+    val effectiveMotion = if (isGlobal) controlsState.motionEnabled
+        else platformSettings?.motionEnabled ?: controlsState.motionEnabled
     val platformSlug = platformContext?.platformSlug
     val platformHasAnalog = platformSlug != null && PlatformWeightRegistry.hasAnalogStick(platformSlug)
     val effectiveAnalogAsDpad = if (isGlobal) controlsState.analogAsDpad
@@ -254,6 +262,21 @@ fun BuiltinControlsSection(
                     }
                 )
 
+                BuiltinControlsItem.Motion -> SwitchPreference(
+                    title = stringResource(R.string.settings_builtin_controls_motion_title),
+                    subtitle = if (!isGlobal && platformSettings?.motionEnabled != null) {
+                        stringResource(R.string.settings_builtin_controls_platform_override)
+                    } else {
+                        stringResource(R.string.settings_builtin_controls_motion_subtitle)
+                    },
+                    isEnabled = effectiveMotion,
+                    isFocused = isFocused(item),
+                    onToggle = {
+                        if (isGlobal) viewModel.setBuiltinMotionEnabled(it)
+                        else viewModel.updatePlatformControlSetting("motionEnabled", it)
+                    }
+                )
+
                 BuiltinControlsItem.ControllerOrder -> NavigationPreference(
                     icon = Icons.Default.SortByAlpha,
                     title = stringResource(R.string.settings_builtin_controls_order_title),
@@ -281,14 +304,23 @@ fun BuiltinControlsSection(
                 is BuiltinControlsItem.ControllerType -> {
                     val choice = controlsState.controllerPorts.firstOrNull { it.port == item.port }
                     if (choice != null) {
+                        val autoLabel = stringResource(
+                            R.string.settings_builtin_controls_controller_type_auto,
+                            choice.deviceNames.getOrElse(choice.autoIndex) { "" }
+                        )
+                        val options = remember(choice, autoLabel) {
+                            choice.deviceNames.mapIndexed { index, name ->
+                                if (index == choice.autoIndex) autoLabel else name
+                            }
+                        }
                         CyclePreference(
                             title = stringResource(R.string.settings_builtin_controls_controller_type_title, item.port + 1),
-                            value = choice.deviceNames.getOrElse(choice.selectedIndex) { "" },
+                            value = options.getOrElse(choice.selectedIndex) { "" },
                             subtitle = stringResource(R.string.settings_builtin_controls_controller_type_subtitle),
                             isFocused = isFocused(item),
                             onClick = { viewModel.stepControllerType(item.port, 1) },
                             onPrev = { viewModel.stepControllerType(item.port, -1) },
-                            options = choice.deviceNames,
+                            options = options,
                             onSelect = { index -> viewModel.selectControllerType(item.port, index) }
                         )
                     }
@@ -332,6 +364,15 @@ fun BuiltinControlsSection(
                     subtitle = stringResource(R.string.settings_builtin_controls_hotkeys_subtitle),
                     isFocused = isFocused(item),
                     onClick = { viewModel.showHotkeysModal() }
+                )
+
+                BuiltinControlsItem.SelectAsBack -> SegmentedPreference(
+                    title = stringResource(R.string.settings_builtin_controls_select_as_back_title),
+                    subtitle = stringResource(R.string.settings_builtin_controls_select_as_back_subtitle),
+                    options = SelectAsBackMode.entries.map { stringResource(it.labelRes) },
+                    selectedIndex = SelectAsBackMode.entries.indexOf(controlsState.selectAsBack),
+                    isFocused = isFocused(item),
+                    onSelect = { viewModel.setBuiltinSelectAsBack(SelectAsBackMode.entries[it]) }
                 )
 
                 BuiltinControlsItem.LimitHotkeysToPlayer1 -> SwitchPreference(
@@ -506,13 +547,6 @@ fun BuiltinControlsSection(
 
                 else -> {}
             }
-        }
-
-        if (controlsState.showControllerOrderModal) {
-            ControllerOrderModal(
-                controller = viewModel.controllerSeats,
-                onDismiss = { viewModel.hideControllerOrderModal() }
-            )
         }
 
         if (controlsState.showInputMappingModal) {

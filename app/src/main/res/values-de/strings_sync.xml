@@ -6,6 +6,7 @@
     <string name="sync_prelaunch_connecting">Verbindung wird hergestellt...</string>
     <string name="sync_prelaunch_connected">Verbunden</string>
     <string name="sync_prelaunch_connect_failed">Verbindung fehlgeschlagen</string>
+    <string name="sync_prelaunch_timed_out">Server hat zu lange gebraucht</string>
     <string name="sync_prelaunch_downloading">Wird heruntergeladen...</string>
     <string name="sync_prelaunch_download_complete">Download abgeschlossen</string>
     <string name="sync_prelaunch_download_failed">Download fehlgeschlagen</string>
@@ -54,12 +55,10 @@
     <string name="sync_service_saves">Spielstände werden synchronisiert...</string>
     <string name="steam_service_connecting">Verbinden...</string>
     <string name="steam_service_signing_in">Anmelden...</string>
-    <string name="steam_service_syncing_library">Steam-Bibliothek wird synchronisiert...</string>
 
     <string name="sync_download_channel_name">Download-Fortschritt</string>
     <string name="sync_download_channel_description">Zeigt den Download-Fortschritt im Hintergrund</string>
     <string name="sync_download_service_preparing">Download wird vorbereitet...</string>
-    <string name="sync_download_service_steam_downloading">Wird heruntergeladen: %1$s</string>
     <string name="sync_download_service_extracting">Wird entpackt: %1$s</string>
     <string name="sync_download_service_moving">Wird in ROM-Speicher verschoben: %1$s</string>
     <string name="sync_download_service_downloading">Wird heruntergeladen: %1$s</string>
@@ -141,10 +140,6 @@
     <string name="sync_steam_rate_limited_subtitle">Anmeldelimit erreicht. Versuchen Sie es in einer Stunde erneut</string>
     <string name="sync_steam_auth_expired_title">Steam-Sitzung abgelaufen</string>
     <string name="sync_steam_auth_expired_subtitle">Melden Sie sich erneut unter Einstellungen &gt; Steam an</string>
-    <string name="sync_steam_download_signed_out_title">Steam-Sitzung abgelaufen</string>
-    <string name="sync_steam_download_signed_out_subtitle">Melden Sie sich unter Einstellungen &gt; Steam an, um herunterzuladen</string>
-    <string name="sync_steam_path_blocked_title">%1$s kann nicht heruntergeladen werden</string>
-    <string name="sync_steam_storage_blocked_title">%1$s kann nicht heruntergeladen werden</string>
 
     <string name="sync_steam_qr_rate_limited">Limit erreicht. Später erneut versuchen</string>
     <string name="sync_steam_qr_login_failed">Anmeldung fehlgeschlagen: %1$s</string>

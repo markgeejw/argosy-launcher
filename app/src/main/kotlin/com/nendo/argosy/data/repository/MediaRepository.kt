@@ -445,29 +445,9 @@ class MediaRepository @Inject constructor(
      * just fetched.
      */
     suspend fun refreshLibraries(): JellyfinResult<JellyfinSyncResult> {
-        currentOwner()?.let { purgeOtherOwners(it) }
+        currentOwner()?.let { mediaDownloadQueueDao.deleteOtherOwners(it) }
         pushPendingWatchState()
         return librarySyncService.syncLibraries()
-    }
-
-    /**
-     * Signing in as a different Jellyfin user strands the previous one's rows and files, which are
-     * keyed by that user's id and are unreachable once it is no longer current. Their downloads are
-     * removed with them; leaving the bytes behind would be space the user cannot see or reclaim.
-     */
-    private suspend fun purgeOtherOwners(owner: String) {
-        val strandedPaths = mediaItemDao.otherOwnerLocalPaths(owner)
-        if (strandedPaths.isEmpty() && mediaLibraryDao.countOtherOwners(owner) == 0) return
-        for (path in strandedPaths) {
-            runCatching { File(path).takeIf { it.exists() }?.delete() }
-        }
-        mediaDownloadQueueDao.deleteOtherOwners(owner)
-        mediaSourceDao.deleteOtherOwners(owner)
-        mediaStreamDao.deleteOtherOwners(owner)
-        mediaUserDataDao.deleteOtherOwners(owner)
-        mediaItemDao.deleteOtherOwners(owner)
-        mediaLibraryDao.deleteOtherOwners(owner)
-        attributionRepository.get().markDirty(StorageCategory.MEDIA)
     }
 
     suspend fun refreshEpisodes(seriesId: String, seasonId: String): JellyfinResult<Int> =

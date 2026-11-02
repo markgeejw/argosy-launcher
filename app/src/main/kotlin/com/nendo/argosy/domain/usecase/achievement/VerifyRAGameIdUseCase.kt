@@ -3,43 +3,82 @@ package com.nendo.argosy.domain.usecase.achievement
 import com.nendo.argosy.data.download.ZipExtractor
 import com.nendo.argosy.data.emulator.M3uManager
 import com.nendo.argosy.data.local.dao.GameDao
+import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.remote.ra.RAConsoleIds
 import com.nendo.argosy.data.repository.RetroAchievementsRepository
 import com.nendo.argosy.util.Logger
 import com.swordfish.libretrodroid.LibretroDroid
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.ZipFile
 import javax.inject.Inject
 
 private const val TAG = "VerifyRAGameIdUseCase"
 
+data class HashVerification(val raId: Long?, val matchedHash: String?)
+
 class VerifyRAGameIdUseCase @Inject constructor(
     private val gameDao: GameDao,
     private val raRepository: RetroAchievementsRepository
 ) {
-    suspend operator fun invoke(gameId: Long, forceRehash: Boolean = false): Long? {
-        val game = gameDao.getById(gameId) ?: return null
+    suspend operator fun invoke(gameId: Long, forceRehash: Boolean = false): Long? =
+        withContext(Dispatchers.IO) { verify(gameId, forceRehash).raId }
+
+    /**
+     * Rehashes the file the core loads, [launchedPath], and resolves it against RetroAchievements.
+     * [HashVerification.matchedHash] is set only when RetroAchievements resolved that exact hash to
+     * [HashVerification.raId]; every fallback to the RomM id leaves it null.
+     */
+    suspend fun verifyHash(gameId: Long, launchedPath: String): HashVerification =
+        withContext(Dispatchers.IO) {
+            val game = gameDao.getById(gameId) ?: return@withContext HashVerification(null, null)
+            if (isLibraryCopy(launchedPath, game.localPath)) verify(gameId, forceRehash = true)
+            else verifyLaunchedFile(game, launchedPath)
+        }
+
+    private suspend fun verifyLaunchedFile(game: GameEntity, launchedPath: String): HashVerification {
+        val fallback = HashVerification(game.effectiveRaId ?: game.raId, null)
+        val consoleId = RAConsoleIds.getConsoleId(game.platformSlug) ?: return fallback
+        val hashPath = resolveHashPath(launchedPath, game.platformSlug) ?: return fallback
+        val hash = try {
+            computeHash(hashPath.path, consoleId)
+        } finally {
+            if (hashPath.isTemporary) File(hashPath.path).delete()
+        } ?: return fallback
+        val resolvedId = try {
+            raRepository.resolveGameId(hash)
+        } catch (e: Exception) {
+            Logger.warn(TAG, "Network error resolving the launched file's hash $hash: ${e.message}")
+            return fallback
+        }
+        Logger.info(TAG, "Launched file differs from the library copy for game ${game.id}: hash=$hash resolved=$resolvedId")
+        return if (resolvedId != null) HashVerification(resolvedId, hash) else fallback
+    }
+
+    private suspend fun verify(gameId: Long, forceRehash: Boolean): HashVerification {
+        val game = gameDao.getById(gameId) ?: return HashVerification(null, null)
 
         if (game.raIdVerified && !forceRehash) {
-            return game.effectiveRaId
+            return HashVerification(game.effectiveRaId, null)
         }
 
         val localPath = game.localPath
         if (localPath == null) {
             gameDao.updateVerifiedRaId(gameId, game.raId)
-            return game.raId
+            return HashVerification(game.raId, null)
         }
 
         val consoleId = RAConsoleIds.getConsoleId(game.platformSlug)
         if (consoleId == null) {
             gameDao.updateVerifiedRaId(gameId, game.raId)
-            return game.raId
+            return HashVerification(game.raId, null)
         }
 
         val hashPath = resolveHashPath(localPath, game.platformSlug)
         if (hashPath == null) {
             gameDao.updateVerifiedRaId(gameId, game.raId)
-            return game.raId
+            return HashVerification(game.raId, null)
         }
 
         val hash = if (!forceRehash && game.romHash != null) {
@@ -55,14 +94,14 @@ class VerifyRAGameIdUseCase @Inject constructor(
         if (hash == null) {
             Logger.warn(TAG, "Failed to compute hash for game $gameId ($localPath)")
             gameDao.updateVerifiedRaId(gameId, game.raId)
-            return game.raId
+            return HashVerification(game.raId, null)
         }
 
         val resolvedId = try {
             raRepository.resolveGameId(hash)
         } catch (e: Exception) {
             Logger.warn(TAG, "Network error resolving game ID for hash $hash: ${e.message}")
-            return game.effectiveRaId ?: game.raId
+            return HashVerification(game.effectiveRaId ?: game.raId, null)
         }
 
         if (resolvedId != null) {
@@ -70,11 +109,11 @@ class VerifyRAGameIdUseCase @Inject constructor(
             if (resolvedId != game.raId) {
                 Logger.info(TAG, "Verified RA ID differs from RomM: verified=$resolvedId, romm=${game.raId} (game $gameId)")
             }
-            return resolvedId
+            return HashVerification(resolvedId, hash)
         }
 
         Logger.warn(TAG, "RA hash lookup returned no match for game $gameId (hash=$hash); not persisting verified=null, falling back to romm raId=${game.raId}")
-        return game.raId
+        return HashVerification(game.raId, null)
     }
 
     /**
@@ -133,6 +172,16 @@ class VerifyRAGameIdUseCase @Inject constructor(
         } catch (e: Exception) {
             Logger.warn(TAG, "Hash computation failed for $path: ${e.message}")
             null
+        }
+    }
+
+    companion object {
+        internal fun isLibraryCopy(launchedPath: String, localPath: String?): Boolean {
+            localPath ?: return false
+            val launched = File(launchedPath).canonicalPath
+            if (launched == File(localPath).canonicalPath) return true
+            return localPath.endsWith(".m3u", ignoreCase = true) &&
+                M3uManager.parseFirstDisc(File(localPath))?.canonicalPath == launched
         }
     }
 }

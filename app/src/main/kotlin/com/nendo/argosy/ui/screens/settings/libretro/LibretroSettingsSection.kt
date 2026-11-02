@@ -64,7 +64,8 @@ fun LibretroSettingsSection(
     trailingItems: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)? = null,
     leadingHeader: String? = null,
     leadingFocusCount: Int = 0,
-    leadingRow: @Composable (index: Int, isFocused: Boolean) -> Unit = { _, _ -> }
+    leadingRow: @Composable (index: Int, isFocused: Boolean) -> Unit = { _, _ -> },
+    inSession: Boolean = false
 ) {
     val isPerPlatform = platformSlug != null
     val leadingListCount = if (leadingFocusCount > 0) leadingFocusCount + 1 else 0
@@ -194,7 +195,8 @@ fun LibretroSettingsSection(
                         isFocused = focusedIndex == settingFocusIndex,
                         isPerPlatform = isPerPlatform,
                         enablePicker = enablePicker,
-                        pickerRequestToken = pickerTokenFor(item.def)
+                        pickerRequestToken = pickerTokenFor(item.def),
+                        inSession = inSession
                     )
                 }
             }

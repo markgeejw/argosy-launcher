@@ -23,20 +23,28 @@ object LogSanitizer {
     private val URL_PATTERN = Regex("""https?://[^\s<>"{}|\\^`\[\]]+""", RegexOption.IGNORE_CASE)
     private val EMAIL_PATTERN = Regex("""\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b""")
     private val AUTH_URL_PATTERN = Regex("""(https?://)([^:]+):([^@]+)@""", RegexOption.IGNORE_CASE)
+    private val BEARER_PATTERN = Regex("""\b(bearer\s+)[A-Za-z0-9._~+/=-]+""", RegexOption.IGNORE_CASE)
+    private val CREDENTIAL_PATTERN = Regex(
+        """\b([A-Za-z_-]*(?:token|api[_-]?key|password|passwd|secret|authorization))(["']?\s*[:=]\s*["']?)([^\s"'&,;\[]+)""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun sanitize(message: String): String {
         var result = message
         result = AUTH_URL_PATTERN.replace(result) { "${it.groupValues[1]}[user]:[pass]@" }
         result = URL_PATTERN.replace(result) { match ->
-            val url = match.value
+            val url = match.value.substringBefore('?').substringBefore('#')
             val pathStart = url.indexOf('/', 8)
+            val query = if (match.value.contains('?')) "?[query]" else ""
             if (pathStart > 0) {
-                val scheme = if (url.startsWith("https")) "https" else "http"
-                "$scheme://[host]${url.substring(pathStart)}"
+                val scheme = if (url.startsWith("https", ignoreCase = true)) "https" else "http"
+                "$scheme://[host]${url.substring(pathStart)}$query"
             } else {
                 "[url]"
             }
         }
+        result = BEARER_PATTERN.replace(result) { "${it.groupValues[1]}[redacted]" }
+        result = CREDENTIAL_PATTERN.replace(result) { "${it.groupValues[1]}${it.groupValues[2]}[redacted]" }
         result = IPV4_PATTERN.replace(result, "[ip]")
         result = IPV6_PATTERN.replace(result, "[ipv6]")
         result = EMAIL_PATTERN.replace(result, "[email]")
@@ -167,7 +175,6 @@ object Logger {
 
         val writer = fileWriter ?: return
 
-        // Sanitize sensitive data before writing to file
         val sanitizedMessage = LogSanitizer.sanitize(entry.message)
 
         val line = buildString {
@@ -185,7 +192,6 @@ object Logger {
         entry.throwable?.let { t ->
             val sw = StringWriter()
             t.printStackTrace(PrintWriter(sw))
-            // Sanitize stack traces too (may contain paths)
             writer.appendLine(LogSanitizer.sanitize(sw.toString()))
         }
 

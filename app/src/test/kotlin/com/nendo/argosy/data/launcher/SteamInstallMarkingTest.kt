@@ -1,5 +1,8 @@
 package com.nendo.argosy.data.launcher
 
+import android.content.Context
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.model.GameSource
@@ -9,9 +12,13 @@ import com.nendo.argosy.data.preferences.StoragePreferencesRepository
 import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.preferences.UserPreferences
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
+import com.nendo.argosy.data.repository.AppsRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -30,6 +37,9 @@ class SteamInstallMarkingTest {
     private val droidDeck = DroidDeckLauncher.packageName
 
     private val rows = linkedMapOf<Long, GameEntity>()
+    private var installedPackages = setOf(gameNative, droidDeck)
+    private var currentOwnerUserId = 1L
+    private var beforeCompareAndSet: (() -> Unit)? = null
 
     private val gameDao = mockk<GameDao>(relaxed = true).also { dao ->
         coEvery { dao.getBySourcesForOwner(listOf(GameSource.STEAM), LocalPlatformIds.STEAM, any()) } answers {
@@ -38,6 +48,18 @@ class SteamInstallMarkingTest {
         coEvery { dao.setSteamLauncher(any(), any()) } answers {
             val id = firstArg<Long>()
             rows[id] = rows.getValue(id).copy(steamLauncher = secondArg())
+        }
+        coEvery { dao.getById(any()) } answers { rows[firstArg()] }
+        coEvery { dao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) } answers {
+            beforeCompareAndSet?.also { beforeCompareAndSet = null }?.invoke()
+            val id = firstArg<Long>()
+            val row = rows[id]
+            if (row == null || row.steamLauncher != arg<String?>(1) || row.launcherSetManually != arg<Boolean>(2)) {
+                0
+            } else {
+                rows[id] = row.copy(steamLauncher = arg(3), launcherSetManually = arg(4))
+                1
+            }
         }
     }
 
@@ -70,8 +92,17 @@ class SteamInstallMarkingTest {
         val userPrefs = mockk<UserPreferencesRepository>(relaxed = true)
         every { userPrefs.userPreferences } returns flowOf(UserPreferences())
         val syncPrefs = mockk<SyncPreferencesRepository>(relaxed = true)
-        coEvery { syncPrefs.getRommUserId() } returns 1L
+        coEvery { syncPrefs.getRommUserId() } answers { currentOwnerUserId }
+        val context = mockk<Context>(relaxed = true)
+        every { context.packageManager.getPackageInfo(any<String>(), any<Int>()) } answers {
+            if (firstArg<String>() !in installedPackages) throw PackageManager.NameNotFoundException()
+            mockk<PackageInfo>()
+        }
+        val apps = mockk<AppsRepository>(relaxed = true)
+        every { apps.isPackageMissing(any()) } answers { firstArg<String>() !in installedPackages }
         return GameNativeStoreSync(
+            context = context,
+            appsRepository = apps,
             gameDao = gameDao,
             platformDao = mockk(relaxed = true),
             imageCacheManager = mockk(relaxed = true),
@@ -144,6 +175,167 @@ class SteamInstallMarkingTest {
         )
 
         assertEquals(droidDeck, rows.getValue(1).steamLauncher)
+    }
+
+    @Test
+    fun `when droiddeck drops a game gamenative replaces it in one scan`() = runTest {
+        steamRow(id = 1, appId = 620, launcher = droidDeck)
+
+        scan(mapOf(GameNativeSyncFolder.STEAM to markerFolder(620), GameNativeSyncFolder.DROIDDECK to markerFolder()))
+
+        assertEquals(gameNative, rows.getValue(1).steamLauncher)
+    }
+
+    @Test
+    fun `uninstalled gamenative exports cannot retain a missing manual pin`() = runTest {
+        installedPackages = setOf(droidDeck)
+        steamRow(id = 1, appId = 620, launcher = gameNative, pinned = true)
+
+        scan(mapOf(GameNativeSyncFolder.STEAM to markerFolder(620), GameNativeSyncFolder.DROIDDECK to markerFolder(620)))
+
+        assertEquals(droidDeck, rows.getValue(1).steamLauncher)
+        assertEquals(false, rows.getValue(1).launcherSetManually)
+    }
+
+    @Test
+    fun `a missing owner without a replacement keeps its association but reinstall does not restore its pin`() = runTest {
+        installedPackages = setOf(droidDeck)
+        steamRow(id = 1, appId = 620, launcher = gameNative, pinned = true)
+        val dirs = mapOf(
+            GameNativeSyncFolder.STEAM to markerFolder(620),
+            GameNativeSyncFolder.DROIDDECK to markerFolder()
+        )
+
+        scan(dirs)
+
+        assertEquals(gameNative, rows.getValue(1).steamLauncher)
+        assertEquals(false, rows.getValue(1).launcherSetManually)
+
+        installedPackages = setOf(gameNative, droidDeck)
+        scan(dirs)
+
+        assertEquals(gameNative, rows.getValue(1).steamLauncher)
+        assertEquals(false, rows.getValue(1).launcherSetManually)
+    }
+
+    @Test
+    fun `an automatic missing owner moves to the unique installed reporter in either direction`() = runTest {
+        val dirs = mapOf(
+            GameNativeSyncFolder.STEAM to markerFolder(620),
+            GameNativeSyncFolder.DROIDDECK to markerFolder(620)
+        )
+        for ((missing, replacement) in listOf(gameNative to droidDeck, droidDeck to gameNative)) {
+            installedPackages = setOf(replacement)
+            steamRow(id = 1, appId = 620, launcher = missing)
+
+            scan(dirs)
+            scan(dirs)
+
+            assertEquals(missing, replacement, rows.getValue(1).steamLauncher)
+            assertEquals(false, rows.getValue(1).launcherSetManually)
+        }
+    }
+
+    @Test
+    fun `two installed reporters do not guess a replacement for a missing owner`() = runTest {
+        val missing = "com.previous.launcher"
+        steamRow(id = 1, appId = 620, launcher = missing, pinned = true)
+
+        scan(mapOf(GameNativeSyncFolder.STEAM to markerFolder(620), GameNativeSyncFolder.DROIDDECK to markerFolder(620)))
+
+        assertEquals(missing, rows.getValue(1).steamLauncher)
+        assertEquals(false, rows.getValue(1).launcherSetManually)
+    }
+
+    @Test
+    fun `an installed manual pin remains pinned when only the other launcher reports the game`() = runTest {
+        steamRow(id = 1, appId = 620, launcher = gameNative, pinned = true)
+        val original = rows.getValue(1)
+
+        scan(mapOf(GameNativeSyncFolder.STEAM to markerFolder(), GameNativeSyncFolder.DROIDDECK to markerFolder(620)))
+
+        assertEquals(original, rows.getValue(1))
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a missing configured inventory preserves its installed owner`() = runTest {
+        steamRow(id = 1, appId = 620, launcher = droidDeck)
+        val original = rows.getValue(1)
+        val missing = File(tempFolder.root, "missing").absolutePath
+
+        val summary = scan(mapOf(GameNativeSyncFolder.DROIDDECK to missing))
+
+        assertEquals(original, rows.getValue(1))
+        assertEquals(StoreScanResult.FolderMissing(missing), summary.results[GameNativeSyncFolder.DROIDDECK])
+    }
+
+    @Test
+    fun `an unreadable inventory preserves its installed owner`() = runTest {
+        steamRow(id = 1, appId = 620, launcher = droidDeck)
+        val original = rows.getValue(1)
+        val dir = markerFolder(620)
+        mockkObject(FrontendSyncMarkers)
+        try {
+            every { FrontendSyncMarkers.read(any(), GameNativeSyncFolder.DROIDDECK) } returns null
+
+            val summary = scan(mapOf(GameNativeSyncFolder.DROIDDECK to dir))
+
+            assertEquals(original, rows.getValue(1))
+            assertEquals(StoreScanResult.FolderMissing(dir), summary.results[GameNativeSyncFolder.DROIDDECK])
+        } finally {
+            unmockkObject(FrontendSyncMarkers)
+        }
+    }
+
+    @Test
+    fun `an account switch after the inventory query prevents recovery writes`() = runTest {
+        installedPackages = setOf(droidDeck)
+        steamRow(id = 1, appId = 620, launcher = gameNative, pinned = true)
+        val original = rows.getValue(1)
+        coEvery { gameDao.getBySourcesForOwner(listOf(GameSource.STEAM), LocalPlatformIds.STEAM, 1L) } answers {
+            currentOwnerUserId = 2L
+            rows.values.toList()
+        }
+
+        scan(mapOf(GameNativeSyncFolder.DROIDDECK to markerFolder(620)))
+
+        assertEquals(original, rows.getValue(1))
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a newer manual choice wins when recovery loses its compare and set`() = runTest {
+        installedPackages = setOf(droidDeck)
+        steamRow(id = 1, appId = 620, launcher = gameNative)
+        beforeCompareAndSet = {
+            rows[1] = rows.getValue(1).copy(steamLauncher = droidDeck, launcherSetManually = true)
+        }
+
+        scan(mapOf(GameNativeSyncFolder.DROIDDECK to markerFolder(620)))
+
+        assertEquals(droidDeck, rows.getValue(1).steamLauncher)
+        assertEquals(true, rows.getValue(1).launcherSetManually)
+        coVerify(exactly = 1) {
+            gameDao.compareAndSetSteamLauncher(1L, gameNative, false, droidDeck, false, 1L)
+        }
+    }
+
+    @Test
+    fun `a newer manual choice wins while a missing pin is being cleared`() = runTest {
+        installedPackages = setOf(droidDeck)
+        steamRow(id = 1, appId = 620, launcher = gameNative, pinned = true)
+        beforeCompareAndSet = {
+            rows[1] = rows.getValue(1).copy(steamLauncher = droidDeck, launcherSetManually = true)
+        }
+
+        scan(mapOf(GameNativeSyncFolder.DROIDDECK to markerFolder(620)))
+
+        assertEquals(droidDeck, rows.getValue(1).steamLauncher)
+        assertEquals(true, rows.getValue(1).launcherSetManually)
+        coVerify(exactly = 1) {
+            gameDao.compareAndSetSteamLauncher(1L, gameNative, true, gameNative, false, 1L)
+        }
     }
 
     @Test

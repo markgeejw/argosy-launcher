@@ -160,16 +160,6 @@
     <string name="storage_computed_label_computed">%1$s पर गणना की गई</string>
     <string name="storage_computed_label_never">अभी तक गणना नहीं हुई</string>
 
-    <!-- ================= Download foreground notification text (Steam) ================= -->
-
-    <string name="download_indicator_notification_preparing">तैयार हो रहा है: %1$s</string>
-    <string name="download_indicator_notification_connecting">Steam से जुड़ रहे हैं...</string>
-    <string name="download_indicator_notification_fetching_manifest">मेनिफ़ेस्ट प्राप्त हो रहा है: %1$s</string>
-    <string name="download_indicator_notification_unpacking">अनपैक हो रहा है: %1$s</string>
-    <string name="download_indicator_notification_moving">स्थानांतरित हो रहा है: %1$s</string>
-    <string name="download_indicator_notification_cleaning">सफ़ाई हो रही है: %1$s</string>
-    <string name="download_indicator_notification_paused">रोका गया: %1$s</string>
-
     <!-- ================= Title ID recheck notice ================= -->
 
     <string name="title_id_recheck_notice_updated">टाइटल ID को %1$s में अपडेट किया गया</string>
@@ -180,6 +170,7 @@
     <!-- ================= Steam launcher picker "no override" option ================= -->
 
     <string name="gamedetail_steam_launcher_auto">ऑटो</string>
+    <string name="gamedetail_steam_launcher_auto_uses">%1$s का उपयोग करता है</string>
 
     <!-- ================= Memcard picker "use the inherited default" entry ================= -->
 

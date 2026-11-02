@@ -527,8 +527,6 @@ class AccountsSettingsDelegate @Inject constructor(
             context.getString(R.string.settings_accounts_delegate_blocker_active_downloads)
         AccountSwitchBlocker.EmulatorDownload ->
             context.getString(R.string.settings_accounts_delegate_blocker_emulator_download)
-        AccountSwitchBlocker.SteamDownload ->
-            context.getString(R.string.settings_accounts_delegate_blocker_steam_download)
         AccountSwitchBlocker.MediaDownload ->
             context.getString(R.string.settings_accounts_delegate_blocker_media_download)
         AccountSwitchBlocker.LibrarySyncRunning ->

@@ -105,7 +105,6 @@
     <string name="settings_shell_header_accounts">АККАУНТЫ</string>
     <string name="settings_shell_header_saves">СОХРАНЕНИЯ</string>
     <string name="settings_shell_header_sync_settings">НАСТРОЙКИ СИНХРОНИЗАЦИИ</string>
-    <string name="settings_shell_header_steam">STEAM (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_shell_header_storage">ХРАНИЛИЩЕ</string>
     <string name="settings_shell_header_storage_games">ХРАНИЛИЩЕ ИГР</string>
     <string name="settings_shell_header_storage_media">ХРАНИЛИЩЕ МЕДИА</string>
@@ -195,6 +194,11 @@
     <string name="settings_shell_modal_import_settings_message">Выберите файл резервной копии - указанные в нём настройки заменят ваши. Всё, что в файле не указано, останется без изменений; аккаунты, серверы, статус синхронизации и расположения файлов никогда не переносятся.</string>
     <string name="settings_shell_modal_import_settings_confirm">Выбрать файл</string>
 
+    <string name="settings_shell_modal_accessibility_title">Включить специальные возможности</string>
+    <string name="settings_shell_modal_accessibility_message">Argosy использует свою службу специальных возможностей, чтобы видеть кнопку Назад, пока открыт другой эмулятор. Android предупредит, что служба может отслеживать вводимый текст; Argosy следит только за кнопкой Назад во время игры.</string>
+    <string name="settings_shell_modal_accessibility_confirm">Открыть настройки</string>
+    <string name="settings_shell_modal_accessibility_not_now">Не сейчас</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">Перенести загрузки?</string>
     <string name="settings_shell_modal_migrate_downloads_message">Переместить %1$d игр (%2$s) в новое расположение?</string>
     <string name="settings_shell_modal_migrate_downloads_confirm">Перенести</string>
@@ -210,9 +214,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">Платформа</string>
     <string name="settings_shell_modal_purge_platform_message">Это удалит все %1$d игр и их локальные файлы ROM. Действие необратимо.</string>
     <string name="settings_shell_modal_purge_platform_confirm">Очистить</string>
+    <string name="settings_shell_modal_purge_disabled_title">Также удалить %1$s с этого устройства?</string>
+    <string name="settings_shell_modal_purge_disabled_message">Игры этой платформы (%1$d) теперь скрыты. Очистка также удалит их и их локальные файлы ROM. Действие необратимо.</string>
+    <string name="settings_shell_modal_purge_disabled_keep">Оставить файлы</string>
 
     <string name="settings_shell_modal_sync_first_title">Сначала синхронизируйте сохранения</string>
     <string name="settings_shell_modal_sync_first_message">Сначала синхронизируйте сохранения - %1$d в ожидании. Сброс библиотеки сейчас безвозвратно удалит невыгруженные сохранения.</string>
+    <string name="settings_shell_modal_purge_sync_first_message">Сначала синхронизируйте сохранения - %1$d в ожидании. Удаление этой платформы сейчас безвозвратно удалит невыгруженные сохранения. Запрос на удаление появится снова после завершения синхронизации.</string>
     <string name="settings_shell_modal_sync_first_confirm">Синхронизировать</string>
 
     <string name="settings_shell_modal_reset_library_title">Сбросить библиотеку?</string>
@@ -383,8 +391,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">Это удалит скачанные шейдеры из каталога. Собственные шейдеры сохранятся, а шейдеры каталога будут скачаны заново по запросу.</string>
     <string name="settings_shell_caches_frames_title">Очистить оверлеи рамок?</string>
     <string name="settings_shell_caches_frames_message">Это удалит скачанные оверлеи рамок. Они будут скачаны заново по запросу при выборе.</string>
-    <string name="settings_shell_caches_steam_downloads_title">Очистить данные загрузок Steam?</string>
-    <string name="settings_shell_caches_steam_downloads_message">Это удалит подготовленные загрузки Steam и очистит очередь загрузок. На установленные игры это не влияет, но частичные загрузки начнутся заново.</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 
@@ -576,4 +582,5 @@
     <string name="settings_shell_footer_play_time_move">Переместить</string>
     <string name="settings_shell_footer_play_time_open">Открыть</string>
     <string name="settings_shell_footer_play_time_sort">Сортировка</string>
+    <string name="settings_shell_footer_play_time_delete">Удалить историю</string>
 </resources>

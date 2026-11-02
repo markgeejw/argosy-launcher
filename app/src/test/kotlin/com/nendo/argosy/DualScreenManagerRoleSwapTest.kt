@@ -14,6 +14,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -112,6 +113,94 @@ class DualScreenManagerRoleSwapTest {
             replacementScope.cancel()
             testScope.testScheduler.runCurrent()
         }
+    }
+
+    @Test
+    fun `session started while the bound activity scope is cancelled still loads the companion state`() {
+        val game = mockk<com.nendo.argosy.data.local.entity.GameEntity>(relaxed = true) {
+            every { title } returns "Recreated"
+        }
+        val gameDao = mockk<com.nendo.argosy.data.local.dao.GameDao>(relaxed = true) {
+            io.mockk.coEvery { getById(GAME_ID) } returns game
+        }
+        val activityScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + testDispatcher)
+        manager = newManager(scope = activityScope, gameDao = gameDao)
+        testScope.testScheduler.runCurrent()
+        activityScope.cancel()
+
+        manager.onSessionChanged(GAME_ID)
+        awaitCompanionLoaded()
+
+        assertTrue(manager.swappedCompanionState.value.isLoaded)
+        assertEquals(GAME_ID, manager.swappedCompanionState.value.gameId)
+        assertTrue(manager.presentationSlot.value is com.nendo.argosy.ui.dualscreen.PresentationSlot.InGame)
+    }
+
+    @Test
+    fun `a session whose game row is missing still releases the companion hold`() {
+        val gameDao = mockk<com.nendo.argosy.data.local.dao.GameDao>(relaxed = true) {
+            io.mockk.coEvery { getById(GAME_ID) } returns null
+        }
+        manager = newManager(gameDao = gameDao)
+
+        manager.onSessionChanged(GAME_ID)
+        awaitCompanionLoaded()
+
+        assertTrue(manager.swappedCompanionState.value.isLoaded)
+        assertEquals(GAME_ID, manager.swappedCompanionState.value.gameId)
+        assertEquals("", manager.swappedCompanionState.value.title)
+        assertTrue(manager.presentationSlot.value is com.nendo.argosy.ui.dualscreen.PresentationSlot.InGame)
+    }
+
+    @Test
+    fun `a session whose art lookup throws still releases the companion hold`() {
+        val game = mockk<com.nendo.argosy.data.local.entity.GameEntity>(relaxed = true) {
+            every { title } returns "Artless"
+        }
+        val gameDao = mockk<com.nendo.argosy.data.local.dao.GameDao>(relaxed = true) {
+            io.mockk.coEvery { getById(GAME_ID) } returns game
+        }
+        val imageCacheManager = mockk<com.nendo.argosy.data.cache.ImageCacheManager>(relaxed = true) {
+            io.mockk.coEvery { loadArt(GAME_ID) } throws IllegalStateException("art store unreadable")
+        }
+        manager = newManager(gameDao = gameDao, imageCacheManager = imageCacheManager)
+
+        manager.onSessionChanged(GAME_ID)
+        awaitCompanionLoaded()
+
+        assertTrue(manager.swappedCompanionState.value.isLoaded)
+        assertEquals("Artless", manager.swappedCompanionState.value.title)
+        assertEquals(null, manager.swappedCompanionState.value.coverPath)
+        assertTrue(manager.presentationSlot.value is com.nendo.argosy.ui.dualscreen.PresentationSlot.InGame)
+    }
+
+    @Test
+    fun `a load finishing after its session ended does not publish the ended game`() {
+        val release = java.util.concurrent.CountDownLatch(1)
+        val game = mockk<com.nendo.argosy.data.local.entity.GameEntity>(relaxed = true) {
+            every { title } returns "Ended"
+        }
+        val gameDao = mockk<com.nendo.argosy.data.local.dao.GameDao>(relaxed = true) {
+            io.mockk.coEvery { getById(GAME_ID) } coAnswers {
+                release.await(COMPANION_LOAD_WAIT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+                game
+            }
+        }
+        manager = newManager(gameDao = gameDao)
+
+        try {
+            manager.onSessionChanged(GAME_ID)
+            testScope.testScheduler.runCurrent()
+            manager.onSessionChanged(0L)
+            testScope.testScheduler.runCurrent()
+        } finally {
+            release.countDown()
+        }
+        Thread.sleep(LATE_LOAD_WINDOW_MS)
+        testScope.testScheduler.runCurrent()
+
+        assertEquals(com.nendo.argosy.hardware.CompanionInGameState(), manager.swappedCompanionState.value)
+        assertTrue(manager.presentationSlot.value !is com.nendo.argosy.ui.dualscreen.PresentationSlot.InGame)
     }
 
     @Test
@@ -255,6 +344,327 @@ class DualScreenManagerRoleSwapTest {
         testScope.testScheduler.advanceUntilIdle()
 
         verify(exactly = 1) { tracker.endSessionInBackground(any(), any()) }
+    }
+
+    @Test
+    fun `a launcher focus gain while the launch is live leaves the session running`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = true)
+
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 0) { launch.sessionEnd.endClosedSession() }
+        verify(exactly = 0) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `the launch clearing while the launcher still holds focus ends the session once`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = true)
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+        verify(exactly = 0) { launch.sessionEnd.endClosedSession() }
+
+        launch.live.value = false
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 1) { launch.sessionEnd.endClosedSession() }
+        verify(exactly = 1) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `a launcher focus gain with no launch live ends the session whose game is gone`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = false)
+
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 1) { launch.sessionEnd.endClosedSession() }
+        verify(exactly = 1) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `a launch going live while a focus check settles leaves the new session running`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = false, emulatorOnScreen = listOf(true, false))
+
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+        launch.live.value = true
+        testScope.testScheduler.advanceTimeBy(EMULATOR_SETTLE_MS)
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 0) { launch.sessionEnd.endClosedSession() }
+        verify(exactly = 0) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `a focus check that settles with no launch going live ends the session once`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = false, emulatorOnScreen = listOf(true, false))
+
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+        testScope.testScheduler.advanceTimeBy(EMULATOR_SETTLE_MS)
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 1) { launch.sessionEnd.endClosedSession() }
+        verify(exactly = 1) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `a focus loss queued behind the launch clearing is applied before the re-check reads focus`() {
+        val fixture = launcherFocusedDuringLaunch(liveAtStart = true)
+        manager.onLauncherWindowFocused(fixture.activity)
+        testScope.testScheduler.runCurrent()
+
+        fixture.live.value = false
+        testScope.backgroundScope.launch { fixture.focused.value = false }
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 0) { fixture.sessionEnd.endClosedSession() }
+        verify(exactly = 0) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `the launch clearing after the launcher lost focus leaves the session running`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = true)
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+        launch.focused.value = false
+
+        launch.live.value = false
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 0) { launch.sessionEnd.endClosedSession() }
+    }
+
+    @Test
+    fun `the launch clearing re-asks the game display's launcher after the other display took focus`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = true)
+        manager.emulatorDisplayId = PRIMARY_DISPLAY
+        val companion = launcherOn(PRESENTATION_DISPLAY)
+        manager.onLauncherWindowFocused(launch.activity)
+        manager.onLauncherWindowFocused(companion)
+        testScope.testScheduler.runCurrent()
+
+        launch.live.value = false
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 1) { launch.sessionEnd.endClosedSession() }
+        verify(exactly = 1) { sessionStateStore.clearSession() }
+    }
+
+    @Test
+    fun `the launch clearing with only the other display's launcher focused leaves the session running`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = true)
+        manager.emulatorDisplayId = PRIMARY_DISPLAY
+        manager.onLauncherWindowFocused(launcherOn(PRESENTATION_DISPLAY))
+        testScope.testScheduler.runCurrent()
+
+        launch.live.value = false
+        testScope.testScheduler.runCurrent()
+
+        verify(exactly = 0) { launch.sessionEnd.endClosedSession() }
+    }
+
+    @Test
+    fun `a rebind with no launch live does not re-run the focus rule`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = false, emulatorOnScreen = listOf(true, true, false))
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+        testScope.testScheduler.advanceTimeBy(EMULATOR_SETTLE_MS)
+        testScope.testScheduler.runCurrent()
+
+        val replacementScope = TestScope(testDispatcher)
+        try {
+            manager.rebind(mockk(relaxed = true), replacementScope.backgroundScope)
+            testScope.testScheduler.runCurrent()
+
+            verify(exactly = 0) { launch.sessionEnd.endClosedSession() }
+        } finally {
+            replacementScope.cancel()
+            testScope.testScheduler.runCurrent()
+        }
+    }
+
+    @Test
+    fun `a launch clearing after a rebind still re-asks the focused launcher`() {
+        val launch = launcherFocusedDuringLaunch(liveAtStart = true)
+        manager.onLauncherWindowFocused(launch.activity)
+        testScope.testScheduler.runCurrent()
+
+        val replacementScope = TestScope(testDispatcher)
+        try {
+            manager.rebind(mockk(relaxed = true), replacementScope.backgroundScope)
+            testScope.testScheduler.runCurrent()
+            launch.live.value = false
+            testScope.testScheduler.runCurrent()
+
+            verify(exactly = 1) { launch.sessionEnd.endClosedSession() }
+        } finally {
+            replacementScope.cancel()
+            testScope.testScheduler.runCurrent()
+        }
+    }
+
+    @Test
+    fun `a role override chosen just before the activity is destroyed is still written to preferences`() {
+        every { sessionStateStore.getDisplayRoleOverride() } returns DisplayRoleOverride.STANDARD.name
+        manager = newManager(scope = testScope.backgroundScope)
+        val activityScope = bindToActivityScope()
+
+        manager.applyDisplayRoleOverride(DisplayRoleOverride.STANDARD)
+        activityScope.cancel()
+        testScope.testScheduler.runCurrent()
+
+        io.mockk.coVerify(exactly = 1) {
+            preferencesRepository.setDisplayRoleOverride(DisplayRoleOverride.STANDARD)
+        }
+    }
+
+    @Test
+    fun `pinning an app to the companion just before the activity is destroyed still toggles the pin`() {
+        val appShortcutActions = mockk<com.nendo.argosy.ui.screens.common.AppShortcutActions>(relaxed = true)
+        manager = newManager(scope = testScope.backgroundScope, appShortcutActions = appShortcutActions)
+        val activityScope = bindToActivityScope()
+
+        manager.runAppMenuRow(
+            APP_PACKAGE,
+            com.nendo.argosy.ui.components.AppMenuRow.Action(
+                com.nendo.argosy.ui.components.AppContextMenuItem.TOGGLE_SECONDARY_HOME
+            )
+        )
+        activityScope.cancel()
+        testScope.testScheduler.runCurrent()
+
+        io.mockk.coVerify(exactly = 1) { appShortcutActions.togglePinned(APP_PACKAGE) }
+    }
+
+    @Test
+    fun `hiding an app just before the activity is destroyed still toggles its visibility`() {
+        val appShortcutActions = mockk<com.nendo.argosy.ui.screens.common.AppShortcutActions>(relaxed = true)
+        manager = newManager(scope = testScope.backgroundScope, appShortcutActions = appShortcutActions)
+        val activityScope = bindToActivityScope()
+
+        manager.runAppMenuRow(
+            APP_PACKAGE,
+            com.nendo.argosy.ui.components.AppMenuRow.Action(
+                com.nendo.argosy.ui.components.AppContextMenuItem.TOGGLE_VISIBILITY
+            )
+        )
+        activityScope.cancel()
+        testScope.testScheduler.runCurrent()
+
+        io.mockk.coVerify(exactly = 1) { appShortcutActions.toggleHidden(APP_PACKAGE) }
+    }
+
+    @Test
+    fun `opening an app on a chosen screen just before the activity is destroyed still records that screen`() {
+        val appsRepository = mockk<com.nendo.argosy.data.repository.AppsRepository>(relaxed = true)
+        manager = newManager(scope = testScope.backgroundScope, appsRepository = appsRepository)
+        val activityScope = bindToActivityScope()
+
+        manager.runAppMenuRow(
+            APP_PACKAGE,
+            com.nendo.argosy.ui.components.AppMenuRow.OpenOnScreen(
+                LOWER_SCREEN.displayId,
+                LOWER_SCREEN.number,
+                LOWER_SCREEN.key
+            )
+        )
+        activityScope.cancel()
+        testScope.testScheduler.runCurrent()
+
+        io.mockk.coVerify(exactly = 1) {
+            preferencesRepository.setAppDisplayTarget(APP_PACKAGE, LOWER_SCREEN.key)
+        }
+    }
+
+    @Test
+    fun `a session ended just before the activity is destroyed still stops the external emulator`() {
+        val endedSession = com.nendo.argosy.data.emulator.ActiveSession(
+            gameId = GAME_ID,
+            startTime = java.time.Instant.EPOCH,
+            emulatorPackage = EXTERNAL_EMULATOR
+        )
+        val sessionTracker = mockk<com.nendo.argosy.data.emulator.PlaySessionTracker>(relaxed = true) {
+            every { activeSession } returns MutableStateFlow(endedSession)
+        }
+        val sessionEnd = mockk<com.nendo.argosy.ui.screens.common.SessionEndCoordinator>(relaxed = true)
+        every { sessionStateStore.getEmulatorPackage() } returns EXTERNAL_EMULATOR
+        manager = newManager(
+            scope = testScope.backgroundScope,
+            playSessionTracker = sessionTracker,
+            sessionEndCoordinator = sessionEnd
+        )
+        manager.setDualScreenDevice(true)
+        val activityScope = bindToActivityScope()
+
+        manager.endSessionAfterEmulatorLeft()
+        activityScope.cancel()
+        testScope.testScheduler.runCurrent()
+
+        io.mockk.coVerify(exactly = 1) { sessionEnd.stopBackgroundEmulator(EXTERNAL_EMULATOR) }
+    }
+
+    private fun bindToActivityScope(): kotlinx.coroutines.CoroutineScope {
+        val activityScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + testDispatcher)
+        manager.rebind(mockk(relaxed = true), activityScope)
+        testScope.testScheduler.runCurrent()
+        return activityScope
+    }
+
+    private fun launcherOn(displayId: Int): android.app.Activity =
+        mockk(relaxed = true) {
+            every { window.decorView.display.displayId } returns displayId
+            every { hasWindowFocus() } returns true
+        }
+
+    private class LaunchFocusFixture(
+        val activity: android.app.Activity,
+        val focused: MutableStateFlow<Boolean>,
+        val live: MutableStateFlow<Boolean>,
+        val sessionEnd: com.nendo.argosy.ui.screens.common.SessionEndCoordinator
+    )
+
+    private fun launcherFocusedDuringLaunch(
+        liveAtStart: Boolean,
+        emulatorOnScreen: List<Boolean> = emptyList()
+    ): LaunchFocusFixture {
+        val live = MutableStateFlow(liveAtStart)
+        val permissionHelper = mockk<com.nendo.argosy.util.PermissionHelper>(relaxed = true)
+        if (emulatorOnScreen.isNotEmpty()) {
+            every { sessionStateStore.getEmulatorPackage() } returns EXTERNAL_EMULATOR
+            every { permissionHelper.isPackageOnScreenOrRecent(any(), EXTERNAL_EMULATOR, any()) } returnsMany
+                emulatorOnScreen
+        } else {
+            every { sessionStateStore.getEmulatorPackage() } returns null
+        }
+        val launchTracker = mockk<com.nendo.argosy.data.emulator.LaunchProgressTracker> {
+            every { launchLive } returns live
+        }
+        val sessionTracker = mockk<com.nendo.argosy.data.emulator.PlaySessionTracker>(relaxed = true) {
+            every { activeSession } returns MutableStateFlow(
+                com.nendo.argosy.data.emulator.ActiveSession(
+                    gameId = 1L,
+                    startTime = java.time.Instant.EPOCH,
+                    emulatorPackage = EXTERNAL_EMULATOR
+                )
+            )
+        }
+        val sessionEnd = mockk<com.nendo.argosy.ui.screens.common.SessionEndCoordinator>(relaxed = true)
+        val focused = MutableStateFlow(true)
+        val activity = mockk<android.app.Activity>(relaxed = true) {
+            every { window.decorView.display.displayId } returns PRIMARY_DISPLAY
+            every { hasWindowFocus() } answers { focused.value }
+        }
+        manager = newManager(
+            scope = testScope.backgroundScope,
+            playSessionTracker = sessionTracker,
+            sessionEndCoordinator = sessionEnd,
+            launchProgressTracker = launchTracker,
+            permissionHelper = permissionHelper
+        )
+        testScope.testScheduler.runCurrent()
+        return LaunchFocusFixture(activity, focused, live, sessionEnd)
     }
 
     private fun sessionOnLowerScreen(
@@ -477,6 +887,15 @@ class DualScreenManagerRoleSwapTest {
         every { action } returns android.content.Intent.ACTION_USER_PRESENT
     }
 
+    private fun awaitCompanionLoaded() {
+        val deadline = System.currentTimeMillis() + COMPANION_LOAD_WAIT_MS
+        while (!manager.swappedCompanionState.value.isLoaded && System.currentTimeMillis() < deadline) {
+            testScope.testScheduler.runCurrent()
+            Thread.sleep(COMPANION_LOAD_POLL_MS)
+        }
+        testScope.testScheduler.runCurrent()
+    }
+
     private fun liveSwapReady(mover: FakeGameWindowMover): DualScreenManager.LiveMoveHost {
         io.mockk.mockkObject(com.nendo.argosy.hardware.FocusDirectorActivity.Companion)
         every {
@@ -490,6 +909,7 @@ class DualScreenManagerRoleSwapTest {
                 every { getRoleDisplayIds(false) } returns (PRIMARY_DISPLAY to PRESENTATION_DISPLAY)
                 every { getRoleDisplayIds(true) } returns (PRESENTATION_DISPLAY to PRIMARY_DISPLAY)
                 every { appScreenDisplayId(any()) } returns null
+                every { usableDisplayId(any()) } answers { firstArg() }
             },
             gameWindowMover = mover
         )
@@ -543,8 +963,15 @@ class DualScreenManagerRoleSwapTest {
 
     private companion object {
         const val PRIMARY_DISPLAY = 0
+        const val EXTERNAL_EMULATOR = "org.example.emulator"
+        const val APP_PACKAGE = "org.example.app"
+        const val EMULATOR_SETTLE_MS = 2_000L
         const val PRESENTATION_DISPLAY = 1
         const val VIRTUAL_DISPLAY = 9
+        const val GAME_ID = 42L
+        const val COMPANION_LOAD_WAIT_MS = 5_000L
+        const val COMPANION_LOAD_POLL_MS = 10L
+        const val LATE_LOAD_WINDOW_MS = 500L
         val TOP_SCREEN = com.nendo.argosy.util.AttachedScreen(
             key = "top", displayId = 0, number = 1, widthPx = 1920, heightPx = 1080, builtIn = true
         )
@@ -559,11 +986,20 @@ class DualScreenManagerRoleSwapTest {
             mockk(relaxed = true) { every { getRoleDisplayIds(any()) } returns null },
         gameWindowMover: com.nendo.argosy.hardware.GameWindowMover = FakeGameWindowMover(arrives = false),
         attachedScreens: () -> List<com.nendo.argosy.util.AttachedScreen> = { emptyList() },
-        playSessionTracker: com.nendo.argosy.data.emulator.PlaySessionTracker = mockk(relaxed = true)
+        playSessionTracker: com.nendo.argosy.data.emulator.PlaySessionTracker = mockk(relaxed = true),
+        sessionEndCoordinator: com.nendo.argosy.ui.screens.common.SessionEndCoordinator = mockk(relaxed = true),
+        launchProgressTracker: com.nendo.argosy.data.emulator.LaunchProgressTracker = mockk {
+            every { launchLive } returns MutableStateFlow(false)
+        },
+        permissionHelper: com.nendo.argosy.util.PermissionHelper = mockk(relaxed = true),
+        gameDao: com.nendo.argosy.data.local.dao.GameDao = mockk(relaxed = true),
+        imageCacheManager: com.nendo.argosy.data.cache.ImageCacheManager = mockk(relaxed = true),
+        appsRepository: com.nendo.argosy.data.repository.AppsRepository = mockk(relaxed = true),
+        appShortcutActions: com.nendo.argosy.ui.screens.common.AppShortcutActions = mockk(relaxed = true)
     ): DualScreenManager = DualScreenManager(
         context = hostContext,
         scope = scope,
-        gameDao = mockk(relaxed = true),
+        gameDao = gameDao,
         gameRepository = mockk(relaxed = true),
         activeSaveRepository = mockk(relaxed = true),
         prefetchGameSaveDataUseCase = mockk(relaxed = true),
@@ -576,7 +1012,7 @@ class DualScreenManagerRoleSwapTest {
         downloadManager = mockk(relaxed = true),
         gameActionsDelegate = mockk(relaxed = true),
         platformSyncQueue = mockk(relaxed = true),
-        sessionEndCoordinator = mockk(relaxed = true),
+        sessionEndCoordinator = sessionEndCoordinator,
         saveCacheManager = mockk(relaxed = true),
         raRepository = mockk(relaxed = true),
         raTileContentRepository = mockk(relaxed = true),
@@ -584,7 +1020,7 @@ class DualScreenManagerRoleSwapTest {
         displayAffinityHelper = displayAffinityHelper,
         sessionStateStore = sessionStateStore,
         preferencesRepository = preferencesRepository,
-        imageCacheManager = mockk(relaxed = true),
+        imageCacheManager = imageCacheManager,
         romMRepository = mockk(relaxed = true),
         gameDocumentLoader = mockk(relaxed = true),
         documentHighlightStore = mockk(relaxed = true),
@@ -594,8 +1030,8 @@ class DualScreenManagerRoleSwapTest {
         syncPreferencesRepository = mockk(relaxed = true),
         homeTileRepository = mockk(relaxed = true),
         homeTilePromptQueue = mockk(relaxed = true),
-        appsRepository = mockk(relaxed = true),
-        appShortcutActions = mockk(relaxed = true),
+        appsRepository = appsRepository,
+        appShortcutActions = appShortcutActions,
         notificationManager = mockk(relaxed = true),
         titleIdDownloadObserver = mockk(relaxed = true),
         homeGridPageRepository = mockk(relaxed = true),
@@ -605,11 +1041,9 @@ class DualScreenManagerRoleSwapTest {
         configureEmulatorUseCase = mockk(relaxed = true),
         builtinCoreResolver = mockk(relaxed = true),
         saveHandlerRegistry = mockk(relaxed = true),
-        steamDownloadQueueDao = mockk(relaxed = true),
         steamRepository = mockk(relaxed = true),
         playSessionTracker = playSessionTracker,
-        permissionHelper = mockk(relaxed = true),
-        steamContentManager = mockk(relaxed = true),
+        permissionHelper = permissionHelper,
         repairImageCacheUseCase = mockk(relaxed = true),
         downloadFileStatusRepository = mockk(relaxed = true),
         gradientExtractionDelegate = mockk(relaxed = true),
@@ -623,6 +1057,7 @@ class DualScreenManagerRoleSwapTest {
         getRelatedMediaUseCase = mockk(relaxed = true),
         resolveMediaPlayTargetUseCase = mockk(relaxed = true),
         mediaPlaybackTracker = MediaPlaybackTracker(),
+        launchProgressTracker = launchProgressTracker,
         mediaAvailabilityVerifier = mockk(relaxed = true),
         mediaDownloadDelegate = mockk(relaxed = true),
         mediaSeriesDelegate = mockk(relaxed = true),

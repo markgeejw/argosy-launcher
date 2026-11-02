@@ -2,6 +2,7 @@ package com.nendo.argosy.data.repository
 
 import android.content.Context
 import com.nendo.argosy.data.emulator.EmulatorRegistry
+import com.nendo.argosy.data.emulator.GameCubeHeaderParser
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.SavePathConfig
 import com.nendo.argosy.data.emulator.SavePathRegistry
@@ -482,6 +483,15 @@ class SaveUploader @Inject constructor(
             emulatorId
         }
         val serverEmulator = EmulatorRegistry.toServerEmulator(resolvedEmulatorId, client.resolveCoreForGame(game, resolvedEmulatorId))
+
+        val config = SavePathRegistry.getConfigForPlatform(resolvedEmulatorId, game.platformSlug)
+        val gciGame = config?.usesGciFormat == true &&
+            !client.isSigilRoutedFor(gameId, config, game.platformSlug, resolvedEmulatorId)
+        if (gciGame && !saveArchiver.isZipArchive(cacheFile) && GameCubeHeaderParser.parseGciHeader(cacheFile) == null) {
+            Logger.warn(TAG, "[SaveSync] UPLOAD_CACHE gameId=$gameId | Cache file is not a GameCube memory card file, not uploading | file=${cacheFile.name}")
+            uploadedCacheId?.let { saveCacheDao.clearRemoteSyncFlag(it) }
+            return@withContext SaveSyncResult.NotConfigured
+        }
 
         try {
             val ext = cacheFile.extension

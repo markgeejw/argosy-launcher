@@ -27,8 +27,7 @@ class BiosDistributedCopyTest {
             platformDao = mockk(relaxed = true),
             userPreferencesRepository = mockk(relaxed = true),
             switchKeyManager = mockk(relaxed = true),
-            attributionRepository = mockk(relaxed = true),
-            xboxDiskImageProvisioner = mockk(relaxed = true)
+            attributionRepository = mockk(relaxed = true)
         )
     }
 

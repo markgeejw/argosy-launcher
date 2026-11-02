@@ -56,6 +56,9 @@ class SigilSaveRootTest {
         assertNull(SigilSaveHandler.layoutFor("dolphin", "wii"))
         assertEquals("pcsx2_standalone", SigilSaveHandler.layoutFor("armsx2", "ps2"))
         assertEquals("azahar", SigilSaveHandler.layoutFor("azahar", "n3ds"))
+        assertEquals("flycast_standalone", SigilSaveHandler.layoutFor("flycast", "dc"))
+        assertEquals("citra", SigilSaveHandler.layoutFor("citra_mmj", "3ds"))
+        assertEquals("citra", SigilSaveHandler.layoutFor("borked3ds", "3ds"))
         assertNull(SigilSaveHandler.layoutFor("retroarch_64", "ps2"))
         assertNull(SigilSaveHandler.layoutFor("argosy", "psx"))
     }

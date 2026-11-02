@@ -77,6 +77,9 @@ interface PlatformDao {
     @Query("SELECT combineContent FROM platforms WHERE id = :platformId")
     suspend fun getCombineContent(platformId: Long): Boolean?
 
+    @Query("UPDATE platforms SET skipFullSync = :skip WHERE id = :platformId")
+    suspend fun updateSkipFullSync(platformId: Long, skip: Boolean)
+
     @Query("SELECT * FROM platforms WHERE syncEnabled = 1 ORDER BY sortOrder ASC, name ASC")
     suspend fun getSyncEnabledPlatforms(): List<PlatformEntity>
 

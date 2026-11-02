@@ -25,7 +25,6 @@
     <string name="notif_storage_hardreset_blocked_active_session">Schließen Sie das laufende Spiel vor dem Zurücksetzen</string>
     <string name="notif_storage_hardreset_blocked_active_downloads">Brechen Sie Spiel-Downloads vor dem Zurücksetzen ab</string>
     <string name="notif_storage_hardreset_blocked_emulator_download">Warten Sie zuerst, bis der Emulator-Download abgeschlossen ist</string>
-    <string name="notif_storage_hardreset_blocked_steam_download">Brechen Sie Steam-Downloads vor dem Zurücksetzen ab</string>
     <string name="notif_storage_hardreset_blocked_media_download">Brechen Sie den Film- oder Episoden-Download vor dem Zurücksetzen ab</string>
     <string name="notif_storage_hardreset_pending_uploads_none">Synchronisieren Sie ausstehende Spielstand-Uploads vor dem Zurücksetzen</string>
     <string name="notif_storage_hardreset_pending_uploads_one">Synchronisieren Sie die ausstehenden Spielstand-Uploads von %1$s vor dem Zurücksetzen</string>
@@ -33,9 +32,6 @@
     <string name="notif_storage_hardreset_success">Vollständiges Zurücksetzen abgeschlossen, Protokoll der entfernten Dateien gespeichert - synchronisieren Sie, um Ihre Bibliothek wiederherzustellen</string>
     <string name="notif_storage_hardreset_failed">Zurücksetzen fehlgeschlagen - %1$s</string>
     <string name="notif_storage_hardreset_failed_default_detail">erneut versuchen</string>
-
-    <string name="notif_steam_path_not_accessible">Installationspfad nicht zugänglich: %1$s</string>
-    <string name="notif_steam_storage_blocked_subtitle">Nicht genügend Speicherplatz (%1$dMB frei, %2$dMB benötigt)</string>
 
     <string name="notif_social_friend_started_playing">Hat begonnen, %1$s zu spielen</string>
     <string name="notif_social_friend_online">Ist jetzt online</string>
@@ -52,10 +48,8 @@
 
     <string name="notif_storage_caches_emulator_busy_precheck">Warten Sie zuerst, bis der Emulator-Download abgeschlossen ist</string>
     <string name="notif_storage_caches_driver_busy">Warten Sie zuerst, bis der Treiber-Download abgeschlossen ist</string>
-    <string name="notif_storage_caches_steam_busy_precheck">Brechen Sie zuerst die Steam-Downloads ab</string>
     <string name="notif_storage_caches_rom_extraction_busy">Entpackte ROMs können nicht geleert werden, während ein Spiel läuft</string>
     <string name="notif_storage_caches_emulator_busy_runclear">Warten Sie zuerst, bis der Emulator-Download abgeschlossen ist</string>
-    <string name="notif_storage_caches_steam_busy_runclear">Brechen Sie zuerst die Steam-Downloads ab</string>
 
     <string name="notif_sync_settings_manual_syncing">Spielstände werden synchronisiert…</string>
     <string name="notif_sync_settings_manual_not_connected">Nicht verbunden</string>
@@ -86,15 +80,12 @@
 
     <string name="notif_steam_settings_gamenative_unconfigured">Keine GameNative-Ordner konfiguriert</string>
     <string name="notif_steam_settings_gamenative_scan_title">GameNative-Bibliothek</string>
-    <string name="notif_steam_settings_install_path_changed_title">Installationspfad geändert</string>
-    <plurals name="notif_steam_settings_install_path_changed_subtitle">
-        <item quantity="one">%1$d laufender Download wird an seinem ursprünglichen Ort abgeschlossen. Neue Downloads verwenden das neue Ziel.</item>
-        <item quantity="other">%1$d laufende Downloads werden an ihrem ursprünglichen Ort abgeschlossen. Neue Downloads verwenden das neue Ziel.</item>
-    </plurals>
     <string name="notif_steam_settings_launcher_download_failed">Download fehlgeschlagen: %1$s</string>
     <string name="notif_steam_settings_library_reset">%1$d Steam-Spiele entfernt</string>
     <string name="notif_steam_settings_game_added">Hinzugefügt: %1$s</string>
     <string name="notif_steam_settings_library_synced">%1$d Steam-Spiele hinzugefügt</string>
+    <string name="notif_steam_settings_metadata_refreshed">%1$d Steam-Spiele aktualisiert</string>
+    <string name="notif_steam_settings_metadata_refresh_failed">Steam-Metadaten konnten nicht aktualisiert werden: %1$s</string>
 
     <string name="notif_jellyfin_settings_sync_title">Medien werden synchronisiert</string>
     <string name="notif_jellyfin_settings_sync_starting">Wird gestartet…</string>
@@ -133,8 +124,14 @@
     </plurals>
 
     <string name="notif_gamelaunch_no_emulator">Kein Emulator für diese Plattform installiert</string>
+    <string name="notif_gamelaunch_busy_syncing">Die Synchronisierung läuft noch. Versuche es gleich noch einmal.</string>
+    <string name="notif_gamelaunch_busy_launching">Ein anderes Spiel wird noch gestartet</string>
     <string name="notif_gamelaunch_no_rom_file">ROM-Datei nicht gefunden</string>
     <string name="notif_gamelaunch_no_steam_launcher">Steam-Launcher nicht installiert</string>
+    <string name="notif_gamelaunch_no_steam_launcher_installed">Kein Steam-Launcher installiert. Installiere einen unter Einstellungen &gt; Steam.</string>
+    <string name="notif_steam_link_no_launcher_installed">Kein Steam-Launcher installiert. Installiere einen unter Einstellungen &gt; Steam.</string>
+    <string name="notif_gamelaunch_steam_launcher_unavailable">Steam-Launcher nicht verfügbar. Wähle einen Launcher unter Spieldetails &gt; Launcher ändern.</string>
+    <string name="notif_gamelaunch_steam_launcher_updating">Launcher wird aktualisiert. Versuche es gleich noch einmal.</string>
     <string name="notif_gamelaunch_no_core_base">Kein Core für %1$s verfügbar</string>
     <string name="notif_gamelaunch_no_core_with_reason">Kein Core für %1$s verfügbar: %2$s</string>
     <string name="notif_gamelaunch_missing_discs">Fehlende Discs: %1$s. Öffnen Sie die Spieldetails zur Reparatur.</string>
@@ -185,6 +182,7 @@
     <string name="notif_review_saved">Rezension veröffentlicht</string>
     <string name="notif_review_deleted">Rezension gelöscht</string>
     <string name="notif_review_error_offline">Nicht mit Argosy Social verbunden</string>
+    <string name="notif_social_error_offline">Nicht mit Argosy Social verbunden</string>
     <string name="notif_review_error_too_long">Die Rezension ist zu lang</string>
     <string name="notif_review_error_invalid">Der Server konnte die Rezension nicht lesen</string>
     <string name="notif_review_error_server">Der Server konnte die Rezension nicht speichern</string>

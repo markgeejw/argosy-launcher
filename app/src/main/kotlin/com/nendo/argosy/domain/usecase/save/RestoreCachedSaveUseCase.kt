@@ -64,7 +64,8 @@ class RestoreCachedSaveUseCase @Inject constructor(
             gameId = gameId
         ) ?: saveSyncRepository.constructSavePath(
             emulatorId, game.title, game.platformSlug, game.localPath, coreName, game.saveId ?: game.titleId, gameId,
-            folderShaped = entry.serverFileName?.endsWith(".zip", ignoreCase = true)
+            folderShaped = entry.serverFileName?.endsWith(".zip", ignoreCase = true),
+            emulatorPackage = emulatorPackage
         ) ?: return Result.Error(RestoreCachedSaveFailureReason.SaveLocationUnresolved)
 
         val restoredCacheId = when (entry.source) {

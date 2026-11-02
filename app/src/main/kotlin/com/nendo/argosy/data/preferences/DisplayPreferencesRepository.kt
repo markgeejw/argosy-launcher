@@ -32,15 +32,15 @@ data class DisplayPreferences(
     val tertiaryColor: Int? = null,
     val surfaceTintBleed: Int = 0,
     val backdropEnabled: Boolean = false,
-    val backdropPreset: BackdropPreset = BackdropPreset.PLATFORMS,
+    val backdropPreset: BackdropPreset = BackdropPreset.DOTS,
     val backdropCellSize: Int = ComponentDefaults.SurfaceBackdrop.cellSizeDefaultDp,
     val backdropScatter: Int = 200,
     val backdropScaleJitter: Int = 100,
     val backdropStrength: Int = 20,
-    val backdropEdgeStyle: BackdropEdgeStyle = BackdropEdgeStyle.CONNECTIONS,
+    val backdropEdgeStyle: BackdropEdgeStyle = BackdropEdgeStyle.NONE,
     val backdropVertexIcons: BackdropVertexIcon = BackdropVertexIcon.NONE,
     val backdropSeed: Long = 0L,
-    val backdropMotion: BackdropMotion = BackdropMotion.SWAY,
+    val backdropMotion: BackdropMotion = BackdropMotion.OFF,
     val backdropMotionSpeed: Int = 75,
     val backdropDriftAngle: Float = 45f,
     val displayFontPath: String? = null,
@@ -51,6 +51,7 @@ data class DisplayPreferences(
     val bodyFontScale: Int = 100,
     val gridDensity: GridDensity = GridDensity.NORMAL,
     val libraryLayout: LibraryLayout = LibraryLayout.GRID,
+    val libraryListStyle: LibraryListStyle = LibraryListStyle.RELAXED,
     val libraryBoxArt3d: Boolean = false,
     val libraryDefaultSort: String = "TITLE",
     val libraryDefaultSortDescending: Boolean? = null,
@@ -65,7 +66,7 @@ data class DisplayPreferences(
     val gripReservePercent: Int = 35,
     val gripAutoControllers: com.nendo.argosy.domain.model.GripAutoControllers =
         com.nendo.argosy.domain.model.GripAutoControllers(),
-    val backgroundBlur: Int = 0,
+    val backgroundBlur: Int = 40,
     val backgroundSaturation: Int = 100,
     val backgroundOpacity: Int = 100,
     val useGameBackground: Boolean = true,
@@ -86,14 +87,14 @@ data class DisplayPreferences(
     val boxArtShape: BoxArtShape = BoxArtShape.STANDARD,
     val boxArtCornerRadius: BoxArtCornerRadius = BoxArtCornerRadius.MEDIUM,
     val boxArtBorderThickness: BoxArtBorderThickness = BoxArtBorderThickness.MEDIUM,
-    val boxArtBorderStyle: BoxArtBorderStyle = BoxArtBorderStyle.GLASS,
-    val glassBorderTint: GlassBorderTint = GlassBorderTint.TINT_20,
+    val boxArtBorderStyle: BoxArtBorderStyle = BoxArtBorderStyle.SOLID,
+    val glassBorderTint: GlassBorderTint = GlassBorderTint.OFF,
     val boxArtGlowStrength: BoxArtGlowStrength = BoxArtGlowStrength.MEDIUM,
     val boxArtOuterEffect: BoxArtOuterEffect = BoxArtOuterEffect.GLOW,
-    val boxArtOuterEffectThickness: BoxArtOuterEffectThickness = BoxArtOuterEffectThickness.THIN,
+    val boxArtOuterEffectThickness: BoxArtOuterEffectThickness = BoxArtOuterEffectThickness.MEDIUM,
     val glowColorMode: GlowColorMode = GlowColorMode.AUTO,
-    val boxArtInnerEffect: BoxArtInnerEffect = BoxArtInnerEffect.GLASS,
-    val boxArtInnerEffectThickness: BoxArtInnerEffectThickness = BoxArtInnerEffectThickness.THICK,
+    val boxArtInnerEffect: BoxArtInnerEffect = BoxArtInnerEffect.SHADOW,
+    val boxArtInnerEffectThickness: BoxArtInnerEffectThickness = BoxArtInnerEffectThickness.MEDIUM,
     val gradientPreset: GradientPreset = GradientPreset.BALANCED,
     val gradientAdvancedMode: Boolean = false,
     val systemIconPosition: SystemIconPosition = SystemIconPosition.TOP_LEFT,
@@ -118,6 +119,7 @@ data class DisplayPreferences(
     val screenDimmerEnabled: Boolean = true,
     val screenDimmerTimeoutMinutes: Int = 2,
     val screenDimmerLevel: Int = 50,
+    val lidSleepEnabled: Boolean = true,
     val dualScreenEnabled: Boolean = false,
     val displayRoleOverride: DisplayRoleOverride = DisplayRoleOverride.AUTO,
     val gamesDisplayTarget: EmulatorDisplayTarget = EmulatorDisplayTarget.PRESENTATION,
@@ -160,6 +162,7 @@ class DisplayPreferencesRepository @Inject constructor(
         val FONT_BODY_SCALE = intPreferencesKey("font_body_scale")
         val UI_DENSITY = stringPreferencesKey("ui_density")
         val LIBRARY_LAYOUT = stringPreferencesKey("library_layout")
+        val LIBRARY_LIST_STYLE = stringPreferencesKey("library_list_style")
         val LIBRARY_BOX_ART_3D = booleanPreferencesKey("library_box_art_3d")
         val LIBRARY_DEFAULT_SORT = stringPreferencesKey("library_default_sort")
         val LIBRARY_DEFAULT_SORT_DESC = booleanPreferencesKey("library_default_sort_desc")
@@ -229,12 +232,14 @@ class DisplayPreferencesRepository @Inject constructor(
         val SCREEN_DIMMER_ENABLED = booleanPreferencesKey("screen_dimmer_enabled")
         val SCREEN_DIMMER_TIMEOUT_MINUTES = intPreferencesKey("screen_dimmer_timeout_minutes")
         val SCREEN_DIMMER_LEVEL = intPreferencesKey("screen_dimmer_level")
+        val LID_SLEEP_ENABLED = booleanPreferencesKey("lid_sleep_enabled")
         val DUAL_SCREEN_ENABLED = booleanPreferencesKey("dual_screen_enabled")
         val DISPLAY_ROLE_OVERRIDE = stringPreferencesKey("display_role_override")
         val GAMES_DISPLAY_TARGET = stringPreferencesKey("games_display_target")
         val APPS_DISPLAY_TARGET = stringPreferencesKey("apps_display_target")
         val DUAL_SCREEN_INPUT_FOCUS = stringPreferencesKey("dual_screen_input_focus")
         val SCREEN_LAYOUTS = stringPreferencesKey("screen_layouts")
+        val SCREEN_LAYOUTS_UNREADABLE = stringPreferencesKey("screen_layouts_unreadable")
         val INSTALLED_ONLY_HOME = booleanPreferencesKey("installed_only_home")
     }
 
@@ -268,6 +273,7 @@ class DisplayPreferencesRepository @Inject constructor(
             bodyFontScale = prefs[Keys.FONT_BODY_SCALE] ?: 100,
             gridDensity = GridDensity.fromString(prefs[Keys.UI_DENSITY]),
             libraryLayout = LibraryLayout.fromString(prefs[Keys.LIBRARY_LAYOUT]),
+            libraryListStyle = LibraryListStyle.fromString(prefs[Keys.LIBRARY_LIST_STYLE]),
             libraryBoxArt3d = prefs[Keys.LIBRARY_BOX_ART_3D] ?: false,
             libraryDefaultSort = prefs[Keys.LIBRARY_DEFAULT_SORT] ?: "TITLE",
             libraryDefaultSortDescending = prefs[Keys.LIBRARY_DEFAULT_SORT_DESC],
@@ -318,7 +324,6 @@ class DisplayPreferencesRepository @Inject constructor(
             gradientAdvancedMode = prefs[Keys.GRADIENT_ADVANCED_MODE] ?: false,
             systemIconPosition = SystemIconPosition.fromString(prefs[Keys.SYSTEM_ICON_POSITION]),
             systemIconPadding = SystemIconPadding.fromString(prefs[Keys.SYSTEM_ICON_PADDING]),
-            // Migrate legacy systemIconPosition=OFF (pre-style enum) to platformIndicatorStyle=OFF.
             platformIndicatorStyle = if (prefs[Keys.SYSTEM_ICON_POSITION] == "OFF" && prefs[Keys.PLATFORM_INDICATOR_STYLE] == null) {
                 PlatformIndicatorStyle.OFF
             } else {
@@ -343,6 +348,7 @@ class DisplayPreferencesRepository @Inject constructor(
             screenDimmerEnabled = prefs[Keys.SCREEN_DIMMER_ENABLED] ?: true,
             screenDimmerTimeoutMinutes = prefs[Keys.SCREEN_DIMMER_TIMEOUT_MINUTES] ?: 2,
             screenDimmerLevel = prefs[Keys.SCREEN_DIMMER_LEVEL] ?: 50,
+            lidSleepEnabled = prefs[Keys.LID_SLEEP_ENABLED] ?: true,
             dualScreenEnabled = prefs[Keys.DUAL_SCREEN_ENABLED] ?: DisplayAffinityHelper.isKnownDualScreenDevice(),
             displayRoleOverride = DisplayRoleOverride.fromString(prefs[Keys.DISPLAY_ROLE_OVERRIDE]),
             gamesDisplayTarget = EmulatorDisplayTarget.gamesDefaultFrom(prefs[Keys.GAMES_DISPLAY_TARGET]),
@@ -475,6 +481,10 @@ class DisplayPreferencesRepository @Inject constructor(
 
     suspend fun setLibraryLayout(layout: LibraryLayout) {
         dataStore.edit { it[Keys.LIBRARY_LAYOUT] = layout.name }
+    }
+
+    suspend fun setLibraryListStyle(style: LibraryListStyle) {
+        dataStore.edit { it[Keys.LIBRARY_LIST_STYLE] = style.name }
     }
 
     suspend fun setLibraryBoxArt3d(enabled: Boolean) {
@@ -797,6 +807,10 @@ class DisplayPreferencesRepository @Inject constructor(
         dataStore.edit { it[Keys.SCREEN_DIMMER_LEVEL] = level.coerceIn(40, 70) }
     }
 
+    suspend fun setLidSleepEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.LID_SLEEP_ENABLED] = enabled }
+    }
+
     suspend fun setDualScreenEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.DUAL_SCREEN_ENABLED] = enabled }
     }
@@ -821,8 +835,17 @@ class DisplayPreferencesRepository @Inject constructor(
     }
 
     suspend fun setScreenLayouts(layouts: ScreenLayouts) {
-        dataStore.edit { it[Keys.SCREEN_LAYOUTS] = layouts.toJson() }
+        dataStore.edit { prefs ->
+            val stored = prefs[Keys.SCREEN_LAYOUTS]
+            if (stored != null && !isJsonObject(stored) && prefs[Keys.SCREEN_LAYOUTS_UNREADABLE] == null) {
+                prefs[Keys.SCREEN_LAYOUTS_UNREADABLE] = stored
+            }
+            prefs[Keys.SCREEN_LAYOUTS] = layouts.toJson()
+        }
     }
+
+    private fun isJsonObject(raw: String): Boolean =
+        runCatching { org.json.JSONObject(raw) }.isSuccess
 
     suspend fun setInstalledOnlyHome(enabled: Boolean) {
         dataStore.edit { it[Keys.INSTALLED_ONLY_HOME] = enabled }

@@ -7,6 +7,7 @@ import com.nendo.argosy.data.emulator.StatePathRegistry
 import com.nendo.argosy.data.emulator.VersionValidationResult
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.entity.StateCacheEntity
+import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.data.remote.romm.RomMState
 import com.nendo.argosy.data.repository.StateCacheManager
@@ -89,13 +90,14 @@ class GetUnifiedStatesUseCase @Inject constructor(
     ): List<RomMState> {
         val api = saveSyncRepository.getApi() ?: return emptyList()
 
-        saveSyncRepository.checkSavesForGame(gameId, rommId)
+        runCatching { saveSyncRepository.checkSavesForGame(gameId, rommId) }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
 
         val serverStates = stateCacheManager.checkServerStates(rommId, api)
 
         val channelMatched = serverStates.filter { serverState ->
             val parsed = stateCacheManager.parseStateFileName(serverState.fileName)
-            channelName == null || parsed.channelName == channelName
+            channelName == null || belongsToChannel(parsed.channelName, channelName)
         }
 
         channelMatched
@@ -103,7 +105,7 @@ class GetUnifiedStatesUseCase @Inject constructor(
             .forEach { (_, states) ->
                 if (states.size <= 1) return@forEach
                 val canonical = states.maxByOrNull {
-                    stateCacheManager.parseStateFileTimestamp(it.fileName) ?: Instant.EPOCH
+                    stateCacheManager.serverStateWrittenAt(it) ?: Instant.EPOCH
                 } ?: return@forEach
                 states.filter { it.id != canonical.id }
                     .forEach { stateCacheManager.tombstoneServerState(gameId, it.id) }
@@ -164,7 +166,7 @@ class GetUnifiedStatesUseCase @Inject constructor(
         val remoteBySlot = remoteOnlyStates
             .groupBy { stateCacheManager.parseStateFileName(it.fileName).slotNumber }
             .mapValues { (_, states) ->
-                states.maxByOrNull { stateCacheManager.parseStateFileTimestamp(it.fileName) ?: Instant.EPOCH }!!
+                states.maxByOrNull { stateCacheManager.serverStateWrittenAt(it) ?: Instant.EPOCH }!!
             }
             .filterKeys { statesBySlot[it] == null }
         val result = mutableListOf<UnifiedStateEntry>()
@@ -212,7 +214,7 @@ class GetUnifiedStatesUseCase @Inject constructor(
             localCacheId = null,
             serverStateId = state.id,
             slotNumber = slot,
-            timestamp = stateCacheManager.parseServerStateTimestamp(state.updatedAt) ?: Instant.EPOCH,
+            timestamp = SaveSyncApiClient.parseTimestampOrNull(state.updatedAt) ?: Instant.EPOCH,
             size = state.fileSizeBytes,
             channelName = channelName ?: parsed.channelName,
             coreId = null,

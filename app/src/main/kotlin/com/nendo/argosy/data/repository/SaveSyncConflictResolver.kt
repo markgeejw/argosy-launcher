@@ -210,44 +210,6 @@ class SaveSyncConflictResolver @Inject constructor(
         )
     }
 
-    private fun selectServerSaveForChannel(
-        matchingSaves: List<com.nendo.argosy.data.remote.romm.RomMSave>,
-        channelName: String?,
-        romBaseName: String?,
-        preferGciZipBundle: Boolean = false,
-        gameIdForLogging: Long? = null
-    ): com.nendo.argosy.data.remote.romm.RomMSave? {
-        if (channelName != null) {
-            return matchingSaves
-                .filter { it.slot != null && SaveSyncApiClient.equalsNormalized(it.slot, channelName) }
-                .maxByOrNull { SaveSyncApiClient.parseTimestamp(it.updatedAt) }
-                ?: matchingSaves.find {
-                    it.fileNameNoExt != null && SaveSyncApiClient.equalsNormalized(it.fileNameNoExt, channelName)
-                }
-        }
-
-        val candidates = matchingSaves.filter {
-            SaveSyncApiClient.isLatestSaveFileName(it.fileName, romBaseName) ||
-                (it.slot != null && romBaseName != null && SaveSyncApiClient.equalsNormalized(it.slot, romBaseName))
-        }
-        val picked = if (preferGciZipBundle && candidates.size > 1) {
-            candidates.find { it.fileName.endsWith(".zip", ignoreCase = true) }
-                ?: candidates.maxByOrNull { SaveSyncApiClient.parseTimestamp(it.updatedAt) }
-        } else {
-            candidates.maxByOrNull { SaveSyncApiClient.parseTimestamp(it.updatedAt) }
-        }
-        if (picked != null) return picked
-
-        val lone = matchingSaves.singleOrNull()
-        if (lone != null) {
-            Logger.warn(
-                TAG,
-                "[SaveSync] selectServerSave gameId=${gameIdForLogging ?: -1} | " +
-                    "No filename match for romBaseName='$romBaseName'; accepting lone server save fileName='${lone.fileName}'"
-            )
-        }
-        return lone
-    }
 
     suspend fun analyzeChannel(
         gameId: Long,
@@ -275,11 +237,11 @@ class SaveSyncConflictResolver @Inject constructor(
 
         val romBaseName = game.localPath?.let { File(it).nameWithoutExtension }
         val matchingSaves = serverSaves
-        val serverSave = selectServerSaveForChannel(
-            matchingSaves = matchingSaves,
+        val serverSave = SaveSyncApiClient.selectLatestServerSave(
+            serverSaves = matchingSaves,
             channelName = channelName,
             romBaseName = romBaseName,
-            gameIdForLogging = gameId
+            preferGciZipBundle = false
         )
 
         if (serverSave == null) {

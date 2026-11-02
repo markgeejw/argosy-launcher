@@ -63,7 +63,6 @@ object RomMSyncFilter {
     }
 
     private fun extractExtension(rom: RomMRom): String? {
-        // Try files list first - only root-level files (skip subdirs like updates/, dlc/)
         rom.files
             ?.filter { !it.filePath.contains('/') }
             ?.firstOrNull()
@@ -72,12 +71,10 @@ object RomMSyncFilter {
                 extractValidExtension(fileName)?.let { return it }
             }
 
-        // Try full path
         rom.filePath?.let { path ->
             extractValidExtension(path)?.let { return it }
         }
 
-        // Fall back to fs_name
         rom.fileName?.let { fileName ->
             extractValidExtension(fileName)?.let { return it }
         }
@@ -87,7 +84,6 @@ object RomMSyncFilter {
 
     private fun extractValidExtension(name: String): String? {
         val ext = name.substringAfterLast('.', "").lowercase()
-        // Valid extension: non-empty, short, no spaces, alphanumeric
         return if (ext.isNotEmpty() && ext.length <= 10 && !ext.contains(' ') && ext.all { it.isLetterOrDigit() }) {
             ext
         } else {

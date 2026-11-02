@@ -136,8 +136,6 @@ class EmulatorDetector @Inject constructor(
         val version = packageInfo.versionName ?: return def
         val parts = version.split(".")
 
-        // Cemu dual-screen fork historically used 3-part versions (e.g., 0.3.1), official used 2-part (e.g., 0.3).
-        // Newer dual-screen builds publish commit-hash versions, so this is best-effort only.
         if (def.packageName == "info.cemu.cemu") {
             return if (parts.size >= 3) {
                 alternatives.find { it.id == "cemu_dualscreen" } ?: def

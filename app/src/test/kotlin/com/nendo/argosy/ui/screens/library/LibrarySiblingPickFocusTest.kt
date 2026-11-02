@@ -176,16 +176,15 @@ class LibrarySiblingPickFocusTest {
         gradientExtractionDelegate = gradientExtractionDelegate,
         downloadIndicatorSource = mockk(relaxed = true),
         emulatorDetector = mockk(relaxed = true),
-        steamContentManager = mockk(relaxed = true),
-        steamDownloadPromptController = mockk(relaxed = true),
+        steamLauncherLinkController = mockk(relaxed = true),
         downloadFileStatusRepository = mockk(relaxed = true),
-        gameStartRouter = mockk(relaxed = true),
         siblingChoice = siblingChoice,
         socialRepository = mockk(relaxed = true),
         saveListStatusRepository = mockk(relaxed = true),
         libraryDefaultPlatformMigration = mockk(relaxed = true),
         showcaseSource = mockk(relaxed = true),
         reorderPlatforms = mockk(relaxed = true),
-        quickNavigation = mockk { io.mockk.every { enabled } returns MutableStateFlow(true) }
+        quickNavigation = mockk { io.mockk.every { enabled } returns MutableStateFlow(true) },
+        launchProgressTracker = mockk { io.mockk.every { launchLive } returns MutableStateFlow(false) }
     )
 }

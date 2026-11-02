@@ -92,7 +92,6 @@
     <string name="settings_shell_header_accounts">账户</string>
     <string name="settings_shell_header_saves">存档</string>
     <string name="settings_shell_header_sync_settings">同步设置</string>
-    <string name="settings_shell_header_steam">STEAM (实验性)</string>
     <string name="settings_shell_header_storage">存储</string>
     <string name="settings_shell_header_storage_games">游戏存储</string>
     <string name="settings_shell_header_storage_media">媒体存储</string>
@@ -182,6 +181,11 @@
     <string name="settings_shell_modal_import_settings_message">选择一个备份文件，文件中列出的设置将替换你的设置。文件中未包含的内容不会改变，账户、服务器、同步状态和文件位置永远不会被导入。</string>
     <string name="settings_shell_modal_import_settings_confirm">选择文件</string>
 
+    <string name="settings_shell_modal_accessibility_title">开启无障碍</string>
+    <string name="settings_shell_modal_accessibility_message">当其他模拟器打开时，Argosy 通过其无障碍服务识别返回按钮。Android 会警告它可以查看你输入的内容；Argosy 只在游戏期间关注返回按钮。</string>
+    <string name="settings_shell_modal_accessibility_confirm">打开设置</string>
+    <string name="settings_shell_modal_accessibility_not_now">暂不</string>
+
     <string name="settings_shell_modal_migrate_downloads_title">迁移下载内容？</string>
     <string name="settings_shell_modal_migrate_downloads_message">是否将%1$d个游戏 (%2$s) 移动到新位置？</string>
     <string name="settings_shell_modal_migrate_downloads_confirm">迁移</string>
@@ -197,9 +201,13 @@
     <string name="settings_shell_modal_purge_platform_fallback">平台</string>
     <string name="settings_shell_modal_purge_platform_message">这将删除全部%1$d个游戏及其本地ROM文件，且无法撤销。</string>
     <string name="settings_shell_modal_purge_platform_confirm">清空</string>
+    <string name="settings_shell_modal_purge_disabled_title">同时从此设备移除%1$s？</string>
+    <string name="settings_shell_modal_purge_disabled_message">其%1$d个游戏现已隐藏。清空还会删除这些游戏及其本地ROM文件，且无法撤销。</string>
+    <string name="settings_shell_modal_purge_disabled_keep">保留文件</string>
 
     <string name="settings_shell_modal_sync_first_title">请先同步存档</string>
     <string name="settings_shell_modal_sync_first_message">请先同步存档，还有%1$d个待处理。现在重置库会永久丢弃尚未上传的存档。</string>
+    <string name="settings_shell_modal_purge_sync_first_message">请先同步存档，还有%1$d个待处理。现在移除此平台会永久丢弃尚未上传的存档。同步完成后会再次询问是否移除。</string>
     <string name="settings_shell_modal_sync_first_confirm">立即同步</string>
 
     <string name="settings_shell_modal_reset_library_title">重置库？</string>
@@ -364,8 +372,6 @@
     <string name="settings_shell_caches_shaders_catalog_message">这将删除已下载的目录着色器。自定义着色器会保留，目录着色器会按需重新下载。</string>
     <string name="settings_shell_caches_frames_title">清除边框素材？</string>
     <string name="settings_shell_caches_frames_message">这将删除已下载的边框素材。选择时会按需重新下载。</string>
-    <string name="settings_shell_caches_steam_downloads_title">清除Steam下载数据？</string>
-    <string name="settings_shell_caches_steam_downloads_message">这将删除已暂存的Steam下载内容并清空下载队列。已安装的游戏不受影响，但未完成的下载会从头重新开始。</string>
 
     <!-- ===== ManagePinsScreen ===== -->
 
@@ -521,4 +527,5 @@
     <string name="settings_shell_footer_play_time_move">移动</string>
     <string name="settings_shell_footer_play_time_open">打开</string>
     <string name="settings_shell_footer_play_time_sort">排序</string>
+    <string name="settings_shell_footer_play_time_delete">删除记录</string>
 </resources>

@@ -93,13 +93,12 @@ object ControllerDetector {
         val vendorId = device.vendorId
         val deviceName = device.name?.lowercase() ?: ""
 
-        // Check for multi-mode devices (Odin, AYN) - use system property
         val isMultiModeDevice = MULTI_MODE_NAME_PATTERNS.any { deviceName.contains(it) }
         if (isMultiModeDevice) {
             val gamepadType = getGamepadTypeProperty()
             val layout = when (gamepadType) {
-                1 -> DetectedLayout.XBOX      // Alternate mode
-                else -> DetectedLayout.NINTENDO  // Default mode (0) or unknown
+                1 -> DetectedLayout.XBOX
+                else -> DetectedLayout.NINTENDO
             }
             return DetectionResult(layout, device.name, vendorId, DetectionSource.SYSTEM_PROPERTY)
         }
@@ -144,8 +143,36 @@ object ControllerDetector {
         return DetectionResult(null, device.name, vendorId, DetectionSource.UNKNOWN)
     }
 
+    /**
+     * True for the handheld's own controls. Handhelds that wire their pad over an internal USB bus
+     * (AYN, Retroid, AYANEO) report it external, so a handheld maker's vendor id, a pad named after
+     * the device's brand, or the brand's own pad name also counts.
+     */
     fun isBuiltInPad(device: InputDevice): Boolean =
-        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && !device.isExternal
+        (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && !device.isExternal) ||
+            isHandheldVendor(device.vendorId) ||
+            padNamedForDevice(device.name, android.os.Build.MODEL, android.os.Build.MANUFACTURER)
+
+    internal fun isHandheldVendor(vendorId: Int): Boolean = vendorId in HANDHELD_PAD_VENDORS
+
+    private val HANDHELD_PAD_VENDORS = setOf(
+        0x2020,
+        0x2022,
+        0x4001
+    )
+
+    internal fun padNamedForDevice(padName: String?, deviceModel: String?, manufacturer: String? = null): Boolean {
+        val padBrand = padName?.trim()?.substringBefore(' ')?.lowercase() ?: return false
+        val brand = deviceModel?.trim()?.substringBefore(' ')?.lowercase().orEmpty()
+        if (brand.length >= MIN_BRAND_LENGTH && padBrand == brand) return true
+        return padBrand == BUILT_IN_PAD_BRAND_BY_MANUFACTURER[manufacturer?.trim()?.lowercase()]
+    }
+
+    private const val MIN_BRAND_LENGTH = 3
+
+    private val BUILT_IN_PAD_BRAND_BY_MANUFACTURER = mapOf(
+        "ayn" to "odin"
+    )
 
     /** Built-in pads on handhelds often report generic names (virtual_gamepad) and junk vendor ids; fall back to the device build. */
     private fun detectFromBuildIdentity(): DetectedLayout? {

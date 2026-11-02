@@ -1,75 +1,131 @@
 package com.nendo.argosy.data.remote.ssl
 
 import okhttp3.OkHttpClient
+import java.net.Socket
 import java.security.KeyStore
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509ExtendedTrustManager
 import javax.net.ssl.X509TrustManager
 
 object UserCertTrustManager {
 
+    /**
+     * Hosts that never accept an imported certificate. Mirrors the domain-config entries in
+     * res/xml/network_security_config.xml, which pin these hosts to system trust anchors.
+     */
+    val SYSTEM_TRUST_DOMAINS: Set<String> = setOf(
+        "buildbot.libretro.com",
+        "github.com",
+        "githubusercontent.com",
+        "argosy.dev",
+        "retroachievements.org",
+        "steampowered.com",
+        "steamcommunity.com",
+        "steamstatic.com"
+    )
+
     fun OkHttpClient.Builder.withUserCertTrust(
         store: UserCertStore? = null
     ): OkHttpClient.Builder {
-        val android = createAndroidCATrustManager()
-        val imported = store?.trustManager()
-        val delegates = listOfNotNull(android, imported)
-        if (delegates.isEmpty()) return this
-
-        val trustManager = if (delegates.size == 1) delegates.first() else FirstAccepting(delegates)
+        val imported = store?.trustManager() ?: return this
+        val platform = platformTrustManager() ?: return this
+        val trustManager = ImportedForUserHosts(platform, imported)
         val sslContext = SSLContext.getInstance("TLS").apply {
             init(null, arrayOf(trustManager), null)
         }
-
         return sslSocketFactory(sslContext.socketFactory, trustManager)
     }
 
-    private fun createAndroidCATrustManager(): X509TrustManager? {
-        return try {
-            val keyStore = KeyStore.getInstance("AndroidCAStore")
-            keyStore.load(null)
-
-            val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
-            factory.init(keyStore)
-
-            factory.trustManagers
-                .filterIsInstance<X509TrustManager>()
-                .firstOrNull()
-        } catch (e: Exception) {
-            null
+    fun acceptsImportedCertFor(host: String?): Boolean =
+        !host.isNullOrBlank() && SYSTEM_TRUST_DOMAINS.none { domain ->
+            host.equals(domain, ignoreCase = true) || host.endsWith(".$domain", ignoreCase = true)
         }
+
+    private fun platformTrustManager(): X509ExtendedTrustManager? = try {
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            .apply { init(null as KeyStore?) }
+            .trustManagers
+            .filterIsInstance<X509ExtendedTrustManager>()
+            .firstOrNull()
+    } catch (e: Exception) {
+        null
     }
 
-    /**
-     * Accepts a chain any delegate accepts, and rethrows the first delegate's rejection otherwise.
-     *
-     * The device store is asked before the imported certificates, so an import can only widen what
-     * this app trusts and never narrows or overrides a chain the device already validates.
-     */
-    private class FirstAccepting(
-        private val delegates: List<X509TrustManager>
-    ) : X509TrustManager {
+    private class ImportedForUserHosts(
+        private val platform: X509ExtendedTrustManager,
+        private val imported: X509TrustManager
+    ) : X509ExtendedTrustManager() {
+
+        override fun checkServerTrusted(
+            chain: Array<out X509Certificate>?,
+            authType: String?,
+            socket: Socket?
+        ) {
+            try {
+                platform.checkServerTrusted(chain, authType, socket)
+            } catch (rejected: CertificateException) {
+                val host = (socket as? SSLSocket)?.handshakeSession?.peerHost
+                retryWithImported(chain, authType, host, rejected)
+            }
+        }
+
+        override fun checkServerTrusted(
+            chain: Array<out X509Certificate>?,
+            authType: String?,
+            engine: SSLEngine?
+        ) {
+            try {
+                platform.checkServerTrusted(chain, authType, engine)
+            } catch (rejected: CertificateException) {
+                val host = engine?.handshakeSession?.peerHost ?: engine?.peerHost
+                retryWithImported(chain, authType, host, rejected)
+            }
+        }
 
         override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
-            var first: CertificateException? = null
-            for (delegate in delegates) {
-                try {
-                    delegate.checkServerTrusted(chain, authType)
-                    return
-                } catch (e: CertificateException) {
-                    if (first == null) first = e
-                }
-            }
-            throw first ?: CertificateException("No trust manager accepted the chain")
+            platform.checkServerTrusted(chain, authType)
+        }
+
+        override fun checkClientTrusted(
+            chain: Array<out X509Certificate>?,
+            authType: String?,
+            socket: Socket?
+        ) {
+            platform.checkClientTrusted(chain, authType, socket)
+        }
+
+        override fun checkClientTrusted(
+            chain: Array<out X509Certificate>?,
+            authType: String?,
+            engine: SSLEngine?
+        ) {
+            platform.checkClientTrusted(chain, authType, engine)
         }
 
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
-            delegates.first().checkClientTrusted(chain, authType)
+            platform.checkClientTrusted(chain, authType)
         }
 
         override fun getAcceptedIssuers(): Array<X509Certificate> =
-            delegates.flatMap { it.acceptedIssuers.asIterable() }.toTypedArray()
+            platform.acceptedIssuers + imported.acceptedIssuers
+
+        private fun retryWithImported(
+            chain: Array<out X509Certificate>?,
+            authType: String?,
+            host: String?,
+            rejected: CertificateException
+        ) {
+            if (!acceptsImportedCertFor(host)) throw rejected
+            try {
+                imported.checkServerTrusted(chain, authType)
+            } catch (_: CertificateException) {
+                throw rejected
+            }
+        }
     }
 }

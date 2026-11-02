@@ -89,7 +89,7 @@ class FileAccessLayerImpl @Inject constructor(
             val files = androidDataAccessor.listFiles(path)
             if (files != null && files.isNotEmpty()) {
                 Logger.verbose(TAG) { "[AltAccess] listFiles=${files.size} | path=$path" }
-                return files.map { it.toFileInfo() }
+                return files.map { it.toPlainFileInfo() }
             }
         }
 
@@ -128,8 +128,7 @@ class FileAccessLayerImpl @Inject constructor(
 
         if (androidDataAccessor.isAltAccessSupported() && isRestrictedPath(path)) {
             androidDataAccessor.listFiles(path)?.forEach { file ->
-                val info = file.toFileInfo()
-                    .let { it.copy(path = androidDataAccessor.normalizePathForDisplay(it.path)) }
+                val info = file.toPlainFileInfo()
                 byName.putIfAbsent(info.name, info)
             }
         }
@@ -345,7 +344,7 @@ class FileAccessLayerImpl @Inject constructor(
 
     override fun walk(path: String): Sequence<FileInfo> {
         if (androidDataAccessor.isAltAccessSupported() && isRestrictedPath(path)) {
-            return androidDataAccessor.walk(path).map { it.toFileInfo() }
+            return androidDataAccessor.walk(path).map { it.toPlainFileInfo() }
         }
         return File(path).walkTopDown().map { it.toFileInfo() }
     }
@@ -364,11 +363,12 @@ class FileAccessLayerImpl @Inject constructor(
         return androidDataAccessor.getFile(path)
     }
 
-    override fun prepareSaveAccess(vararg paths: String?) {
+    override fun prepareSaveAccess(vararg paths: String?): Boolean {
         val restricted = paths.filterNotNull().filter(::isRestrictedPath)
-        if (restricted.isEmpty()) return
-        if (androidDataAccessor.syncMirror(restricted) != null) return
+        if (restricted.isEmpty()) return true
+        androidDataAccessor.syncMirror(restricted)?.let { return it }
         if (rootFileAccessor.isAvailable) rootFileAccessor.grantGroupAccess(restricted)
+        return true
     }
 
     override fun commitSaveAccess(vararg paths: String?): Boolean {
@@ -378,8 +378,11 @@ class FileAccessLayerImpl @Inject constructor(
     }
 
     private fun extractVolumeAndPath(path: String): Pair<String, String>? {
-        return StoragePathUtils.extractVolumeAndPath(path)
+        return StoragePathUtils.extractVolumeAndPath(androidDataAccessor.normalizePathForDisplay(path))
     }
+
+    private fun File.toPlainFileInfo(): FileInfo =
+        toFileInfo().let { it.copy(path = androidDataAccessor.normalizePathForDisplay(it.path)) }
 
     private fun ensureParentDirectory(file: File): Boolean {
         val parent = file.parentFile ?: return true

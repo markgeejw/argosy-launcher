@@ -3,6 +3,7 @@ package com.nendo.argosy.data.sync.snapshot
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.remote.romm.RomMApi
 import com.nendo.argosy.data.remote.romm.RomMRomFile
+import com.nendo.argosy.util.DiscSheets
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,12 +23,11 @@ class SnapshotFileResolver @Inject constructor() {
         val games = files
             .filter { it.category == null || it.category.equals(GAME_FILE_CATEGORY, ignoreCase = true) }
             .sortedBy { it.fileName.lowercase() }
-        return games.firstOrNull { it.fileName.substringAfterLast('.').lowercase() in LOADER_EXTENSIONS }
+        return games.firstOrNull { DiscSheets.isLoader(it.fileName) }
             ?: games.firstOrNull()
     }
 
     private companion object {
         const val GAME_FILE_CATEGORY = "game"
-        val LOADER_EXTENSIONS = setOf("cue", "gdi", "ccd", "mds", "toc")
     }
 }

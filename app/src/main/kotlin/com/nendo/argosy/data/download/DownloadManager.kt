@@ -16,7 +16,7 @@ import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.remote.romm.ConnectionState
 import com.nendo.argosy.data.remote.romm.RomMRepository
-import com.nendo.argosy.ui.input.SoundFeedbackManager
+import com.nendo.argosy.core.input.AppEventFeedback
 import com.nendo.argosy.core.input.SoundType
 import com.nendo.argosy.data.remote.romm.RomMResult
 import com.nendo.argosy.data.download.nsz.NszDecompressor
@@ -29,6 +29,7 @@ import com.nendo.argosy.util.FileNames
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.SafeCoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -157,7 +158,7 @@ data class DownloadCompletionEvent(
 )
 
 @Singleton
-class DownloadManager @Inject constructor(
+class DownloadManager internal constructor(
     private val gameDao: GameDao,
     private val gameDiscDao: GameDiscDao,
     private val gameFileDao: GameFileDao,
@@ -165,10 +166,9 @@ class DownloadManager @Inject constructor(
     private val platformDao: PlatformDao,
     private val romMRepository: RomMRepository,
     private val preferencesRepository: UserPreferencesRepository,
-    private val soundManager: SoundFeedbackManager,
+    private val soundManager: AppEventFeedback,
     private val m3uManager: M3uManager,
     private val thermalManager: dagger.Lazy<DownloadThermalManager>,
-    private val steamContentManager: dagger.Lazy<com.nendo.argosy.data.steam.SteamContentManager>,
     private val mediaDownloadManager: dagger.Lazy<MediaDownloadManager>,
     private val musicDirectoryManager: MusicDirectoryManager,
     private val attributionRepository: StorageAttributionRepository,
@@ -178,8 +178,39 @@ class DownloadManager @Inject constructor(
     private val customGridShapeStore: CustomGridShapeStore,
     private val extContentOrganizer: ExtContentOrganizer,
     private val romStagingManager: RomStagingManager,
-    private val platformFolderResolver: PlatformFolderResolver
+    private val platformFolderResolver: PlatformFolderResolver,
+    private val scope: CoroutineScope
 ) {
+    @Inject constructor(
+        gameDao: GameDao,
+        gameDiscDao: GameDiscDao,
+        gameFileDao: GameFileDao,
+        downloadQueueDao: DownloadQueueDao,
+        platformDao: PlatformDao,
+        romMRepository: RomMRepository,
+        preferencesRepository: UserPreferencesRepository,
+        soundManager: AppEventFeedback,
+        m3uManager: M3uManager,
+        thermalManager: dagger.Lazy<DownloadThermalManager>,
+        mediaDownloadManager: dagger.Lazy<MediaDownloadManager>,
+        musicDirectoryManager: MusicDirectoryManager,
+        attributionRepository: StorageAttributionRepository,
+        syncPreferencesRepository: SyncPreferencesRepository,
+        homeTileRepository: com.nendo.argosy.data.repository.HomeTileRepository,
+        homeTilePromptQueue: com.nendo.argosy.data.repository.HomeTilePromptQueue,
+        customGridShapeStore: CustomGridShapeStore,
+        extContentOrganizer: ExtContentOrganizer,
+        romStagingManager: RomStagingManager,
+        platformFolderResolver: PlatformFolderResolver
+    ) : this(
+        gameDao, gameDiscDao, gameFileDao, downloadQueueDao, platformDao, romMRepository,
+        preferencesRepository, soundManager, m3uManager, thermalManager,
+        mediaDownloadManager, musicDirectoryManager, attributionRepository, syncPreferencesRepository,
+        homeTileRepository, homeTilePromptQueue, customGridShapeStore, extContentOrganizer,
+        romStagingManager, platformFolderResolver,
+        SafeCoroutineScope(Dispatchers.Main, TAG)
+    )
+
     private val _state = MutableStateFlow(DownloadQueueState())
     val state: StateFlow<DownloadQueueState> = _state.asStateFlow()
 
@@ -188,13 +219,11 @@ class DownloadManager @Inject constructor(
     /**
      * How many downloads are running right now, across every queue.
      *
-     * Rom, Steam and media downloads share one concurrency budget and one connection, so this is the
-     * only number any of them may compare against it. Counting a queue's own kind alone is what let
-     * a Steam install and a film start against a budget of one and then compete for the same pipe.
+     * Rom and media downloads share one concurrency budget and one connection, so this is the
+     * only number either of them may compare against it.
      */
     fun totalActiveDownloads(): Int =
         _state.value.activeDownloads.size +
-            (if (steamContentManager.get().hasActiveSteamDownload()) 1 else 0) +
             (if (mediaDownloadManager.get().hasActiveMediaDownload()) 1 else 0)
 
     /**
@@ -208,15 +237,9 @@ class DownloadManager @Inject constructor(
         scope.launch { processQueue() }
     }
 
-    /**
-     * Tells every queue that a slot this one was holding is free. All three are told because none of
-     * them knows what the others are waiting on, and a release that only wakes its own queue leaves
-     * the others sitting on work the budget now allows.
-     */
     private fun notifySlotFreed() {
         scope.launch {
             processQueue()
-            steamContentManager.get().onDownloadSlotFreed()
             mediaDownloadManager.get().onDownloadSlotFreed()
         }
     }
@@ -224,7 +247,6 @@ class DownloadManager @Inject constructor(
     private val _completionEvents = MutableSharedFlow<DownloadCompletionEvent>()
     val completionEvents: SharedFlow<DownloadCompletionEvent> = _completionEvents.asSharedFlow()
 
-    private val scope = SafeCoroutineScope(Dispatchers.Main, "DownloadManager")
     private val downloadJobs = mutableMapOf<Long, Job>()
 
     init {
@@ -380,7 +402,7 @@ class DownloadManager @Inject constructor(
 
     private suspend fun updateAvailableStorage() {
         val available = getGlobalStorageBytes()
-        _state.value = _state.value.copy(availableStorageBytes = available)
+        _state.update { it.copy(availableStorageBytes = available) }
     }
 
     private suspend fun isInstantDownload(expectedSizeBytes: Long): Boolean {
@@ -396,38 +418,42 @@ class DownloadManager @Inject constructor(
 
         if (plan is StoragePlan.Insufficient) {
             downloadQueueDao.updateState(progress.id, DownloadState.WAITING_FOR_STORAGE.name)
-            _state.value = _state.value.copy(
-                activeDownloads = _state.value.activeDownloads.filter { it.id != progress.id },
-                queue = _state.value.queue.map {
-                    if (it.id == progress.id) {
-                        it.copy(
-                            state = DownloadState.WAITING_FOR_STORAGE,
-                            requiredStorageBytes = plan.requiredBytes
+            _state.update { current ->
+                current.copy(
+                    activeDownloads = current.activeDownloads.filter { it.id != progress.id },
+                    queue = current.queue.map {
+                        if (it.id == progress.id) {
+                            it.copy(
+                                state = DownloadState.WAITING_FOR_STORAGE,
+                                requiredStorageBytes = plan.requiredBytes
+                            )
+                        } else {
+                            it
+                        }
+                    } + if (current.queue.none { it.id == progress.id }) {
+                        listOf(
+                            progress.copy(
+                                state = DownloadState.WAITING_FOR_STORAGE,
+                                requiredStorageBytes = plan.requiredBytes
+                            )
                         )
-                    } else {
-                        it
-                    }
-                } + if (_state.value.queue.none { it.id == progress.id }) {
-                    listOf(
-                        progress.copy(
-                            state = DownloadState.WAITING_FOR_STORAGE,
-                            requiredStorageBytes = plan.requiredBytes
-                        )
-                    )
-                } else emptyList(),
-                availableStorageBytes = availableStorage
-            )
+                    } else emptyList(),
+                    availableStorageBytes = availableStorage
+                )
+            }
             return
         }
 
         soundManager.play(SoundType.DOWNLOAD_START)
 
-        _state.value = _state.value.copy(
-            activeDownloads = _state.value.activeDownloads +
-                progress.copy(state = DownloadState.DOWNLOADING, isAwaitingServer = true),
-            queue = _state.value.queue.filter { it.id != progress.id },
-            availableStorageBytes = availableStorage
-        )
+        _state.update { current ->
+            current.copy(
+                activeDownloads = current.activeDownloads +
+                    progress.copy(state = DownloadState.DOWNLOADING, isAwaitingServer = true),
+                queue = current.queue.filter { it.id != progress.id },
+                availableStorageBytes = availableStorage
+            )
+        }
 
         downloadQueueDao.updateState(progress.id, DownloadState.DOWNLOADING.name)
 
@@ -476,18 +502,23 @@ class DownloadManager @Inject constructor(
         when (result) {
             is DownloadResult.Cancelled -> return
             is DownloadResult.WaitingForStorage -> {
-                _state.value = _state.value.copy(
-                    activeDownloads = _state.value.activeDownloads.filter { it.id != progress.id },
-                    queue = _state.value.queue.filter { it.id != progress.id } + finalProgress,
-                    availableStorageBytes = getAvailableStorageBytes(progress.gameId, progress.platformSlug)
-                )
+                val availableStorage = getAvailableStorageBytes(progress.gameId, progress.platformSlug)
+                _state.update { current ->
+                    current.copy(
+                        activeDownloads = current.activeDownloads.filter { it.id != progress.id },
+                        queue = current.queue.filter { it.id != progress.id } + finalProgress,
+                        availableStorageBytes = availableStorage
+                    )
+                }
                 notifySlotFreed()
             }
             else -> {
-                _state.value = _state.value.copy(
-                    activeDownloads = _state.value.activeDownloads.filter { it.id != progress.id },
-                    completed = _state.value.completed + finalProgress
-                )
+                _state.update { current ->
+                    current.copy(
+                        activeDownloads = current.activeDownloads.filter { it.id != progress.id },
+                        completed = current.completed + finalProgress
+                    )
+                }
                 notifySlotFreed()
                 if (result is DownloadResult.Success) {
                     broadcastDownloadCompleted(progress.gameId)
@@ -797,11 +828,23 @@ class DownloadManager @Inject constructor(
         return File(platformDir, names.first())
     }
 
-    private fun sanitizeFolderName(name: String): String = name
-        .replace(Regex("[\\\\/:*?\"<>|]"), "_")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-        .take(200)
+    private fun sanitizeFolderName(name: String): String = FileNames.gameFolderName(name)
+
+    private suspend fun separateFromOtherOwner(
+        downloadDir: File,
+        platformDir: File,
+        unstaged: Boolean,
+        progress: DownloadProgress
+    ): File {
+        if (!unstaged || downloadDir.absolutePath != platformDir.absolutePath) return downloadDir
+        val shared = File(downloadDir, progress.fileName)
+        if (!shared.exists()) return downloadDir
+        val owner = gameDao.getByPath(shared.absolutePath) ?: return downloadDir
+        if (owner.id == progress.gameId) return downloadDir
+        val own = File(platformDir, sanitizeFolderName(progress.gameTitle)).also { it.mkdirs() }
+        Log.w(TAG, "${shared.name} belongs to game ${owner.id}; downloading game ${progress.gameId} into ${own.name}")
+        return own
+    }
 
     /** Server dir of this file relative to the rom root, or null for root files. */
     /**
@@ -1004,30 +1047,34 @@ class DownloadManager @Inject constructor(
             if (plan is StoragePlan.Insufficient) {
                 Log.d(TAG, "processQueue: ${next.gameTitle} needs ${plan.requiredBytes}, has ${plan.availableBytes}")
                 downloadQueueDao.updateState(next.id, DownloadState.WAITING_FOR_STORAGE.name)
-                _state.value = _state.value.copy(
-                    queue = _state.value.queue.map {
-                        if (it.id == next.id) {
-                            it.copy(
-                                state = DownloadState.WAITING_FOR_STORAGE,
-                                requiredStorageBytes = plan.requiredBytes
-                            )
-                        } else {
-                            it
-                        }
-                    },
-                    availableStorageBytes = availableStorage
-                )
+                _state.update { current ->
+                    current.copy(
+                        queue = current.queue.map {
+                            if (it.id == next.id) {
+                                it.copy(
+                                    state = DownloadState.WAITING_FOR_STORAGE,
+                                    requiredStorageBytes = plan.requiredBytes
+                                )
+                            } else {
+                                it
+                            }
+                        },
+                        availableStorageBytes = availableStorage
+                    )
+                }
                 continue
             }
 
             soundManager.play(SoundType.DOWNLOAD_START)
 
-            _state.value = _state.value.copy(
-                activeDownloads = _state.value.activeDownloads +
-                    next.copy(state = DownloadState.DOWNLOADING, isAwaitingServer = true),
-                queue = _state.value.queue.filter { it.id != next.id },
-                availableStorageBytes = availableStorage
-            )
+            _state.update { current ->
+                current.copy(
+                    activeDownloads = current.activeDownloads +
+                        next.copy(state = DownloadState.DOWNLOADING, isAwaitingServer = true),
+                    queue = current.queue.filter { it.id != next.id },
+                    availableStorageBytes = availableStorage
+                )
+            }
 
             downloadQueueDao.updateState(next.id, DownloadState.DOWNLOADING.name)
 
@@ -1087,8 +1134,9 @@ class DownloadManager @Inject constructor(
                     else -> platformDir
                 }
 
-                val tempFile = File(downloadDir, "${progress.fileName}.tmp")
-                val targetFile = File(downloadDir, progress.fileName)
+                val fileDir = separateFromOtherOwner(downloadDir, platformDir, stagingArea == null, progress)
+                val tempFile = File(fileDir, "${progress.fileName}.tmp")
+                val targetFile = File(fileDir, progress.fileName)
 
                 if (targetFile.exists() && targetFile.length() >= progress.totalBytes && progress.totalBytes > 0) {
                     Log.d(TAG, "Target file already complete (${targetFile.length()} bytes), finalizing")
@@ -1097,9 +1145,6 @@ class DownloadManager @Inject constructor(
 
                 val existingBytes = if (tempFile.exists()) tempFile.length() else 0L
 
-                // Temp file already has all the bytes (e.g., app was killed after download
-                // finished but before the rename). Promote it directly instead of requesting
-                // a Range that the server will reject with 416.
                 if (existingBytes > 0 && progress.totalBytes > 0) {
                     if (existingBytes == progress.totalBytes) {
                         Log.d(TAG, "Temp file matches expected size ($existingBytes bytes), promoting to target")
@@ -1382,11 +1427,13 @@ class DownloadManager @Inject constructor(
             progress.isGameFileDownload && progress.gameFileId != null -> {
                 gameFileDao.updateLocalPath(progress.gameFileId, finalPath, Instant.now())
                 maybeComputeRomHashPrefix(progress.gameFileId, progress.gameId, finalPath)
-                claimLaunchTargetIfBase(progress, finalPath)
+                val isDisc = gameFileDao.getById(progress.gameFileId)
+                    ?.let { m3uManager.recordDiscFile(progress.gameId, it.fileName, finalPath) } == true
+                if (!isDisc) claimLaunchTargetIfBase(progress, finalPath)
             }
             progress.isDiscDownload && progress.discId != null -> {
                 gameDiscDao.updateLocalPath(progress.discId, finalPath)
-                m3uManager.generateM3uIfComplete(progress.gameId)
+                m3uManager.refreshPlaylist(progress.gameId)
             }
             else -> {
                 gameDao.updateLocalPath(progress.gameId, finalPath, GameSource.ROMM_SYNCED, FileOrigin.ROMM_DOWNLOAD)
@@ -1769,10 +1816,6 @@ class DownloadManager @Inject constructor(
                 result
             }
             else -> {
-                // RomM occasionally flags a ROM as hasNestedSingleFile but streams
-                // the nested file's raw bytes without wrapping in a zip container.
-                // Detect that (via content magic) and rename the misleading .zip
-                // extension to the real ROM extension so emulators can open it.
                 val detected = ZipExtractor.detectRomFormatByMagic(targetFile)
                 if (detected != null && !targetFile.extension.equals(detected, ignoreCase = true)) {
                     val renamed = File(targetFile.parentFile, "${targetFile.nameWithoutExtension}.$detected")
@@ -1848,11 +1891,13 @@ class DownloadManager @Inject constructor(
     }
 
     private fun updateProgress(progress: DownloadProgress) {
-        _state.value = _state.value.copy(
-            activeDownloads = _state.value.activeDownloads.map {
-                if (it.id == progress.id) progress else it
-            }
-        )
+        _state.update { current ->
+            current.copy(
+                activeDownloads = current.activeDownloads.map {
+                    if (it.id == progress.id) progress else it
+                }
+            )
+        }
     }
 
     fun pauseDownload(rommId: Long) {
@@ -1866,20 +1911,28 @@ class DownloadManager @Inject constructor(
                 downloadQueueDao.updateProgress(active.id, active.bytesDownloaded)
             }
 
-            _state.value = _state.value.copy(
-                activeDownloads = _state.value.activeDownloads.filter { it.id != active.id },
-                queue = listOf(active.copy(state = DownloadState.PAUSED)) + _state.value.queue
-            )
+            _state.update { current ->
+                current.copy(
+                    activeDownloads = current.activeDownloads.filter { it.id != active.id },
+                    queue = listOf(active.copy(state = DownloadState.PAUSED)) + current.queue
+                )
+            }
             notifySlotFreed()
         } else {
-            _state.value = _state.value.copy(
-                queue = _state.value.queue.map {
-                    if (it.rommId == rommId && it.state == DownloadState.QUEUED) {
-                        scope.launch { downloadQueueDao.updateState(it.id, DownloadState.PAUSED.name) }
-                        it.copy(state = DownloadState.PAUSED)
-                    } else it
-                }
-            )
+            val pausedIds = _state.value.queue
+                .filter { it.rommId == rommId && it.state == DownloadState.QUEUED }
+                .map { it.id }
+                .toSet()
+            pausedIds.forEach { id ->
+                scope.launch { downloadQueueDao.updateState(id, DownloadState.PAUSED.name) }
+            }
+            _state.update { current ->
+                current.copy(
+                    queue = current.queue.map {
+                        if (it.id in pausedIds) it.copy(state = DownloadState.PAUSED) else it
+                    }
+                )
+            }
         }
     }
 
@@ -1892,10 +1945,12 @@ class DownloadManager @Inject constructor(
                 downloadQueueDao.updateState(paused.id, DownloadState.QUEUED.name)
             }
 
-            _state.value = _state.value.copy(
-                queue = listOf(paused.copy(state = DownloadState.QUEUED)) +
-                        _state.value.queue.filter { it.gameId != gameId }
-            )
+            _state.update { current ->
+                current.copy(
+                    queue = listOf(paused.copy(state = DownloadState.QUEUED)) +
+                            current.queue.filter { it.gameId != gameId }
+                )
+            }
 
             scope.launch { processQueue() }
         }
@@ -1970,9 +2025,11 @@ class DownloadManager @Inject constructor(
                 }
                 discardStagingFor(active.id)
             }
-            _state.value = _state.value.copy(
-                activeDownloads = _state.value.activeDownloads.filter { it.id != active.id }
-            )
+            _state.update { current ->
+                current.copy(
+                    activeDownloads = current.activeDownloads.filter { it.id != active.id }
+                )
+            }
             notifySlotFreed()
         } else {
             val queued = _state.value.queue.find { it.rommId == rommId }
@@ -1986,9 +2043,11 @@ class DownloadManager @Inject constructor(
                     }
                     discardStagingFor(queued.id)
                 }
-                _state.value = _state.value.copy(
-                    queue = _state.value.queue.filter { it.rommId != rommId }
-                )
+                _state.update { current ->
+                    current.copy(
+                        queue = current.queue.filter { it.rommId != rommId }
+                    )
+                }
             }
         }
     }
@@ -1997,23 +2056,25 @@ class DownloadManager @Inject constructor(
         scope.launch {
             downloadQueueDao.clearCompleted()
         }
-        _state.value = _state.value.copy(completed = emptyList())
+        _state.update { it.copy(completed = emptyList()) }
     }
 
     fun clearFinished() {
         scope.launch {
             downloadQueueDao.clearFinished()
         }
-        _state.value = _state.value.copy(completed = emptyList())
+        _state.update { it.copy(completed = emptyList()) }
     }
 
     fun removeFromCompleted(downloadId: Long) {
         scope.launch {
             downloadQueueDao.deleteById(downloadId)
         }
-        _state.value = _state.value.copy(
-            completed = _state.value.completed.filter { it.id != downloadId }
-        )
+        _state.update { current ->
+            current.copy(
+                completed = current.completed.filter { it.id != downloadId }
+            )
+        }
     }
 
     fun retryDownload(downloadId: Long) {
@@ -2022,9 +2083,11 @@ class DownloadManager @Inject constructor(
         scope.launch {
             downloadQueueDao.deleteById(downloadId)
 
-            _state.value = _state.value.copy(
-                completed = _state.value.completed.filter { it.id != downloadId }
-            )
+            _state.update { current ->
+                current.copy(
+                    completed = current.completed.filter { it.id != downloadId }
+                )
+            }
 
             requeueFailed(item)
         }
@@ -2123,10 +2186,12 @@ class DownloadManager @Inject constructor(
             when {
                 discId != null -> {
                     gameDiscDao.updateLocalPath(discId, finalPath)
-                    m3uManager.generateM3uIfComplete(gameId)
+                    m3uManager.refreshPlaylist(gameId)
                 }
                 queueEntry.gameFileId != null -> {
                     gameFileDao.updateLocalPath(queueEntry.gameFileId, finalPath, Instant.now())
+                    gameFileDao.getById(queueEntry.gameFileId)
+                        ?.let { m3uManager.recordDiscFile(gameId, it.fileName, finalPath) }
                 }
                 else -> {
                     gameDao.updateLocalPath(gameId, finalPath, GameSource.ROMM_SYNCED, FileOrigin.ROMM_DOWNLOAD)

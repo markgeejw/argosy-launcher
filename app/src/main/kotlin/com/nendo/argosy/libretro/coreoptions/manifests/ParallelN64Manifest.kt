@@ -216,11 +216,11 @@ object ParallelN64Manifest : CoreOptionManifest {
             description = "Smooths out dithering patterns in the final video output"
         ),
         CoreOptionDef(
-            key = "parallel-n64-parallel-rdp-upscaling",
-            displayName = "(ParaLLEl-RDP) Upscaling factor",
+            key = "parallel-n64-upscaling",
+            displayName = "Upscaling Factor",
             values = listOf("1x", "2x", "4x", "8x"),
             defaultValue = "1x",
-            description = "Increases the internal 3D rendering resolution"
+            description = "Internal resolution for the ParaLLEl and Angrylion renderers; Angrylion stops at 4x"
         ),
         CoreOptionDef(
             key = "parallel-n64-parallel-rdp-downscaling",

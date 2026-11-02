@@ -6,6 +6,7 @@
     <string name="sync_prelaunch_connecting">Подключение...</string>
     <string name="sync_prelaunch_connected">Подключено</string>
     <string name="sync_prelaunch_connect_failed">Ошибка подключения</string>
+    <string name="sync_prelaunch_timed_out">Сервер слишком долго не отвечал</string>
     <string name="sync_prelaunch_downloading">Загрузка...</string>
     <string name="sync_prelaunch_download_complete">Загрузка завершена</string>
     <string name="sync_prelaunch_download_failed">Ошибка загрузки</string>
@@ -54,12 +55,10 @@
     <string name="sync_service_saves">Синхронизация сохранений...</string>
     <string name="steam_service_connecting">Подключение...</string>
     <string name="steam_service_signing_in">Вход...</string>
-    <string name="steam_service_syncing_library">Синхронизация библиотеки Steam...</string>
 
     <string name="sync_download_channel_name">Прогресс загрузки</string>
     <string name="sync_download_channel_description">Показывает прогресс загрузки в фоне</string>
     <string name="sync_download_service_preparing">Подготовка загрузки...</string>
-    <string name="sync_download_service_steam_downloading">Загрузка: %1$s</string>
     <string name="sync_download_service_extracting">Распаковка: %1$s</string>
     <string name="sync_download_service_moving">Перемещение в хранилище ROM: %1$s</string>
     <string name="sync_download_service_downloading">Загрузка: %1$s</string>
@@ -147,10 +146,6 @@
     <string name="sync_steam_rate_limited_subtitle">Превышен лимит входов. Повторите через час</string>
     <string name="sync_steam_auth_expired_title">Сессия Steam истекла</string>
     <string name="sync_steam_auth_expired_subtitle">Войдите снова через Настройки &gt; Steam</string>
-    <string name="sync_steam_download_signed_out_title">Сессия Steam истекла</string>
-    <string name="sync_steam_download_signed_out_subtitle">Войдите через Настройки &gt; Steam, чтобы скачать</string>
-    <string name="sync_steam_path_blocked_title">Не удалось скачать %1$s</string>
-    <string name="sync_steam_storage_blocked_title">Не удалось скачать %1$s</string>
 
     <string name="sync_steam_qr_rate_limited">Превышен лимит. Повторите позже</string>
     <string name="sync_steam_qr_login_failed">Ошибка входа: %1$s</string>

@@ -12,9 +12,6 @@ import com.nendo.argosy.data.launcher.GameNativeStoreSync
 import com.nendo.argosy.data.launcher.GameNativeSyncFolder
 import com.nendo.argosy.data.launcher.SteamLaunchers
 import com.nendo.argosy.data.launcher.StoreScanResult
-import com.nendo.argosy.data.preferences.UserPreferencesRepository
-import com.nendo.argosy.data.repository.GameRepository
-import com.nendo.argosy.data.repository.PlatformRepository
 import com.nendo.argosy.data.repository.SteamIgdbResolver
 import com.nendo.argosy.data.remote.github.EmulatorUpdateRepository
 import com.nendo.argosy.data.remote.github.FetchReleaseResult
@@ -23,7 +20,6 @@ import com.nendo.argosy.data.repository.SteamResult
 import com.nendo.argosy.data.steam.LibrarySyncState
 import com.nendo.argosy.data.steam.QrAuthState
 import com.nendo.argosy.data.steam.SteamAuthManager
-import com.nendo.argosy.data.steam.SteamContentManager
 import com.nendo.argosy.data.steam.SteamConnectionState
 import com.nendo.argosy.data.steam.SteamLibraryManager
 import com.nendo.argosy.data.steam.SteamPathResolver
@@ -57,21 +53,18 @@ import javax.inject.Inject
 
 private const val GN_PACKAGE = "app.gamenative"
 private const val QR_CONNECT_TIMEOUT_MS = 75_000L
+internal const val REFRESH_SYNC_KEY = "refresh"
 
 class SteamSettingsDelegate @Inject constructor(
     private val steamRepository: SteamRepository,
     private val steamAuthManager: SteamAuthManager,
     private val steamLibraryManager: SteamLibraryManager,
-    private val steamContentManager: SteamContentManager,
     private val androidDataAccessor: AndroidDataAccessor,
     private val notificationManager: NotificationManager,
     private val emulatorDownloadManager: EmulatorDownloadManager,
     private val emulatorUpdateRepository: EmulatorUpdateRepository,
     private val steamIgdbResolver: SteamIgdbResolver,
-    private val preferencesRepository: UserPreferencesRepository,
     private val steamPathResolver: SteamPathResolver,
-    private val gameRepository: GameRepository,
-    private val platformRepository: PlatformRepository,
     private val storagePrefs: com.nendo.argosy.data.preferences.StoragePreferencesRepository,
     private val gameNativeStoreSync: GameNativeStoreSync
 ) {
@@ -274,33 +267,44 @@ class SteamSettingsDelegate @Inject constructor(
         }
     }
 
+    suspend fun refreshLauncherAvailability(context: Context) = withContext(Dispatchers.IO) {
+        val gnInstalled = isGnInstalled(context)
+        val installed = SteamLaunchers.getInstalled(context)
+        val installedRegistryIds = installed.mapNotNull { it.registryId }.toSet()
+        val installedLaunchers = installed.map { launcher ->
+            InstalledSteamLauncher(
+                packageName = launcher.packageName,
+                displayName = launcher.displayName,
+                gameCount = 0,
+                scanMayIncludeUninstalled = launcher.scanMayIncludeUninstalled
+            )
+        }
+        val installedPackages = installedLaunchers.map { it.packageName }.toSet()
+        val notInstalledLaunchers = EmulatorRegistry.getForPlatform("steam")
+            .filter { it.packageName !in installedPackages && it.id !in installedRegistryIds }
+            .map { def ->
+                NotInstalledSteamLauncher(
+                    emulatorId = def.id,
+                    displayName = def.displayName,
+                    hasDirectDownload = def.releaseSource != null
+                )
+            }
+        _state.update {
+            it.copy(
+                gnInstalled = gnInstalled,
+                installedLaunchers = installedLaunchers,
+                notInstalledLaunchers = notInstalledLaunchers
+            )
+        }
+    }
+
     fun loadSteamSettings(context: Context, scope: CoroutineScope) {
         bindScope = scope
         scope.launch {
-            val gnInstalled = isGnInstalled(context)
+            refreshLauncherAvailability(context)
             val gnStoragePath = withContext(Dispatchers.IO) { steamPathResolver.findGnStoragePath() }
             val hasPermission = StorageAccess.isGranted(context)
 
-            val installedLaunchers = SteamLaunchers.getInstalled(context).map { launcher ->
-                InstalledSteamLauncher(
-                    packageName = launcher.packageName,
-                    displayName = launcher.displayName,
-                    gameCount = 0,
-                    scanMayIncludeUninstalled = launcher.scanMayIncludeUninstalled
-                )
-            }
-            val installedPackages = installedLaunchers.map { it.packageName }.toSet()
-            val notInstalledLaunchers = EmulatorRegistry.getForPlatform("steam")
-                .filter { it.packageName !in installedPackages }
-                .map { def ->
-                    NotInstalledSteamLauncher(
-                        emulatorId = def.id,
-                        displayName = def.displayName,
-                        hasDirectDownload = def.releaseSource != null
-                    )
-                }
-
-            val prefs = preferencesRepository.userPreferences.first()
             val storeSyncDirs = withContext(Dispatchers.IO) {
                 storagePrefs.migrateLegacyGameNativeSyncDir()
                 storagePrefs.preferences.first().gameNativeSyncDirs
@@ -308,26 +312,11 @@ class SteamSettingsDelegate @Inject constructor(
             val missingSyncDirs = withContext(Dispatchers.IO) {
                 storeSyncDirs.filterValues { !File(it).isDirectory }.keys
             }
-            val volumes = withContext(Dispatchers.IO) { steamPathResolver.getAvailableVolumes() }
-            val installedByVolume = withContext(Dispatchers.IO) { loadInstalledSteamSummary(volumes, context) }
-            val resolvedSteamPath = withContext(Dispatchers.IO) { steamPathResolver.getResolvedSteamBase() }
-            val steamPlatform = withContext(Dispatchers.IO) {
-                platformRepository.getById(com.nendo.argosy.data.platform.LocalPlatformIds.STEAM)
-            }
-            val customRomPath = steamPlatform?.customRomPath
 
             _state.update {
                 it.copy(
-                    gnInstalled = gnInstalled,
                     gnStoragePath = gnStoragePath,
                     hasStoragePermission = hasPermission,
-                    installedLaunchers = installedLaunchers,
-                    notInstalledLaunchers = notInstalledLaunchers,
-                    steamInstallVolume = prefs.steamInstallVolume,
-                    availableVolumes = volumes,
-                    installedGamesByVolume = installedByVolume,
-                    steamInstallPath = resolvedSteamPath,
-                    steamInstallPathIsCustom = !customRomPath.isNullOrBlank(),
                     gameNativeSyncDirs = storeSyncDirs,
                     gameNativeMissingDirs = missingSyncDirs,
                     gameNativeActionIndex = if (storeSyncDirs.isEmpty()) 0 else it.gameNativeActionIndex
@@ -346,41 +335,8 @@ class SteamSettingsDelegate @Inject constructor(
                 }
             }
 
-            if (gnStoragePath != null) {
-                withContext(Dispatchers.IO) { steamContentManager.discoverLocalSteamGames() }
-            }
-
             if (!bound) {
                 tryBindService(context)
-            }
-        }
-    }
-
-    fun cycleSteamInstallVolume(scope: CoroutineScope, direction: Int = 1) {
-        val current = _state.value.steamInstallVolume
-        val values = listOf<String?>(null) + _state.value.availableVolumes.map { it.target.toPreferenceValue() }
-        if (values.size <= 1) return
-
-        val currentIndex = values.indexOf(current).coerceAtLeast(0)
-        val step = if (direction >= 0) 1 else -1
-        val nextIndex = ((currentIndex + step) % values.size + values.size) % values.size
-        val nextVolume = values[nextIndex]
-
-        scope.launch {
-            val active = steamContentManager.hasActiveSteamDownload()
-            val queued = steamContentManager.downloadQueue.value.size
-            preferencesRepository.setSteamInstallVolume(nextVolume)
-            _state.update { it.copy(steamInstallVolume = nextVolume) }
-            val inFlight = (if (active) 1 else 0) + queued
-            if (inFlight > 0) {
-                notificationManager.show(
-                    title = NotificationText.Res(R.string.notif_steam_settings_install_path_changed_title),
-                    subtitle = NotificationText.Plural(
-                        R.plurals.notif_steam_settings_install_path_changed_subtitle,
-                        inFlight,
-                        listOf(inFlight)
-                    )
-                )
             }
         }
     }
@@ -441,6 +397,53 @@ class SteamSettingsDelegate @Inject constructor(
         }
     }
 
+    fun moveVariantFocus(delta: Int) {
+        _state.update { state ->
+            val info = state.variantPickerInfo ?: return@update state
+            val maxIndex = (info.variants.size - 1).coerceAtLeast(0)
+            state.copy(variantPickerFocusIndex = (state.variantPickerFocusIndex + delta).coerceIn(0, maxIndex))
+        }
+    }
+
+    fun dismissVariantPicker() {
+        _state.update { it.copy(variantPickerInfo = null, variantPickerFocusIndex = 0) }
+    }
+
+    fun selectVariantAt(index: Int) {
+        _state.update { it.copy(variantPickerFocusIndex = index) }
+        confirmVariant()
+    }
+
+    fun confirmVariant() {
+        val state = _state.value
+        val info = state.variantPickerInfo ?: return
+        val variant = info.variants.getOrNull(state.variantPickerFocusIndex) ?: return
+        dismissVariantPicker()
+        _state.update { it.copy(downloadingLauncherId = info.emulatorId, downloadProgress = 0f) }
+        emulatorDownloadManager.downloadAndInstall(
+            emulatorId = info.emulatorId,
+            downloadUrl = variant.downloadUrl,
+            assetName = variant.assetName,
+            variant = variant.variant
+        )
+    }
+
+    fun refreshMetadata(scope: CoroutineScope) {
+        if (_state.value.isSyncing) return
+        _state.update { it.copy(isSyncing = true, syncingLauncher = REFRESH_SYNC_KEY) }
+        scope.launch {
+            when (val result = steamRepository.refreshAllMetadata()) {
+                is SteamResult.Success -> notificationManager.show(
+                    NotificationText.Res(R.string.notif_steam_settings_metadata_refreshed, listOf(result.data))
+                )
+                is SteamResult.Error -> notificationManager.showError(
+                    NotificationText.Res(R.string.notif_steam_settings_metadata_refresh_failed, listOf(result.message))
+                )
+            }
+            _state.update { it.copy(isSyncing = false, syncingLauncher = null) }
+        }
+    }
+
     private var pendingQrAuth = false
     private var sawQrConnectAttempt = false
     private var qrConnectFailure: String? = null
@@ -458,9 +461,6 @@ class SteamSettingsDelegate @Inject constructor(
             delay(QR_CONNECT_TIMEOUT_MS)
             if (pendingQrAuth) failQrConnect()
         }
-        // Optimistically move to CONNECTING so the UI shows a spinner
-        // immediately rather than flickering back to the connect button
-        // while the service starts up.
         _state.update {
             it.copy(
                 connectionState = SteamConnectionState.CONNECTING,
@@ -489,11 +489,6 @@ class SteamSettingsDelegate @Inject constructor(
     }
 
     fun startQrAuth() {
-        // If connectToSteam was called, pendingQrAuth is already set and
-        // observeServiceState will trigger startQrAuth once the client is
-        // CONNECTED.  Calling steamAuthManager.startQrAuth() before the
-        // client exists produces QrAuthState.Error which flashes the error
-        // screen during a normal connect flow.
         if (pendingQrAuth) return
         steamAuthManager.startQrAuth()
     }
@@ -588,14 +583,8 @@ class SteamSettingsDelegate @Inject constructor(
 
     fun disconnectSteam(context: Context, scope: CoroutineScope) {
         scope.launch {
-            if (steamContentManager.hasActiveSteamDownload()) {
-                steamContentManager.cancelDownload()
-            }
-            for (queued in steamContentManager.downloadQueue.value) {
-                steamContentManager.cancelQueuedDownload(queued.appId)
-            }
-            serviceRef?.disconnect()
             steamAuthManager.logout()
+            serviceRef?.disconnect()
             unbindService(context)
             context.stopService(Intent(context, SteamService::class.java))
             _state.update {
@@ -616,11 +605,12 @@ class SteamSettingsDelegate @Inject constructor(
         }
     }
 
-    fun showAddSteamGameDialog() {
+    fun showAddSteamGameDialog(launcherPackage: String?) {
         _state.update {
             it.copy(
                 showAddGameDialog = true,
                 addGameAppId = "",
+                addGameLauncherPackage = launcherPackage,
                 addGameError = null,
                 isAddingGame = false
             )
@@ -632,6 +622,7 @@ class SteamSettingsDelegate @Inject constructor(
             it.copy(
                 showAddGameDialog = false,
                 addGameAppId = "",
+                addGameLauncherPackage = null,
                 addGameError = null,
                 isAddingGame = false
             )
@@ -643,17 +634,14 @@ class SteamSettingsDelegate @Inject constructor(
     }
 
     /**
-     * Adds a Steam game by App ID under a specific managing launcher. Called from each
-     * per-launcher Settings section so the resulting GameEntity is linked to that
-     * launcher (e.g. GameNative's section passes GameNativeLauncher.packageName). The
-     * launcher string is stored in GameEntity.steamLauncher and drives the launch
-     * intent as well as the Unlink-from-X affordance.
+     * Adds a Steam game by App ID under the launcher whose section opened the dialog, or
+     * GameNative when it was opened from the general Add row. The launcher is stored in
+     * GameEntity.steamLauncher and drives the launch intent as well as the Unlink-from-X
+     * affordance.
      */
-    fun confirmAddSteamGame(
-        context: Context,
-        scope: CoroutineScope,
-        launcherPackage: String = com.nendo.argosy.data.launcher.GameNativeLauncher.packageName
-    ) {
+    fun confirmAddSteamGame(context: Context, scope: CoroutineScope) {
+        val launcherPackage = _state.value.addGameLauncherPackage
+            ?: com.nendo.argosy.data.launcher.GameNativeLauncher.packageName
         val appIdStr = _state.value.addGameAppId.trim()
         val appId = appIdStr.toLongOrNull()
 
@@ -717,10 +705,6 @@ class SteamSettingsDelegate @Inject constructor(
                     return@collect
                 }
                 _state.update {
-                    // Suppress connection state changes that would flash the login screen:
-                    // 1. During QR auth flow (old client teardown)
-                    // 2. When we have a saved account and service is still connecting
-                    // 3. During sync-initiated reconnect (hold LOGGED_IN until complete)
                     val suppressState = pendingQrAuth || pendingSync ||
                         (serviceState.connectionState == SteamConnectionState.DISCONNECTED &&
                             it.connectionState == SteamConnectionState.LOGGED_IN)
@@ -795,23 +779,6 @@ class SteamSettingsDelegate @Inject constructor(
                 }
             }
         }
-    }
-
-    private suspend fun loadInstalledSteamSummary(
-        volumes: List<com.nendo.argosy.data.steam.SteamInstallVolume>,
-        context: Context
-    ): Map<String, Int> {
-        val games = gameRepository.getInstalledSteamGames()
-        if (games.isEmpty()) return emptyMap()
-        val buckets = linkedMapOf<String, Int>()
-        val volumesByPath = volumes.sortedByDescending { it.path.length }
-        val otherLabel = context.getString(R.string.settings_steam_delegate_volume_other_label)
-        for (game in games) {
-            val path = game.localPath ?: continue
-            val label = volumesByPath.firstOrNull { path.startsWith(it.path) }?.label ?: otherLabel
-            buckets[label] = (buckets[label] ?: 0) + 1
-        }
-        return buckets
     }
 
     private fun isGnInstalled(context: Context): Boolean {

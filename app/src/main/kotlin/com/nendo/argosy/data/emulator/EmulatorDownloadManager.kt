@@ -90,14 +90,26 @@ class EmulatorDownloadManager @Inject constructor(
                 )
 
                 val apkFile = downloadApk(emulatorId, downloadUrl, assetName)
+                val archivePackage = apkFile?.let { apkArchivePackageName(context, it) }
+                val emulatorDef = EmulatorRegistry.getById(emulatorId)
 
-                if (apkFile != null && apkFile.exists()) {
+                if (apkFile != null && archivePackage != null &&
+                    !belongsToEmulator(emulatorDef, archivePackage)
+                ) {
+                    Log.e(TAG, "Refusing $assetName: package $archivePackage is not $emulatorId")
+                    apkFile.delete()
+                    _downloadProgress.value = EmulatorDownloadProgress(
+                        emulatorId = emulatorId,
+                        state = EmulatorDownloadState.Failed("Download failed"),
+                        variant = variant
+                    )
+                    scheduleErrorDismissal()
+                } else if (apkFile != null && archivePackage != null) {
                     pendingInstall = PendingEmulatorInstall(
                         emulatorId = emulatorId,
                         apkPath = apkFile.absolutePath,
                         variant = variant,
-                        packageName = apkArchivePackageName(context, apkFile)
-                            ?: EmulatorRegistry.getById(emulatorId)?.packageName
+                        packageName = archivePackage
                     )
 
                     _downloadProgress.value = EmulatorDownloadProgress(
@@ -112,6 +124,7 @@ class EmulatorDownloadManager @Inject constructor(
                         appInstaller.installApk(context, apkFile)
                     }
                 } else {
+                    apkFile?.delete()
                     _downloadProgress.value = EmulatorDownloadProgress(
                         emulatorId = emulatorId,
                         state = EmulatorDownloadState.Failed("Download failed"),
@@ -139,6 +152,7 @@ class EmulatorDownloadManager @Inject constructor(
         val cacheDir = File(context.cacheDir, "emulator_apks")
         cacheDir.mkdirs()
         val apkFile = File(cacheDir, FileNames.sanitize(assetName))
+        val partFile = File(cacheDir, apkFile.name + ".part")
 
         try {
             val request = Request.Builder()
@@ -157,7 +171,7 @@ class EmulatorDownloadManager @Inject constructor(
             val contentLength = body.contentLength()
             var bytesRead = 0L
 
-            FileOutputStream(apkFile).use { output ->
+            FileOutputStream(partFile).use { output ->
                 body.byteStream().use { input ->
                     val buffer = ByteArray(BUFFER_SIZE)
                     var read: Int
@@ -178,24 +192,37 @@ class EmulatorDownloadManager @Inject constructor(
                 }
             }
 
+            if (contentLength > 0 && bytesRead != contentLength) {
+                Log.e(TAG, "Truncated download: $bytesRead of $contentLength bytes")
+                partFile.delete()
+                return@withContext null
+            }
+            apkFile.delete()
+            if (!partFile.renameTo(apkFile)) {
+                partFile.delete()
+                return@withContext null
+            }
             Log.d(TAG, "Downloaded $bytesRead bytes to ${apkFile.absolutePath}")
             attributionRepository.markDirty(StorageCategory.EMULATOR_APKS)
             apkFile
         } catch (e: Exception) {
             Log.e(TAG, "Download exception", e)
-            apkFile.delete()
+            partFile.delete()
             null
         }
     }
+
+    private fun belongsToEmulator(def: EmulatorDef?, packageName: String): Boolean =
+        def != null && (
+            def.packageName == packageName ||
+                def.packagePatterns.any { packageName.matches(Regex(it)) }
+            )
 
     private fun handlePackageInstalled(packageName: String) {
         val pending = pendingInstall ?: return
 
         val emulatorDef = EmulatorRegistry.getById(pending.emulatorId)
-        val matchesPending = pending.packageName == packageName
-        val matchesDef = emulatorDef?.packageName == packageName ||
-            emulatorDef?.packagePatterns?.any { packageName.matches(Regex(it)) } == true
-        if (!matchesPending && !matchesDef) return
+        if (pending.packageName != packageName && !belongsToEmulator(emulatorDef, packageName)) return
 
         scope.launch {
             try {

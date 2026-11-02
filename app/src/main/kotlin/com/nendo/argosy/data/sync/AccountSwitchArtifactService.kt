@@ -12,6 +12,7 @@ import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.data.storage.FileAccessLayer
 import com.nendo.argosy.data.sync.platform.PlatformSaveHandlerRegistry
 import com.nendo.argosy.data.sync.platform.SaveContext
+import com.nendo.argosy.data.sync.platform.SigilSaveHandler
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -343,7 +344,9 @@ class AccountSwitchArtifactService @Inject constructor(
             localSavePath = row.savePath,
             coreName = saveSyncRepository.resolveCoreForGame(game.id)
         )
-        return handler.sourcePathsFor(row.savePath, context).ifEmpty { listOf(row.savePath) }
+        val paths = handler.sourcePathsFor(row.savePath, context)
+        if (handler is SigilSaveHandler) return paths
+        return paths.ifEmpty { listOf(row.savePath) }
     }
 
     private suspend fun resolveTargetPath(game: GameEntity, emulatorId: String): String? {
@@ -365,7 +368,8 @@ class AccountSwitchArtifactService @Inject constructor(
             romPath = game.localPath,
             coreName = coreName,
             cachedSaveId = game.saveId ?: game.titleId,
-            gameId = game.id
+            gameId = game.id,
+            emulatorPackage = emulatorPackage
         )
     }
 

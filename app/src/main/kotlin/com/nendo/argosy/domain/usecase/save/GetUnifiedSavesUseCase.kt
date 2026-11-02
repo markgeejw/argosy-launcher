@@ -7,15 +7,17 @@ import com.nendo.argosy.data.remote.romm.RomMSave
 import com.nendo.argosy.data.repository.SaveCacheManager
 import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.data.repository.SaveSyncApiClient.Companion.equalsNormalized
+import com.nendo.argosy.data.repository.SaveInventoryUnavailableException
 import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.domain.model.UnifiedSaveEntry
+import com.nendo.argosy.util.Logger
 import java.io.File
 import java.time.Instant
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 private const val LATEST_SLOT_KEY = "__latest__"
+
+private const val TAG = "GetUnifiedSaves"
 
 class GetUnifiedSavesUseCase @Inject constructor(
     private val saveCacheManager: SaveCacheManager,
@@ -42,7 +44,12 @@ class GetUnifiedSavesUseCase @Inject constructor(
         val romBaseName = game?.localPath?.let { File(it).nameWithoutExtension }
 
         val serverSaves = if (rommId != null && includeServer) {
-            saveSyncRepository.checkSavesForGame(gameId, rommId)
+            try {
+                saveSyncRepository.checkSavesForGame(gameId, rommId)
+            } catch (e: SaveInventoryUnavailableException) {
+                Logger.warn(TAG, "Server saves unavailable for gameId=$gameId, showing local saves: ${e.message}")
+                emptyList()
+            }
         } else {
             emptyList()
         }
@@ -130,13 +137,11 @@ class GetUnifiedSavesUseCase @Inject constructor(
             .mapNotNull { it.slot?.takeIf { s -> s.isNotBlank() } }
             .toSet()
 
-        // Find the most recent cache for each channel (only these should match server saves by name)
         val mostRecentByChannel = localCaches
             .filter { it.channelName != null }
             .groupBy { it.channelName }
             .mapValues { (_, caches) -> caches.maxByOrNull { it.cachedAt }?.id }
 
-        // Find the most recent non-channel cache (for "Latest" matching)
         val mostRecentNonChannel = localCaches
             .filter { it.channelName == null }
             .maxByOrNull { it.cachedAt }?.id
@@ -149,7 +154,6 @@ class GetUnifiedSavesUseCase @Inject constructor(
                 mostRecentNonChannel == cache.id
             }
 
-            // Direct match by rommSaveId takes priority over name-based matching
             val matchingServer = if (cache.rommSaveId != null) {
                 serverSaveById[cache.rommSaveId]
             } else if (isMostRecentForChannel) {
@@ -189,7 +193,8 @@ class GetUnifiedSavesUseCase @Inject constructor(
                         isRollback = cache.isRollback,
                         isUserCreatedSlot = !localIsArchival && cache.isLocked,
                         isCurrent = deviceSyncCurrent ?: false,
-                        isArchival = localIsArchival
+                        isArchival = localIsArchival,
+                        localCopyUploaded = cache.rommSaveId != null
                     )
                 )
             } else {
@@ -308,17 +313,8 @@ class GetUnifiedSavesUseCase @Inject constructor(
         return latest + sortedDated + sortedChannels
     }
 
-    private fun parseServerTimestamp(timestamp: String): Instant? {
-        return try {
-            ZonedDateTime.parse(timestamp, DateTimeFormatter.ISO_DATE_TIME).toInstant()
-        } catch (_: Exception) {
-            try {
-                Instant.parse(timestamp)
-            } catch (_: Exception) {
-                null
-            }
-        }
-    }
+    private fun parseServerTimestamp(timestamp: String): Instant? =
+        com.nendo.argosy.data.repository.SaveSyncApiClient.parseTimestampOrNull(timestamp)
 
 }
 
@@ -342,10 +338,6 @@ fun resolveActiveEntry(
     val candidates = entries.filterNot { it.isArchival || it.isRollback }.ifEmpty { entries }
     val namedChannel = SaveSyncApiClient.namedChannelOrNull(activeChannel)
     if (namedChannel != null) {
-        // A named channel is an exact coordinate: an empty channel means no active save, not
-        // "whatever is newest". Falling through would disagree with SaveStateManager, which
-        // restores strictly within the channel and finds nothing here -- that mismatch can launch
-        // in hardcore off another channel's save while no save is actually loaded.
         return candidates
             .filter { it.channelName != null && equalsNormalized(it.channelName, namedChannel) }
             .maxByOrNull { it.timestamp }

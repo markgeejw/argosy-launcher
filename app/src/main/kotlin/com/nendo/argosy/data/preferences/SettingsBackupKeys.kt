@@ -7,52 +7,8 @@ data class SettingsBackupKey(val name: String, val type: SettingsBackupType)
 /**
  * Which DataStore keys a settings backup carries.
  *
- * Membership is opt-in and by name. A key absent from [EXPORTED] is not exported and is ignored on
- * import, so a setting added elsewhere and never classified here simply does not travel. That is
- * the failure worth having: a forgotten key costs a user one trip back through a settings screen,
- * where a forgotten key on a denylist would ship in every backup file until somebody noticed.
- *
- * Every key the app declares today has been classified. The groups below are the reasons a key is
- * held out, described by what they are rather than by listing their members, because the list is
- * what goes stale. A key answering to any of these descriptions does not belong in [EXPORTED] even
- * when it sits beside one that does.
- *
- * - Credentials and identity. Tokens, session tokens, account and user ids, device ids, install
- *   key aliases, server addresses. A backup file is meant to be readable, moved between devices
- *   and pasted into a bug report. An identity that copies is cloned rather than restored, and the
- *   install-scoped keys are identity even though none of them reads as a password.
- * - Presence, sharing and service-account preferences. What the device tells other people about
- *   what is being played or watched, the notifications that ride on a friends list, and the
- *   toggles that only mean anything while signed into a service this file deliberately does not
- *   sign you into. A backup is shareable, and applying someone else's should never quietly change
- *   what your device broadcasts.
- * - Sync watermarks and resume state. These record work already done against one library on one
- *   device. Importing one tells a fresh install it has already synced, and the work it skips is
- *   the work it has never done.
- * - One-shot device migrations, first-run and version markers. They gate work that must run
- *   exactly once per device. Marking one done skips a migration the target still needs; clearing
- *   one re-runs a migration already applied, and some of those delete rows.
- * - Live session state. It describes a session belonging to another device, and a restore that
- *   claims a session is in progress leaves the target reconciling against nothing.
- * - Save and state safety gates. The switches that decide whether saves and states sync, are
- *   watched, are isolated, or are checked for integrity. Every one of them fails quietly when
- *   wrong: an imported "off" stops protecting data without saying so, and the cost of setting it
- *   by hand is one toggle.
- * - Filesystem locations. Not secret, and among the things users most want carried, but a path
- *   that does not exist on the target is worse than an unset one, and the save and state paths
- *   feed resolvers where a wrong answer misplaces files rather than failing. These need per-key
- *   verification on import rather than a blanket copy.
- * - Hardware and unit description. Display roles, dual-screen arrangement, ambient LED, the
- *   screen dimmer, scaling tied to the panel, architecture overrides, bound controller ids. These
- *   describe the device in hand, not the person holding it, and the same values on other hardware
- *   are wrong rather than merely unhelpful.
- * - Derived caches and generated state. Recommendations, penalties, storage snapshots, search
- *   history, cached counters. All of it rebuilds from the library, and an imported copy describes
- *   another device's library until it does.
- * - Pointers into a local library. Anything holding a row id. Local ids are per-install, so the
- *   same number names a different row on the target.
- * - Diagnostics and debug switches. File logging and its verbosity, save-path debug tracing.
- *   They describe one investigation on one device and are meant to be turned on deliberately.
+ * A key absent from [EXPORTED] is neither exported nor imported. SettingsBackupKeysTest records
+ * each excluded key under the group that keeps it out.
  */
 object SettingsBackupKeys {
 
@@ -134,6 +90,7 @@ object SettingsBackupKeys {
         SettingsBackupKey("library_default_platform", SettingsBackupType.STRING),
         SettingsBackupKey("library_default_players", SettingsBackupType.STRING),
         SettingsBackupKey("library_layout", SettingsBackupType.STRING),
+        SettingsBackupKey("library_list_style", SettingsBackupType.STRING),
         SettingsBackupKey("library_default_sort", SettingsBackupType.STRING),
         SettingsBackupKey("library_default_sort_desc", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("library_default_source", SettingsBackupType.STRING),
@@ -177,9 +134,11 @@ object SettingsBackupKeys {
         SettingsBackupKey("select_swap_mode", SettingsBackupType.STRING),
         SettingsBackupKey("open_navigation_key", SettingsBackupType.INT),
         SettingsBackupKey("open_quick_panel_key", SettingsBackupType.INT),
+        SettingsBackupKey("quick_panel_in_emulators", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("nav_ring_routes", SettingsBackupType.STRING),
         SettingsBackupKey("quick_navigation", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("nav_bar_auto_hide", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("ignore_controller_touchpad", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("grip_reserve_enabled", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("grip_reserve_mode", SettingsBackupType.STRING),
         SettingsBackupKey("grip_reserve_percent", SettingsBackupType.INT)
@@ -225,13 +184,16 @@ object SettingsBackupKeys {
         SettingsBackupKey("builtin_fast_forward_enabled", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("builtin_fast_forward_mode", SettingsBackupType.STRING),
         SettingsBackupKey("builtin_fast_forward_speed", SettingsBackupType.INT),
-        SettingsBackupKey("builtin_fast_forward_preserve_pitch", SettingsBackupType.BOOLEAN)
+        SettingsBackupKey("builtin_fast_forward_preserve_pitch", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("builtin_dual_screen_match_size", SettingsBackupType.BOOLEAN)
     )
 
     private val BUILTIN_INPUT = listOf(
         SettingsBackupKey("builtin_analog_as_dpad", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("builtin_dpad_as_analog", SettingsBackupType.BOOLEAN),
-        SettingsBackupKey("builtin_rumble_enabled", SettingsBackupType.BOOLEAN)
+        SettingsBackupKey("builtin_rumble_enabled", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("builtin_motion_enabled", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("builtin_select_as_back", SettingsBackupType.STRING)
     )
 
     private val BUILTIN_TOUCH = listOf(
@@ -268,7 +230,6 @@ object SettingsBackupKeys {
     private val DOWNLOADS_AND_CACHES = listOf(
         SettingsBackupKey("max_concurrent_downloads", SettingsBackupType.INT),
         SettingsBackupKey("auto_start_downloads", SettingsBackupType.BOOLEAN),
-        SettingsBackupKey("allow_remote_installs", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("instant_download_threshold_mb", SettingsBackupType.INT),
         SettingsBackupKey("stage_downloads_internally", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("folder_name_from_rom", SettingsBackupType.BOOLEAN),

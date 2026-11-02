@@ -38,7 +38,7 @@ class SavePathRegistryTest {
     }
 
     @Test
-    fun `resolvePath without package leaves package placeholder unexpanded`() {
+    fun `resolvePath fills the package placeholder from the emulator's registered package`() {
         val config = SavePathConfig(
             emulatorId = "eden",
             defaultPaths = listOf("/storage/Android/data/{package}/files/save"),
@@ -47,7 +47,7 @@ class SavePathRegistryTest {
             usesPackageTemplate = true,
         )
         val out = SavePathRegistry.resolvePath(config, "switch")
-        assertEquals(listOf("/storage/Android/data/{package}/files/save"), out)
+        assertEquals(listOf("/storage/Android/data/dev.eden.eden_emulator/files/save"), out)
     }
 
     @Test
@@ -64,7 +64,7 @@ class SavePathRegistryTest {
     }
 
     @Test
-    fun `resolvePath does not expand core when usesCore is false`() {
+    fun `resolvePath drops a path whose core placeholder it cannot fill`() {
         val config = SavePathConfig(
             emulatorId = "ppsspp",
             defaultPaths = listOf("/storage/PSP/{core}/SAVEDATA"),
@@ -72,11 +72,11 @@ class SavePathRegistryTest {
             usesCore = false,
         )
         val out = SavePathRegistry.resolvePath(config, "psp")
-        assertEquals(listOf("/storage/PSP/{core}/SAVEDATA"), out)
+        assertEquals(emptyList<String>(), out)
     }
 
     @Test
-    fun `resolvePathWithPackage leaves package literal when config does not use template`() {
+    fun `resolvePathWithPackage drops a package path when the config does not use the template`() {
         val config = SavePathConfig(
             emulatorId = "duckstation",
             defaultPaths = listOf("/storage/Android/data/{package}/files/memcards"),
@@ -84,7 +84,7 @@ class SavePathRegistryTest {
             usesPackageTemplate = false,
         )
         val out = SavePathRegistry.resolvePathWithPackage(config, "com.example.app")
-        assertEquals(listOf("/storage/Android/data/{package}/files/memcards"), out)
+        assertEquals(emptyList<String>(), out)
     }
 
     @Test
@@ -129,6 +129,12 @@ class SavePathRegistryTest {
     fun `getConfig returns null for an unsupported emulator`() {
         val cfg = SavePathRegistry.getConfig("redream")
         assertNull("redream is marked supported=false", cfg)
+    }
+
+    @Test
+    fun `getConfigForPlatform returns null for an unsupported emulator`() {
+        assertNull(SavePathRegistry.getConfigForPlatform("redream", "dreamcast"))
+        assertNull(SavePathRegistry.getConfigForPlatformByPackage("io.recompiled.redream", "dreamcast"))
     }
 
     @Test

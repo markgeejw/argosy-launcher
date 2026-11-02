@@ -69,6 +69,7 @@ class GameLauncherTest {
     private val overlayWriter = mockk<com.nendo.argosy.data.repository.GameUserOverlayWriter>(relaxed = true)
     private val launchProgressTracker = mockk<LaunchProgressTracker>(relaxed = true)
     private val steamInstallReports = mockk<com.nendo.argosy.data.launcher.SteamInstallReports>(relaxed = true)
+    private val appsRepository = mockk<com.nendo.argosy.data.repository.AppsRepository>(relaxed = true)
 
     @Before
     fun setup() {
@@ -83,6 +84,10 @@ class GameLauncherTest {
             FileProvider.getUriForFile(context, "com.nendo.argosy.fileprovider", any())
         } returns testUri
         gameDao = mockk(relaxed = true)
+        coEvery { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) } returns 1
+        every { appsRepository.isPackageMissing(any()) } answers {
+            com.nendo.argosy.data.launcher.SteamLaunchers.getByPackage(firstArg())?.isInstalled(context) == false
+        }
         platformDao = mockk(relaxed = true)
         gameDiscDao = mockk(relaxed = true)
         emulatorConfigDao = mockk(relaxed = true)
@@ -129,7 +134,6 @@ class GameLauncherTest {
             emulatorConfigDao = emulatorConfigDao,
             emulatorLaunchArgsDao = emulatorLaunchArgsDao,
             variantResolver = variantResolver,
-            installedAppResolver = installedAppResolver,
             platformLibretroSettingsDao = platformLibretroSettingsDao,
             emulatorDetector = emulatorDetector,
             builtinCoreResolver = BuiltinCoreResolver(
@@ -165,7 +169,15 @@ class GameLauncherTest {
             volumeHealth = mockk(relaxed = true),
             dreamcastVmuMigrator = mockk(relaxed = true),
             launchProgressTracker = launchProgressTracker,
-            steamInstallReports = steamInstallReports
+            steamInstallReports = steamInstallReports,
+            appsRepository = appsRepository,
+            emulatorResolver = EmulatorResolver(
+                emulatorDetector = emulatorDetector,
+                emulatorConfigDao = emulatorConfigDao,
+                userPreferencesRepository = userPreferencesRepository,
+                libretroCoreMgr = libretroCoreMgr,
+                installedAppResolver = installedAppResolver
+            )
         )
     }
 
@@ -266,14 +278,11 @@ class GameLauncherTest {
     ).copy(steamAppId = 620L, steamLauncher = launcher, launcherSetManually = pinned)
 
     private fun withBothSteamLaunchersInstalled(block: suspend () -> Unit) = runTest {
-        val launchers = listOf(
-            com.nendo.argosy.data.launcher.GameNativeLauncher,
-            com.nendo.argosy.data.launcher.DroidDeckLauncher
-        )
+        val launchers = com.nendo.argosy.data.launcher.SteamLaunchers.all
         launchers.forEach { io.mockk.mockkObject(it) }
         try {
             launchers.forEach {
-                every { it.isInstalled(any()) } returns true
+                every { it.isInstalled(any()) } returns (it.packageName in setOf(gameNativePackage, droidDeckPackage))
                 every { it.createLaunchIntent(any()) } returns mockk(relaxed = true)
             }
             block()
@@ -305,6 +314,7 @@ class GameLauncherTest {
         }
         verify { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(620L) }
         verify(exactly = 0) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(any()) }
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -320,6 +330,9 @@ class GameLauncherTest {
 
         assertEquals(LaunchResult.Cancelled, result)
         coVerify(exactly = 0) { overlayWriter.recordPlayStart(any(), any()) }
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
     }
 
     @Test
@@ -350,6 +363,196 @@ class GameLauncherTest {
         assertTrue(result is LaunchResult.Success)
         coVerify(exactly = 0) { ticket.chooseLauncher(any()) }
         verify { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(620L) }
+    }
+
+    @Test
+    fun `a removed automatic steam launcher recovers to the installed reporting launcher`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = false)
+        coEvery { gameDao.getById(game.id) } returns game
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        coEvery { steamInstallReports.launchersReporting(620L) } returns listOf(gameNativePackage, droidDeckPackage)
+
+        val result = launcher.launch(game.id)
+
+        assertTrue(result is LaunchResult.Success)
+        verify { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(620L) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `a removed steam pin recovers without asking`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = true)
+        var storedGame = game
+        coEvery { gameDao.getById(game.id) } answers { storedGame }
+        coEvery { gameDao.compareAndSetSteamLauncher(game.id, any(), any(), any(), any(), null) } answers {
+            storedGame = storedGame.copy(steamLauncher = arg(3), launcherSetManually = arg(4))
+            1
+        }
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        coEvery { steamInstallReports.launchersReporting(620L) } returns listOf(droidDeckPackage)
+        val ticket = mockk<LaunchProgressTracker.Ticket>(relaxed = true)
+        every { launchProgressTracker.current } returns ticket
+
+        val result = launcher.launch(game.id)
+
+        assertTrue(result is LaunchResult.Success)
+        assertEquals(droidDeckPackage, storedGame.steamLauncher)
+        assertEquals(false, storedGame.launcherSetManually)
+        coVerify { gameDao.compareAndSetSteamLauncher(game.id, gameNativePackage, true, gameNativePackage, false, null) }
+        coVerify { gameDao.compareAndSetSteamLauncher(game.id, gameNativePackage, false, droidDeckPackage, false, null) }
+        coVerify(exactly = 0) { ticket.chooseLauncher(any()) }
+        verify { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(620L) }
+
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns true
+
+        assertTrue(launcher.launch(game.id) is LaunchResult.Success)
+        assertEquals(false, storedGame.launcherSetManually)
+        verify(exactly = 2) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(620L) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `a removed pin stays Auto without a reported replacement`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = true)
+        var storedGame = game
+        coEvery { gameDao.getById(game.id) } answers { storedGame }
+        coEvery { gameDao.compareAndSetSteamLauncher(game.id, gameNativePackage, true, gameNativePackage, false, null) } answers {
+            storedGame = storedGame.copy(launcherSetManually = false)
+            1
+        }
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        coEvery { steamInstallReports.launchersReporting(620L) } returns emptyList()
+
+        val result = launcher.launch(game.id)
+
+        assertEquals(
+            LaunchResult.NoSteamLauncher(gameNativePackage, LaunchResult.NoSteamLauncher.Reason.NO_REPORTED_REPLACEMENT),
+            result
+        )
+        assertEquals(gameNativePackage, storedGame.steamLauncher)
+        assertEquals(false, storedGame.launcherSetManually)
+        coVerify(exactly = 1) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { overlayWriter.recordPlayStart(any(), any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `no installed Steam launcher reports installation recovery instead of launching a stale report`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = false)
+        coEvery { gameDao.getById(game.id) } returns game
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        every { com.nendo.argosy.data.launcher.DroidDeckLauncher.isInstalled(any()) } returns false
+        coEvery { steamInstallReports.launchersReporting(620L) } returns listOf(gameNativePackage, droidDeckPackage)
+
+        val result = launcher.launch(game.id)
+
+        assertEquals(
+            LaunchResult.NoSteamLauncher(gameNativePackage, LaunchResult.NoSteamLauncher.Reason.NONE_INSTALLED),
+            result
+        )
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { overlayWriter.recordPlayStart(any(), any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `an unknown saved Steam launcher never falls back to GameNative without a report`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = "removed.launcher", pinned = false)
+        coEvery { gameDao.getById(game.id) } returns game
+        coEvery { steamInstallReports.launchersReporting(620L) } returns emptyList()
+
+        val result = launcher.launch(game.id)
+
+        assertEquals(
+            LaunchResult.NoSteamLauncher("removed.launcher", LaunchResult.NoSteamLauncher.Reason.NO_REPORTED_REPLACEMENT),
+            result
+        )
+        coVerify(exactly = 0) { overlayWriter.recordPlayStart(any(), any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(any()) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `a known launcher update leaves its manual pin intact`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = true)
+        coEvery { gameDao.getById(game.id) } returns game
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        every { appsRepository.isPackageUpdating(gameNativePackage) } returns true
+
+        val result = launcher.launch(game.id)
+
+        assertEquals(
+            LaunchResult.NoSteamLauncher(gameNativePackage, LaunchResult.NoSteamLauncher.Reason.UPDATING),
+            result
+        )
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { steamInstallReports.launchersReporting(any()) }
+        coVerify(exactly = 0) { overlayWriter.recordPlayStart(any(), any()) }
+    }
+
+    @Test
+    fun `a newer user pin wins a racing automatic replacement`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = false)
+        val gameHub = com.nendo.argosy.data.launcher.GameHubLauncher
+        var storedGame = game
+        coEvery { gameDao.getById(game.id) } answers { storedGame }
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        every { gameHub.isInstalled(any()) } returns true
+        coEvery { steamInstallReports.launchersReporting(620L) } returns listOf(droidDeckPackage)
+        coEvery { gameDao.compareAndSetSteamLauncher(game.id, gameNativePackage, false, droidDeckPackage, false, null) } answers {
+            storedGame = storedGame.copy(steamLauncher = gameHub.packageName, launcherSetManually = true)
+            0
+        }
+
+        val result = launcher.launch(game.id)
+
+        assertTrue(result is LaunchResult.Success)
+        assertEquals(gameHub.packageName, storedGame.steamLauncher)
+        assertEquals(true, storedGame.launcherSetManually)
+        coVerify(exactly = 1) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 1) { steamInstallReports.launchersReporting(620L) }
+        verify { gameHub.createLaunchIntent(620L) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `a newer user pin wins a racing retired pin reset`() = withBothSteamLaunchersInstalled {
+        val game = steamGame(launcher = gameNativePackage, pinned = true)
+        val gameHub = com.nendo.argosy.data.launcher.GameHubLauncher
+        var storedGame = game
+        coEvery { gameDao.getById(game.id) } answers { storedGame }
+        every { com.nendo.argosy.data.launcher.GameNativeLauncher.isInstalled(any()) } returns false
+        every { gameHub.isInstalled(any()) } returns true
+        coEvery { gameDao.compareAndSetSteamLauncher(game.id, gameNativePackage, true, gameNativePackage, false, null) } answers {
+            storedGame = storedGame.copy(steamLauncher = gameHub.packageName, launcherSetManually = true)
+            0
+        }
+
+        val result = launcher.launch(game.id)
+
+        assertTrue(result is LaunchResult.Success)
+        assertEquals(gameHub.packageName, storedGame.steamLauncher)
+        assertEquals(true, storedGame.launcherSetManually)
+        coVerify(exactly = 1) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { steamInstallReports.launchersReporting(any()) }
+        verify { gameHub.createLaunchIntent(620L) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
+    }
+
+    @Test
+    fun `native Steam selections retain their existing installed launcher route`() = withBothSteamLaunchersInstalled {
+        coEvery { steamInstallReports.launchersReporting(620L) } returns emptyList()
+        listOf(null, GameEntity.LAUNCHER_UNSPECIFIED).forEach { storedPackage ->
+            val game = steamGame(launcher = storedPackage, pinned = false)
+            coEvery { gameDao.getById(game.id) } returns game
+
+            assertTrue(launcher.launch(game.id) is LaunchResult.Success)
+        }
+
+        verify(exactly = 2) { com.nendo.argosy.data.launcher.GameNativeLauncher.createLaunchIntent(620L) }
+        verify(exactly = 0) { com.nendo.argosy.data.launcher.DroidDeckLauncher.createLaunchIntent(any()) }
+        coVerify(exactly = 0) { gameDao.compareAndSetSteamLauncher(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -494,6 +697,27 @@ class GameLauncherTest {
         verify(exactly = 1) {
             FileProvider.getUriForFile(any(), any(), match { it.extension.equals("cue", ignoreCase = true) })
         }
+    }
+
+    @Test
+    fun `flycast is handed the rom path rather than a content uri it cannot open`() = runTest {
+        val chdPath = romFile("chd")
+        val game = createGame(localPath = chdPath, platformSlug = "dc")
+        coEvery { gameDao.getById(1L) } returns game
+        coEvery { variantResolver.getVariantOptions(game) } returns null
+
+        val flycast = EmulatorRegistry.getById("flycast")!!
+        coEvery { emulatorConfigDao.getByGameId(1L) } returns createConfig(
+            gameId = 1L,
+            packageName = flycast.packageName,
+            displayName = flycast.displayName
+        )
+        stubDetectorWith(installedEmulator(flycast))
+        every { emulatorDetector.getByPackage(flycast.packageName) } returns flycast
+
+        launcher.launch(1L)
+
+        verify(exactly = 0) { FileProvider.getUriForFile(any(), any(), any<java.io.File>()) }
     }
 
     // -----------------------------------------------------------------------

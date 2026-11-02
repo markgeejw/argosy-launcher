@@ -2,7 +2,9 @@ package com.nendo.argosy.ui.screens.gamedetail
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ScrollState
@@ -48,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -59,17 +62,22 @@ import com.nendo.argosy.DualScreenManagerHolder
 import com.nendo.argosy.R
 import com.nendo.argosy.core.notification.NotificationText
 import com.nendo.argosy.ui.common.rememberFileImageModel
+import com.nendo.argosy.ui.common.stackedScreenshotBackdrop
+import coil.request.ImageRequest
 import com.nendo.argosy.ui.components.FooterHints
 import com.nendo.argosy.ui.components.FooterSpacer
 import com.nendo.argosy.ui.components.InputButton
 import com.nendo.argosy.ui.components.SyncOverlay
 import com.nendo.argosy.ui.input.LocalInputDispatcher
+import com.nendo.argosy.ui.input.RightStickStepper
+import com.nendo.argosy.ui.input.ModalInputEffect
 import com.nendo.argosy.ui.navigation.Screen
 import com.nendo.argosy.ui.screens.gamedetail.components.AchievementListOverlay
 import com.nendo.argosy.ui.screens.gamedetail.components.AchievementsSection
 import com.nendo.argosy.ui.screens.gamedetail.components.ExpandedHeader
 import com.nendo.argosy.ui.screens.gamedetail.components.StickyCollapsedHeader
 import com.nendo.argosy.ui.screens.gamedetail.components.DescriptionSection
+import com.nendo.argosy.ui.screens.gamedetail.components.descriptionScrollTarget
 import com.nendo.argosy.ui.screens.gamedetail.components.GameDetailMenu
 import com.nendo.argosy.ui.screens.gamedetail.components.GameDetailMenuState
 import com.nendo.argosy.ui.screens.gamedetail.components.GameDetailSkeleton
@@ -116,6 +124,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
+private const val CONTENT_SCROLL_FRACTION = 0.2f
+
 @Composable
 fun GameDetailScreen(
     gameId: Long,
@@ -134,9 +144,10 @@ fun GameDetailScreen(
     }
 
     val pendingLaunch by argosyViewModel.pendingLaunch.collectAsState()
-    LaunchedEffect(pendingLaunch, uiState.game?.id) {
+    val sessionEndSyncing = uiState.syncOverlayState != null
+    LaunchedEffect(pendingLaunch, uiState.game?.id, sessionEndSyncing) {
         val pending = pendingLaunch ?: return@LaunchedEffect
-        if (pending.gameId == gameId && uiState.game?.id == gameId) {
+        if (pending.gameId == gameId && uiState.game?.id == gameId && !sessionEndSyncing) {
             argosyViewModel.consumePendingLaunch()
             if (pending.discId != null) {
                 viewModel.playGame(discId = pending.discId, origin = pending.origin)
@@ -186,6 +197,7 @@ fun GameDetailScreen(
     val relatedListState = rememberLazyListState()
 
     var descriptionTopY by remember { mutableIntStateOf(0) }
+    var descriptionHeight by remember { mutableIntStateOf(0) }
     var screenshotTopY by remember { mutableIntStateOf(0) }
     var reviewsTopY by remember { mutableIntStateOf(0) }
     var achievementTopY by remember { mutableIntStateOf(0) }
@@ -202,16 +214,53 @@ fun GameDetailScreen(
         relatedListState.scrollToItem(0)
     }
 
-    val inputHandler = remember(onBack, uiState.menuFocusIndex, screenshotCount, achievementColumnCount) {
+    val descriptionEndSlack = with(LocalDensity.current) { Dimens.spacingXl.roundToPx() }
+    val inputHandler = remember(onBack) {
         viewModel.createInputHandler(
             onBack = onBack,
             onNavigateToPlatformSettings = onNavigateToPlatformSettings,
             onSnapUp = {
-                viewModel.moveMenuFocus(-1)
+                val current = viewModel.uiState.value
+                val onDescription = menuLayout.itemAtFocusIndex(current.menuFocusIndex, current.menuLayoutState) == MenuItem.Description
+                val target = descriptionScrollTarget(
+                    scroll = scrollState.value,
+                    viewport = scrollState.viewportSize,
+                    top = descriptionTopY,
+                    height = descriptionHeight + descriptionEndSlack,
+                    direction = -1
+                )
+                if (onDescription && target != null) {
+                    coroutineScope.launch { scrollState.animateScrollTo(target) }
+                } else {
+                    viewModel.moveMenuFocus(-1)
+                }
                 true
             },
             onSnapDown = {
-                viewModel.moveMenuFocus(1)
+                val current = viewModel.uiState.value
+                val onDescription = menuLayout.itemAtFocusIndex(current.menuFocusIndex, current.menuLayoutState) == MenuItem.Description
+                val target = descriptionScrollTarget(
+                    scroll = scrollState.value,
+                    viewport = scrollState.viewportSize,
+                    top = descriptionTopY,
+                    height = descriptionHeight + descriptionEndSlack,
+                    direction = 1
+                )
+                if (onDescription && target != null) {
+                    coroutineScope.launch { scrollState.animateScrollTo(target) }
+                } else {
+                    viewModel.moveMenuFocus(1)
+                }
+                true
+            },
+            onScrollContent = { direction ->
+                val step = scrollState.viewportSize * CONTENT_SCROLL_FRACTION * direction
+                coroutineScope.launch {
+                    scrollState.animateScrollBy(
+                        step,
+                        tween(RightStickStepper.STEP_INTERVAL_MS.toInt(), easing = LinearEasing)
+                    )
+                }
                 true
             },
             onSectionLeft = {
@@ -266,6 +315,7 @@ fun GameDetailScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 inputDispatcher.subscribeView(inputHandler, forRoute = Screen.ROUTE_GAME_DETAIL)
                 viewModel.republishCompanionDetail()
+                viewModel.refreshSteamLauncher()
             } else if (event == Lifecycle.Event.ON_STOP) {
                 viewModel.clearCompanionDetail()
             }
@@ -285,25 +335,16 @@ fun GameDetailScreen(
             getFocusIndex = { uiState.memcardPickerFocusIndex },
             onFocusChange = { viewModel.setMemcardPickerFocusIndex(it) },
             onSelect = { viewModel.selectMemcard(it) },
-            onDismiss = { viewModel.dismissMemcardPicker() }
+            onDismiss = { viewModel.dismissMemcardPicker() },
+            wrapMode = { viewModel.menuWrapMode }
         )
     }
 
     val showMemcardPicker = uiState.memcardPickerState != null
     LaunchedEffect(showMemcardPicker) {
-        if (showMemcardPicker) {
-            viewModel.setMemcardPickerFocusIndex(0)
-            inputDispatcher.pushModal(memcardPickerInputHandler)
-        }
+        if (showMemcardPicker) viewModel.setMemcardPickerFocusIndex(0)
     }
-
-    DisposableEffect(showMemcardPicker) {
-        onDispose {
-            if (showMemcardPicker) {
-                inputDispatcher.removeModal(memcardPickerInputHandler)
-            }
-        }
-    }
+    ModalInputEffect(active = showMemcardPicker, handler = memcardPickerInputHandler)
 
     val launchVariantPickerInputHandler = remember(viewModel) {
         com.nendo.argosy.ui.input.VariantPickerInputHandler(
@@ -311,62 +352,25 @@ fun GameDetailScreen(
             getFocusIndex = { uiState.launchVariantPickerFocusIndex },
             onFocusChange = { viewModel.setLaunchVariantPickerFocusIndex(it) },
             onSelect = { viewModel.selectLaunchVariant(it) },
-            onDismiss = { viewModel.dismissLaunchVariantPicker() }
+            onDismiss = { viewModel.dismissLaunchVariantPicker() },
+            wrapMode = { viewModel.menuWrapMode }
         )
     }
 
     val showLaunchVariantPicker = uiState.launchVariantPickerState != null
     LaunchedEffect(showLaunchVariantPicker) {
-        if (showLaunchVariantPicker) {
-            viewModel.setLaunchVariantPickerFocusIndex(0)
-            inputDispatcher.pushModal(launchVariantPickerInputHandler)
-        }
+        if (showLaunchVariantPicker) viewModel.setLaunchVariantPickerFocusIndex(0)
     }
-
-    DisposableEffect(showLaunchVariantPicker) {
-        onDispose {
-            if (showLaunchVariantPicker) {
-                inputDispatcher.removeModal(launchVariantPickerInputHandler)
-            }
-        }
-    }
+    ModalInputEffect(active = showLaunchVariantPicker, handler = launchVariantPickerInputHandler)
 
     val perGameSettingsInputHandler = remember(viewModel, onNavigateToPlatformSettings) {
         viewModel.createPerGameSettingsInputHandler(onNavigateToPlatformSettings)
     }
 
-    val showPerGameSettings = uiState.perGameSettings.visible
-    LaunchedEffect(showPerGameSettings) {
-        if (showPerGameSettings) {
-            inputDispatcher.pushModal(perGameSettingsInputHandler)
-        }
-    }
-
-    DisposableEffect(showPerGameSettings) {
-        onDispose {
-            if (showPerGameSettings) {
-                inputDispatcher.removeModal(perGameSettingsInputHandler)
-            }
-        }
-    }
+    ModalInputEffect(active = uiState.perGameSettings.visible, handler = perGameSettingsInputHandler)
 
     val documentReader by viewModel.documentReader.collectAsState()
-    val documentReaderOpen = documentReader != null
-    val documentReaderInputHandler = viewModel.documentReaderInput
-
-    LaunchedEffect(documentReaderOpen) {
-        if (documentReaderOpen) {
-            inputDispatcher.pushModal(documentReaderInputHandler)
-        }
-    }
-
-    DisposableEffect(documentReaderOpen) {
-        onDispose {
-            if (documentReaderOpen) {
-                inputDispatcher.removeModal(documentReaderInputHandler)
-            }
-        }
-    }
+    ModalInputEffect(active = documentReader != null, handler = viewModel.documentReaderInput)
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading || game == null) {
@@ -382,7 +386,10 @@ fun GameDetailScreen(
                 screenshotListState = screenshotListState,
                 achievementListState = achievementListState,
                 relatedListState = relatedListState,
-                onDescriptionPositioned = { descriptionTopY = it },
+                onDescriptionPositioned = { top, height ->
+                    descriptionTopY = top
+                    descriptionHeight = height
+                },
                 onScreenshotPositioned = { screenshotTopY = it },
                 onReviewsPositioned = { reviewsTopY = it },
                 onAchievementPositioned = { achievementTopY = it },
@@ -417,7 +424,7 @@ private fun GameDetailContent(
     screenshotListState: LazyListState,
     achievementListState: LazyListState,
     relatedListState: LazyListState,
-    onDescriptionPositioned: (Int) -> Unit,
+    onDescriptionPositioned: (top: Int, height: Int) -> Unit,
     onScreenshotPositioned: (Int) -> Unit,
     onReviewsPositioned: (Int) -> Unit,
     onAchievementPositioned: (Int) -> Unit,
@@ -473,14 +480,8 @@ private fun GameDetailContent(
 
     val focusedItem = menuLayout.itemAtFocusIndex(uiState.menuFocusIndex, menuLayoutState)
 
-    // While a programmatic scroll triggered by menu focus is in flight, the
-    // reverse-sync below must not infer a "visible section" from intermediate
-    // scroll values -- a layout shift mid-animation (e.g. an achievements
-    // refresh emitting and changing achievementTopY) would otherwise bounce
-    // focus back to the previous section.
     var programmaticScrollInFlight by remember { mutableStateOf(false) }
 
-    // Scroll to section when menu focus changes
     LaunchedEffect(uiState.menuFocusIndex) {
         try {
             programmaticScrollInFlight = true
@@ -498,7 +499,6 @@ private fun GameDetailContent(
         }
     }
 
-    // Sync menu focus with scroll position (reverse direction)
     @OptIn(FlowPreview::class)
     LaunchedEffect(scrollState, menuLayoutState) {
         snapshotFlow { scrollState.value }
@@ -529,13 +529,19 @@ private fun GameDetailContent(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Background layer - extends behind footer
         Box(modifier = Modifier.fillMaxSize().blur(combinedBlur)) {
             val liveBackgroundPath = com.nendo.argosy.ui.common.rememberResolvedBackgroundPath(game.id, game.backgroundPath)
             val effectiveBackgroundPath = uiState.repairedBackgroundPath ?: liveBackgroundPath
             if (effectiveBackgroundPath != null) {
+                val backgroundModel = rememberFileImageModel(effectiveBackgroundPath)
+                val backgroundContext = LocalContext.current
                 AsyncImage(
-                    model = rememberFileImageModel(effectiveBackgroundPath),
+                    model = remember(backgroundModel) {
+                        ImageRequest.Builder(backgroundContext)
+                            .data(backgroundModel)
+                            .stackedScreenshotBackdrop()
+                            .build()
+                    },
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -566,12 +572,10 @@ private fun GameDetailContent(
             )
         }
 
-        // Main content: Collapsed Header + Left Menu (30%) + Right Content (70%)
         Column(modifier = Modifier.fillMaxSize().blur(combinedBlur)) {
             val isDark = LocalLauncherTheme.current.isDarkTheme
             val fadeColor = if (isDark) Color.Black else Color.White
 
-            // Full-width collapsed header (pushes content down)
             StickyCollapsedHeader(
                 game = game,
                 isVisible = isHeaderCollapsed
@@ -583,7 +587,6 @@ private fun GameDetailContent(
                 val isCompactMenu = displayAspectRatio <= 1.3f
 
                 Row(modifier = Modifier.fillMaxSize()) {
-                    // Left Menu (compact: icon-only, normal: 30%)
                     Box(
                         modifier = Modifier
                             .then(
@@ -647,7 +650,6 @@ private fun GameDetailContent(
                         }
                     }
 
-                    // Right Content (70%)
                     Column(modifier = Modifier.weight(1f)) {
 
                         Box(modifier = Modifier.weight(1f)) {
@@ -665,9 +667,9 @@ private fun GameDetailContent(
                             if (!game.description.isNullOrBlank()) {
                                 DescriptionSection(
                                     description = game.description,
-                                    onPositioned = { y ->
+                                    onPositioned = { y, height ->
                                         descriptionTopY = y
-                                        onDescriptionPositioned(y)
+                                        onDescriptionPositioned(y, height)
                                     }
                                 )
                                 Spacer(modifier = Modifier.height(Dimens.spacingLg))
@@ -754,7 +756,6 @@ private fun GameDetailContent(
                             }
                             }
 
-                            // Gradient fade at bottom of content
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
@@ -812,6 +813,7 @@ private fun GameDetailContent(
                 val viewReviewsHint = stringResource(R.string.gamedetail_footer_view_reviews)
                 val openRelatedHint = stringResource(R.string.gamedetail_footer_open_related)
                 val backHint = stringResource(R.string.gamedetail_footer_back)
+                val scrollContentHint = stringResource(R.string.gamedetail_footer_scroll)
                 val newGameHint = stringResource(R.string.gamedetail_footer_new_game)
                 val shortcutMakePublicHint =
                     stringResource(R.string.gamedetail_footer_shortcut_make_public)
@@ -824,6 +826,7 @@ private fun GameDetailContent(
                 FooterHints(
                     hints = buildList {
                         add(InputButton.LB_RB to prevNextGameHint)
+                        add(InputButton.RIGHT_STICK_VERTICAL to scrollContentHint)
                         if (focusedItem == MenuItem.Screenshots || focusedItem == MenuItem.Achievements || focusedItem == MenuItem.RelatedGames) {
                             add(InputButton.DPAD_HORIZONTAL to sectionScrollHint)
                         }
@@ -1114,6 +1117,8 @@ private fun GameDetailModals(
         SteamLauncherPickerModal(
             availableLaunchers = pickerState.availableSteamLaunchers,
             currentLauncherName = game.steamLauncherName,
+            currentLauncherPackage = game.steamLauncherPackage,
+            isAutomatic = !game.steamLauncherSetManually,
             focusIndex = pickerState.steamLauncherPickerFocusIndex,
             onSelectLauncher = viewModel.pickerModalDelegate::selectSteamLauncher,
             onDismiss = viewModel.pickerModalDelegate::dismissSteamLauncherPicker
@@ -1351,6 +1356,8 @@ private fun GameDetailModals(
             onDismiss = viewModel::dismissAddToCollectionModal
         )
     }
+
+    com.nendo.argosy.ui.common.GameConfirmHost(viewModel.gameConfirm)
 
     if (uiState.showCreateCollectionDialog) {
         CreateCollectionDialog(

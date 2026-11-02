@@ -111,6 +111,9 @@
     <string name="settings_interface_hide_system_nav_bar_subtitle">Android के बैक, होम और हाल के ऐप्स बटन या जेस्चर बार छिपाता है। दिखाने के लिए किनारे से स्वाइप करें</string>
     <string name="settings_interface_hide_system_status_bar_title">सिस्टम स्टेटस बार छिपाएँ</string>
     <string name="settings_interface_hide_system_status_bar_subtitle">Android का स्टेटस बार और सूचना आइकन छिपाता है। दिखाने के लिए ऊपर से नीचे स्वाइप करें</string>
+    <string name="settings_interface_quick_panel_in_emulators_title">अन्य एमुलेटर में क्विक पैनल</string>
+    <string name="settings_interface_quick_panel_in_emulators_subtitle">क्विक पैनल खोलने के लिए Argosy से खोले गए एमुलेटर में वापस को दबाए रखें। Argosy की एक्सेसिबिलिटी सेवा ज़रूरी है</string>
+    <string name="settings_interface_quick_panel_in_emulators_service_off">एक्सेसिबिलिटी सेवा बंद है। इसे अनुमतियों में चालू करें</string>
     <string name="settings_interface_lock_screen_art_title">लॉक स्क्रीन चित्र</string>
     <string name="settings_interface_lock_screen_art_subtitle">जब Argosy आपका होम ऐप हो, लॉक स्क्रीन पर आपकी लाइब्रेरी या चालू छोड़ा गया गेम दिखता है। यह आपके लॉक स्क्रीन वॉलपेपर की जगह हमेशा के लिए ले लेता है।</string>
     <string name="settings_interface_home_app_title">होम ऐप के रूप में उपलब्ध</string>
@@ -177,6 +180,7 @@
     <string name="settings_installers_error_download">डाउनलोड विफल</string>
     <string name="settings_installers_error_rate_limited">GitHub अनुरोध सीमित कर रहा है। बाद में फिर कोशिश करें</string>
     <string name="settings_installers_error_not_found">इस रिपॉज़िटरी तक नहीं पहुँचा जा सका</string>
+    <string name="settings_installers_error_wrong_package">डाउनलोड की गई ऐप अपेक्षित ऐप नहीं है</string>
     <string name="settings_installers_ime_enable_title">सिस्टम सेटिंग में चालू करें</string>
     <string name="settings_installers_ime_enable_subtitle">Android कीबोर्ड को सिस्टम सेटिंग से ही चालू करने देता है</string>
     <string name="settings_installers_ime_select_title">सक्रिय कीबोर्ड चुनें</string>
@@ -194,6 +198,8 @@
     <string name="settings_navigation_swap_xy_subtitle">कॉन्टेक्स्ट मेनू और सेकेंडरी एक्शन बदलें</string>
     <string name="settings_navigation_swap_start_select_title">Start/Select बदलें</string>
     <string name="settings_navigation_swap_start_select_subtitle">Start और Select बटन के काम आपस में बदलें</string>
+    <string name="settings_navigation_ignore_controller_touchpad_title">गेम में टचपैड अनदेखा करें</string>
+    <string name="settings_navigation_ignore_controller_touchpad_subtitle">गेम चलते समय कंट्रोलर का टचपैड लॉन्चर पर क्लिक नहीं कर सकता</string>
 
     <string name="settings_navigation_haptic_title">हैप्टिक फ़ीडबैक</string>
     <string name="settings_navigation_vibration_title">वाइब्रेशन तीव्रता</string>
@@ -240,6 +246,8 @@
         <item quantity="other">%d मिनट</item>
     </plurals>
     <string name="settings_displays_dim_level_title">डिमिंग स्तर</string>
+    <string name="settings_displays_lid_sleep_title">ढक्कन बंद होने पर स्लीप</string>
+    <string name="settings_displays_lid_sleep_subtitle">ढक्कन बंद रहते बटन दबने से डिवाइस जागे तो उसे फिर से सुला देता है</string>
 
     <string name="settings_displays_dual_screen_title">डुअल-स्क्रीन मोड चालू करें</string>
     <string name="settings_displays_dual_screen_subtitle">सेकेंडरी डिस्प्ले को कम्पैनियन स्क्रीन के रूप में उपयोग करें</string>
@@ -247,6 +255,8 @@
 
     <string name="settings_displays_display_roles_title">कंट्रोल स्क्रीन</string>
     <string name="settings_displays_display_roles_subtitle">वह स्क्रीन जिस पर मेन्यू खुलते हैं; दूसरी वह दिखाती है जो आप देख रहे हैं</string>
+    <string name="settings_displays_match_screen_size_title">गेम स्क्रीन का आकार मिलाएँ</string>
+    <string name="settings_displays_match_screen_size_subtitle">DS की स्क्रीनें एक ही आकार में दिखती हैं और कब्ज़े पर मिलती हैं</string>
     <string name="settings_displays_display_roles_auto">ऑटो</string>
     <string name="settings_displays_display_roles_standard">कम्पैनियन स्क्रीन</string>
     <string name="settings_displays_display_roles_swapped">मुख्य स्क्रीन</string>
@@ -626,6 +636,8 @@
     <string name="settings_permissions_screen_capture_description">गेम खेलते समय स्क्रीन के रंग पढ़ने के लिए एम्बिएंट LED लाइटिंग सक्षम करता है।</string>
     <string name="settings_permissions_display_overlay_title">अन्य ऐप्स के ऊपर दिखाएँ</string>
     <string name="settings_permissions_display_overlay_description">बाहरी एमुलेटर में गेम खेलते समय सेव पहचान नोटिफ़िकेशन दिखाता है।</string>
+    <string name="settings_permissions_accessibility_title">एक्सेसिबिलिटी सेवा</string>
+    <string name="settings_permissions_accessibility_description">क्विक पैनल को अन्य एमुलेटर के ऊपर खोलने देता है, और बिना आवाज़ के सेव स्क्रीनशॉट लेता है</string>
     <string name="settings_permissions_live_wallpaper_title">एनिमेटेड लॉक स्क्रीन</string>
     <string name="settings_permissions_live_wallpaper_description">Argosy को एनिमेटेड लॉक स्क्रीन लागू करने की अनुमति दें।</string>
     <string name="settings_lock_screen_wallpaper_label">Argosy लाइब्रेरी</string>
@@ -888,7 +900,7 @@
         <item quantity="other">%d फ़ाइलें</item>
     </plurals>
     <string name="settings_storage_steam_tile_title">Steam और PC</string>
-    <string name="settings_storage_steam_tile_subtitle">स्टोर, इंस्टॉल और स्टेजिंग</string>
+    <string name="settings_storage_steam_tile_subtitle">स्टोर और इंस्टॉल</string>
 
     <string name="settings_storage_rom_path_title">ग्लोबल ROM पाथ</string>
     <string name="settings_storage_rom_path_free">%1$s खाली</string>
@@ -1125,10 +1137,6 @@
     <string name="settings_caches_frames_busy">साफ़ हो रहा है...</string>
     <string name="settings_caches_frames_subtitle">डाउनलोड किए गए बेज़ेल - मांगे जाने पर फिर से डाउनलोड होते हैं</string>
 
-    <string name="settings_caches_steam_clear_title">डाउनलोड डेटा साफ़ करें</string>
-    <string name="settings_caches_steam_clear_busy">साफ़ हो रहा है...</string>
-    <string name="settings_caches_steam_clear_blocked">पहले Steam डाउनलोड रद्द करें</string>
-    <string name="settings_caches_steam_clear_subtitle">स्टेज किए गए डाउनलोड और क्यू हटाता है - इंस्टॉल किए गए गेम बने रहते हैं</string>
 
     <string name="settings_caches_info_artwork_title">आर्टवर्क कैश</string>
     <string name="settings_caches_info_artwork_subtitle">पोस्टर, बैकड्रॉप और अन्य ऑनलाइन आर्टवर्क - मांगे जाने पर फिर से डाउनलोड होते हैं</string>
@@ -1147,9 +1155,6 @@
     </plurals>
     <string name="settings_caches_info_steam_total_title">Steam और PC कुल</string>
     <string name="settings_caches_info_steam_total_subtitle">इंस्टॉल किए गए स्टोर गेम शामिल हैं</string>
-    <string name="settings_caches_info_steam_staging_title">डाउनलोड स्टेजिंग</string>
-    <string name="settings_caches_info_steam_staging_subtitle">डिप्लॉय की प्रतीक्षा में आधे-अधूरे डाउनलोड</string>
-    <string name="settings_caches_info_steam_staging_computing">गणना हो रही है...</string>
 
     <!-- ===== Steam section ===== -->
 
@@ -1165,10 +1170,6 @@
     <string name="settings_steam_gn_storage_warning_title">एक्सटर्नल स्टोरेज</string>
     <string name="settings_steam_gn_storage_warning_value">GameNative खोलें और उसकी सेटिंग्स में \'Write to external storage\' चालू करें</string>
 
-    <string name="settings_steam_install_path_title">इंस्टॉल पाथ</string>
-    <string name="settings_steam_install_path_title_custom">इंस्टॉल पाथ (कस्टम)</string>
-    <string name="settings_steam_install_path_change">बदलें</string>
-    <string name="settings_steam_install_triage_title">इंस्टॉल किए गए गेम</string>
     <string name="settings_steam_account_title">Steam अकाउंट</string>
     <string name="settings_steam_account_connected">कनेक्टेड</string>
 
@@ -1176,7 +1177,7 @@
     <string name="settings_steam_sync_idle">Steam से ओन किए गए गेम सिंक करें</string>
     <string name="settings_steam_sync_licenses">लाइसेंस सिंक हो रहे हैं...</string>
     <string name="settings_steam_sync_packages">पैकेज प्राप्त हो रहे हैं (%1$d/%2$d)...</string>
-    <string name="settings_steam_sync_apps">गेम प्राप्त हो रहे हैं (%1$d/%2$d)...</string>
+    <string name="settings_steam_sync_apps">ऐप्स जाँचे जा रहे हैं (%1$d/%2$d)...</string>
     <string name="settings_steam_sync_complete">%1$d जोड़े गए, %2$d अपडेट हुए</string>
     <string name="settings_steam_sync_error">त्रुटि: %1$s</string>
 
@@ -1208,11 +1209,11 @@
     <string name="settings_steam_reset_library_subtitle">सभी सिंक किए गए Steam गेम हटाएँ</string>
 
     <string name="settings_steam_gn_required_title">GameNative आवश्यक है</string>
-    <string name="settings_steam_gn_required_message">Steam गेम Argosy द्वारा डाउनलोड होते हैं और GameNative के ज़रिए लॉन्च होते हैं। आगे बढ़ने से पहले GameNative इंस्टॉल करें और उसकी सेटिंग्स में एक्सटर्नल स्टोरेज चालू करें।</string>
+    <string name="settings_steam_gn_required_message">Steam गेम GameNative, DroidDeck या GameHub के ज़रिए इंस्टॉल और लॉन्च होते हैं। आगे बढ़ने से पहले इनमें से कोई एक ऐप इंस्टॉल करें।</string>
     <string name="settings_steam_gn_required_action">GameNative इंस्टॉल करें</string>
 
     <string name="settings_steam_login_title">Steam में लॉग इन करें</string>
-    <string name="settings_steam_login_message">अपनी लाइब्रेरी सिंक करने और गेम डाउनलोड करने के लिए अपना Steam अकाउंट कनेक्ट करें।</string>
+    <string name="settings_steam_login_message">अपनी लाइब्रेरी सिंक करने के लिए अपना Steam अकाउंट कनेक्ट करें।</string>
     <string name="settings_steam_login_action">कनेक्ट करें</string>
     <string name="settings_steam_connecting">कनेक्ट हो रहा है...</string>
 
@@ -1477,6 +1478,8 @@
 
     <string name="settings_builtin_controls_rumble_title">रम्बल</string>
     <string name="settings_builtin_controls_rumble_subtitle">कंट्रोलर वाइब्रेशन फ़ीडबैक चालू करें</string>
+    <string name="settings_builtin_controls_motion_title">मोशन कंट्रोल</string>
+    <string name="settings_builtin_controls_motion_subtitle">गेम को डिवाइस का झुकाव और घुमाव पढ़ने दें</string>
     <string name="settings_builtin_controls_order_title">कंट्रोलर क्रम</string>
     <string name="settings_builtin_controls_order_subtitle">हर कंट्रोलर पर बटन दबाकर प्लेयर क्रम सेट करें</string>
     <plurals name="settings_builtin_controls_order_assigned">
@@ -1487,6 +1490,7 @@
     <string name="settings_builtin_controls_mapping_subtitle">हर कंट्रोलर के लिए बटन रीमैप करें</string>
     <string name="settings_builtin_controls_controller_type_title">खिलाड़ी %1$d का कंट्रोलर</string>
     <string name="settings_builtin_controls_controller_type_subtitle">वह कंट्रोलर जो गेम देखता है। अगली बार गेम शुरू होने पर लागू होता है।</string>
+    <string name="settings_builtin_controls_controller_type_auto">ऑटो (%1$s)</string>
 
     <string name="settings_builtin_controls_analog_as_dpad_title">लेफ़्ट स्टिक को D-Pad बनाएँ</string>
     <string name="settings_builtin_controls_analog_as_dpad_subtitle">लेफ़्ट एनालॉग स्टिक को D-pad इनपुट से मैप करें</string>
@@ -1497,6 +1501,11 @@
     <string name="settings_builtin_controls_hotkeys_subtitle">मेनू, फ़ास्ट फ़ॉरवर्ड, रिवाइंड के लिए शॉर्टकट कॉन्फ़िगर करें</string>
     <string name="settings_builtin_controls_limit_hotkeys_title">हॉटकी केवल प्लेयर 1 तक सीमित करें</string>
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">केवल प्लेयर 1 का कंट्रोलर हॉटकी ट्रिगर कर सकता है</string>
+    <string name="settings_builtin_controls_select_as_back_title">Select को बैक मानें</string>
+    <string name="settings_builtin_controls_select_as_back_subtitle">उन कंट्रोलर के लिए जिनका Select बैक भेजता है। ऑटो, बिना Select बटन वाले कंट्रोलर पर बैक को Select मानता है।</string>
+    <string name="settings_builtin_controls_select_as_back_auto">ऑटो</string>
+    <string name="settings_builtin_controls_select_as_back_on">चालू</string>
+    <string name="settings_builtin_controls_select_as_back_off">बंद</string>
     <string name="settings_builtin_controls_toggle_ff_title">फ़ास्ट फ़ॉरवर्ड टॉगल करें</string>
     <string name="settings_builtin_controls_toggle_ff_subtitle">शुरू करने के लिए एक बार, रोकने के लिए फिर से दबाएँ (बंद = फ़ास्ट फ़ॉरवर्ड के लिए दबाए रखें)</string>
     <string name="settings_builtin_controls_ff_pitch_title">ऑडियो पिच बनाए रखें</string>
@@ -1753,6 +1762,8 @@
     <string name="settings_platform_sync_toggle_subtitle">इस प्लेटफ़ॉर्म को लाइब्रेरी सिंक में शामिल करें</string>
     <string name="settings_platform_combine_content_title">सामग्री मिलाएँ</string>
     <string name="settings_platform_combine_content_subtitle">सभी गेम एक फ़ोल्डर में, सभी अपडेट और DLC extcontent में</string>
+    <string name="settings_platform_skip_full_sync_title">पूर्ण सिंक में छोड़ें</string>
+    <string name="settings_platform_skip_full_sync_subtitle">इंक्रीमेंटल सिंक अब भी बदलावों की जाँच करता है</string>
     <string name="settings_platform_sync_now_title">अभी सिंक करें</string>
     <string name="settings_platform_sync_now_busy">सिंक चल रही है...</string>
     <string name="settings_platform_sync_now_subtitle">इस प्लेटफ़ॉर्म को RomM के साथ सिंक करें</string>
@@ -1834,6 +1845,9 @@
     <string name="settings_library_layout_title">लेआउट</string>
     <string name="settings_library_layout_grid">ग्रिड</string>
     <string name="settings_library_layout_list">सूची</string>
+    <string name="settings_library_list_style_title">सूची शैली</string>
+    <string name="settings_library_list_style_relaxed">खुली</string>
+    <string name="settings_library_list_style_compact">कॉम्पैक्ट</string>
     <string name="settings_library_box_art_title">बॉक्स आर्ट</string>
     <string name="settings_library_box_art_subtitle">जिन गेम में 3D बॉक्स है, उनके लिए उसे दिखाता है</string>
     <string name="settings_library_box_art_option_2d">2D कवर</string>
@@ -1910,6 +1924,8 @@
     <string name="settings_hotkeys_action_skip_split">स्प्लिट छोड़ें</string>
     <string name="settings_hotkeys_action_toggle_timer">टाइमर शुरू/रोकें</string>
     <string name="settings_hotkeys_action_reset_timer">टाइमर रीसेट करें</string>
+    <string name="settings_hotkeys_action_sun_brighter">धूप बढ़ाएँ</string>
+    <string name="settings_hotkeys_action_sun_dimmer">धूप घटाएँ</string>
 
     <!-- ===== Input mapping modal (Settings > components > InputMappingModal) ===== -->
 
@@ -2191,12 +2207,10 @@
     <!-- ===== Controller order modal (Settings > components > ControllerOrderModal) ===== -->
 
     <string name="settings_controller_order_title">कंट्रोलर क्रम</string>
-    <string name="settings_controller_order_subtitle">कंट्रोलर खोजने के लिए उस पर कोई बटन दबाएँ।</string>
+    <string name="settings_controller_order_prompt">जिस कंट्रोलर का उपयोग करना है उस पर %1$s + %2$s या %3$s दबाएँ</string>
+    <string name="settings_controller_order_ready">तैयार होने पर %1$s दबाएँ</string>
     <string name="settings_controller_order_hint_clear_all">सभी हटाएँ</string>
     <string name="settings_controller_order_default_name">कंट्रोलर</string>
-    <string name="settings_controller_order_slot_label">P%1$d</string>
-    <string name="settings_controller_order_seat_none">कोई नहीं</string>
-    <string name="settings_controller_order_empty">कोई कंट्रोलर कनेक्ट नहीं है</string>
 
     <!-- ===== Grip controller modal (Settings > components > GripControllerModal) ===== -->
 
@@ -2331,7 +2345,6 @@
     <string name="settings_accounts_delegate_blocker_external_game">%1$s %2$d सेकंड पहले स्क्रीन पर था। इसे पूरी तरह बंद करें, फिर फिर से कोशिश करें।</string>
     <string name="settings_accounts_delegate_blocker_active_downloads">गेम डाउनलोड अभी भी चल रहे हैं। इन्हें पूरा होने दें या रद्द करें।</string>
     <string name="settings_accounts_delegate_blocker_emulator_download">एक एमुलेटर डाउनलोड अभी भी चल रहा है। इसे पूरा होने दें या रद्द करें।</string>
-    <string name="settings_accounts_delegate_blocker_steam_download">एक Steam डाउनलोड अभी भी चल रहा है। इसे पूरा होने दें या रद्द करें।</string>
     <string name="settings_accounts_delegate_blocker_media_download">एक फ़िल्म या एपिसोड अभी भी डाउनलोड हो रहा है। इसे पूरा होने दें या रद्द करें।</string>
     <string name="settings_accounts_delegate_blocker_library_sync">एक लाइब्रेरी सिंक चल रही है। इसे पूरा होने दें, फिर फिर से कोशिश करें।</string>
     <string name="settings_accounts_delegate_blocker_netplay_session">एक नेटप्ले सेशन खुला है। इसे छोड़ें, फिर फिर से कोशिश करें।</string>
@@ -2341,7 +2354,6 @@
     <!-- ===== Steam settings delegate (Settings > delegates > SteamSettingsDelegate) ===== -->
 
     <string name="settings_steam_delegate_invalid_app_id">कृपया एक मान्य Steam App ID डालें</string>
-    <string name="settings_steam_delegate_volume_other_label">अन्य</string>
 
     <!-- ===== Jellyfin settings delegate (Settings > delegates > JellyfinSettingsDelegate) ===== -->
 
@@ -2489,6 +2501,7 @@
     <string name="settings_libretro_def_audio_volume_subtitle" formatted="false">एमुलेटर आउटपुट स्तर (100% असंशोधित है)</string>
     <string name="settings_libretro_def_vsync_title">VSync</string>
     <string name="settings_libretro_def_vsync_subtitle">डिस्प्ले रीफ़्रेश रेट से सिंक करें</string>
+    <string name="settings_libretro_applies_next_launch">अगली बार गेम शुरू होने पर लागू होगा</string>
     <string name="settings_libretro_def_auto_save_state_title">बाहर निकलने पर सेव स्टेट बनाएँ</string>
     <string name="settings_libretro_def_auto_save_state_subtitle">केवल कैज़ुअल गेम पर लागू</string>
     <string name="settings_libretro_def_auto_restore_state_title">लॉन्च पर स्टेट बहाल करें</string>
@@ -2639,6 +2652,9 @@
     </plurals>
     <string name="settings_play_time_romm_refresh_stopped">रीफ़्रेश रुक गया: %s</string>
     <string name="settings_play_time_list_unknown_game">अज्ञात गेम</string>
+    <string name="settings_play_time_delete_title">खेल रिकॉर्ड हटाएँ?</string>
+    <string name="settings_play_time_delete_message">%1$s का पूरा खेल इतिहास इस डिवाइस से हटा दिया जाएगा। अभी से पहले खेले गए सत्र फिर से सिंक नहीं होंगे।</string>
+    <string name="settings_play_time_delete_confirm">हटाएँ</string>
     <string name="settings_play_time_list_game_detail">%1$s, आख़िरी बार खेला %2$s</string>
     <plurals name="settings_play_time_list_sessions">
         <item quantity="one">%d सत्र</item>

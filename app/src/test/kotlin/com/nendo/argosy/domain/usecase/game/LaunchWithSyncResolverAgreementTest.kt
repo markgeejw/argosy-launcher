@@ -33,7 +33,9 @@ class LaunchWithSyncResolverAgreementTest {
 
     private val gameDao = mockk<GameDao>(relaxed = true)
     private val emulatorConfigDao = mockk<EmulatorConfigDao>(relaxed = true)
-    private val emulatorDetector = mockk<EmulatorDetector>(relaxed = true)
+    private val emulatorDetector = mockk<EmulatorDetector>(relaxed = true) {
+        every { getByPackage(any()) } answers { EmulatorRegistry.getByPackage(firstArg()) }
+    }
     private val preferencesRepository = mockk<UserPreferencesRepository>(relaxed = true)
     private val romMRepository = mockk<RomMRepository>(relaxed = true)
     private val saveSyncRepository = mockk<SaveSyncRepository>(relaxed = true)

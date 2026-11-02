@@ -59,6 +59,7 @@ class GameShowcaseScrollTest {
                 }
             }
         }
+        compose.mainClock.advanceTimeBy(1_000)
 
         val metadata = compose.onNode(
             SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
@@ -74,6 +75,7 @@ class GameShowcaseScrollTest {
         compose.runOnIdle {
             selected.value = selected.value.copy(gameId = 2L, title = "Game B")
         }
+        compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         assertEquals(0f, scrollRange().value(), 0f)
 

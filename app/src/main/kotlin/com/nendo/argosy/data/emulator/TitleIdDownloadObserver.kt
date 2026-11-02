@@ -2,6 +2,7 @@ package com.nendo.argosy.data.emulator
 
 import com.nendo.argosy.data.download.DownloadManager
 import com.nendo.argosy.data.local.dao.GameDao
+import com.nendo.argosy.data.local.dao.GameDiscDao
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.SafeCoroutineScope
@@ -13,7 +14,8 @@ import javax.inject.Singleton
 
 private const val TAG = "TitleIdDownloadObserver"
 
-private val TITLE_ID_PLATFORMS = com.nendo.argosy.data.platform.PlatformDefinitions.TITLE_ID_PLATFORMS
+private fun hasTitleId(platformSlug: String) =
+    com.nendo.argosy.data.platform.PlatformDefinitions.hasTitleId(platformSlug)
 
 sealed interface TitleIdRecheck {
     data class Found(val titleId: String, val replaced: String?) : TitleIdRecheck
@@ -26,6 +28,7 @@ sealed interface TitleIdRecheck {
 class TitleIdDownloadObserver @Inject constructor(
     private val downloadManager: DownloadManager,
     private val gameDao: GameDao,
+    private val gameDiscDao: GameDiscDao,
     private val titleIdExtractor: TitleIdExtractor,
     private val emulatorResolver: EmulatorResolver,
     private val baseRomFileResolver: BaseRomFileResolver,
@@ -58,10 +61,9 @@ class TitleIdDownloadObserver @Inject constructor(
 
         if (cartFeatureScanner.appliesTo(game.platformSlug)) {
             cartFeatureScanner.scan(game.copy(localPath = event.localPath))
-            return
         }
 
-        if (game.platformSlug !in TITLE_ID_PLATFORMS) {
+        if (!hasTitleId(game.platformSlug)) {
             Logger.debug(TAG, "Platform ${game.platformSlug} doesn't use title IDs, skipping")
             return
         }
@@ -89,7 +91,7 @@ class TitleIdDownloadObserver @Inject constructor(
     suspend fun extractTitleIdForGame(gameId: Long): Boolean {
         val game = gameDao.getById(gameId) ?: return false
 
-        if (game.platformSlug !in TITLE_ID_PLATFORMS) {
+        if (!hasTitleId(game.platformSlug)) {
             return false
         }
 
@@ -118,7 +120,7 @@ class TitleIdDownloadObserver @Inject constructor(
     suspend fun recheckTitleId(gameId: Long): TitleIdRecheck {
         val game = gameDao.getById(gameId) ?: return TitleIdRecheck.Unsupported
 
-        if (game.platformSlug !in TITLE_ID_PLATFORMS) {
+        if (!hasTitleId(game.platformSlug)) {
             return TitleIdRecheck.Unsupported
         }
 
@@ -136,9 +138,16 @@ class TitleIdDownloadObserver @Inject constructor(
     }
 
     private suspend fun resolveGameFile(game: GameEntity): File? {
+        if (game.isMultiDisc) return firstDiscOnDisk(game.id)
         val recorded = File(game.localPath ?: return null)
         if (!recorded.exists()) return null
         return baseRomFileResolver.resolve(game, recorded).takeIf { it.exists() }
+    }
+
+    private suspend fun firstDiscOnDisk(gameId: Long): File? {
+        val firstDisc = gameDiscDao.getDiscsForGame(gameId).minByOrNull { it.discNumber } ?: return null
+        return firstDisc.localPath?.let(::File)
+            ?.takeIf { it.isFile && !it.extension.equals("m3u", ignoreCase = true) }
     }
 
     private suspend fun extractAndStoreTitleId(

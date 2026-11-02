@@ -33,6 +33,7 @@ data class SyncPreferences(
     val raProxyEnabled: Boolean = false,
     val raProxyAddress: String = "",
     val lastRommSync: Instant? = null,
+    val rommChangesWatermark: Instant? = null,
     val lastFavoritesSync: Instant? = null,
     val lastFavoritesCheck: Instant? = null,
     val syncFilters: SyncFilterPreferences = SyncFilterPreferences(),
@@ -44,7 +45,6 @@ data class SyncPreferences(
     val secureSaves: Boolean = true,
     val stateCacheEnabled: Boolean = true,
     val saveCacheLimit: Int = 10,
-    val saveWatcherEnabled: Boolean = false,
     val saveDebugLoggingEnabled: Boolean = false,
     val imageCachePath: String? = null,
     val socialSessionToken: String? = null,
@@ -93,6 +93,7 @@ class SyncPreferencesRepository @Inject constructor(
         val RA_PROXY_ENABLED = booleanPreferencesKey("ra_proxy_enabled")
         val RA_PROXY_ADDRESS = stringPreferencesKey("ra_proxy_address")
         val LAST_ROMM_SYNC = stringPreferencesKey("last_romm_sync")
+        val ROMM_CHANGES_WATERMARK = stringPreferencesKey("romm_changes_watermark")
         val LAST_ROMM_FULL_SYNC = stringPreferencesKey("last_romm_full_sync")
         val LAST_FAVORITES_SYNC = stringPreferencesKey("last_favorites_sync")
         val LAST_FAVORITES_CHECK = stringPreferencesKey("last_favorites_check")
@@ -114,7 +115,6 @@ class SyncPreferencesRepository @Inject constructor(
         val SECURE_SAVES = booleanPreferencesKey("secure_saves")
         val STATE_CACHE_ENABLED = booleanPreferencesKey("state_cache_enabled")
         val SAVE_CACHE_LIMIT = intPreferencesKey("save_cache_limit")
-        val SAVE_WATCHER_ENABLED = booleanPreferencesKey("save_watcher_enabled")
         val SAVE_DEBUG_LOGGING_ENABLED = booleanPreferencesKey("save_debug_logging_enabled")
         val IMAGE_CACHE_PATH = stringPreferencesKey("image_cache_path")
         val SOCIAL_SESSION_TOKEN = stringPreferencesKey("social_session_token")
@@ -330,6 +330,7 @@ class SyncPreferencesRepository @Inject constructor(
             raProxyEnabled = prefs[Keys.RA_PROXY_ENABLED] ?: false,
             raProxyAddress = prefs[Keys.RA_PROXY_ADDRESS] ?: "",
             lastRommSync = prefs[Keys.LAST_ROMM_SYNC]?.let { Instant.parse(it) },
+            rommChangesWatermark = prefs[Keys.ROMM_CHANGES_WATERMARK]?.let { Instant.parse(it) },
             lastFavoritesSync = prefs[Keys.LAST_FAVORITES_SYNC]?.let { Instant.parse(it) },
             lastFavoritesCheck = prefs[Keys.LAST_FAVORITES_CHECK]?.let { Instant.parse(it) },
             syncFilters = syncFiltersFrom(prefs),
@@ -341,7 +342,6 @@ class SyncPreferencesRepository @Inject constructor(
             secureSaves = prefs[Keys.SECURE_SAVES] ?: true,
             stateCacheEnabled = prefs[Keys.STATE_CACHE_ENABLED] ?: true,
             saveCacheLimit = prefs[Keys.SAVE_CACHE_LIMIT] ?: 10,
-            saveWatcherEnabled = prefs[Keys.SAVE_WATCHER_ENABLED] ?: false,
             saveDebugLoggingEnabled = prefs[Keys.SAVE_DEBUG_LOGGING_ENABLED] ?: false,
             imageCachePath = prefs[Keys.IMAGE_CACHE_PATH],
             socialSessionToken = prefs[Keys.SOCIAL_SESSION_TOKEN],
@@ -366,10 +366,6 @@ class SyncPreferencesRepository @Inject constructor(
             quayPassTicketBalance = prefs[Keys.QUAYPASS_TICKET_BALANCE] ?: 0
         )
     }.flowOn(Dispatchers.Default)
-
-    fun saveWatcherEnabled(): Flow<Boolean> = dataStore.data.map {
-        it[Keys.SAVE_WATCHER_ENABLED] ?: false
-    }
 
     suspend fun setRommConfig(url: String?, username: String?) {
         dataStore.edit { prefs ->
@@ -474,6 +470,10 @@ class SyncPreferencesRepository @Inject constructor(
             prefs[Keys.RA_PROXY_ENABLED] = enabled
             prefs[Keys.RA_PROXY_ADDRESS] = address
         }
+    }
+
+    suspend fun setRommChangesWatermark(time: Instant) {
+        dataStore.edit { it[Keys.ROMM_CHANGES_WATERMARK] = time.toString() }
     }
 
     suspend fun setLastRommSyncTime(time: Instant) {
@@ -680,9 +680,6 @@ class SyncPreferencesRepository @Inject constructor(
         dataStore.edit { it[Keys.SAVE_CACHE_LIMIT] = limit }
     }
 
-    suspend fun setSaveWatcherEnabled(enabled: Boolean) {
-        dataStore.edit { it[Keys.SAVE_WATCHER_ENABLED] = enabled }
-    }
 
     suspend fun setSaveDebugLoggingEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.SAVE_DEBUG_LOGGING_ENABLED] = enabled }

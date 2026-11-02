@@ -62,6 +62,4 @@ interface MediaStreamDao {
     @Query("DELETE FROM media_streams WHERE ownerUserId = :ownerUserId")
     suspend fun deleteByOwner(ownerUserId: String)
 
-    @Query("DELETE FROM media_streams WHERE ownerUserId != :ownerUserId")
-    suspend fun deleteOtherOwners(ownerUserId: String)
 }

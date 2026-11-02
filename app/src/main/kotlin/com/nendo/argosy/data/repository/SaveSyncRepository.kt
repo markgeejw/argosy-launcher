@@ -1,6 +1,7 @@
 package com.nendo.argosy.data.repository
 
 import com.nendo.argosy.data.local.dao.SaveCacheDao
+import com.nendo.argosy.data.local.dao.SaveCountByDevice
 import com.nendo.argosy.data.local.dao.SaveSyncDao
 import com.nendo.argosy.data.local.entity.SaveSyncEntity
 import com.nendo.argosy.data.remote.romm.AccountApi
@@ -127,13 +128,6 @@ class SaveSyncRepository @Inject constructor(
     private val snapshotRouter: dagger.Lazy<com.nendo.argosy.data.sync.snapshot.SnapshotSyncRouter>
 ) {
     private val PRE_LAUNCH_TAG = "SaveSyncRepository"
-    private val PRE_LAUNCH_ACTION_PRIORITY = listOf(
-        ReconcileAction.CONFLICT,
-        ReconcileAction.DOWNLOAD,
-        ReconcileAction.UPLOAD,
-        ReconcileAction.NO_OP
-    )
-
     val syncQueueState: StateFlow<SyncQueueState> = entityManager.syncQueueState
 
     fun setApi(api: RomMApi?) = apiClient.setApi(api)
@@ -162,6 +156,12 @@ class SaveSyncRepository @Inject constructor(
 
     fun observeSaveCountsByPlatform(): Flow<Map<Long, Int>> =
         entityManager.observeSaveCountsByPlatform()
+
+    fun observeSaveRows(ownerUserId: Long?): Flow<List<SaveSyncEntity>> =
+        saveSyncDao.observeAll(ownerUserId)
+
+    fun observeSaveCountsByDevice(ownerUserId: Long?): Flow<List<SaveCountByDevice>> =
+        saveSyncDao.observeSaveCountsByDevice(ownerUserId)
 
     suspend fun clearDirtyFlags(gameId: Long) = entityManager.clearDirtyFlags(gameId)
 
@@ -213,9 +213,10 @@ class SaveSyncRepository @Inject constructor(
         coreName: String? = null,
         cachedSaveId: String? = null,
         gameId: Long? = null,
-        folderShaped: Boolean? = null
+        folderShaped: Boolean? = null,
+        emulatorPackage: String? = null
     ): String? = apiClient.constructSavePath(
-        emulatorId, gameTitle, platformSlug, romPath, coreName, cachedSaveId, gameId, folderShaped
+        emulatorId, gameTitle, platformSlug, romPath, coreName, cachedSaveId, gameId, folderShaped, emulatorPackage
     )
 
     suspend fun predictFolderSavePath(
@@ -480,9 +481,7 @@ class SaveSyncRepository @Inject constructor(
             Logger.debug(PRE_LAUNCH_TAG, "[SaveSync] PRE_LAUNCH gameId=$gameId slot=$slot | negotiate unavailable | decision=NoConnection")
             return PreLaunchSyncResult.NoConnection
         }
-        val op = plan.operations
-            .filter { SaveSyncApiClient.syncKeyOf(it.slot) == slot }
-            .minByOrNull { PRE_LAUNCH_ACTION_PRIORITY.indexOf(it.action) }
+        val op = plan.operations.firstOrNull { SaveSyncApiClient.syncKeyOf(it.slot) == slot }
         val serverTimestamp = op?.serverUpdatedAt?.let { SaveSyncApiClient.parseTimestamp(it) } ?: Instant.now()
         val flaggedConflict = existing?.syncStatus == SaveSyncEntity.STATUS_CONFLICT
         val decision = when (op?.action) {

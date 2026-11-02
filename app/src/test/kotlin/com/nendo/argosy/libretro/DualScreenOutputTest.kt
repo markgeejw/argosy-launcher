@@ -36,6 +36,13 @@ class DualScreenOutputTest {
     }
 
     @Test
+    fun `match screen size applies to both melonDS cores and not to Azahar`() {
+        assertEquals(true, DualScreenOutput.forCore("melonds")!!.matchesScreenSize)
+        assertEquals(true, DualScreenOutput.forCore("melondsds")!!.matchesScreenSize)
+        assertEquals(false, DualScreenOutput.forCore("azahar")!!.matchesScreenSize)
+    }
+
+    @Test
     fun `a single-screen core has no split`() {
         assertNull(DualScreenOutput.forCore("snes9x"))
     }

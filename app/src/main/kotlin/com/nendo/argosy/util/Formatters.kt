@@ -8,6 +8,7 @@ import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
 
@@ -67,10 +68,11 @@ fun formatRelativeTime(
     context: Context,
     instant: Instant?,
     now: Instant = Instant.now(),
-    absolute: (Instant) -> String = ::formatMonthDay
+    absolute: (Instant) -> String = ::formatMonthDay,
+    zone: ZoneId = ZoneId.systemDefault()
 ): String {
     if (instant == null) return ""
-    val days = Duration.between(instant, now).toDays()
+    val days = calendarDaysBetween(instant, now, zone)
     val resources = context.resources
     return when {
         days == 0L -> context.getString(R.string.util_formatters_relative_today)
@@ -216,9 +218,13 @@ fun formatAbsoluteTimestamp(context: Context, instant: Instant): String {
     return "$date ${formatClockTime(context, instant.toEpochMilli())}"
 }
 
-fun formatSaveTimestamp(context: Context, timestamp: Long): String {
-    val diffMs = System.currentTimeMillis() - timestamp
-    val diffDays = diffMs / (1000 * 60 * 60 * 24)
+fun formatSaveTimestamp(
+    context: Context,
+    timestamp: Long,
+    now: Instant = Instant.now(),
+    zone: ZoneId = ZoneId.systemDefault()
+): String {
+    val diffDays = calendarDaysBetween(Instant.ofEpochMilli(timestamp), now, zone)
     return when {
         diffDays == 0L -> context.getString(
             R.string.util_formatters_save_timestamp_today,
@@ -233,6 +239,9 @@ fun formatSaveTimestamp(context: Context, timestamp: Long): String {
         else -> formatMonthDay(Instant.ofEpochMilli(timestamp))
     }
 }
+
+internal fun calendarDaysBetween(instant: Instant, now: Instant, zone: ZoneId): Long =
+    ChronoUnit.DAYS.between(instant.atZone(zone).toLocalDate(), now.atZone(zone).toLocalDate())
 
 private val BYTE_UNITS = arrayOf("B", "KB", "MB", "GB", "TB")
 

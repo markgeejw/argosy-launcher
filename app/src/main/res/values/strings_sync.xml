@@ -26,6 +26,8 @@
     <string name="sync_prelaunch_connected">Connected</string>
     <!-- Outcome: the connection could not be opened. Noun phrase, not a command. -->
     <string name="sync_prelaunch_connect_failed">Connection failed</string>
+    <!-- Outcome: the server was reachable but did not answer in time. Noun phrase, not a command. -->
+    <string name="sync_prelaunch_timed_out">Server took too long</string>
     <!-- Step in progress: fetching the save from the server. Present participle. -->
     <string name="sync_prelaunch_downloading">Downloading...</string>
     <!-- Outcome: the save arrived. Adjective phrase describing the download. -->
@@ -162,8 +164,6 @@
     <string name="steam_service_connecting">Connecting...</string>
     <!-- Notification line while Steam credentials are being presented. Present participle. -->
     <string name="steam_service_signing_in">Signing in...</string>
-    <!-- Notification line while the Steam library is being fetched. Present participle. -->
-    <string name="steam_service_syncing_library">Syncing Steam library...</string>
 
     <!-- Android system notification shown while downloads run in the background. -->
 
@@ -174,9 +174,6 @@
     <string name="sync_download_channel_description">Shows download progress in background</string>
     <!-- First line of the notification, before there is anything to report. -->
     <string name="sync_download_service_preparing">Preparing download...</string>
-    <!-- Notification line while a Steam title is being fetched. %1$s is the game's
-         title. "Steam" is Valve's storefront; leave the name as it is. -->
-    <string name="sync_download_service_steam_downloading">Downloading: %1$s</string>
     <!-- Notification line while a finished download is being unpacked. %1$s is the
          game's title. Present participle. -->
     <string name="sync_download_service_extracting">Extracting: %1$s</string>
@@ -377,18 +374,6 @@
     <!-- Second line of that notice. "Settings &gt; Steam" is the path through Argosy's
          own settings screens. -->
     <string name="sync_steam_auth_expired_subtitle">Sign in again from Settings &gt; Steam</string>
-    <!-- Notice when the stored Steam sign-in is no longer accepted, raised while trying
-         to download. Past participle describing the session. -->
-    <string name="sync_steam_download_signed_out_title">Steam session expired</string>
-    <!-- Second line of that notice. "Settings &gt; Steam" is the path through Argosy's
-         own settings screens. -->
-    <string name="sync_steam_download_signed_out_subtitle">Sign in from Settings &gt; Steam to download</string>
-    <!-- Notice when a Steam download cannot start because the folder it would go in is
-         not writable. %1$s is the game's title. -->
-    <string name="sync_steam_path_blocked_title">Cannot download %1$s</string>
-    <!-- Notice when a Steam download cannot start because there is not enough room.
-         %1$s is the game's title. -->
-    <string name="sync_steam_storage_blocked_title">Cannot download %1$s</string>
 
     <!-- Message on the Steam QR sign-in screen when Steam stops accepting attempts for
          a while. -->

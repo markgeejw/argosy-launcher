@@ -63,6 +63,27 @@ class ControllerPortResolverTest {
     }
 
     @Test
+    fun `a lone built-in pad takes player one when the saved player one is not connected`() {
+        connected(builtIn)
+        resolver.setControllerOrder(listOf(order(external, 0), order(builtIn, 1)))
+
+        assertEquals(0, resolver.getPort(builtIn))
+        assertEquals(id(builtIn), resolver.playerOneControllerId())
+    }
+
+    @Test
+    fun `the saved player one gets its seat back when it connects`() {
+        connected(builtIn)
+        resolver.setControllerOrder(listOf(order(external, 0), order(builtIn, 1)))
+        assertEquals(0, resolver.getPort(builtIn))
+
+        connected(builtIn, external)
+
+        assertEquals(0, resolver.getPort(external))
+        assertEquals(1, resolver.getPort(builtIn))
+    }
+
+    @Test
     fun `external pads seat on first input from zero`() {
         connected(builtIn, external, secondExternal)
 

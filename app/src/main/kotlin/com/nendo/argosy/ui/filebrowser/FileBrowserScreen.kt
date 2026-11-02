@@ -109,10 +109,7 @@ fun FileBrowserScreen(
         FileBrowserInputHandler(viewModel, onDismiss, requestStoragePermission)
     }
 
-    DisposableEffect(inputHandler) {
-        inputDispatcher.pushModal(inputHandler)
-        onDispose { inputDispatcher.removeModal(inputHandler) }
-    }
+    ModalInputEffect(active = true, handler = inputHandler, inputDispatcher = inputDispatcher)
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.recheckPermission()

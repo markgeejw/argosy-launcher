@@ -18,7 +18,8 @@ data class RomMClientSaveState(
 data class RomMSyncNegotiatePayload(
     @Json(name = "device_id") val deviceId: String,
     @Json(name = "saves") val saves: List<RomMClientSaveState>,
-    @Json(name = "rom_ids") val romIds: List<Long>? = null
+    @Json(name = "rom_ids") val romIds: List<Long>? = null,
+    @Json(name = "restore_unlisted") val restoreUnlisted: Boolean = false
 )
 
 @JsonClass(generateAdapter = true)

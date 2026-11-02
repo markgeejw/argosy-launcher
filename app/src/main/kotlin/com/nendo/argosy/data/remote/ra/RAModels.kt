@@ -22,13 +22,15 @@ data class RAAwardResponse(
     @Json(name = "AchievementID") val achievementId: Long? = null,
     @Json(name = "AchievementsRemaining") val achievementsRemaining: Int? = null,
     @Json(name = "Warning") val warning: String? = null,
-    @Json(name = "Error") val error: String? = null
+    @Json(name = "Error") val error: String? = null,
+    @Json(name = "Code") val code: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class RABaseResponse(
     @Json(name = "Success") val success: Boolean,
-    @Json(name = "Error") val error: String? = null
+    @Json(name = "Error") val error: String? = null,
+    @Json(name = "Code") val code: String? = null
 )
 
 @JsonClass(generateAdapter = true)

@@ -33,12 +33,16 @@ object RootShell {
 
     fun run(context: Context, body: String): Result? = synchronized(lock) {
         if (!isAvailable) return null
+        val dir = File(context.cacheDir, WORK_DIR)
+        val script = File(dir, SCRIPT_NAME)
+        val output = File(dir, OUTPUT_NAME)
+        val wrapper = File(dir, WRAPPER_NAME)
         try {
-            val dir = File(context.cacheDir, WORK_DIR).apply { mkdirs() }
+            dir.mkdirs()
             dir.setExecutable(true, false)
-            val script = File(dir, SCRIPT_NAME).apply { writeText(body + "\n") }
-            val output = File(dir, OUTPUT_NAME).apply { delete() }
-            val wrapper = File(dir, WRAPPER_NAME).apply {
+            script.writeText(body + "\n")
+            output.delete()
+            wrapper.apply {
                 writeText(
                     "sh ${script.absolutePath} > ${output.absolutePath} 2>&1\n" +
                         "rc=\$?\nchmod 644 ${output.absolutePath}\necho \$rc\n"
@@ -54,6 +58,10 @@ object RootShell {
         } catch (e: Exception) {
             Logger.warn(TAG, "root shell failed: ${e.message}")
             null
+        } finally {
+            script.delete()
+            wrapper.delete()
+            output.delete()
         }
     }
 }

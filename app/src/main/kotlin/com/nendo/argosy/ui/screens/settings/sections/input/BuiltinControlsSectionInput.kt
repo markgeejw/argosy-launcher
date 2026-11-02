@@ -31,6 +31,18 @@ internal class BuiltinControlsSectionInput(
                 }
                 InputResult.handled(SoundType.TOGGLE)
             }
+            BuiltinControlsItem.Motion -> {
+                if (state.builtinVideo.isGlobalContext) {
+                    viewModel.setBuiltinMotionEnabled(!state.builtinControls.motionEnabled)
+                } else {
+                    val ps = state.builtinVideo.currentPlatformContext?.let {
+                        state.platformLibretro.platformSettings[it.platformId]
+                    }
+                    val effective = ps?.motionEnabled ?: state.builtinControls.motionEnabled
+                    viewModel.updatePlatformControlSetting("motionEnabled", !effective)
+                }
+                InputResult.handled(SoundType.TOGGLE)
+            }
             BuiltinControlsItem.LimitHotkeysToPlayer1 -> {
                 viewModel.setBuiltinLimitHotkeysToPlayer1(!state.builtinControls.limitHotkeysToPlayer1)
                 InputResult.handled(SoundType.TOGGLE)
@@ -107,6 +119,7 @@ internal class BuiltinControlsSectionInput(
         val state = viewModel.uiState.value
         return when (val item = builtinControlsItemAtFocusIndex(state.focusedIndex, state.builtinControls)) {
             is BuiltinControlsItem.ControllerType -> viewModel.stepControllerType(item.port, -1)
+            BuiltinControlsItem.SelectAsBack -> stepSelectAsBack(-1)
             BuiltinControlsItem.SpeedrunPanelWidth -> {
                 viewModel.adjustSpeedrunPanelWidth(-5)
                 InputResult.handled(SoundType.TOGGLE)
@@ -119,12 +132,22 @@ internal class BuiltinControlsSectionInput(
         val state = viewModel.uiState.value
         return when (val item = builtinControlsItemAtFocusIndex(state.focusedIndex, state.builtinControls)) {
             is BuiltinControlsItem.ControllerType -> viewModel.stepControllerType(item.port, 1)
+            BuiltinControlsItem.SelectAsBack -> stepSelectAsBack(1)
             BuiltinControlsItem.SpeedrunPanelWidth -> {
                 viewModel.adjustSpeedrunPanelWidth(5)
                 InputResult.handled(SoundType.TOGGLE)
             }
             else -> InputResult.UNHANDLED
         }
+    }
+
+    private fun stepSelectAsBack(direction: Int): InputResult {
+        val modes = com.nendo.argosy.data.local.entity.SelectAsBackMode.entries
+        val current = modes.indexOf(viewModel.uiState.value.builtinControls.selectAsBack)
+        val next = (current + direction).coerceIn(0, modes.lastIndex)
+        if (next == current) return InputResult.HANDLED
+        viewModel.setBuiltinSelectAsBack(modes[next])
+        return InputResult.handled(SoundType.TOGGLE)
     }
 
     override fun onSecondaryAction(): InputResult {
@@ -135,6 +158,7 @@ internal class BuiltinControlsSectionInput(
         val ps = platformContext?.let { state.platformLibretro.platformSettings[it.platformId] }
         val field = when (item) {
             BuiltinControlsItem.Rumble -> "rumbleEnabled"
+            BuiltinControlsItem.Motion -> "motionEnabled"
             BuiltinControlsItem.AnalogAsDpad -> "analogAsDpad"
             BuiltinControlsItem.DpadAsAnalog -> "dpadAsAnalog"
             else -> null
@@ -142,6 +166,7 @@ internal class BuiltinControlsSectionInput(
         if (field != null) {
             val hasOverride = when (item) {
                 BuiltinControlsItem.Rumble -> ps?.rumbleEnabled != null
+                BuiltinControlsItem.Motion -> ps?.motionEnabled != null
                 BuiltinControlsItem.AnalogAsDpad -> ps?.analogAsDpad != null
                 BuiltinControlsItem.DpadAsAnalog -> ps?.dpadAsAnalog != null
                 else -> false

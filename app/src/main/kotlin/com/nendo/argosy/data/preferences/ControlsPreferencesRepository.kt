@@ -40,9 +40,11 @@ data class ControlsPreferences(
     val selectSwapMode: SelectSwapMode = SelectSwapMode.HOLD,
     val openNavigationKey: Int = DEFAULT_OPEN_NAVIGATION_KEY,
     val openQuickPanelKey: Int = DEFAULT_OPEN_QUICK_PANEL_KEY,
+    val quickPanelInEmulators: Boolean = false,
     val navRingRoutes: List<String>? = null,
     val quickNavigation: Boolean = true,
-    val navBarAutoHide: Boolean = true
+    val navBarAutoHide: Boolean = true,
+    val ignoreControllerTouchpad: Boolean = true
 ) {
     companion object {
         const val DEFAULT_HAPTIC_STRENGTH = 0.5f
@@ -80,9 +82,11 @@ class ControlsPreferencesRepository @Inject constructor(
         val SELECT_SWAP_MODE = stringPreferencesKey("select_swap_mode")
         val OPEN_NAVIGATION_KEY = intPreferencesKey("open_navigation_key")
         val OPEN_QUICK_PANEL_KEY = intPreferencesKey("open_quick_panel_key")
+        val QUICK_PANEL_IN_EMULATORS = booleanPreferencesKey("quick_panel_in_emulators")
         val NAV_RING_ROUTES = stringPreferencesKey("nav_ring_routes")
         val QUICK_NAVIGATION = booleanPreferencesKey("quick_navigation")
         val NAV_BAR_AUTO_HIDE = booleanPreferencesKey("nav_bar_auto_hide")
+        val IGNORE_CONTROLLER_TOUCHPAD = booleanPreferencesKey("ignore_controller_touchpad")
     }
 
     val preferences: Flow<ControlsPreferences> = dataStore.data.map { prefs ->
@@ -110,12 +114,14 @@ class ControlsPreferencesRepository @Inject constructor(
                 ?: ControlsPreferences.DEFAULT_OPEN_NAVIGATION_KEY,
             openQuickPanelKey = prefs[Keys.OPEN_QUICK_PANEL_KEY]
                 ?: ControlsPreferences.DEFAULT_OPEN_QUICK_PANEL_KEY,
+            quickPanelInEmulators = prefs[Keys.QUICK_PANEL_IN_EMULATORS] ?: false,
             navRingRoutes = prefs[Keys.NAV_RING_ROUTES]
                 ?.split(',')
                 ?.map { it.trim() }
                 ?.filter { it.isNotEmpty() },
             quickNavigation = prefs[Keys.QUICK_NAVIGATION] ?: true,
-            navBarAutoHide = prefs[Keys.NAV_BAR_AUTO_HIDE] ?: true
+            navBarAutoHide = prefs[Keys.NAV_BAR_AUTO_HIDE] ?: true,
+            ignoreControllerTouchpad = prefs[Keys.IGNORE_CONTROLLER_TOUCHPAD] ?: true
         )
     }.flowOn(Dispatchers.Default)
 
@@ -185,7 +191,7 @@ class ControlsPreferencesRepository @Inject constructor(
             if (current.isEmpty()) return@edit
             val updated = current.mapValues { (_, config) ->
                 val path = config.customFilePath
-                if (path != null && path.startsWith("$old/")) {
+                if (path != null && (path == old || path.startsWith("$old/"))) {
                     config.copy(customFilePath = new + path.removePrefix(old))
                 } else {
                     config
@@ -264,8 +270,16 @@ class ControlsPreferencesRepository @Inject constructor(
         dataStore.edit { it[Keys.OPEN_QUICK_PANEL_KEY] = keyCode }
     }
 
+    suspend fun setQuickPanelInEmulators(enabled: Boolean) {
+        dataStore.edit { it[Keys.QUICK_PANEL_IN_EMULATORS] = enabled }
+    }
+
     suspend fun setQuickNavigation(enabled: Boolean) {
         dataStore.edit { it[Keys.QUICK_NAVIGATION] = enabled }
+    }
+
+    suspend fun setIgnoreControllerTouchpad(enabled: Boolean) {
+        dataStore.edit { it[Keys.IGNORE_CONTROLLER_TOUCHPAD] = enabled }
     }
 
     suspend fun setNavBarAutoHide(enabled: Boolean) {

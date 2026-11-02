@@ -20,15 +20,31 @@ class DreamcastSaveHandler @Inject constructor(
 
     override val namesSavesBySaveId: Boolean = true
 
-    override fun saveFileBaseNames(saveId: String): List<String> {
-        if (saveId.isBlank()) return emptyList()
-        val sanitized = saveId.trim().map { if (it in RESERVED_CHARS) '_' else it }.joinToString("")
-        return listOf("$sanitized$PORT_A1_SUFFIX")
+    override fun saveFileBaseNames(saveId: String): List<String> =
+        vmuNames(saveId, RESERVED_CHARS, PORT_A1_SUFFIX)
+
+    /**
+     * Standalone Flycast's per-game card: `<product number>_vmu_save_A1.bin`, the name
+     * `hostfs::getVmuPath` gives port A1 while `PerGameVmu` is on.
+     */
+    val standalone: PlatformSaveHandler = object : PlatformSaveHandler by delegate {
+        override val namesSavesBySaveId: Boolean = true
+
+        override fun saveFileBaseNames(saveId: String): List<String> =
+            vmuNames(saveId, STANDALONE_RESERVED_CHARS, STANDALONE_PORT_A1_SUFFIX)
     }
 
     companion object {
         const val PORT_A1_SUFFIX = ".A1"
+        const val STANDALONE_PORT_A1_SUFFIX = "_vmu_save_A1"
         const val CARD_EXTENSION = "bin"
         private val RESERVED_CHARS = setOf(' ', '/', '\\', ':', '*', '?', '|', '<', '>')
+        private val STANDALONE_RESERVED_CHARS = RESERVED_CHARS + '"'
+
+        private fun vmuNames(saveId: String, reserved: Set<Char>, suffix: String): List<String> {
+            if (saveId.isBlank()) return emptyList()
+            val sanitized = saveId.trim().map { if (it in reserved) '_' else it }.joinToString("")
+            return listOf("$sanitized$suffix")
+        }
     }
 }

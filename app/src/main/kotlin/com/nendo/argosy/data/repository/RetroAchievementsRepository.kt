@@ -36,6 +36,7 @@ private const val UNLOCKS_COOLDOWN_MS = 5 * 60 * 1000L
 private const val WARNING_UNLOCK_ID = 101000001L
 private val RETRYABLE_HTTP_CODES = setOf(429, 502, 503, 504, 521, 522, 523, 524, 525)
 private val AUTH_HTTP_CODES = setOf(401, 403)
+private val AUTH_SERVER_CODES = setOf("invalid_credentials", "expired_token", "access_denied")
 const val RA_BADGE_BASE_URL = "https://media.retroachievements.org/Badge/"
 
 sealed class RALoginResult {
@@ -321,7 +322,8 @@ class RetroAchievementsRepository @Inject constructor(
                 )
 
                 val success = response.isSuccessful && response.body()?.success == true
-                val serverError = serverErrorMessage(response)
+                val failure = serverFailure(response)
+                val serverError = failure?.error
                 val alreadyHas = serverError?.contains("already has", ignoreCase = true) == true
 
                 when {
@@ -330,7 +332,7 @@ class RetroAchievementsRepository @Inject constructor(
                         successCount++
                         Logger.debug(TAG, "Pending achievement ${payload.achievementRaId} submitted")
                     }
-                    isDefinitiveRejection(response.code(), serverError) -> {
+                    isDefinitiveRejection(response.code(), serverError, failure?.code) -> {
                         pendingSyncQueueDao.deleteById(entity.id)
                         Logger.warn(
                             TAG,
@@ -356,25 +358,33 @@ class RetroAchievementsRepository @Inject constructor(
         return successCount
     }
 
-    private fun serverErrorMessage(response: Response<RAAwardResponse>): String? {
-        response.body()?.error?.takeIf { it.isNotBlank() }?.let { return it }
+    private fun serverFailure(response: Response<RAAwardResponse>): RABaseResponse? {
+        response.body()?.let { body ->
+            if (!body.error.isNullOrBlank()) return RABaseResponse(body.success, body.error, body.code)
+        }
         val errorBody = response.errorBody() ?: return null
         return try {
-            errorBodyAdapter.fromJson(errorBody.string())?.error?.takeIf { it.isNotBlank() }
+            errorBodyAdapter.fromJson(errorBody.string())?.takeIf { !it.error.isNullOrBlank() }
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun isDefinitiveRejection(httpCode: Int, serverError: String?): Boolean =
-        serverError != null && httpCode !in RETRYABLE_HTTP_CODES && httpCode !in AUTH_HTTP_CODES
+    internal fun isDefinitiveRejection(httpCode: Int, serverError: String?, serverCode: String?): Boolean =
+        serverError != null &&
+            httpCode !in RETRYABLE_HTTP_CODES &&
+            httpCode !in AUTH_HTTP_CODES &&
+            serverCode !in AUTH_SERVER_CODES
 
     data class RASessionResult(
         val success: Boolean,
-        val unlockedAchievements: Set<Long> = emptySet()
-    )
+        val hardcoreUnlocks: Set<Long> = emptySet(),
+        val allUnlocks: Set<Long> = emptySet()
+    ) {
+        fun unlocksFor(hardcore: Boolean): Set<Long> = if (hardcore) hardcoreUnlocks else allUnlocks
+    }
 
-    suspend fun startSession(gameRaId: Long, hardcore: Boolean = false): RASessionResult {
+    suspend fun startSession(gameRaId: Long, hardcore: Boolean = false, gameHash: String? = null): RASessionResult {
         val credentials = getCredentials()
         if (credentials == null) {
             Logger.warn(TAG, "Cannot start RA session - not logged in to RetroAchievements")
@@ -387,7 +397,8 @@ class RetroAchievementsRepository @Inject constructor(
                 username = credentials.username,
                 token = credentials.token,
                 gameId = gameRaId,
-                hardcore = if (hardcore) 1 else 0
+                hardcore = gameHash?.let { if (hardcore) 1 else 0 },
+                gameHash = gameHash
             )
 
             val body = response.body()
@@ -396,17 +407,10 @@ class RetroAchievementsRepository @Inject constructor(
                 if (!body.warning.isNullOrBlank()) {
                     Logger.warn(TAG, "RA session warning: ${body.warning}")
                 }
-                val unlocked = mutableSetOf<Long>()
-                if (hardcore) {
-                    // Hardcore mode: only count hardcore unlocks
-                    body.hardcoreUnlocks?.mapTo(unlocked) { it.id }
-                } else {
-                    // Casual mode: count all unlocks (hardcore unlocks count too)
-                    body.hardcoreUnlocks?.mapTo(unlocked) { it.id }
-                    body.unlocks?.mapTo(unlocked) { it.id }
-                }
-                Logger.debug(TAG, "Pre-unlocked achievements: ${unlocked.size}")
-                RASessionResult(true, unlocked)
+                val hardcoreUnlocks = body.hardcoreUnlocks.orEmpty().map { it.id }.toSet()
+                val allUnlocks = hardcoreUnlocks + body.unlocks.orEmpty().map { it.id }
+                Logger.debug(TAG, "Pre-unlocked achievements: hardcore=${hardcoreUnlocks.size} all=${allUnlocks.size}")
+                RASessionResult(true, hardcoreUnlocks, allUnlocks)
             } else {
                 Logger.error(TAG, "Failed to start session: ${body?.error}")
                 handleAuthFailure(response.code(), body?.error, "startSession")

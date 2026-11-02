@@ -260,7 +260,7 @@ class PostEditorViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                socialRepository.createPost(
+                val sent = socialRepository.createPost(
                     body = state.body,
                     canvasSize = state.doodleSize,
                     doodleData = state.doodleData,
@@ -269,7 +269,7 @@ class PostEditorViewModel @Inject constructor(
                     public = state.isPublic
                 )
                 _uiState.update { it.copy(isPosting = false) }
-                _events.emit(PostEditorEvent.Posted)
+                if (sent) _events.emit(PostEditorEvent.Posted)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create post", e)
                 _uiState.update { it.copy(isPosting = false) }

@@ -125,6 +125,25 @@ fun EffectiveLaunchCommand.toIntent(context: Context): Intent {
     return intent
 }
 
+/**
+ * This command pinned to the activity [resolve] finds for a dot-free probe path ending in
+ * [romExtension], when the package-only intent for the real path resolves to none. [resolve] takes
+ * null for the real path or the probe path, and answers only when exactly one activity matches.
+ * Unchanged when an activity is already named, the command is not a VIEW of a data URI, or the
+ * probe also misses.
+ */
+fun EffectiveLaunchCommand.pinnedPastPathPattern(
+    romExtension: String,
+    resolve: (pathOverride: String?) -> String?
+): EffectiveLaunchCommand {
+    if (activityClass != null || action != Intent.ACTION_VIEW || dataUri == null || romExtension.isEmpty()) {
+        return this
+    }
+    if (resolve(null) != null) return this
+    val activity = resolve("/rom.$romExtension") ?: return this
+    return copy(activityClass = activity)
+}
+
 private fun shellEscape(value: String): String =
     "'" + value.replace("'", "'\\''") + "'"
 

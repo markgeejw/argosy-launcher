@@ -103,6 +103,25 @@
     <string name="ui_save_channel_delete_slot_cancel">Отмена</string>
     <string name="ui_save_channel_delete_slot_message">Удалить \"%1$s\"?</string>
     <string name="ui_save_channel_delete_slot_note">Это удалит его с сервера и из локального хранилища. Это действие нельзя отменить.</string>
+    <string name="ui_save_channel_footer_delete_archived">Удалить все</string>
+    <string name="ui_save_channel_footer_delete_version">Удалить</string>
+    <string name="ui_save_channel_delete_version_title">УДАЛИТЬ СОХРАНЕНИЕ</string>
+    <string name="ui_save_channel_delete_version_message">Удалить сохранение от %1$s?</string>
+    <string name="ui_save_channel_delete_archived_title">УДАЛИТЬ АРХИВНЫЕ СОХРАНЕНИЯ</string>
+    <plurals name="ui_save_channel_delete_archived_message">
+        <item quantity="one">Удалить %1$d архивное сохранение?</item>
+        <item quantity="few">Удалить %1$d архивных сохранения?</item>
+        <item quantity="many">Удалить %1$d архивных сохранений?</item>
+        <item quantity="other">Удалить %1$d архивного сохранения?</item>
+    </plurals>
+    <string name="ui_save_channel_delete_local_note">Это удалит копию на этом устройстве. Копия на сервере останется. Это действие нельзя отменить.</string>
+    <string name="ui_save_channel_delete_only_copy_note">Единственная копия хранится на этом устройстве. Она будет удалена навсегда.</string>
+    <plurals name="ui_save_channel_notice_versions_deleted">
+        <item quantity="one">Удалено %1$d сохранение</item>
+        <item quantity="few">Удалено %1$d сохранения</item>
+        <item quantity="many">Удалено %1$d сохранений</item>
+        <item quantity="other">Удалено %1$d сохранения</item>
+    </plurals>
 
     <string name="ui_save_channel_version_mismatch_title">НЕСОВПАДЕНИЕ ВЕРСИИ ЯДРА</string>
     <string name="ui_save_channel_version_mismatch_confirm">Загрузить всё равно</string>
@@ -176,6 +195,12 @@
     <string name="ui_state_slot_row_tag_local">[Локально]</string>
 
     <string name="ui_confirm_modal_cancel">Отмена</string>
+    <string name="ui_pushed_apk_title">Установить %1$s?</string>
+    <string name="ui_pushed_apk_message">%1$s отправил это приложение на устройство.\n\nПакет: %2$s\nПодпись: %3$s</string>
+    <string name="ui_pushed_apk_unknown_server">Ваш сервер RomM</string>
+    <string name="ui_pushed_apk_unknown_signer">неизвестна</string>
+    <string name="ui_pushed_apk_install">Установить</string>
+    <string name="ui_pushed_apk_not_now">Не сейчас</string>
 
     <string name="ui_modal_search_placeholder">Поиск...</string>
 
@@ -205,7 +230,6 @@
     <string name="ui_changelog_action_relogin_romm">Войти в RomM заново</string>
     <string name="ui_changelog_action_resync_library">Синхронизировать библиотеку заново</string>
     <string name="ui_changelog_action_clear_cache">Очистить кэш</string>
-    <string name="ui_changelog_action_set_steam_path">Указать путь установки Steam</string>
 
     <string name="ui_background_conflict_title">Конфликт синхронизации сохранений</string>
     <string name="ui_background_conflict_default_slot">Сохранение по умолчанию</string>
@@ -310,7 +334,6 @@
     <string name="ui_add_to_collection_create">Создать новую коллекцию</string>
     <string name="ui_add_to_collection_member">В коллекции</string>
 
-    <string name="ui_steam_location_download">Скачать через Argosy</string>
     <string name="ui_steam_location_mark_installed">Отметить как установленную</string>
     <string name="ui_steam_location_managed_by">Управляется через %1$s</string>
 
@@ -688,18 +711,30 @@
     <string name="ui_sync_overlay_hardcore_downgrade_subtitle">Использовать сохранение с сервера, потерять статус хардкор</string>
     <string name="ui_sync_overlay_hardcore_skip">Пропустить синхронизацию</string>
     <string name="ui_sync_overlay_hardcore_skip_subtitle">Запустить без синхронизации</string>
-    <string name="ui_launch_overlay_step_finishing_previous">Завершение предыдущего запуска</string>
-    <string name="ui_launch_overlay_step_downloading_core">Загрузка ядра</string>
-    <string name="ui_launch_overlay_step_preparing_system_files">Подготовка системных файлов</string>
-    <string name="ui_launch_overlay_step_preparing_ui">Подготовка интерфейса</string>
-    <string name="ui_launch_overlay_step_launching">Запуск</string>
     <string name="ui_launch_overlay_cancel">Отмена</string>
     <string name="ui_launch_overlay_cancel_option">Отменить запуск</string>
     <string name="ui_launch_overlay_cancel_option_subtitle">Вернуться, не запуская игру</string>
+    <string name="ui_launch_overlay_wait_previous">Предыдущий запуск ещё завершается</string>
+    <string name="ui_launch_overlay_wait_recap">Ваша последняя сессия ещё загружается</string>
+    <string name="ui_launch_overlay_wait_save">Сохранение ещё синхронизируется</string>
+    <string name="ui_launch_overlay_wait_core">Ядро эмулятора ещё загружается</string>
+    <string name="ui_launch_overlay_wait_core_sized">Ядро эмулятора ещё загружается &#183; %1$s</string>
+    <string name="ui_launch_overlay_wait_prepare">Эмулятор ещё подготавливается</string>
+    <string name="ui_launch_overlay_failed_connect">RomM не ответил. Запуск с сохранением на этом устройстве.</string>
+    <string name="ui_launch_overlay_failed_timeout">RomM слишком долго не отвечал. Запуск с сохранением на этом устройстве.</string>
+    <string name="ui_launch_overlay_failed_download">Не удалось загрузить сохранение. Запуск с сохранением на этом устройстве.</string>
+    <string name="ui_launch_overlay_failed_write">Не удалось записать сохранение. Запуск с сохранением на этом устройстве.</string>
+    <string name="ui_launch_overlay_percent">%1$d %%</string>
+    <plurals name="ui_launch_overlay_percent_eta">
+        <item quantity="one">%1$d %% &#183; осталось около %2$d секунды</item>
+        <item quantity="few">%1$d %% &#183; осталось около %2$d секунд</item>
+        <item quantity="many">%1$d %% &#183; осталось около %2$d секунд</item>
+        <item quantity="other">%1$d %% &#183; осталось около %2$d секунды</item>
+    </plurals>
+    <string name="ui_launch_overlay_hint_cancel">Отмена</string>
     <string name="ui_launch_overlay_launcher_choice_title">Выберите лаунчер</string>
     <string name="ui_launch_overlay_launcher_choice_message">%1$s установлена в нескольких лаунчерах. Закрепите один через \"Сменить лаунчер\" на странице игры, чтобы этот вопрос больше не появлялся.</string>
     <string name="ui_launch_overlay_launcher_choice_option_subtitle">Запустить игру в %1$s</string>
-    <string name="ui_launch_overlay_step_loading_recap">Загрузка вашей последней сессии</string>
     <string name="ui_launch_recap_meta">Последний сеанс &#183; %1$s</string>
     <string name="ui_launch_recap_meta_duration">Последний сеанс &#183; %1$s &#183; %2$s</string>
     <plurals name="ui_launch_recap_meta_unlocked">
@@ -1029,6 +1064,42 @@
     <string name="home_grid_local_video_row_title">Выбрать видео на этом устройстве</string>
     <string name="home_grid_local_video_row_subtitle">Воспроизводится прямо из хранилища</string>
     <string name="ui_quick_settings_swap_displays">Поменять экраны</string>
+    <string name="ui_quick_settings_page_connections">Подключения</string>
+    <string name="ui_quick_connections_unsupported">Это устройство не позволяет напрямую управлять Wi-Fi и Bluetooth</string>
+    <string name="ui_quick_connections_tab_wifi">Wi-Fi</string>
+    <string name="ui_quick_connections_tab_bluetooth">Bluetooth</string>
+    <string name="ui_quick_connections_wifi_off">Wi-Fi выключен</string>
+    <string name="ui_quick_connections_bluetooth_off">Bluetooth выключен</string>
+    <string name="ui_quick_connections_nearby">Сети поблизости</string>
+    <string name="ui_quick_connections_saved">Сохранённые сети</string>
+    <string name="ui_quick_connections_paired">Сопряжённые устройства</string>
+    <string name="ui_quick_connections_scanning">Поиск сетей</string>
+    <string name="ui_quick_connections_no_networks">Сети не найдены</string>
+    <string name="ui_quick_connections_no_paired">Нет сопряжённых устройств</string>
+    <string name="ui_quick_connections_row_joining">Подключение</string>
+    <string name="ui_quick_connections_row_failed">Ошибка</string>
+    <string name="ui_quick_connections_secured">Защищена</string>
+    <string name="ui_quick_connections_forget">Забыть</string>
+    <string name="ui_quick_connections_bluetooth_permission">Argosy нужно разрешение, чтобы показать сопряжённые устройства.</string>
+    <string name="ui_quick_connections_bluetooth_permission_allow">Разрешить</string>
+    <string name="ui_quick_connections_device_connected">Подключено</string>
+    <string name="ui_quick_connections_device_not_connected">Не подключено</string>
+    <string name="ui_quick_connections_battery">%1$d%%</string>
+    <string name="ui_quick_connections_band_2_4">2,4 ГГц</string>
+    <string name="ui_quick_connections_band_5">5 ГГц</string>
+    <string name="ui_quick_connections_band_6">6 ГГц</string>
+    <string name="ui_quick_connections_join_title">Подключиться к %1$s</string>
+    <string name="ui_quick_connections_join_password">Пароль</string>
+    <string name="ui_quick_connections_join_confirm">Подключиться</string>
+    <string name="ui_quick_connections_join_busy">Подключение</string>
+    <string name="ui_quick_connections_join_cancel">Отмена</string>
+    <string name="ui_quick_connections_join_failed">Устройству не удалось подключиться к этой сети.</string>
+    <string name="ui_quick_settings_wifi">Wi-Fi</string>
+    <string name="ui_quick_settings_bluetooth">Bluetooth</string>
+    <string name="ui_quick_settings_radio_on">Вкл.</string>
+    <string name="ui_quick_settings_radio_off">Выкл.</string>
+    <string name="ui_quick_settings_wifi_connected">Подключено</string>
+    <string name="ui_quick_settings_wifi_not_connected">Не подключено</string>
     <string name="ui_sibling_choice_title_download">ВАРИАНТ ДЛЯ ЗАГРУЗКИ</string>
     <string name="ui_sibling_choice_title_active">АКТИВНЫЙ ВАРИАНТ</string>
     <string name="ui_sibling_choice_automatic">Автоматически</string>
@@ -1062,4 +1133,7 @@
     <string name="gamelist_row_genre_board_game">Настольная</string>
     <string name="gamelist_row_genre_quiz">Викторина</string>
     <string name="gamelist_row_genre_sim">Симулятор</string>
+    <string name="common_game_confirm_hide_title">Скрыть %1$s?</string>
+    <string name="common_game_confirm_hide_message">Скрытые игры можно снова показать в Библиотеке, выбрав в фильтре Источник значение Скрытые.</string>
+    <string name="common_game_confirm_hide_confirm">Скрыть</string>
 </resources>

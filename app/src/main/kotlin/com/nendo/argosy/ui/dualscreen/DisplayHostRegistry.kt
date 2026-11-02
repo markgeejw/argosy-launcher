@@ -4,9 +4,12 @@ class DisplayHostRegistry<T : Any> {
 
     private val hosts = linkedMapOf<Int, T>()
 
-    fun register(displayId: Int, host: T) {
-        hosts[displayId] = host
-    }
+    /**
+     * Makes [host] the surface for [displayId] and answers the different surface it replaced, or
+     * null when the display was free or [host] was already registered there.
+     */
+    fun register(displayId: Int, host: T): T? =
+        hosts.put(displayId, host)?.takeIf { it !== host }
 
     /**
      * Removes [host] from [displayId] only while it is still the instance registered there, and

@@ -52,6 +52,8 @@ class FetchAchievementsUseCase @Inject constructor(
                 val rom = result.data
                 val apiAchievements = rom.raMetadata?.achievements
                 if (apiAchievements.isNullOrEmpty()) return null
+                val verifiedRaId = gameDao.getById(gameId)?.takeIf { it.raIdVerified }?.verifiedRaId
+                if (verifiedRaId != null && verifiedRaId != rom.raId) return null
 
                 val rommEarnedByBadgeId = if (rom.raId != null) {
                     if (refreshProgression) romMRepository.refreshRAProgressionIfNeeded(force = true)

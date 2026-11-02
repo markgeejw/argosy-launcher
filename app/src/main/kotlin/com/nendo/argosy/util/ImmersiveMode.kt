@@ -1,6 +1,10 @@
 package com.nendo.argosy.util
 
+import android.os.Build
+import android.view.View
 import android.view.Window
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
@@ -68,6 +72,26 @@ fun Window.applySystemBars(visibility: SystemBarVisibility) {
 }
 
 fun Window.hideSystemBars() = applySystemBars(SystemBarVisibility.IMMERSIVE)
+
+/**
+ * Hides both system bars for the window holding this view, for windows added straight through
+ * WindowManager that have no [Window] of their own.
+ */
+fun View.hideWindowSystemBars() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        windowInsetsController?.let { controller ->
+            controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsets.Type.systemBars())
+        }
+    } else {
+        @Suppress("DEPRECATION")
+        systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+    }
+}
 
 /**
  * Keeps a launcher window's system bars matching the user's hide-status-bar and

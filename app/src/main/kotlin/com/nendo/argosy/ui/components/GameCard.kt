@@ -247,8 +247,6 @@ fun GameCard(
             boxArtStyle.platformIndicatorStyle != com.nendo.argosy.data.preferences.PlatformIndicatorStyle.OFF
         val spineActive = !drawsAs3d && indicatorActive &&
             boxArtStyle.platformIndicatorStyle == com.nendo.argosy.data.preferences.PlatformIndicatorStyle.SPINE
-        // Skip the cover's inner edge effect when the spine container wraps the cover;
-        // the stroke at the cover's spine-side edge reads as a hard line between spine and cover.
         val innerEffect = if (spineActive) BoxArtInnerEffect.OFF else boxArtStyle.innerEffect
         val innerEffectWidth = boxArtStyle.innerEffectThicknessPx
         val effectiveBadgePosition = if (indicatorActive &&

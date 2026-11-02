@@ -10,8 +10,8 @@ data class RomMFirmware(
     @Json(name = "file_path") val filePath: String,
     @Json(name = "full_path") val fullPath: String,
     @Json(name = "file_size_bytes") val fileSizeBytes: Long,
-    @Json(name = "md5_hash") val md5Hash: String?,
-    @Json(name = "sha1_hash") val sha1Hash: String?,
+    @Json(name = "md5_hash") val md5Hash: String? = null,
+    @Json(name = "sha1_hash") val sha1Hash: String? = null,
     @Json(name = "missing_from_fs") val missingFromFs: Boolean = false
 )
 
@@ -20,7 +20,7 @@ data class RomMPlatform(
     @Json(name = "id") val id: Long,
     @Json(name = "slug") val slug: String,
     @Json(name = "name") val name: String,
-    @Json(name = "fs_slug") val fsSlug: String?,
+    @Json(name = "fs_slug") val fsSlug: String? = null,
     @Json(name = "rom_count") val romCount: Int,
     @Json(name = "custom_name") val customName: String? = null,
     @Json(name = "display_name") val displayName: String? = null,
@@ -36,13 +36,13 @@ data class RomMRom(
     @Json(name = "platform_display_name") val platformName: String? = null,
 
     @Json(name = "name") val name: String,
-    @Json(name = "slug") val slug: String?,
+    @Json(name = "slug") val slug: String? = null,
     @Json(name = "fs_name") val fileName: String? = null,
     @Json(name = "fs_size_bytes") val fileSize: Long = 0,
-    @Json(name = "full_path") val filePath: String?,
+    @Json(name = "full_path") val filePath: String? = null,
 
-    @Json(name = "igdb_id") val igdbId: Long?,
-    @Json(name = "moby_id") val mobyId: Long?,
+    @Json(name = "igdb_id") val igdbId: Long? = null,
+    @Json(name = "moby_id") val mobyId: Long? = null,
     @Json(name = "ra_id") val raId: Long? = null,
     @Json(name = "sgdb_id") val sgdbId: Long? = null,
     @Json(name = "ss_id") val ssId: Long? = null,
@@ -60,7 +60,7 @@ data class RomMRom(
     @Json(name = "sha1_hash") val sha1Hash: String? = null,
     @Json(name = "ra_hash") val raHash: String? = null,
 
-    @Json(name = "summary") val summary: String?,
+    @Json(name = "summary") val summary: String? = null,
     @Json(name = "metadatum") val metadatum: RomMMetadatum? = null,
     @Json(name = "hltb_metadata") val hltbMetadata: RomMHltbMetadata? = null,
     @Json(name = "launchbox_metadata") val launchboxMetadata: RomMLaunchboxMetadata? = null,
@@ -68,13 +68,13 @@ data class RomMRom(
     @Json(name = "gamelist_metadata") val gamelistMetadata: RomMGamelistMetadata? = null,
     @Json(name = "merged_ra_metadata") val raMetadata: RomMRAMetadata? = null,
 
-    @Json(name = "path_cover_small") val coverSmall: String?,
-    @Json(name = "path_cover_large") val coverLarge: String?,
+    @Json(name = "path_cover_small") val coverSmall: String? = null,
+    @Json(name = "path_cover_large") val coverLarge: String? = null,
     @Json(name = "url_cover") val coverUrl: String? = null,
 
-    @Json(name = "regions") val regions: List<String>?,
-    @Json(name = "languages") val languages: List<String>?,
-    @Json(name = "revision") val revision: String?,
+    @Json(name = "regions") val regions: List<String>? = null,
+    @Json(name = "languages") val languages: List<String>? = null,
+    @Json(name = "revision") val revision: String? = null,
 
     @Json(name = "merged_screenshots") val screenshotPaths: List<String>? = null,
     @Json(name = "user_screenshots") val userScreenshots: List<RomMUserScreenshot>? = null,

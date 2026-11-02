@@ -176,20 +176,7 @@ fun ReleaseChangelogModal(
         }
     }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, inputHandler, state.visible) {
-        if (!state.visible) return@DisposableEffect onDispose { }
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                inputDispatcher.pushModal(inputHandler)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            inputDispatcher.removeModal(inputHandler)
-        }
-    }
+    com.nendo.argosy.ui.input.ModalInputEffect(active = state.visible, handler = inputHandler, inputDispatcher = inputDispatcher)
 
     ModalScaffold(
         visible = state.visible,

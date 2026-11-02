@@ -166,16 +166,6 @@
     <string name="storage_computed_label_computed">Вычислено %1$s</string>
     <string name="storage_computed_label_never">Ещё не вычислено</string>
 
-    <!-- ================= Download foreground notification text (Steam) ================= -->
-
-    <string name="download_indicator_notification_preparing">Подготовка: %1$s</string>
-    <string name="download_indicator_notification_connecting">Подключение к Steam...</string>
-    <string name="download_indicator_notification_fetching_manifest">Получение манифеста: %1$s</string>
-    <string name="download_indicator_notification_unpacking">Распаковка: %1$s</string>
-    <string name="download_indicator_notification_moving">Перемещение: %1$s</string>
-    <string name="download_indicator_notification_cleaning">Очистка: %1$s</string>
-    <string name="download_indicator_notification_paused">Пауза: %1$s</string>
-
     <!-- ================= Title ID recheck notice ================= -->
 
     <string name="title_id_recheck_notice_updated">Title ID обновлён на %1$s</string>
@@ -186,6 +176,7 @@
     <!-- ================= Steam launcher picker "no override" option ================= -->
 
     <string name="gamedetail_steam_launcher_auto">Авто</string>
+    <string name="gamedetail_steam_launcher_auto_uses">Использует %1$s</string>
 
     <!-- ================= Memcard picker "use the inherited default" entry ================= -->
 

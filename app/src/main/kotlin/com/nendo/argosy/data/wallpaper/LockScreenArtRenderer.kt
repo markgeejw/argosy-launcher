@@ -2,7 +2,6 @@ package com.nendo.argosy.data.wallpaper
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
@@ -17,9 +16,7 @@ private const val STRIP_EXTRA_TILES = 3
 private const val SECONDS_PER_TILE = 14f
 private val ROW_SPEEDS = listOf(1f, 0.8f, 1.15f, 0.9f, 1.05f)
 
-internal data class MosaicGrid(val rows: Int, val columns: Int, val tileWidth: Int, val tileHeight: Int, val gap: Int) {
-    val tileCount: Int get() = rows * columns
-}
+internal data class MosaicGrid(val rows: Int, val columns: Int, val tileWidth: Int, val tileHeight: Int, val gap: Int)
 
 internal object LockScreenArtRenderer {
 
@@ -35,32 +32,6 @@ internal object LockScreenArtRenderer {
     fun hero(source: Bitmap, width: Int, height: Int): Bitmap {
         val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         Canvas(output).drawBitmap(source, centerCrop(source, width.toFloat() / height), Rect(0, 0, width, height), paint())
-        return output
-    }
-
-    fun mosaic(covers: List<Bitmap>, width: Int, height: Int): Bitmap? {
-        if (covers.isEmpty()) return null
-        val grid = grid(width, height)
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        canvas.drawColor(Color.BLACK)
-        val gridWidth = grid.columns * grid.tileWidth + (grid.columns - 1) * grid.gap
-        val startX = (width - gridWidth) / 2f
-        val paint = paint()
-        for (row in 0 until grid.rows) {
-            for (column in 0 until grid.columns) {
-                val cover = covers[(row * grid.columns + column) % covers.size]
-                val left = startX + column * (grid.tileWidth + grid.gap)
-                val top = grid.gap + row * (grid.tileHeight + grid.gap).toFloat()
-                canvas.drawBitmap(
-                    cover,
-                    centerCrop(cover, COVER_ASPECT),
-                    RectF(left, top, left + grid.tileWidth, top + grid.tileHeight),
-                    paint
-                )
-            }
-        }
-        canvas.drawColor(Color.argb(MOSAIC_DIM_ALPHA, 0, 0, 0))
         return output
     }
 

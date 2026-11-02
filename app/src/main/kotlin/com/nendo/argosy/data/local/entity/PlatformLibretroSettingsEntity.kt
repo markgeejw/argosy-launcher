@@ -52,7 +52,8 @@ data class PlatformLibretroSettingsEntity(
     val frameZoom: Float? = null,
     val preferNewerServerSave: Boolean? = null,
     val graphicsApi: String? = null,
-    val gpuDriver: String? = null
+    val gpuDriver: String? = null,
+    val motionEnabled: Boolean? = null
 ) {
     fun hasAnyOverrides(): Boolean =
         hasAnyVideoOverrides() || hasAnyControlOverrides() || hasAnyPathOverrides() || hasAnySavingOverrides()
@@ -86,7 +87,7 @@ data class PlatformLibretroSettingsEntity(
         gpuDriver != null
 
     fun hasAnyControlOverrides(): Boolean =
-        analogAsDpad != null || dpadAsAnalog != null || rumbleEnabled != null
+        analogAsDpad != null || dpadAsAnalog != null || rumbleEnabled != null || motionEnabled != null
 
     fun hasAnyPathOverrides(): Boolean = savePath != null || statePath != null
 }

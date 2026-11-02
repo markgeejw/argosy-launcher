@@ -32,6 +32,7 @@ import com.nendo.argosy.data.storage.StorageAttributionRepository
 import com.nendo.argosy.data.storage.StorageCategory
 import com.nendo.argosy.data.sync.UnsentUserPropsByGame
 import com.nendo.argosy.data.sync.unsentUserPropsByGame
+import com.nendo.argosy.util.FileNames
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -103,6 +104,7 @@ class RomMLibrarySyncService @Inject constructor(
 ) {
     private val api: RomMApi? get() = connectionManager.getApi()
     private val syncMutex = Mutex()
+    private var romFailuresThisPass = 0
     private var boxArtCacheEnabledForSync = true
     private var screenshotCacheEnabledForSync = false
     private var decodedImageCacheDirty = false
@@ -167,6 +169,7 @@ class RomMLibrarySyncService @Inject constructor(
         val scope = resolveSyncScope(currentApi)
         val syncStartedAt = Instant.now()
         val queryFrom = since.minus(CHANGES_OVERLAP)
+        romFailuresThisPass = 0
 
         _syncProgress.value = SyncProgress(isSyncing = true)
         try {
@@ -227,6 +230,11 @@ class RomMLibrarySyncService @Inject constructor(
             androidGameScanner.get().relinkInstalledRommAndroidApps()
             playSessionDao.relinkOrphans(scope.ownerUserId)
             userPreferencesRepository.setLastRommSyncTime(syncStartedAt)
+            if (romFailuresThisPass == 0) {
+                userPreferencesRepository.setRommChangesWatermark(syncStartedAt)
+            } else {
+                Logger.warn(TAG, "Changes pass kept its watermark: $romFailuresThisPass ROMs failed and will be fetched again")
+            }
             syncVirtualCollectionsUseCase.get()()
             recomputeSiblingGroups(completesFullPass = false)
             writeGameCounts(enabledRemoteIds.values.map { storagePlatformId(it) }, scope.ownerUserId)
@@ -246,15 +254,12 @@ class RomMLibrarySyncService @Inject constructor(
     }
 
     suspend fun syncPlatform(platformId: Long): SyncResult = withContext(NonCancellable + Dispatchers.IO) {
-        if (!syncMutex.tryLock()) {
-            return@withContext SyncResult(0, 0, 0, 0, emptyList(), alreadyInProgress = true)
-        }
-
-        try {
-            return@withContext doSyncPlatform(platformId)
-        } finally {
-            flushDecodedImageCache()
-            syncMutex.unlock()
+        syncMutex.withLock {
+            try {
+                doSyncPlatform(platformId)
+            } finally {
+                flushDecodedImageCache()
+            }
         }
     }
 
@@ -569,6 +574,7 @@ class RomMLibrarySyncService @Inject constructor(
         onProgress: ((current: Int, total: Int, platformName: String) -> Unit)?
     ): SyncResult {
         val currentApi = api ?: return SyncResult(0, 0, 0, 0, listOf("Not connected"))
+        romFailuresThisPass = 0
         val errors = mutableListOf<String>()
         var platformsSynced = 0
         var gamesAdded = 0
@@ -621,9 +627,15 @@ class RomMLibrarySyncService @Inject constructor(
             }
             passClock.mark("syncPlatformMetadata x${platforms.size}")
 
-            val enabledPlatforms = platforms.filter { platform ->
-                val local = platformDao.getById(storagePlatformId(platform))
-                local?.syncEnabled != false
+            val localPlatforms = platforms.associateWith { platformDao.getById(storagePlatformId(it)) }
+            val enabledPlatforms = platforms.filter { localPlatforms[it]?.syncEnabled != false }
+            val passPlatforms = enabledPlatforms.filterNot { localPlatforms[it]?.skipFullSync == true }
+            val skipsPlatforms = passPlatforms.size < enabledPlatforms.size
+            if (skipsPlatforms) {
+                Logger.info(
+                    TAG,
+                    "doSyncLibrary: ${enabledPlatforms.size - passPlatforms.size} platforms set to skip the full pass"
+                )
             }
 
             val syncStartedAt = Instant.now()
@@ -637,25 +649,29 @@ class RomMLibrarySyncService @Inject constructor(
                 emptySet()
             }
 
-            _syncProgress.value = _syncProgress.value.copy(
-                platformsTotal = enabledPlatforms.size,
-                platforms = enabledPlatforms.map { platform ->
-                    PlatformSyncRow(
-                        platformId = storagePlatformId(platform),
-                        name = platform.name,
-                        slug = platform.slug
+            _syncProgress.update {
+                it.copy(
+                    platformsTotal = passPlatforms.size,
+                    platforms = passPlatforms.map { platform ->
+                        PlatformSyncRow(
+                            platformId = storagePlatformId(platform),
+                            name = platform.name,
+                            slug = platform.slug
+                        )
+                    }
+                )
+            }
+
+            for ((index, platform) in passPlatforms.withIndex()) {
+                onProgress?.invoke(index + 1, passPlatforms.size, platform.name)
+
+                _syncProgress.update {
+                    it.copy(
+                        currentPlatform = platform.name,
+                        currentPlatformSlug = platform.slug,
+                        platformsDone = index
                     )
                 }
-            )
-
-            for ((index, platform) in enabledPlatforms.withIndex()) {
-                onProgress?.invoke(index + 1, enabledPlatforms.size, platform.name)
-
-                _syncProgress.value = _syncProgress.value.copy(
-                    currentPlatform = platform.name,
-                    currentPlatformSlug = platform.slug,
-                    platformsDone = index
-                )
 
                 val storageId = storagePlatformId(platform)
                 if (storageId in completedPlatformIds) {
@@ -681,7 +697,7 @@ class RomMLibrarySyncService @Inject constructor(
 
             userPreferencesRepository.clearSyncResume()
 
-            val completeUnresumedPass = errors.isEmpty() && platformsResumed == 0
+            val completeUnresumedPass = errors.isEmpty() && platformsResumed == 0 && !skipsPlatforms
             if (completeUnresumedPass) {
                 siblingSplitRepair.retryBlockedSaveSyncMoves()
                 siblingSplitRepair.runOnce()
@@ -698,7 +714,11 @@ class RomMLibrarySyncService @Inject constructor(
                 Logger.info(TAG, "doSyncLibrary: relinked $relinkedSessions play sessions to current game rows")
             }
 
-            userPreferencesRepository.setLastRommSyncTime(Instant.now())
+            val passFinishedAt = Instant.now()
+            userPreferencesRepository.setLastRommSyncTime(passFinishedAt)
+            if (!skipsPlatforms && romFailuresThisPass == 0) {
+                userPreferencesRepository.setRommChangesWatermark(passFinishedAt)
+            }
             if (errors.isEmpty()) {
                 userPreferencesRepository.setLastRommFullSyncTime(
                     resumeGeneration.takeIf { resuming } ?: syncStartedAt
@@ -1031,8 +1051,10 @@ class RomMLibrarySyncService @Inject constructor(
             syncAndroidPlatformMetadata(remote)
             return
         }
+        val storedSlug = FileNames.sanitizeSlug(effectiveSlug)
         val existing = platformDao.getById(platformId)
         val platformDef = PlatformDefinitions.getBySlug(effectiveSlug)
+        val romRules = PlatformDefinitions.definitionFor(effectiveSlug)
         val isSubPlatform = !effectiveSlug.equals(remote.slug, ignoreCase = true)
 
         val logoUrl = apiClient.buildMediaUrl(remote.logoUrl)
@@ -1047,19 +1069,20 @@ class RomMLibrarySyncService @Inject constructor(
         val resolvedShortName = derivedNames?.second ?: platformDef?.shortName ?: normalizedName
         val entity = PlatformEntity(
             id = platformId,
-            slug = effectiveSlug,
-            fsSlug = remote.fsSlug,
+            slug = storedSlug,
+            fsSlug = remote.fsSlug?.let(FileNames::sanitizeSlug),
             name = normalizedName,
             shortName = resolvedShortName,
-            romExtensions = platformDef?.extensions?.joinToString(",") ?: "",
+            romExtensions = romRules?.extensions?.joinToString(",") ?: "",
             gameCount = remote.romCount,
             isVisible = existing?.isVisible ?: true,
             logoPath = logoUrl ?: existing?.logoPath,
-            sortOrder = existing?.sortOrder ?: platformDef?.sortOrder ?: 999,
+            sortOrder = existing?.sortOrder ?: romRules?.sortOrder ?: 999,
             lastScanned = existing?.lastScanned,
             syncEnabled = existing?.syncEnabled ?: true,
             customRomPath = existing?.customRomPath,
-            combineContent = existing?.combineContent ?: false
+            combineContent = existing?.combineContent ?: false,
+            skipFullSync = existing?.skipFullSync ?: false
         )
 
         if (existing == null) {
@@ -1073,9 +1096,7 @@ class RomMLibrarySyncService @Inject constructor(
         }
 
         remote.firmware?.let { firmware ->
-            if (firmware.isNotEmpty()) {
-                biosRepository.syncPlatformFirmware(platformId, effectiveSlug, firmware)
-            }
+            biosRepository.syncPlatformFirmware(platformId, storedSlug, firmware)
         }
     }
 
@@ -1111,6 +1132,7 @@ class RomMLibrarySyncService @Inject constructor(
                 platformDao.update(local.copy(
                     isVisible = legacy.isVisible,
                     syncEnabled = legacy.syncEnabled,
+                    skipFullSync = legacy.skipFullSync,
                     customRomPath = legacy.customRomPath ?: local.customRomPath
                 ))
             }
@@ -1125,7 +1147,7 @@ class RomMLibrarySyncService @Inject constructor(
 
     private suspend fun syncRom(rom: RomMRom, scope: SyncScope): Pair<Boolean, GameEntity> {
         val platformSlug = platformDao.getById(rom.platformId)?.slug
-            ?: PlatformDefinitions.resolveImportSlug(rom.platformSlug, rom.platformName)
+            ?: FileNames.sanitizeSlug(PlatformDefinitions.resolveImportSlug(rom.platformSlug, rom.platformName))
         val platformId = if (platformSlug == ANDROID_SLUG) LocalPlatformIds.ANDROID else rom.platformId
         val existing = gameDao.getByRommId(rom.id)
 
@@ -1368,7 +1390,12 @@ class RomMLibrarySyncService @Inject constructor(
     ) {
         batch.decidedRomIds.add(rom.id)
 
-        if (!RomMSyncFilter.shouldSyncRom(rom, filters)) return
+        if (!RomMSyncFilter.shouldSyncRom(rom, filters)) {
+            if (gameDao.keepDownloadedRomLinked(rom.id) > 0) {
+                Logger.debug(TAG, "syncRomInBatch: ${rom.name} is filtered out but downloaded; keeping it linked")
+            }
+            return
+        }
 
         if (rom.id in batch.skipIndividualDiscIds) {
             Logger.debug(TAG, "syncRomInBatch: skipping individual disc ${rom.name} - folder-based version preferred")
@@ -1404,6 +1431,7 @@ class RomMLibrarySyncService @Inject constructor(
             trackSiblingMultiDisc(rom, batch)
         } catch (e: Exception) {
             batch.decidedRomIds.remove(rom.id)
+            romFailuresThisPass++
             Logger.warn(TAG, "syncRomInBatch: failed to sync ROM ${rom.id} (${rom.name}): ${e.message}")
         }
     }
@@ -1704,13 +1732,15 @@ class RomMLibrarySyncService @Inject constructor(
 
     private suspend fun cleanupLegacyPlatforms(remotePlatforms: List<RomMPlatform>) {
         val remoteIds = remotePlatforms.map { it.id }.toSet()
-        val remoteByComposite = remotePlatforms.associateBy { it.slug to it.fsSlug }
+        val remoteByComposite = remotePlatforms.associateBy {
+            FileNames.sanitizeSlug(it.slug) to it.fsSlug?.let(FileNames::sanitizeSlug)
+        }
         val remoteBySlug = remotePlatforms
             .filter { it.slug.isNotBlank() }
-            .groupBy { it.slug }
+            .groupBy { FileNames.sanitizeSlug(it.slug) }
         val remoteByFsSlug = remotePlatforms
             .filter { !it.fsSlug.isNullOrBlank() }
-            .groupBy { it.fsSlug!! }
+            .groupBy { FileNames.sanitizeSlug(it.fsSlug!!) }
         val allLocal = platformDao.getAllPlatforms()
 
         for (local in allLocal) {
@@ -1742,9 +1772,10 @@ class RomMLibrarySyncService @Inject constructor(
     private suspend fun migratePlatformData(old: PlatformEntity, remote: RomMPlatform) {
         val label = "${old.name} (${old.id} -> ${remote.id})"
         val owner = overlayWriter.activeOwnerId()
+        val remoteSlug = FileNames.sanitizeSlug(remote.slug)
         database.withTransaction {
             val gameCount = gameDao.countByPlatform(old.id, owner)
-            gameDao.migratePlatform(old.id, remote.id, remote.slug)
+            gameDao.migratePlatform(old.id, remote.id, remoteSlug)
             Logger.info(TAG, "migratePlatformData [$label]: moved $gameCount games")
 
             emulatorConfigDao.migratePlatform(old.id, remote.id)
@@ -1763,9 +1794,9 @@ class RomMLibrarySyncService @Inject constructor(
                 Logger.info(TAG, "migratePlatformData [$label]: migrated $firmwareMigrated firmware entries")
             }
 
-            if (old.slug.isNotBlank() && old.slug != remote.slug) {
-                controllerMappingDao.migratePlatformSlug(old.slug, remote.slug)
-                Logger.info(TAG, "migratePlatformData [$label]: remapped controller bindings ${old.slug} -> ${remote.slug}")
+            if (old.slug.isNotBlank() && old.slug != remoteSlug) {
+                controllerMappingDao.migratePlatformSlug(old.slug, remoteSlug)
+                Logger.info(TAG, "migratePlatformData [$label]: remapped controller bindings ${old.slug} -> $remoteSlug")
             }
 
             val newPlatform = platformDao.getById(remote.id)
@@ -1773,6 +1804,7 @@ class RomMLibrarySyncService @Inject constructor(
                 platformDao.update(newPlatform.copy(
                     isVisible = old.isVisible,
                     syncEnabled = old.syncEnabled,
+                    skipFullSync = old.skipFullSync,
                     customRomPath = old.customRomPath ?: newPlatform.customRomPath,
                     sortOrder = old.sortOrder
                 ))

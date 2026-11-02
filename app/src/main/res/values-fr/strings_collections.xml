@@ -208,13 +208,6 @@
     <string name="downloads_action_clear_finished">Effacer les terminés</string>
     <string name="downloads_action_start_all">Tout démarrer</string>
 
-    <string name="downloads_steam_status_preparing">Préparation…</string>
-    <string name="downloads_steam_status_connecting">Connexion à Steam…</string>
-    <string name="downloads_steam_status_fetching_manifest">Récupération du manifeste du dépôt…</string>
-    <string name="downloads_steam_status_validating_fallback">Validation…</string>
-    <string name="downloads_steam_status_moving">Déplacement des fichiers…</string>
-    <string name="downloads_steam_status_cleaning">Nettoyage…</string>
-    <string name="downloads_steam_status_depot_progress">" (%1$d/%2$d dépôts)"</string>
 
     <plurals name="downloads_group_progress">
         <item quantity="one">%1$d sur %2$d fichier</item>

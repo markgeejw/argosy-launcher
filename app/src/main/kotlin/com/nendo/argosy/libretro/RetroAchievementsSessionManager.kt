@@ -8,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.nendo.argosy.data.local.dao.AchievementDao
 import com.nendo.argosy.data.local.dao.GameDao
+import com.nendo.argosy.data.remote.ra.RAAchievementPatch
 import com.nendo.argosy.data.remote.ra.RAPatchData
+import com.nendo.argosy.data.repository.RA_BADGE_BASE_URL
 import com.nendo.argosy.data.repository.RAAwardResult
 import com.nendo.argosy.data.repository.RAPatchFetchResult
 import com.nendo.argosy.data.repository.RetroAchievementsRepository
@@ -111,8 +113,8 @@ class RetroAchievementsSessionManager(
             gameIgdbId = game.igdbId
             gameTitle = game.title
 
-            val verifiedId = verifyRAGameIdUseCase(gameId, forceRehash = true)
-            gameRaId = verifiedId ?: game.effectiveRaId ?: game.raId
+            val verification = verifyRAGameIdUseCase.verifyHash(gameId, romPath)
+            gameRaId = verification.raId ?: game.effectiveRaId ?: game.raId
             Log.d(TAG, "Game loaded: title=${game.title}, resolvedRaId=$gameRaId, raId=${game.raId}, verifiedRaId=${game.verifiedRaId}")
 
             if (gameRaId == null) {
@@ -123,7 +125,8 @@ class RetroAchievementsSessionManager(
 
             val raId = gameRaId!!
             Log.d(TAG, "Starting RA session for raId=$raId, hardcore=$requestedHardcore")
-            val sessionResult = raRepository.startSession(raId, requestedHardcore)
+            val verifiedHash = verification.matchedHash?.takeIf { verification.raId == raId }
+            val sessionResult = raRepository.startSession(raId, requestedHardcore && !hardcoreAbandoned, verifiedHash)
             if (sessionResult.success) {
                 raSessionActive = true
             } else {
@@ -133,7 +136,8 @@ class RetroAchievementsSessionManager(
             val livePatch = (raRepository.fetchPatchData(raId) as? RAPatchFetchResult.Fetched)?.patchData
             val patchData = livePatch ?: raRepository.getCachedPatchData(raId)
             val armedFromCache = livePatch == null && patchData != null
-            val claimsHardcore = requestedHardcore && sessionResult.success && !armedFromCache
+            val claimsHardcore = requestedHardcore && verifiedHash != null && sessionResult.success &&
+                !armedFromCache && !hardcoreAbandoned
             val fellBackFromHardcore = requestedHardcore && !claimsHardcore
             if (claimsHardcore) {
                 _sessionMode.value = RASessionMode.HARDCORE
@@ -142,7 +146,7 @@ class RetroAchievementsSessionManager(
             }
 
             val preUnlocked = if (sessionResult.success) {
-                sessionResult.unlockedAchievements
+                sessionResult.unlocksFor(claimsHardcore)
             } else {
                 raRepository.getCachedAchievements(gameId)
                     .filter { it.isUnlocked }
@@ -165,6 +169,29 @@ class RetroAchievementsSessionManager(
                 startHeartbeatLoop()
             }
         }
+    }
+
+    private suspend fun storeArmedDefinitionsIfMissing(armed: List<RAAchievementPatch>, armedIds: Set<Long>) {
+        if (armed.isEmpty()) return
+        val stored = achievementDao.getByGameId(gameId, raRepository.activeOwnerUserId()).map { it.raId }.toSet()
+        if (armedIds.all { it in stored }) return
+        Log.w(TAG, "Stored achievement list does not match the armed set for raId=$gameRaId; storing the armed definitions")
+        raRepository.syncAchievementsForGame(
+            gameId = gameId,
+            gameRaId = gameRaId,
+            definitions = armed.map { patch ->
+                RetroAchievementsRepository.AchievementDefinition(
+                    raId = patch.id,
+                    title = patch.title,
+                    description = patch.description,
+                    points = patch.points,
+                    type = patch.type,
+                    badgeId = patch.badgeName,
+                    badgeUrl = patch.badgeName?.let { "$RA_BADGE_BASE_URL$it.png" },
+                    badgeUrlLock = patch.badgeName?.let { "$RA_BADGE_BASE_URL${it}_lock.png" }
+                )
+            }
+        )
     }
 
     private suspend fun armAchievements(
@@ -192,6 +219,7 @@ class RetroAchievementsSessionManager(
         totalAchievements = validAchievements.size
         val validIds = validAchievements.map { a -> a.id }.toSet()
         earnedAchievements = preUnlocked.count { it in validIds }
+        storeArmedDefinitionsIfMissing(validAchievements, validIds)
 
         if (recordPreUnlocked) {
             val now = System.currentTimeMillis()
@@ -234,6 +262,20 @@ class RetroAchievementsSessionManager(
         } else {
             Log.d(TAG, "No achievements to watch (all pre-unlocked)")
         }
+    }
+
+    @Volatile
+    private var hardcoreAbandoned = false
+
+    /**
+     * Ends any hardcore claim for the rest of the session, including one RetroAchievements has
+     * not confirmed yet. Casual unlocks still count.
+     */
+    fun abandonHardcore(reason: String) {
+        hardcoreAbandoned = true
+        if (_sessionMode.value == RASessionMode.CASUAL) return
+        Log.w(TAG, "Hardcore abandoned: $reason")
+        _sessionMode.value = RASessionMode.CASUAL
     }
 
     private fun resolveWithoutHardcore() {

@@ -5,10 +5,10 @@ import com.nendo.argosy.data.platform.PlatformDefinitions
 data class CorePortDevice(val id: Int, val name: String)
 
 /**
- * Each built-in core's `RETRO_ENVIRONMENT_SET_CONTROLLER_INFO` devices per port, as the core's
- * upstream source declares them, for picking a controller type outside a running game. The first
- * device of a port is the one libretrodroid sets when nothing is stored. Ports past
- * [MAX_PORTS] are never configured.
+ * `RETRO_ENVIRONMENT_SET_CONTROLLER_INFO` devices per port, as upstream source declares them, for
+ * the built-in cores that offer a choice of device on at least one port, for picking a controller
+ * type outside a running game. A core with one device per port, no controller info, or a device
+ * list built from the loaded content has no entry. Ports past [MAX_PORTS] are never configured.
  */
 object CorePortDeviceCatalog {
 
@@ -315,4 +315,18 @@ object CorePortDeviceCatalog {
             "dolphin" -> if (PlatformDefinitions.getCanonicalSlug(platformSlug) == "wii") same(MAX_PORTS, DOLPHIN_WII) else emptyList()
             else -> cores[coreId].orEmpty()
         }.take(MAX_PORTS)
+
+    /**
+     * Index of the device libretrodroid sets on a port with no stored choice: the first advertised
+     * device that is not `RETRO_DEVICE_NONE`. Null when the port advertises nothing else.
+     */
+    fun autoDeviceIndex(deviceIds: List<Int>): Int? =
+        deviceIds.indexOfFirst { it != NONE }.takeIf { it >= 0 }
+
+    /**
+     * Index of [storedId] in [deviceIds], or [autoDeviceIndex] when nothing is stored or the stored
+     * device is not advertised, or 0 when neither resolves.
+     */
+    fun selectedDeviceIndex(deviceIds: List<Int>, storedId: Int?): Int =
+        deviceIds.indexOf(storedId).takeIf { it >= 0 } ?: autoDeviceIndex(deviceIds) ?: 0
 }

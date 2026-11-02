@@ -31,6 +31,7 @@ data class CompanionInGameState(
     val isDirty: Boolean = false,
     val isLoaded: Boolean = false,
     val quickActionsAvailable: Boolean = false,
+    val externalEmulator: Boolean = false,
     val backgroundPath: String? = null,
     val manual: com.nendo.argosy.ui.screens.gamedetail.GameDocument? = null,
     val walkthrough: com.nendo.argosy.ui.screens.gamedetail.GameDocument? = null,

@@ -173,6 +173,8 @@
     <string name="ingame_settings_game_specific_controls_subtitle_off">Используется глобальная раскладка контроллера</string>
     <string name="ingame_settings_rumble_title">Вибрация</string>
     <string name="ingame_settings_rumble_subtitle">Включить вибрационную отдачу контроллера</string>
+    <string name="ingame_settings_motion_title">Управление движением</string>
+    <string name="ingame_settings_motion_subtitle">Разрешить играм считывать наклон и поворот устройства</string>
     <string name="ingame_settings_controller_order_title">Порядок контроллеров</string>
     <plurals name="ingame_settings_controller_order_assigned">
         <item quantity="one">%d контроллер назначен</item>
@@ -184,6 +186,7 @@
     <string name="ingame_settings_controller_type_title">Контроллер игрока %1$d</string>
     <string name="ingame_settings_controller_type_pending">Применится при следующем запуске</string>
     <string name="ingame_settings_controller_type_core_default">Выбирается ядром</string>
+    <string name="ingame_settings_controller_type_auto">Авто (%1$s)</string>
     <string name="ingame_settings_controller_grip_title">Рукоятка контроллера</string>
     <string name="ingame_settings_controller_grip_subtitle">Сдвинуть интерфейс из зоны, которую закрывает рукоятка</string>
     <string name="ingame_settings_input_mapping_title">Раскладка кнопок</string>
@@ -196,6 +199,8 @@
     <string name="ingame_settings_hotkeys_subtitle">Настройка сочетаний для меню, перемотки вперёд и назад</string>
     <string name="ingame_settings_limit_hotkeys_title">Горячие клавиши только для игрока 1</string>
     <string name="ingame_settings_limit_hotkeys_subtitle">Горячие клавиши доступны только с контроллера игрока 1</string>
+    <string name="ingame_settings_select_as_back_title">Select как «Назад»</string>
+    <string name="ingame_settings_select_as_back_subtitle">Для контроллеров, у которых Select отправляет «Назад». В режиме «Авто» «Назад» работает как Select на контроллерах без кнопки Select.</string>
     <string name="ingame_settings_toggle_fast_forward_title">Переключение перемотки вперёд</string>
     <string name="ingame_settings_toggle_fast_forward_subtitle">Нажмите один раз, чтобы включить, ещё раз - чтобы выключить (выкл. = удерживать для перемотки)</string>
     <string name="ingame_settings_preserve_pitch_title">Сохранять высоту звука</string>
@@ -379,9 +384,12 @@
     <string name="ingame_libretro_core_error_unknown">Произошла непредвиденная ошибка</string>
 
     <string name="ingame_libretro_sram_load_failed_fresh_save">Не удалось загрузить сохранение, используется новое</string>
+    <string name="ingame_libretro_hardcore_off_core_setting">Режим хардкор отключён в этой сессии: %1$s = %2$s</string>
+    <string name="ingame_libretro_core_option_blocked_hardcore">Это значение недоступно в режиме хардкор</string>
     <string name="ingame_libretro_casual_save_in_hardcore">Продолжение казуального сохранения в хардкоре</string>
 
     <string name="ingame_libretro_disc_swap_inserted">Вставлен %1$s</string>
+    <string name="ingame_libretro_sun_level">Солнечный свет %1$d/%2$d</string>
     <string name="ingame_libretro_disc_swap_fallback_name">Диск %1$d</string>
 
     <string name="ingame_libretro_speedrun_default_category_name">Тренировка</string>
@@ -417,6 +425,7 @@
     <string name="ingame_libretro_resume_success">Продолжено</string>
     <string name="ingame_libretro_resume_restore_failure">Не удалось восстановить состояние</string>
     <string name="ingame_libretro_auto_restore_success">Состояние восстановлено</string>
+    <string name="ingame_libretro_auto_restore_skipped_for_save">Запущено с вашего сохранения. Состояние для продолжения ему не соответствовало.</string>
     <string name="ingame_libretro_auto_restore_failure">Не удалось восстановить состояние</string>
     <string name="ingame_libretro_auto_restore_response_unsupported_core">Состояния недоступны для этого ядра</string>
     <string name="ingame_libretro_auto_restore_response_success">Состояние восстановлено</string>
@@ -439,6 +448,7 @@
     <string name="ingame_libretro_quickaction_load_unsupported_core">Состояния недоступны для этого ядра</string>
     <string name="ingame_libretro_quickaction_load_success">Состояние загружено</string>
     <string name="ingame_libretro_quickaction_load_failure">Не удалось загрузить состояние</string>
+    <string name="ingame_libretro_quickaction_load_replaced">Это состояние было заменено. Выберите его снова.</string>
     <string name="ingame_libretro_quickaction_screenshot_capture_failed">Не удалось сделать снимок</string>
     <string name="ingame_libretro_quickaction_screenshot_success">Скриншот сохранён</string>
     <string name="ingame_libretro_quickaction_screenshot_failure">Не удалось сделать скриншот</string>

@@ -156,7 +156,7 @@ class PreLaunchStateSyncUseCase @Inject constructor(
             val slotNumber = parsed.slotNumber
             val linked = localByRommId[serverState.id]
             val localState = linked ?: localBySlot[slotNumber to stateChannelKey(parsed.channelName)]
-            val serverUpdatedAt = stateCacheManager.parseTimestamp(serverState.updatedAt)
+            val serverUpdatedAt = com.nendo.argosy.data.repository.SaveSyncApiClient.parseTimestampOrNull(serverState.updatedAt)
 
             val shouldDownload = when {
                 localState == null -> {
@@ -250,12 +250,9 @@ class PreLaunchStateSyncUseCase @Inject constructor(
                 parsed.slotNumber to stateChannelKey(parsed.channelName)
             }
             .map { (_, candidates) ->
-                candidates.maxByOrNull { writtenAt(it) ?: Instant.MIN } ?: candidates.first()
+                candidates.maxByOrNull { stateCacheManager.serverStateWrittenAt(it) ?: Instant.MIN }
+                    ?: candidates.first()
             }
-
-    private fun writtenAt(serverState: RomMState): Instant? =
-        stateCacheManager.parseStateFileTimestamp(serverState.fileName)
-            ?: stateCacheManager.parseTimestamp(serverState.updatedAt)
 
     private suspend fun materializeToLiveDir(
         rommStateId: Long,

@@ -39,20 +39,20 @@ class SwitchSaveHandlerProfileSelectionTest {
     }
 
     @Test
-    fun `returns basePath when basePath does not exist`() {
+    fun `finds no profile when basePath does not exist`() {
         val nonexistent = File(tempDir, "nope").absolutePath
         val result = handler.findActiveProfileFolder(nonexistent, emulatorPackage = null)
-        assertEquals(nonexistent, result)
+        org.junit.Assert.assertNull(result)
     }
 
     @Test
-    fun `returns basePath when no valid user folder exists`() {
+    fun `finds no profile when no valid user folder exists`() {
         val base = File(tempDir, "save").apply { mkdirs() }
         File(base, "not_a_user_id").mkdirs()
 
         val result = handler.findActiveProfileFolder(base.absolutePath, emulatorPackage = null)
 
-        assertEquals(base.absolutePath, result)
+        org.junit.Assert.assertNull(result)
     }
 
     @Test

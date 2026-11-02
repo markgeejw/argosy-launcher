@@ -97,6 +97,7 @@ internal sealed class PlatformDetailItem(
     data object SyncToggle : PlatformDetailItem("sync_toggle", "sync")
     data object CombineContent : PlatformDetailItem("combine_content", "sync", { it.showCombineContent })
     data object SyncNow : PlatformDetailItem("sync_now", "sync", { it.syncEnabled })
+    data object SkipFullSync : PlatformDetailItem("skip_full_sync", "sync", { it.syncEnabled })
     data object DownloadDefaults : PlatformDetailItem("download_defaults", "sync", { !it.isAndroid })
     data object PackagePath : PlatformDetailItem("package_path", "sync", { it.showSavePath && !it.isAndroid })
     data object RemoveFiles : PlatformDetailItem("remove_files", "sync", { it.hasDownloads && !it.isAndroid })
@@ -117,7 +118,7 @@ internal sealed class PlatformDetailItem(
                 Header("header_bios", "bios", R.string.settings_platform_section_bios, { it.hasBios && !it.isAndroid }),
                 InfoItem("info_bios_status", "bios", { it.hasBios && !it.isAndroid }), BiosDownload, BiosInstall, BiosCopy,
                 Header("header_sync", "sync", R.string.settings_platform_section_sync),
-                SyncToggle, SyncNow, DownloadDefaults, CombineContent,
+                SyncToggle, SyncNow, SkipFullSync, DownloadDefaults, CombineContent,
                 InfoItem("info_package_path", "sync", { it.showSavePath && !it.isBuiltin && !it.isRetroArch }),
                 RomPath, SavePath, MemoryCard, StatePath,
                 RemoveFiles
@@ -304,7 +305,6 @@ fun PlatformDetailSection(
                         stringResource(item.titleRes)
                     )
 
-                // -- EMULATOR section --
                 PlatformDetailItem.Emulator -> {
                     val hasUpdate = config.effectiveEmulatorId != null &&
                         config.effectiveEmulatorId in emulators.emulatorUpdateVersions
@@ -439,7 +439,6 @@ fun PlatformDetailSection(
                     onClick = { openFrom(item) { viewModel.navigateToCoreOptionsForPlatform() } }
                 )
 
-                // -- PLATFORM section (info items + scan) --
                 is PlatformDetailItem.InfoItem -> {
                     when (item.key) {
                         "info_platform_stats" -> {
@@ -576,8 +575,6 @@ fun PlatformDetailSection(
                     onClick = { viewModel.scanInstalledAndroidGames() }
                 )
 
-
-                // -- PATHS section --
                 PlatformDetailItem.RomPath -> ActionPreference(
                     title = stringResource(R.string.settings_platform_rom_path_title),
                     subtitle = formatPath(context, storageConfig?.effectivePath),
@@ -679,7 +676,6 @@ fun PlatformDetailSection(
                     )
                 }
 
-                // -- SYNC section --
                 PlatformDetailItem.SyncToggle -> SwitchPreference(
                     title = stringResource(R.string.settings_platform_sync_toggle_title),
                     subtitle = stringResource(R.string.settings_platform_sync_toggle_subtitle),
@@ -711,7 +707,14 @@ fun PlatformDetailSection(
                         onClick = { viewModel.syncPlatform(config.platform.id, config.platform.getDisplayName()) }
                     )
                 }
-                PlatformDetailItem.PackagePath -> {} // rendered as InfoItem
+                PlatformDetailItem.SkipFullSync -> SwitchPreference(
+                    title = stringResource(R.string.settings_platform_skip_full_sync_title),
+                    subtitle = stringResource(R.string.settings_platform_skip_full_sync_subtitle),
+                    isEnabled = storageConfig?.skipFullSync ?: false,
+                    isFocused = isFocused(item),
+                    onToggle = { viewModel.togglePlatformSkipFullSync(config.platform.id, it) }
+                )
+                PlatformDetailItem.PackagePath -> {}
                 PlatformDetailItem.DownloadDefaults -> ActionPreference(
                     title = stringResource(R.string.settings_platform_download_defaults_title),
                     subtitle = if (detail.downloadOverrides.isEmpty()) {
@@ -738,8 +741,7 @@ fun PlatformDetailSection(
                     onClick = { viewModel.requestRemoveLocalFiles() }
                 )
 
-                // -- BIOS section --
-                PlatformDetailItem.BiosStatus -> {} // rendered as InfoItem
+                PlatformDetailItem.BiosStatus -> {}
                 PlatformDetailItem.BiosDownload -> ActionPreference(
                     title = stringResource(R.string.settings_platform_bios_download_title),
                     subtitle = if (uiState.bios.isDownloading) {
@@ -816,7 +818,6 @@ fun PlatformDetailSection(
             DownloadDefaultsModal(detail = detail, viewModel = viewModel)
         }
 
-        // Modals
         if (emulators.showEmulatorPicker && emulators.emulatorPickerInfo != null) {
             EmulatorPickerPopup(
                 info = emulators.emulatorPickerInfo,

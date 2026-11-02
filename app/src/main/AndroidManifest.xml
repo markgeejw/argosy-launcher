@@ -36,6 +36,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+
     <!-- QuayPass BLE peer exchange -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
@@ -263,7 +265,7 @@
             android:name=".libretro.LibretroActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
             android:screenOrientation="fullUser"
-            android:theme="@style/Theme.Argosy"
+            android:theme="@style/Theme.Argosy.Game"
             android:taskAffinity=""
             android:exported="false" />
 

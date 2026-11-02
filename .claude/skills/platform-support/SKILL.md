@@ -115,13 +115,13 @@ Check these files:
 
 A new platform or core can also touch the other registries (BiosPathRegistry, SavePathRegistry, StatePathRegistry, CoreOptionManifestRegistry, CoreControlManifestRegistry, TouchLayoutRegistry, ShaderRegistry, FrameRegistry, PlatformWeightRegistry, PlatformSaveHandlerRegistry). Enumerate them with Glob `**/*Registry*.kt` and check each for relevance - the two-file model above is the minimum, not the whole checklist.
 
-#### The two resolvers must agree
+#### One emulator resolver
 
-`EmulatorResolver.getEmulatorPackageForGame` and `GameLauncher.resolveEmulator` independently answer "which emulator runs this game". They MUST stay in step: the first decides where saves are read and written, the second decides what actually launches. Divergence means restores land in a directory the running emulator never reads.
+`EmulatorResolver.resolveEmulatorForGame` is the only answer to "which emulator runs this game". `GameLauncher.resolveEmulator` delegates to it and launches the returned def; `getEmulatorPackageForGame` is its package, which save sync uses to decide where saves are read and written. A second precedence chain is how restores once landed in a directory the running emulator never read.
 
-Both currently walk the same precedence - game override, then platform default, then ad-hoc (an installed package unknown to the registry), then the detector's preferred emulator - with identical built-in gating (a built-in package is skipped when `builtinLibretroEnabled` is off or the core does not support the platform). Change one, change the other, in the same commit.
+The precedence is game override, then platform default, then ad-hoc (an installed package unknown to the registry), then the detector's preferred emulator. A built-in package is skipped when `builtinLibretroEnabled` is off or the core does not support the platform. The resolver returns a def, not a package, because Cemu and AetherSX2 each have two defs on one package.
 
-One asymmetry is BY DESIGN and must not be "fixed": `EmulatorResolver` collapses family variants to their base id via `resolveEmulatorId` / `canonicalEmulatorId`, because the path registries key on exact ids, while `GameLauncher.resolveEmulator` returns the variant `EmulatorDef` because that is the package it has to start. The family fallback in the path registries is what makes the two views meet.
+One asymmetry is BY DESIGN and must not be "fixed": save paths collapse family variants to their base id via `resolveEmulatorId` / `canonicalEmulatorId`, because the path registries key on exact ids, while the launcher starts the variant `EmulatorDef`. The family fallback in the path registries is what makes the two views meet.
 
 ### Step 4: Report Discrepancies
 

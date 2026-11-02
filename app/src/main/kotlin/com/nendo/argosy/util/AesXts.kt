@@ -36,7 +36,6 @@ object AesXts {
             val sectorStart = sectorIdx * SECTOR_SIZE
             val sectorNum = startSector + sectorIdx
 
-            // Nintendo uses big-endian sector numbers
             var tweak = computeTweak(tweakCipher, sectorNum)
 
             for (blockOffset in 0 until SECTOR_SIZE step BLOCK_SIZE) {
@@ -52,7 +51,6 @@ object AesXts {
             }
         }
 
-        // Handle remaining data (partial sector)
         val remainingStart = numSectors * SECTOR_SIZE
         if (remainingStart < data.size) {
             var tweak = computeTweak(tweakCipher, startSector + numSectors)
@@ -72,7 +70,6 @@ object AesXts {
     }
 
     private fun computeTweak(tweakCipher: Cipher, sectorNumber: Long): ByteArray {
-        // Big-endian 16-byte sector number (Nintendo's format)
         val tweakInput = ByteArray(16)
         var num = sectorNumber
         for (i in 15 downTo 8) {
@@ -89,7 +86,6 @@ object AesXts {
     }
 
     private fun multiplyTweakByX(tweak: ByteArray): ByteArray {
-        // GF(2^128) multiplication by x - same as CASHEW
         val carry = (tweak[15].toInt() ushr 7) and 1
         val result = ByteArray(16)
 

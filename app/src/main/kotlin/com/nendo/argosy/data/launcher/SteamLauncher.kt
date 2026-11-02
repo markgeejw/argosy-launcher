@@ -15,6 +15,7 @@ interface SteamLauncher {
     val displayName: String
     val supportsScanning: Boolean get() = false
     val scanMayIncludeUninstalled: Boolean get() = false
+    val registryId: String? get() = null
 
     fun isInstalled(context: Context): Boolean {
         return try {

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -123,13 +124,15 @@ class JellyfinLibrarySyncService @Inject constructor(
 
         val libraries = views.mapIndexedNotNull { order, view -> view.toLibraryEntity(owner, order) }
         persistLibraries(owner, libraries)
-        _syncProgress.value = _syncProgress.value.copy(librariesTotal = libraries.size)
+        _syncProgress.update { it.copy(librariesTotal = libraries.size) }
 
         for ((index, library) in libraries.withIndex()) {
-            _syncProgress.value = _syncProgress.value.copy(
-                currentLibrary = library.name,
-                librariesDone = index
-            )
+            _syncProgress.update {
+                it.copy(
+                    currentLibrary = library.name,
+                    librariesDone = index
+                )
+            }
             when (val outcome = syncOneLibrary(owner, library)) {
                 is JellyfinResult.Success -> {
                     itemsAdded += outcome.data.itemsAdded
@@ -207,10 +210,12 @@ class JellyfinLibrarySyncService @Inject constructor(
             }
 
             startIndex += page.items.size
-            _syncProgress.value = _syncProgress.value.copy(
-                itemsTotal = page.totalRecordCount ?: startIndex,
-                itemsDone = startIndex
-            )
+            _syncProgress.update {
+                it.copy(
+                    itemsTotal = page.totalRecordCount ?: startIndex,
+                    itemsDone = startIndex
+                )
+            }
             if (reachedLastPage(page, startIndex)) break
         }
 
@@ -422,9 +427,10 @@ class JellyfinLibrarySyncService @Inject constructor(
     /**
      * Drains watch state that was written while the server could not be told.
      *
-     * Deliberately dumb: the server is authority while online, an offline write queues, and the last
-     * write wins. It is one position and three flags, and a row is cleared only if nothing wrote to
-     * it again while the report was in flight.
+     * Each row reports only the fields it marks pending. A pending position or played flag is
+     * withheld when the server's last-played time is later than the local change, and the server's
+     * playback state is taken instead. The favourite flag has no server timestamp and is always
+     * sent. A row is settled only if nothing wrote to it again while the report was in flight.
      */
     suspend fun pushPendingUserData(): JellyfinResult<Int> = withContext(Dispatchers.IO) {
         pushMutex.withLock {
@@ -433,45 +439,85 @@ class JellyfinLibrarySyncService @Inject constructor(
             val pending = mediaUserDataDao.getNeedingSync(owner)
             var reported = 0
             for (row in pending) {
-                when (reportOne(owner, row)) {
-                    ReportOutcome.REPORTED -> {
-                        mediaUserDataDao.clearNeedsSync(owner, row.itemId, row.updatedAt)
+                when (val outcome = reportOne(owner, row)) {
+                    is ReportOutcome.Reported -> {
+                        mediaUserDataDao.settleReport(owner, row.itemId, row.updatedAt, outcome.serverPlayback)
                         reported++
                     }
-                    ReportOutcome.GONE -> {
+                    ReportOutcome.Gone -> {
                         Logger.info(TAG, "server no longer knows ${row.itemId}; dropping its pending write")
-                        mediaUserDataDao.clearNeedsSync(owner, row.itemId, row.updatedAt)
+                        mediaUserDataDao.settleReport(owner, row.itemId, row.updatedAt, null)
                     }
-                    ReportOutcome.UNREACHABLE -> Unit
+                    ReportOutcome.Unreachable -> Unit
                 }
             }
             JellyfinResult.Success(reported)
         }
     }
 
-    /**
-     * [GONE] is separated from [UNREACHABLE] because a row the server will never accept has to stop
-     * being pending. While it is pending the server's own state for that item is refused, so an
-     * entry that can never drain would silently freeze that item's watch state forever.
-     */
-    private enum class ReportOutcome { REPORTED, UNREACHABLE, GONE }
+    private sealed interface ReportOutcome {
+        data class Reported(val serverPlayback: MediaUserDataEntity?) : ReportOutcome
+        data object Unreachable : ReportOutcome
+        data object Gone : ReportOutcome
+    }
+
+    private sealed interface ServerPlayback {
+        data object NotNewer : ServerPlayback
+        data object Unreachable : ServerPlayback
+        data object Gone : ServerPlayback
+        data class Newer(val state: MediaUserDataEntity) : ServerPlayback
+    }
 
     private suspend fun reportOne(owner: String, row: MediaUserDataEntity): ReportOutcome {
-        val results = listOf(
-            apiClient.reportPlaybackStopped(
-                JellyfinPlaybackStopInfo(
-                    itemId = row.itemId,
-                    positionTicks = row.playbackPositionTicks
-                )
-            ),
-            apiClient.setPlayed(row.itemId, owner, row.played),
-            apiClient.setFavorite(row.itemId, owner, row.isFavorite)
-        )
-        return when {
-            results.all { it is JellyfinResult.Success } -> ReportOutcome.REPORTED
-            results.any { it is JellyfinResult.Error && it.code == HTTP_NOT_FOUND } -> ReportOutcome.GONE
-            else -> ReportOutcome.UNREACHABLE
+        val playbackPending = row.pendingPosition || row.pendingPlayed
+        val server = if (playbackPending) newerServerPlayback(owner, row) else ServerPlayback.NotNewer
+        val newer = when (server) {
+            ServerPlayback.Gone -> return ReportOutcome.Gone
+            ServerPlayback.Unreachable -> return ReportOutcome.Unreachable
+            ServerPlayback.NotNewer -> null
+            is ServerPlayback.Newer -> server.state
         }
+        val results = buildList {
+            if (newer == null) addAll(reportPlayback(owner, row))
+            if (row.pendingFavorite) add(apiClient.setFavorite(row.itemId, owner, row.isFavorite))
+        }
+        return when {
+            results.all { it is JellyfinResult.Success } -> ReportOutcome.Reported(newer)
+            results.any { it is JellyfinResult.Error && it.code == HTTP_NOT_FOUND } -> ReportOutcome.Gone
+            else -> ReportOutcome.Unreachable
+        }
+    }
+
+    private suspend fun reportPlayback(owner: String, row: MediaUserDataEntity): List<JellyfinResult<Unit>> {
+        val reportPosition: suspend () -> JellyfinResult<Unit> = {
+            apiClient.reportPlaybackStopped(
+                JellyfinPlaybackStopInfo(itemId = row.itemId, positionTicks = row.playbackPositionTicks)
+            )
+        }
+        val reportPlayed: suspend () -> JellyfinResult<Unit> = {
+            apiClient.setPlayed(row.itemId, owner, row.played)
+        }
+        val unplayedBeforePositionPlayedAfter = when {
+            !row.pendingPlayed -> listOf(reportPosition)
+            !row.pendingPosition -> listOf(reportPlayed)
+            row.played -> listOf(reportPosition, reportPlayed)
+            else -> listOf(reportPlayed, reportPosition)
+        }
+        return unplayedBeforePositionPlayedAfter.map { it() }
+    }
+
+    private suspend fun newerServerPlayback(owner: String, row: MediaUserDataEntity): ServerPlayback {
+        val item = when (val result = apiClient.getItem(row.itemId, owner)) {
+            is JellyfinResult.Success -> result.data
+            is JellyfinResult.Error ->
+                return if (result.code == HTTP_NOT_FOUND) ServerPlayback.Gone else ServerPlayback.Unreachable
+        }
+        val userData = item.userData ?: return ServerPlayback.NotNewer
+        val serverPlayedAt = parseJellyfinInstant(userData.lastPlayedDate) ?: return ServerPlayback.NotNewer
+        val localChangedAt = row.lastPlayedAt ?: row.updatedAt
+        if (!serverPlayedAt.isAfter(localChangedAt)) return ServerPlayback.NotNewer
+        Logger.info(TAG, "server played ${row.itemId} after the local change; keeping its playback state")
+        return ServerPlayback.Newer(userData.toUserDataEntity(owner, row.itemId))
     }
 
     private suspend fun persistLibraries(owner: String, libraries: List<MediaLibraryEntity>) {
@@ -577,22 +623,22 @@ class JellyfinLibrarySyncService @Inject constructor(
     private suspend fun persistUserData(owner: String, items: List<JellyfinItem>) {
         for (item in items) {
             val userData = item.userData ?: continue
-            mediaUserDataDao.applyServerState(
-                MediaUserDataEntity(
-                    ownerUserId = owner,
-                    itemId = item.id,
-                    playbackPositionTicks = userData.playbackPositionTicks,
-                    playedPercentage = userData.playedPercentage,
-                    played = userData.played,
-                    playCount = userData.playCount,
-                    isFavorite = userData.isFavorite,
-                    lastPlayedAt = parseJellyfinInstant(userData.lastPlayedDate),
-                    needsSync = false,
-                    updatedAt = Instant.now()
-                )
-            )
+            mediaUserDataDao.applyServerState(userData.toUserDataEntity(owner, item.id))
         }
     }
+
+    private fun JellyfinUserData.toUserDataEntity(owner: String, itemId: String) = MediaUserDataEntity(
+        ownerUserId = owner,
+        itemId = itemId,
+        playbackPositionTicks = playbackPositionTicks,
+        playedPercentage = playedPercentage,
+        played = played,
+        playCount = playCount,
+        isFavorite = isFavorite,
+        lastPlayedAt = parseJellyfinInstant(lastPlayedDate),
+        needsSync = false,
+        updatedAt = Instant.now()
+    )
 
     /**
      * Removes rows the server no longer lists, except any that has a downloaded copy.

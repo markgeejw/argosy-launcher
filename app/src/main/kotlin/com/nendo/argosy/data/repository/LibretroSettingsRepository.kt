@@ -104,6 +104,9 @@ class LibretroSettingsRepository @Inject constructor(
     suspend fun setBuiltinFastForwardMode(mode: FastForwardMode) =
         builtinPrefs.setBuiltinFastForwardMode(mode)
 
+    suspend fun setBuiltinSelectAsBack(mode: com.nendo.argosy.data.local.entity.SelectAsBackMode) =
+        builtinPrefs.setBuiltinSelectAsBack(mode)
+
     suspend fun setBuiltinFastForwardPreservePitch(enabled: Boolean) =
         builtinPrefs.setBuiltinFastForwardPreservePitch(enabled)
 
@@ -148,6 +151,9 @@ class LibretroSettingsRepository @Inject constructor(
 
     suspend fun setBuiltinRumbleEnabled(enabled: Boolean) =
         builtinPrefs.setBuiltinRumbleEnabled(enabled)
+
+    suspend fun setBuiltinMotionEnabled(enabled: Boolean) =
+        builtinPrefs.setBuiltinMotionEnabled(enabled)
 
     suspend fun setBuiltinLimitHotkeysToPlayer1(enabled: Boolean) =
         builtinPrefs.setBuiltinLimitHotkeysToPlayer1(enabled)

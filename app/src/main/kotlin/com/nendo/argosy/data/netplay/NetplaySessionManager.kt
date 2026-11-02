@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
@@ -200,7 +201,7 @@ class NetplaySessionManager(
         socialService.sendNetplayJoinResponse(
             NetplayJoinResponsePayload(sessionId = sessionId, guestId = guestUserId, accept = false, reason = reason)
         )
-        _joinRequestQueue.value = _joinRequestQueue.value.filter { it.fromUserId != guestUserId }
+        _joinRequestQueue.update { queue -> queue.filter { it.fromUserId != guestUserId } }
     }
 
     fun clearJoinQueue() {
@@ -460,10 +461,6 @@ class NetplaySessionManager(
                 if (state !is NetplaySessionState.Connected && state !is NetplaySessionState.Reconnecting) {
                     continue
                 }
-                // Don't trigger silence detection until we've received at least
-                // one FrameInput (remotePeerFrame >= 0 on the peer driver).
-                // During startup, the snapshot transfer can take several seconds
-                // and no FrameInput packets flow until both sides are ready.
                 val peerDriver = driver as? NetplayPeerDriver
                 if (peerDriver != null && peerDriver.remotePeerFrame < 0) continue
                 val silenceNanos = System.nanoTime() - driver.lastIncomingNanos
@@ -659,7 +656,7 @@ class NetplaySessionManager(
                         fromUserId = message.payload.fromUserId,
                         fromUsername = message.payload.fromUsername
                     )
-                    _joinRequestQueue.value = _joinRequestQueue.value + request
+                    _joinRequestQueue.update { it + request }
                     when (sessionMode) {
                         NetplaySessionMode.OPEN -> scope.launch { acceptJoin(request.fromUserId) }
                         NetplaySessionMode.INVITE_ONLY -> {

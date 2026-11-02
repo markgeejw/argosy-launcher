@@ -89,6 +89,47 @@ class FormattersTest {
     }
 
     @Test
+    fun `relative time counts calendar days, not elapsed 24 hour blocks`() {
+        val utc = java.time.ZoneOffset.UTC
+        assertEquals(
+            res(R.string.util_formatters_relative_yesterday),
+            formatRelativeTime(context, ago(hours = 20), now, absolute, utc)
+        )
+        assertEquals(
+            res(R.string.util_formatters_relative_today),
+            formatRelativeTime(context, Instant.parse("2026-06-15T00:30:00Z"), now, absolute, utc)
+        )
+        assertEquals(
+            plural(R.plurals.util_formatters_relative_days_ago, 2, 2),
+            formatRelativeTime(context, Instant.parse("2026-06-13T23:30:00Z"), now, absolute, utc)
+        )
+    }
+
+    @Test
+    fun `save timestamp from yesterday evening reads as yesterday`() {
+        val utc = java.time.ZoneOffset.UTC
+        assertEquals(
+            res(R.string.util_formatters_save_timestamp_yesterday),
+            formatSaveTimestamp(context, ago(hours = 20).toEpochMilli(), now, utc)
+        )
+        assertEquals(
+            plural(R.plurals.util_formatters_save_timestamp_days_ago, 2, 2),
+            formatSaveTimestamp(context, Instant.parse("2026-06-13T23:30:00Z").toEpochMilli(), now, utc)
+        )
+    }
+
+    @Test
+    fun `calendar days follow the zone the reader is in`() {
+        val tokyo = java.time.ZoneId.of("Asia/Tokyo")
+        val saved = Instant.parse("2026-10-27T07:39:57Z")
+        val viewed = Instant.parse("2026-10-28T04:23:00Z")
+
+        assertEquals(1L, calendarDaysBetween(saved, viewed, tokyo))
+        assertEquals(1L, calendarDaysBetween(saved, viewed, java.time.ZoneOffset.UTC))
+        assertEquals(0L, calendarDaysBetween(saved, saved.plusSeconds(3_600), tokyo))
+    }
+
+    @Test
     fun `relative time becomes a date past a month`() {
         assertEquals("ABSOLUTE", formatRelativeTime(context, ago(days = 30), now, absolute))
         assertEquals("ABSOLUTE", formatRelativeTime(context, ago(days = 400), now, absolute))

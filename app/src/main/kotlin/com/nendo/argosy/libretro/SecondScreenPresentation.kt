@@ -1,43 +1,45 @@
 package com.nendo.argosy.libretro
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.Presentation
 import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
 import android.view.Display
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
+import com.nendo.argosy.ui.theme.generated.ComponentDefaults
 import com.nendo.argosy.util.hideSystemBars
 
 /**
- * The console's other screen, on the other display.
- *
- * The window this owns is created and destroyed by the display's own lifecycle, so the surface is
- * handed out and withdrawn through [onSurfaceChanged] rather than held: a surface that outlives
- * its window is drawn into forever without ever reaching the screen, which is what leaves a second
- * display frozen on its last frame after a suspend.
- *
- * The surface is ordered above its window and neither carries a background, because a SurfaceView
- * composites behind the window it lives in: an opaque background on either paints over the hole
- * the surface shows through, and the display stays black no matter what is drawn into it.
- *
- * It is also not cancelable, and never takes window focus. A Presentation is a dialog: Back would
- * otherwise dismiss it mid-game, and touching it would move focus off the emulator so the pad went
- * dead until the game's own display was tapped again. Not being focusable still delivers touches
- * inside its bounds; only the keys go elsewhere, which is where they belong.
+ * The console's other screen on a second display. It hands its surface out and withdraws it
+ * through [onSurfaceChanged] with the window's lifecycle, is not cancelable and never takes key
+ * focus. Built with [arrivesCovered], it opens black and fades the game in on [reveal] over
+ * [ComponentDefaults.LaunchOverlay.arrivalMs]; built without it, it shows the game at once.
  */
 class SecondScreenPresentation(
     context: Context,
     display: Display,
+    private val arrivesCovered: Boolean,
+    private val pictureHeightPx: Int?,
     private val onSurfaceChanged: (Surface?) -> Unit,
     private val onTouch: (x: Float, y: Float, width: Int, height: Int) -> Unit,
     private val onTouchReleased: () -> Unit
 ) : Presentation(context, display) {
 
     private lateinit var surfaceView: SurfaceView
+    private var arrival: ValueAnimator? = null
+    private var cover: ValueAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,15 +49,35 @@ class SecondScreenPresentation(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         )
+        if (arrivesCovered) {
+            window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setWindowAlpha(0f, dimAmount = 0f)
+        }
 
         surfaceView = SurfaceView(context).apply {
             setZOrderOnTop(true)
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
         }
-        setContentView(surfaceView)
+        setContentView(
+            FrameLayout(context).apply {
+                addView(
+                    surfaceView,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        pictureHeightPx ?: ViewGroup.LayoutParams.MATCH_PARENT,
+                        Gravity.TOP
+                    )
+                )
+                if (pictureHeightPx != null) {
+                    addView(
+                        View(context).apply { setBackgroundColor(Color.BLACK) },
+                        FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        ).apply { topMargin = pictureHeightPx }
+                    )
+                }
+            }
+        )
         window?.hideSystemBars()
 
         surfaceView.setOnTouchListener { view, event ->
@@ -83,7 +105,50 @@ class SecondScreenPresentation(
         })
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (!arrivesCovered || cover != null || arrival != null) return
+        cover = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = ComponentDefaults.LaunchOverlay.veilMs.toLong()
+            interpolator = LinearInterpolator()
+            addUpdateListener { setDimAmount(it.animatedValue as Float) }
+            start()
+        }
+    }
+
+    fun reveal() {
+        if (!arrivesCovered || arrival != null || !isShowing) return
+        arrival = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = ComponentDefaults.LaunchOverlay.arrivalMs.toLong()
+            interpolator = LinearInterpolator()
+            addUpdateListener { setWindowAlpha(it.animatedValue as Float) }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    cover?.cancel()
+                    window?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    setWindowAlpha(1f)
+                }
+            })
+            start()
+        }
+    }
+
+    private fun setDimAmount(dimAmount: Float) {
+        val window = window ?: return
+        window.attributes = window.attributes.also { params -> params.dimAmount = dimAmount }
+    }
+
+    private fun setWindowAlpha(alpha: Float, dimAmount: Float? = null) {
+        val window = window ?: return
+        window.attributes = window.attributes.also { params ->
+            params.alpha = alpha
+            if (dimAmount != null) params.dimAmount = dimAmount
+        }
+    }
+
     override fun onStop() {
+        cover?.cancel()
+        arrival?.cancel()
         onSurfaceChanged(null)
         super.onStop()
     }

@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.util.DiscSheets
 import com.nendo.argosy.util.FileNames
 
 data class ClaimCandidate(
@@ -57,20 +58,10 @@ private fun matches(tier: Tier, target: ClaimTarget, candidate: ClaimCandidate):
 }
 
 /**
- * Assigns on-disk entries to games, in tiers, across the whole platform at once.
- *
- * Tiers run globally rather than per game: a game whose `rommFileName` stem happens to equal
- * another game's folder name must not take that folder before its owner has made its own exact
- * claim. Within a tier a contested entry goes to nobody, because two games can legitimately
- * carry the same server filename in different subfolders of one platform, and a wrong claim
- * here is sticky - discovery only fills empty paths, so nothing later corrects it.
- *
- * Name-based only. Callers that can afford to read sizes or hashes may resolve what this
- * refuses, but refusing is the safe default.
- *
- * Candidates are identified by name and kind alone. A caller listing several directories must
- * collapse the same name across them to one candidate and keep the most specific directory's
- * copy, or every game whose rom exists in two of those directories claims nothing.
+ * Assigns on-disk entries to games tier by tier across a whole platform; a contested entry, or a
+ * game matching several files in one tier, claims nothing unless exactly one match is a disc sheet.
+ * Candidates are compared by name and kind, so a caller listing several directories passes each
+ * name once, keeping the most specific directory's copy.
  */
 fun claimLocalEntries(
     targets: List<ClaimTarget>,
@@ -84,7 +75,9 @@ fun claimLocalEntries(
         for (target in targets) {
             if (claims.containsKey(target.gameId)) continue
             val hits = candidates.filter { it !in taken && matches(tier, target, it) }
-            val only = hits.singleOrNull() ?: continue
+            val only = hits.singleOrNull()
+                ?: hits.singleOrNull { !it.isDirectory && DiscSheets.isLoader(it.name) }
+                ?: continue
             proposals.getOrPut(only) { mutableListOf() }.add(target.gameId)
         }
         for ((candidate, contenders) in proposals) {

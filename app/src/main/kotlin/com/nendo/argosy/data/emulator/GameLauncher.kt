@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.content.FileProvider
@@ -63,13 +64,16 @@ sealed class LaunchResult {
     /**
      * @property variantFileId the `game_files` row that launched in place of the primary rom; null
      * when the primary rom launched, whichever variant the caller requested.
+     * @property session the external play session the caller starts once the game's window has
+     * been requested; null when no session is owed to the caller.
      */
     data class Success(
         val intent: Intent,
         val discId: Long? = null,
         val alreadyLaunched: Boolean = false,
         val inProcess: Boolean = false,
-        val variantFileId: Long? = null
+        val variantFileId: Long? = null,
+        val session: ExternalSessionStart? = null
     ) : LaunchResult()
     data class SelectDisc(val gameId: Long, val discs: List<DiscOption>) : LaunchResult()
     data class SelectVariant(val gameId: Long, val variants: List<VariantOption>) : LaunchResult()
@@ -81,7 +85,12 @@ sealed class LaunchResult {
     ) : LaunchResult()
     data class NoEmulator(val platformSlug: String) : LaunchResult()
     data class NoRomFile(val gamePath: String?) : LaunchResult()
-    data class NoSteamLauncher(val launcherPackage: String) : LaunchResult()
+    data class NoSteamLauncher(
+        val launcherPackage: String,
+        val reason: Reason = Reason.CONFIGURED_MISSING
+    ) : LaunchResult() {
+        enum class Reason { CONFIGURED_MISSING, NONE_INSTALLED, NO_REPORTED_REPLACEMENT, UPDATING }
+    }
     data class NoAndroidApp(val packageName: String) : LaunchResult()
     data class NoCore(val platformSlug: String, val reason: String? = null) : LaunchResult()
     data class MissingDiscs(val missingDiscNumbers: List<Int>) : LaunchResult()
@@ -101,7 +110,6 @@ class GameLauncher @Inject constructor(
     private val emulatorConfigDao: EmulatorConfigDao,
     private val emulatorLaunchArgsDao: EmulatorLaunchArgsDao,
     private val variantResolver: VariantResolver,
-    private val installedAppResolver: com.nendo.argosy.data.platform.InstalledAppResolver,
     private val platformLibretroSettingsDao: com.nendo.argosy.data.local.dao.PlatformLibretroSettingsDao,
     private val emulatorDetector: EmulatorDetector,
     private val builtinCoreResolver: BuiltinCoreResolver,
@@ -127,7 +135,9 @@ class GameLauncher @Inject constructor(
     private val dreamcastVmuMigrator: DreamcastVmuMigrator,
     private val volumeHealth: StorageVolumeHealth,
     private val launchProgressTracker: LaunchProgressTracker,
-    private val steamInstallReports: SteamInstallReports
+    private val steamInstallReports: SteamInstallReports,
+    private val appsRepository: com.nendo.argosy.data.repository.AppsRepository,
+    private val emulatorResolver: EmulatorResolver
 ) {
     private val shellAmAvailable: Boolean by lazy {
         try {
@@ -356,8 +366,6 @@ class GameLauncher @Inject constructor(
             romFile = validateAndResolveLaunchFile(game, romFile)
         }
 
-        romFile = applyExtensionPreferenceIfNeeded(game, romFile)
-
         val intent = buildIntent(emulator, romFile, game, forResume, variantFileId, builtInDiscM3u)
             ?: return when (emulator.launchConfig) {
                 is LaunchConfig.RetroArch, is LaunchConfig.BuiltIn -> {
@@ -406,7 +414,6 @@ class GameLauncher @Inject constructor(
         val variantFile = File(variantPath)
         if (!variantFile.exists()) return LaunchResult.NoRomFile(variantPath)
 
-        // Multi-disc variant: launch via its M3U, which feeds into the existing disc flow.
         if (variant.isMultiDisc) {
             val m3u = variant.m3uPath?.let { File(it) }
             if (m3u != null && m3u.exists()) {
@@ -421,7 +428,7 @@ class GameLauncher @Inject constructor(
                     variantFileId = variant.id
                 )
             }
-            return LaunchResult.Error("Variant M3U file not found")
+            Logger.debug(TAG, "launchVariantFile: no playlist for multi-disc variant ${variant.id}; launching its own disc")
         }
 
         return launchResolvedRom(
@@ -516,20 +523,14 @@ class GameLauncher @Inject constructor(
 
         Logger.debug(TAG, "Multi-disc game has ${discs.size} discs")
 
-        val missingDiscs = discs.filter { it.localPath == null }
-        if (missingDiscs.isNotEmpty()) {
-            return LaunchResult.MissingDiscs(missingDiscs.map { it.discNumber }).also {
-                Logger.warn(TAG, "launchMultiDiscGame() failed: missing discs ${missingDiscs.map { d -> d.discNumber }}")
+        val presentDiscs = discs.filter { disc -> disc.localPath?.let { File(it).exists() } == true }
+        if (presentDiscs.isEmpty()) {
+            return LaunchResult.MissingDiscs(discs.map { it.discNumber }).also {
+                Logger.warn(TAG, "launchMultiDiscGame() failed: no disc on disk")
             }
         }
-
-        for (disc in discs) {
-            val discFile = disc.localPath?.let { File(it) }
-            if (discFile == null || !discFile.exists()) {
-                return LaunchResult.MissingDiscs(listOf(disc.discNumber)).also {
-                    Logger.warn(TAG, "launchMultiDiscGame() failed: disc ${disc.discNumber} file not found")
-                }
-            }
+        if (presentDiscs.size < discs.size) {
+            Logger.info(TAG, "launchMultiDiscGame(): launching with discs ${presentDiscs.map { it.discNumber }} of ${discs.size}")
         }
 
         val emulator = resolveEmulator(game)
@@ -556,20 +557,20 @@ class GameLauncher @Inject constructor(
                     m3uResult.discFile
                 }
                 is M3uResult.NotApplicable -> {
-                    Logger.debug(TAG, "M3u not applicable: ${m3uResult.reason}, falling back to disc 1")
-                    File(discs.minByOrNull { it.discNumber }!!.localPath!!)
+                    Logger.debug(TAG, "M3u not applicable: ${m3uResult.reason}, falling back to the first disc on disk")
+                    File(presentDiscs.minBy { it.discNumber }.localPath!!)
                 }
                 is M3uResult.Error -> {
-                    Logger.warn(TAG, "M3u error: ${m3uResult.message}, falling back to disc 1")
-                    File(discs.minByOrNull { it.discNumber }!!.localPath!!)
+                    Logger.warn(TAG, "M3u error: ${m3uResult.message}, falling back to the first disc on disk")
+                    File(presentDiscs.minBy { it.discNumber }.localPath!!)
                 }
             }
         } else {
             val targetDisc: GameDiscEntity = when {
-                requestedDiscId != null -> discs.find { it.id == requestedDiscId }
-                game.lastPlayedDiscId != null -> discs.find { it.id == game.lastPlayedDiscId }
+                requestedDiscId != null -> presentDiscs.find { it.id == requestedDiscId }
+                game.lastPlayedDiscId != null -> presentDiscs.find { it.id == game.lastPlayedDiscId }
                 else -> null
-            } ?: discs.minByOrNull { it.discNumber }
+            } ?: presentDiscs.minByOrNull { it.discNumber }
                 ?: return LaunchResult.Error("Could not determine which disc to launch").also {
                     Logger.error(TAG, "launchMultiDiscGame() failed: could not determine target disc")
                 }
@@ -617,52 +618,74 @@ class GameLauncher @Inject constructor(
         )
     }
 
-    private suspend fun launchSteamGame(game: GameEntity): LaunchResult {
-        Logger.debug(TAG, "launchSteamGame(): steamAppId=${game.steamAppId}, launcher=${game.steamLauncher}")
+    private suspend fun launchSteamGame(initialGame: GameEntity): LaunchResult {
+        Logger.debug(TAG, "launchSteamGame(): steamAppId=${initialGame.steamAppId}, launcher=${initialGame.steamLauncher}")
 
-        val steamAppId = game.steamAppId
+        val steamAppId = initialGame.steamAppId
             ?: return LaunchResult.Error("Steam game missing app ID").also {
                 Logger.warn(TAG, "launchSteamGame() failed: missing steamAppId")
             }
 
-        val storedPackage = game.steamLauncher?.takeIf { it != GameEntity.LAUNCHER_UNSPECIFIED }
-        val pinned = game.launcherSetManually && storedPackage != null
-        val choices = SteamLaunchers.launchChoices(
-            pinned = pinned,
-            reporting = if (pinned) emptyList() else steamInstallReports.launchersReporting(steamAppId),
-            isInstalled = { pkg -> SteamLaunchers.getByPackage(pkg)?.isInstalled(context) == true }
-        )
-        val ticket = launchProgressTracker.current
-        val promptedPackage = if (choices.isNotEmpty() && ticket != null) {
-            val answer = ticket.chooseLauncher(choices.mapNotNull(SteamLaunchers::promptOptionFor))
-                ?: return LaunchResult.Cancelled.also {
-                    Logger.info(TAG, "launchSteamGame(): launcher choice cancelled for appId=$steamAppId")
-                }
-            SteamLaunchers.forPromptOption(answer)?.packageName
-        } else {
-            null
-        }
-        val chosenPackage = promptedPackage ?: storedPackage
-
-        val launcher = if (chosenPackage != null) {
-            SteamLaunchers.getByPackage(chosenPackage) ?: GameNativeLauncher
-        } else {
-            SteamLaunchers.getPreferred(context) ?: GameNativeLauncher
-        }
-
-        if (!launcher.isInstalled(context)) {
-            return LaunchResult.NoSteamLauncher(launcher.packageName).also {
-                Logger.warn(TAG, "launchSteamGame() failed: ${launcher.displayName} not installed")
+        val ownerUserId = userPreferencesRepository.userPreferences.first().rommUserId
+        var game = initialGame
+        repeat(2) {
+            val storedPackage = game.steamLauncher?.takeIf { it != GameEntity.LAUNCHER_UNSPECIFIED }
+            if (storedPackage != null && appsRepository.isPackageUpdating(storedPackage)) {
+                return LaunchResult.NoSteamLauncher(storedPackage, LaunchResult.NoSteamLauncher.Reason.UPDATING)
             }
+            if (storedPackage != null && game.launcherSetManually && appsRepository.isPackageMissing(storedPackage)) {
+                if (userPreferencesRepository.userPreferences.first().rommUserId != ownerUserId) return LaunchResult.Cancelled
+                if (gameDao.compareAndSetSteamLauncher(game.id, storedPackage, true, storedPackage, false, ownerUserId) == 0) {
+                    game = gameDao.getById(game.id) ?: return LaunchResult.Cancelled
+                    return@repeat
+                }
+                game = game.copy(launcherSetManually = false)
+            }
+            val pinned = game.launcherSetManually && storedPackage != null
+            val candidates = SteamLaunchers.launchCandidates(
+                storedPackage = storedPackage,
+                pinned = pinned,
+                reporting = if (pinned) emptyList() else steamInstallReports.launchersReporting(steamAppId),
+                isInstalled = { pkg ->
+                    runCatching { SteamLaunchers.getByPackage(pkg)?.isInstalled(context) == true }.getOrDefault(false)
+                }
+            )
+            if (candidates.isEmpty()) {
+                val installed = SteamLaunchers.all.any { runCatching { it.isInstalled(context) }.getOrDefault(false) }
+                return LaunchResult.NoSteamLauncher(
+                    storedPackage.orEmpty(),
+                    if (installed) LaunchResult.NoSteamLauncher.Reason.NO_REPORTED_REPLACEMENT
+                    else LaunchResult.NoSteamLauncher.Reason.NONE_INSTALLED
+                )
+            }
+            val replacement = candidates.singleOrNull()
+            if (storedPackage != null && replacement != null && replacement != storedPackage &&
+                !game.launcherSetManually && appsRepository.isPackageMissing(storedPackage)
+            ) {
+                if (userPreferencesRepository.userPreferences.first().rommUserId != ownerUserId) return LaunchResult.Cancelled
+                if (gameDao.compareAndSetSteamLauncher(game.id, storedPackage, false, replacement, false, ownerUserId) == 0) {
+                    game = gameDao.getById(game.id) ?: return LaunchResult.Cancelled
+                    return@repeat
+                }
+            }
+            val chosenPackage = if (candidates.size > 1) {
+                val ticket = launchProgressTracker.current ?: return LaunchResult.Cancelled
+                val answer = ticket.chooseLauncher(candidates.mapNotNull(SteamLaunchers::promptOptionFor))
+                    ?: return LaunchResult.Cancelled
+                SteamLaunchers.forPromptOption(answer)?.packageName ?: return LaunchResult.Cancelled
+            } else candidates.single()
+            val launcher = SteamLaunchers.getByPackage(chosenPackage) ?: return LaunchResult.Cancelled
+            if (userPreferencesRepository.userPreferences.first().rommUserId != ownerUserId) return LaunchResult.Cancelled
+            if (!runCatching { launcher.isInstalled(context) }.getOrDefault(false)) {
+                return LaunchResult.NoSteamLauncher(chosenPackage, LaunchResult.NoSteamLauncher.Reason.NO_REPORTED_REPLACEMENT)
+            }
+            val intent = launcher.createLaunchIntent(steamAppId)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            overlayWriter.recordPlayStart(game.id, Instant.now())
+            Logger.info(TAG, "Launching Steam: appId=$steamAppId via ${launcher.displayName}")
+            return LaunchResult.Success(intent)
         }
-
-        val intent = launcher.createLaunchIntent(steamAppId)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        overlayWriter.recordPlayStart(game.id, Instant.now())
-
-        Logger.info(TAG, "Launching Steam: appId=$steamAppId via ${launcher.displayName}")
-        return LaunchResult.Success(intent)
+        return LaunchResult.Cancelled
     }
 
     private suspend fun launchAndroidApp(game: GameEntity): LaunchResult {
@@ -700,8 +723,8 @@ class GameLauncher @Inject constructor(
             }
             Logger.info(TAG, "[BuiltIn] Core not downloaded for ${game.platformSlug} (selected=$selectedCoreId), attempting download...")
             launchProgressTracker.report(LaunchStep.DownloadingCore(fraction = null))
-            val downloadResult = libretroCoreMgr.downloadCoreForPlatform(game.platformSlug, selectedCoreId) { fraction ->
-                launchProgressTracker.report(LaunchStep.DownloadingCore(fraction))
+            val downloadResult = libretroCoreMgr.downloadCoreForPlatform(game.platformSlug, selectedCoreId) { fraction, zipBytes ->
+                launchProgressTracker.report(LaunchStep.DownloadingCore(fraction, zipBytes))
             }
             corePath = downloadResult.getOrElse { err ->
                 val reason = err.message ?: "Unknown error"
@@ -917,67 +940,8 @@ class GameLauncher @Inject constructor(
         }
     }
 
-    private suspend fun resolveEmulator(game: GameEntity): EmulatorDef? {
-        if (emulatorDetector.installedEmulators.value.isEmpty()) {
-            emulatorDetector.detectEmulators()
-        }
-
-        val builtinEnabled = userPreferencesRepository.userPreferences.first().builtinLibretroEnabled
-
-        var installedPackages = emulatorDetector.installedEmulators.value
-            .map { it.def.packageName }
-            .toSet()
-
-        val gameOverride = emulatorConfigDao.getByGameId(game.id)
-        val platformDefault = emulatorConfigDao.getDefaultForPlatform(game.platformId)
-
-        val configuredPackage = gameOverride?.packageName ?: platformDefault?.packageName
-        if (configuredPackage != null && configuredPackage !in installedPackages) {
-            Logger.debug(TAG, "Configured emulator $configuredPackage not in cache, re-detecting...")
-            emulatorDetector.detectEmulators()
-            installedPackages = emulatorDetector.installedEmulators.value
-                .map { it.def.packageName }
-                .toSet()
-        }
-
-        val isBuiltinPackage: (String?) -> Boolean = { pkg ->
-            pkg == EmulatorRegistry.BUILTIN_PACKAGE
-        }
-
-        if (gameOverride?.packageName != null && gameOverride.packageName in installedPackages) {
-            val skipBuiltin = isBuiltinPackage(gameOverride.packageName) &&
-                (!builtinEnabled || !libretroCoreMgr.isPlatformSupported(game.platformSlug))
-            if (!skipBuiltin) {
-                return emulatorDetector.getByPackage(gameOverride.packageName)
-            }
-        }
-
-        if (platformDefault?.packageName != null && platformDefault.packageName in installedPackages) {
-            val skipBuiltin = isBuiltinPackage(platformDefault.packageName) &&
-                (!builtinEnabled || !libretroCoreMgr.isPlatformSupported(game.platformSlug))
-            if (!skipBuiltin) {
-                return emulatorDetector.getByPackage(platformDefault.packageName)
-            }
-        }
-
-        val adHocPackage = gameOverride?.packageName?.takeIf {
-            !EmulatorRegistry.isKnownPackage(it) && installedAppResolver.isAppInstalled(it)
-        } ?: platformDefault?.packageName?.takeIf {
-            !EmulatorRegistry.isKnownPackage(it) && installedAppResolver.isAppInstalled(it)
-        }
-        if (adHocPackage != null) {
-            val displayName = (if (adHocPackage == gameOverride?.packageName) gameOverride.displayName else platformDefault?.displayName)
-                ?: adHocPackage
-            Logger.debug(TAG, "Resolved ad-hoc emulator binding: $adHocPackage for ${game.platformSlug}")
-            return EmulatorRegistry.synthesizeAdHocEmulatorDef(
-                packageName = adHocPackage,
-                displayName = displayName,
-                platformSlug = game.platformSlug
-            )
-        }
-
-        return emulatorDetector.getPreferredEmulator(game.platformSlug, builtinEnabled)?.def
-    }
+    private suspend fun resolveEmulator(game: GameEntity): EmulatorDef? =
+        emulatorResolver.resolveEmulatorForGame(game.id, game.platformId, game.platformSlug)
 
     private suspend fun buildIntent(emulator: EmulatorDef, romFile: File, game: GameEntity, forResume: Boolean, variantFileId: Long? = null, discM3uPath: String? = null): Intent? {
         val configType = emulator.launchConfig::class.simpleName
@@ -987,7 +951,8 @@ class GameLauncher @Inject constructor(
             return buildBuiltInIntent(romFile, game, variantFileId, discM3uPath)
         }
 
-        val command = buildEffectiveCommand(emulator, romFile, game, forResume) ?: return null
+        val built = buildEffectiveCommand(emulator, romFile, game, forResume) ?: return null
+        val command = built.pinnedPastPathPattern(romFile.extension) { path -> resolveViewActivity(built, path) }
 
         Logger.info(TAG, buildString {
             append("[Command] method=${command.launchMethod}")
@@ -1077,7 +1042,6 @@ class GameLauncher @Inject constructor(
             is LaunchConfig.BuiltIn -> null
         } ?: return null
 
-        // commandFor* helpers that hardcode SHELL (legacy useFileUri/useShellLaunch) must not be overwritten.
         val base = if (rawBase.launchMethod == LaunchMethod.INTENT) {
             rawBase.copy(launchMethod = emulator.defaultLaunchMethod)
         } else {
@@ -1163,13 +1127,9 @@ class GameLauncher @Inject constructor(
         if (!path.startsWith("/storage/")) return false
         val canonical = StoragePathUtils.canonicalize(path)
         if (canonical.startsWith(primaryRootSlash)) {
-            // Primary external is readable to other apps EXCEPT cross-app /Android/data/<pkg>
-            // and /Android/obb/<pkg>, which scoped storage seals off on Android 11+.
             val rel = canonical.removePrefix(primaryRootSlash)
             return rel.startsWith("Android/data/") || rel.startsWith("Android/obb/")
         }
-        // Any other mount under /storage/ (SD card UUID, USB OTG, secondary users) is opaque
-        // to other apps via raw paths.
         return true
     }
 
@@ -1209,7 +1169,6 @@ class GameLauncher @Inject constructor(
             }
         }
 
-        // Non-file schemes (game IDs, custom schemes) are not reformattable.
         val baseDataIsFilePath = command.dataUri == null ||
             command.dataUri.scheme == null ||
             command.dataUri.scheme in listOf("file", "content") ||
@@ -1326,11 +1285,6 @@ class GameLauncher @Inject constructor(
         val coreFileName = "$dataDir/cores/${coreName}_libretro_android.so"
         Logger.debug(TAG, "RetroArch core: $coreFileName for platform: ${game.platformSlug}")
 
-        // Grant RetroArch a content URI for the ROM. On Android 11+ scoped
-        // storage, RetroArch reading /storage/<vol>/... raw can fail in the
-        // receiving UID even when both apps technically have storage access.
-        // Mirrors the URI-grant flow other emulators get via the dispatcher;
-        // commandForRetroArch was bespoke and had been skipping it.
         val romUri: Uri? = try {
             getFileUri(romFile)
         } catch (e: Exception) {
@@ -1525,8 +1479,6 @@ class GameLauncher @Inject constructor(
                 }
                 is ExtraValue.FileUriString -> {
                     val value = if (romFile.extension.equals("m3u", ignoreCase = true)) {
-                        // Playlist files (.m3u) often rely on relative sibling paths.
-                        // Passing content:// as a string can prevent emulators from resolving those entries.
                         romFile.absolutePath
                     } else {
                         getFileUri(romFile).also { fileUri = it }.toString()
@@ -1540,9 +1492,10 @@ class GameLauncher @Inject constructor(
         }
 
         if (emulator.launchAction == Intent.ACTION_VIEW) {
-            val uri = fileUri ?: getFileUri(romFile)
+            val bindsPath = config.defaultDataBinding == RomBindingFormat.ABSOLUTE_PATH
+            val uri = if (bindsPath) Uri.parse(romFile.absolutePath) else fileUri ?: getFileUri(romFile)
             val mimeType = config.mimeTypeOverride ?: getMimeType(romFile)
-            val grantUris = mutableListOf(uri)
+            val grantUris = if (bindsPath) mutableListOf() else mutableListOf(uri)
             if (documentUri != null && documentUri !in grantUris) {
                 grantUris += documentUri!!
             }
@@ -1560,7 +1513,7 @@ class GameLauncher @Inject constructor(
                     config.defaultIntentFlags(emulator)
                 },
                 grantReadUriTo = grantUris,
-                clipDataUri = documentUri ?: uri
+                clipDataUri = documentUri ?: uri.takeUnless { bindsPath }
             )
         }
 
@@ -1576,8 +1529,6 @@ class GameLauncher @Inject constructor(
             clipDataUri = documentUri ?: providerUri
         }
 
-        // Apply baked-in data binding (e.g. MelonDualDS requires Intent.setData
-        // with a FileProvider URI even when the ROM is also passed via extras).
         var defaultDataUri: Uri? = null
         when (config.defaultDataBinding) {
             RomBindingFormat.FILE_PROVIDER -> {
@@ -1912,17 +1863,25 @@ class GameLauncher @Inject constructor(
                 Logger.warn(TAG, "Cannot build document URI for non-documentable path: ${file.absolutePath}")
                 return null
             }
-        // Build a plain document URI (content://com.android.externalstorage.documents/document/...)
-        // rather than a tree-delegated URI. The tree form embeds a caller-scoped tree grant, which
-        // only resolves when the *receiver* holds a persistent SAF grant on that tree. Argosy uses
-        // MANAGE_EXTERNAL_STORAGE and never holds tree grants for ROM folders, so the tree form
-        // was effectively relying on the receiver app having its own grant -- fragile across
-        // emulator updates. The plain document form is what a caller-delegated
-        // FLAG_GRANT_READ_URI_PERMISSION can actually hand off.
         return DocumentsContract.buildDocumentUri(
             "com.android.externalstorage.documents",
             "$volumeId:$relativePath"
         )
+    }
+
+    private fun resolveViewActivity(command: EffectiveLaunchCommand, pathOverride: String?): String? {
+        val dataUri = command.dataUri ?: return null
+        val uri = if (pathOverride == null) dataUri else dataUri.buildUpon().path(pathOverride).build()
+        val intent = Intent(command.action)
+        intent.setPackage(command.packageName)
+        command.categories.forEach { intent.addCategory(it) }
+        if (command.mimeType != null) intent.setDataAndType(uri, command.mimeType) else intent.data = uri
+        return context.packageManager
+            .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            .filter { it.activityInfo.packageName == command.packageName }
+            .map { it.activityInfo.name }
+            .distinct()
+            .singleOrNull()
     }
 
     private fun getMimeType(file: File): String {
@@ -2002,7 +1961,6 @@ class GameLauncher @Inject constructor(
     private suspend fun validateAndResolveLaunchFile(game: GameEntity, romFile: File): File {
         if (romFile.extension.lowercase() != "m3u") return romFile
 
-        // For platforms that don't support m3u launching (e.g., PS2), use the first disc
         if (!M3uManager.supportsM3u(game.platformSlug)) {
             val firstDisc = M3uManager.parseFirstDisc(romFile)
             if (firstDisc != null) {
@@ -2016,7 +1974,6 @@ class GameLauncher @Inject constructor(
         val parentDir = romFile.parentFile ?: return romFile
         val siblingFiles = parentDir.listFiles() ?: return romFile
 
-        // Check if m3u is valid (references only launchable disc files)
         val m3uLines = try {
             romFile.readLines().filter { it.isNotBlank() && !it.startsWith("#") }
         } catch (e: Exception) {
@@ -2024,21 +1981,18 @@ class GameLauncher @Inject constructor(
             emptyList()
         }
 
-        // Find launchable disc files in the folder (excluding macOS resource forks)
         val discFiles = siblingFiles.filter {
             !it.name.startsWith("._") && it.extension.lowercase() in setOf("cue", "gdi", "chd", "iso", "bin", "img")
         }
         val cueGdiFiles = discFiles.filter { it.extension.lowercase() in setOf("cue", "gdi") }
         val chdFiles = discFiles.filter { it.extension.lowercase() == "chd" }
 
-        // Determine actual launchable files (prefer cue/gdi/chd over raw iso/bin)
         val launchableFiles = when {
             cueGdiFiles.isNotEmpty() -> cueGdiFiles
             chdFiles.isNotEmpty() -> chdFiles
             else -> discFiles.filter { it.extension.lowercase() in setOf("iso", "bin", "img") }
         }
 
-        // For single-disc games, m3u is unnecessary - use disc file directly
         if (launchableFiles.size == 1) {
             val discFile = launchableFiles.first()
             Logger.info(TAG, "Single disc game - using ${discFile.name} instead of m3u")
@@ -2046,7 +2000,6 @@ class GameLauncher @Inject constructor(
             return discFile
         }
 
-        // Validate m3u references correct files
         val launchableNames = launchableFiles.map { it.name.lowercase() }.toSet()
         val allReferencesValid = m3uLines.all { line ->
             val refFile = File(parentDir, line)
@@ -2054,7 +2007,6 @@ class GameLauncher @Inject constructor(
         }
 
         if (!allReferencesValid || m3uLines.size != launchableFiles.size) {
-            // M3U is broken - for multi-disc, prefer first cue/chd; for single, use the disc file
             val fallback = launchableFiles.minByOrNull { it.name }
             if (fallback != null) {
                 Logger.warn(TAG, "Invalid m3u detected - falling back to ${fallback.name}")
@@ -2067,12 +2019,6 @@ class GameLauncher @Inject constructor(
     }
 
     @Suppress("UNUSED_PARAMETER")
-    private suspend fun applyExtensionPreferenceIfNeeded(game: GameEntity, romFile: File): File {
-        // Extension switching was a workaround for old Azahar not supporting .3ds
-        // Modern Azahar supports all formats natively, so this is no longer needed
-        return romFile
-    }
-
     private fun getRomCacheDir(platformSlug: String, gameId: Long, cacheKey: String): File {
         return File(context.filesDir, "rom_cache/$platformSlug/$gameId/$cacheKey")
     }

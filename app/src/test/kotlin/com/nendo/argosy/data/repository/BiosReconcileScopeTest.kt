@@ -50,8 +50,7 @@ class BiosReconcileScopeTest {
             platformDao = mockk(relaxed = true),
             userPreferencesRepository = prefs,
             switchKeyManager = mockk(relaxed = true),
-            attributionRepository = mockk(relaxed = true),
-            xboxDiskImageProvisioner = mockk(relaxed = true)
+            attributionRepository = mockk(relaxed = true)
         )
     }
 

@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
@@ -349,10 +350,12 @@ class ImageCacheManager @Inject constructor(
                     kotlinx.coroutines.delay(500)
                 }
                 try {
-                    _progress.value = _progress.value.copy(
-                        currentGameTitle = request.gameTitle,
-                        currentType = if (request.type == ImageType.BACKGROUND) "background" else "cover"
-                    )
+                    _progress.update {
+                        it.copy(
+                            currentGameTitle = request.gameTitle,
+                            currentType = if (request.type == ImageType.BACKGROUND) "background" else "cover"
+                        )
+                    }
                     processRequest(request)
                     updateProgressFromDb(isProcessing = true)
                 } catch (e: Exception) {
@@ -372,11 +375,13 @@ class ImageCacheManager @Inject constructor(
     private suspend fun updateProgressFromDb(isProcessing: Boolean) {
         val total = gameArtDao.countWithSource(ArtSlot.BACKGROUND.name)
         val cached = gameArtDao.countCached(ArtSlot.BACKGROUND.name)
-        _progress.value = _progress.value.copy(
-            isProcessing = isProcessing,
-            cachedCount = cached,
-            totalCount = total
-        )
+        _progress.update {
+            it.copy(
+                isProcessing = isProcessing,
+                cachedCount = cached,
+                totalCount = total
+            )
+        }
     }
 
     private suspend fun processRequest(request: ImageCacheRequest, replacing: Boolean = false) {
@@ -1053,10 +1058,12 @@ class ImageCacheManager @Inject constructor(
                     kotlinx.coroutines.delay(500)
                 }
                 try {
-                    _screenshotProgress.value = _screenshotProgress.value.copy(
-                        currentGameTitle = request.gameTitle,
-                        currentType = "screenshots"
-                    )
+                    _screenshotProgress.update {
+                        it.copy(
+                            currentGameTitle = request.gameTitle,
+                            currentType = "screenshots"
+                        )
+                    }
                     processScreenshotRequest(request)
                     updateScreenshotProgressFromDb(isProcessing = true)
                 } catch (e: Exception) {
@@ -1076,11 +1083,13 @@ class ImageCacheManager @Inject constructor(
     private suspend fun updateScreenshotProgressFromDb(isProcessing: Boolean) {
         val total = gameScreenshotDao.countWithSource()
         val cached = gameScreenshotDao.countCached()
-        _screenshotProgress.value = _screenshotProgress.value.copy(
-            isProcessing = isProcessing,
-            cachedCount = cached,
-            totalCount = total
-        )
+        _screenshotProgress.update {
+            it.copy(
+                isProcessing = isProcessing,
+                cachedCount = cached,
+                totalCount = total
+            )
+        }
     }
 
     private suspend fun processScreenshotRequest(request: ScreenshotCacheRequest) {
@@ -1218,7 +1227,6 @@ class ImageCacheManager @Inject constructor(
             val g = Color.green(pixel)
             val b = Color.blue(pixel)
 
-            // Check if pixel is near-black (threshold of 30 for each channel)
             if (r < 30 && g < 30 && b < 30) {
                 pixels[i] = Color.TRANSPARENT
             }
@@ -1325,10 +1333,12 @@ class ImageCacheManager @Inject constructor(
                     kotlinx.coroutines.delay(500)
                 }
                 try {
-                    _progress.value = _progress.value.copy(
-                        currentGameTitle = request.gameTitle,
-                        currentType = "cover"
-                    )
+                    _progress.update {
+                        it.copy(
+                            currentGameTitle = request.gameTitle,
+                            currentType = "cover"
+                        )
+                    }
                     if (request.type.isBoxFace) processBoxFaceRequest(request) else processCoverRequest(request)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to process cover for ${request.id}: ${e.message}")

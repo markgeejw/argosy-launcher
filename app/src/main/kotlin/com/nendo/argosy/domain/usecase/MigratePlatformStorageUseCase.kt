@@ -3,6 +3,8 @@ package com.nendo.argosy.domain.usecase
 import android.util.Log
 import com.nendo.argosy.data.local.dao.PlatformDao
 import com.nendo.argosy.data.repository.GameRepository
+import com.nendo.argosy.data.storage.GameFileRelocator
+import com.nendo.argosy.data.storage.RelocationOutcome
 import com.nendo.argosy.data.storage.StorageAttributionRepository
 import com.nendo.argosy.data.storage.StorageCategory
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +23,8 @@ private const val TAG = "MigratePlatformStorage"
 class MigratePlatformStorageUseCase @Inject constructor(
     private val gameRepository: GameRepository,
     private val platformDao: PlatformDao,
-    private val attributionRepository: StorageAttributionRepository
+    private val attributionRepository: StorageAttributionRepository,
+    private val relocator: GameFileRelocator
 ) {
     suspend operator fun invoke(
         platformId: Long,
@@ -40,6 +43,8 @@ class MigratePlatformStorageUseCase @Inject constructor(
 
         onProgress?.invoke(0, totalGames, "")
 
+        val oldRoot = File(oldPath)
+        val newRoot = File(newPath)
         var migrated = 0
         var failed = 0
         var skipped = 0
@@ -52,31 +57,26 @@ class MigratePlatformStorageUseCase @Inject constructor(
             onProgress?.invoke(index + 1, totalGames, game.title)
 
             try {
-                val localPath = game.localPath
+                val current = gameRepository.getById(game.id) ?: game
+                val localPath = current.localPath
                 if (localPath == null) {
                     skipped++
                     return@forEachIndexed
                 }
 
-                val oldFile = File(localPath)
-
-                if (oldFile.exists()) {
-                    val newFile = File(newPath, oldFile.name)
-
-                    newFile.parentFile?.mkdirs()
-                    if (newFile.exists()) newFile.deleteRecursively()
-                    val copied = oldFile.copyRecursively(newFile, overwrite = true)
-                    if (!copied) {
-                        throw java.io.IOException("Recursive copy failed: ${oldFile.absolutePath} -> ${newFile.absolutePath}")
+                val outcome = relocator.relocate(current, oldRoot, newRoot) { file ->
+                    GameFileRelocator.mapped(file, oldRoot, newRoot, oldRoot, newRoot)
+                }
+                when (outcome) {
+                    RelocationOutcome.MOVED, RelocationOutcome.ALREADY_MOVED -> {
+                        migrated++
+                        Log.d(TAG, "Migration: success for ${current.title} ($outcome)")
                     }
-                    gameRepository.updateLocalPath(game.id, newFile.absolutePath)
-                    oldFile.deleteRecursively()
-                    migrated++
-                    Log.d(TAG, "Migration: success for ${game.title}")
-                } else {
-                    val cleared = gameRepository.clearLocalPathIfGenuinelyAbsent(game.id, localPath)
-                    Log.d(TAG, "Migration: file missing, localPath cleared=$cleared")
-                    skipped++
+                    RelocationOutcome.MISSING -> {
+                        val cleared = gameRepository.clearLocalPathIfGenuinelyAbsent(current.id, localPath)
+                        Log.d(TAG, "Migration: file missing, localPath cleared=$cleared")
+                        skipped++
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Migration: FAILED for ${game.title}", e)

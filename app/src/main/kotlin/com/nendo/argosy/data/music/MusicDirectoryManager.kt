@@ -3,8 +3,8 @@ package com.nendo.argosy.data.music
 import android.content.Context
 import android.media.MediaScannerConnection
 import android.os.Environment
-import android.util.Log
 import com.nendo.argosy.data.preferences.StoragePreferencesRepository
+import com.nendo.argosy.util.TreeRelocator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -14,7 +14,6 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG = "MusicDirectoryManager"
 
 /** Resolves and manages the public Music/RomM directory where soundtrack files live. */
 @Singleton
@@ -47,7 +46,7 @@ class MusicDirectoryManager @Inject constructor(
         title: String?,
         fileName: String
     ): File {
-        val extension = fileName.substringAfterLast('.', "")
+        val extension = fileName.substringAfterLast('.', "").replace(INVALID_CHARS, "_")
         val baseTitle = sanitize(title ?: fileName.substringBeforeLast('.'))
         val baseName = if (trackNumber != null) {
             String.format(Locale.ROOT, "%02d - %s", trackNumber, baseTitle)
@@ -80,45 +79,22 @@ class MusicDirectoryManager @Inject constructor(
         if (dir.exists()) dir.walkTopDown().count { it.isFile } else 0
     }
 
-    /** Moves the music tree into [destination] preserving structure; conflicts are overwritten. */
-    suspend fun relocate(source: File, destination: File): Unit = withContext(Dispatchers.IO) {
-        if (!source.exists() || source.absolutePath == destination.absolutePath) return@withContext
-        val moved = mutableListOf<String>()
-        moveTree(source, destination, moved)
-        if (moved.isNotEmpty()) {
-            MediaScannerConnection.scanFile(context, moved.toTypedArray(), null, null)
+    suspend fun relocate(source: File, destination: File): TreeRelocator.Result = withContext(Dispatchers.IO) {
+        val result = TreeRelocator.relocate(source, destination)
+        if (result.moved.isNotEmpty()) {
+            MediaScannerConnection.scanFile(context, result.moved.toTypedArray(), null, null)
         }
-    }
-
-    private fun moveTree(source: File, destination: File, moved: MutableList<String>) {
-        destination.mkdirs()
-        val files = source.listFiles() ?: return
-        for (file in files) {
-            val target = File(destination, file.name)
-            try {
-                if (file.isDirectory) {
-                    moveTree(file, target, moved)
-                } else {
-                    if (target.exists()) target.delete()
-                    if (!file.renameTo(target)) {
-                        file.copyTo(target, overwrite = true)
-                        file.delete()
-                    }
-                    moved.add(target.absolutePath)
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to move ${file.name}: ${e.message}")
-            }
-        }
-        if (source.listFiles()?.isEmpty() == true) source.delete()
+        result
     }
 
     fun scanFile(file: File) {
         MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
     }
 
-    private fun sanitize(name: String): String =
-        name.replace(INVALID_CHARS, "_").trim().ifEmpty { "track" }
+    private fun sanitize(name: String): String {
+        val folded = name.replace(INVALID_CHARS, "_").trim()
+        return if (folded.isEmpty() || folded.all { it == '.' }) "track" else folded
+    }
 
     companion object {
         private val INVALID_CHARS = Regex("[\\\\/:*?\"<>|;=]")

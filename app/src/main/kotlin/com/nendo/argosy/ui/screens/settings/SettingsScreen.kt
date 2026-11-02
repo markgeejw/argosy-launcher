@@ -62,6 +62,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.nendo.argosy.ui.common.rememberStorageAccessRequest
 import com.nendo.argosy.ui.components.CustomTileMenuModal
 import com.nendo.argosy.ui.components.FooterHints
+import com.nendo.argosy.ui.screens.settings.components.ControllerOrderModal
 import com.nendo.argosy.ui.components.FooterSpacer
 import com.nendo.argosy.ui.components.InputButton
 import com.nendo.argosy.ui.components.TextEntryModal
@@ -145,6 +146,7 @@ import com.nendo.argosy.ui.screens.settings.sections.createPlayTimeLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.playTimeConfirmActionOf
 import com.nendo.argosy.ui.screens.settings.sections.playTimeFigureOf
 import com.nendo.argosy.ui.screens.settings.sections.playTimeItemAtFocusIndex
+import com.nendo.argosy.ui.screens.settings.sections.playTimeListFocusedGameId
 import com.nendo.argosy.ui.screens.settings.sections.SyncSettingsSection
 import com.nendo.argosy.data.preferences.FontSlot
 import com.nendo.argosy.ui.screens.settings.sections.ThemeBackdropSection
@@ -212,7 +214,6 @@ fun SettingsScreen(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: SecurityException) {
-                // Ignore if permission can't be persisted
             }
             viewModel.setCustomBackgroundPath(it.toString())
         }
@@ -591,6 +592,9 @@ fun SettingsScreen(
                 if (viewModel.uiState.value.currentSection == SettingsSection.PLATFORMS) {
                     viewModel.refreshEmulators()
                 }
+                if (viewModel.uiState.value.currentSection == SettingsSection.STEAM_SETTINGS) {
+                    viewModel.refreshSteamLauncherAvailability()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -760,6 +764,13 @@ fun SettingsScreen(
             )
         }
 
+        if (uiState.builtinControls.showControllerOrderModal) {
+            ControllerOrderModal(
+                controller = viewModel.controllerSeats,
+                onDismiss = { viewModel.hideControllerOrderModal() }
+            )
+        }
+
         AnimatedVisibility(
             visible = uiState.sounds.showSoundPicker && uiState.sounds.soundPickerType != null,
             enter = fadeIn(),
@@ -908,6 +919,16 @@ fun SettingsScreen(
     )
 
     ArgosyConfirmModalHost(
+        visible = uiState.display.showAccessibilityPrompt,
+        title = stringResource(R.string.settings_shell_modal_accessibility_title),
+        message = stringResource(R.string.settings_shell_modal_accessibility_message),
+        confirmLabel = stringResource(R.string.settings_shell_modal_accessibility_confirm),
+        cancelLabel = stringResource(R.string.settings_shell_modal_accessibility_not_now),
+        onConfirm = { viewModel.openAccessibilitySettingsFromPrompt() },
+        onDismiss = { viewModel.dismissAccessibilityPrompt() }
+    )
+
+    ArgosyConfirmModalHost(
         visible = uiState.showMigrationDialog,
         title = stringResource(R.string.settings_shell_modal_migrate_downloads_title),
         message = stringResource(
@@ -941,17 +962,37 @@ fun SettingsScreen(
     val purgePlatformConfig = uiState.storage.showPurgePlatformConfirm?.let { platformId ->
         uiState.storage.platformConfigs.find { it.platformId == platformId }
     }
+    val purgePlatformName = purgePlatformConfig?.platformName
+        ?: stringResource(R.string.settings_shell_modal_purge_platform_fallback)
+    val purgeGameCount = purgePlatformConfig?.gameCount ?: 0
+    val purgeAfterDisable = uiState.storage.purgeOfferedAfterDisable
+    val purgePlatformPending = uiState.storage.purgePlatformPendingUploads
     ArgosyConfirmModalHost(
-        visible = uiState.storage.showPurgePlatformConfirm != null,
-        title = stringResource(
-            R.string.settings_shell_modal_purge_platform_title,
-            purgePlatformConfig?.platformName
-                ?: stringResource(R.string.settings_shell_modal_purge_platform_fallback)
-        ),
-        message = stringResource(
-            R.string.settings_shell_modal_purge_platform_message, purgePlatformConfig?.gameCount ?: 0
-        ),
+        visible = uiState.storage.showPurgePlatformConfirm != null && purgePlatformPending > 0,
+        title = stringResource(R.string.settings_shell_modal_sync_first_title),
+        message = stringResource(R.string.settings_shell_modal_purge_sync_first_message, purgePlatformPending),
+        confirmLabel = stringResource(R.string.settings_shell_modal_sync_first_confirm),
+        onConfirm = { viewModel.syncBeforePurge() },
+        onDismiss = { viewModel.cancelPurgePlatform() }
+    )
+    ArgosyConfirmModalHost(
+        visible = uiState.storage.showPurgePlatformConfirm != null && purgePlatformPending == 0,
+        title = if (purgeAfterDisable) {
+            stringResource(R.string.settings_shell_modal_purge_disabled_title, purgePlatformName)
+        } else {
+            stringResource(R.string.settings_shell_modal_purge_platform_title, purgePlatformName)
+        },
+        message = if (purgeAfterDisable) {
+            stringResource(R.string.settings_shell_modal_purge_disabled_message, purgeGameCount)
+        } else {
+            stringResource(R.string.settings_shell_modal_purge_platform_message, purgeGameCount)
+        },
         confirmLabel = stringResource(R.string.settings_shell_modal_purge_platform_confirm),
+        cancelLabel = if (purgeAfterDisable) {
+            stringResource(R.string.settings_shell_modal_purge_disabled_keep)
+        } else {
+            stringResource(R.string.ui_confirm_modal_cancel)
+        },
         destructive = true,
         onConfirm = { viewModel.confirmPurgePlatform() },
         onDismiss = { viewModel.cancelPurgePlatform() }
@@ -999,47 +1040,13 @@ fun SettingsScreen(
 
     val platformGameDelete = uiState.storagePlatformGames.deleteConfirm
     if (platformGameDelete != null) {
-        val saveWarning = if (platformGameDelete.unsyncedSaves > 0) {
-            " " + pluralStringResource(
-                R.plurals.settings_shell_unsynced_saves_warning,
-                platformGameDelete.unsyncedSaves,
-                platformGameDelete.unsyncedSaves
-            )
-        } else {
-            ""
-        }
-        if (platformGameDelete.hasSoundtrack) {
-            ArgosyConfirmModalHost(
-                visible = true,
-                title = stringResource(
-                    R.string.settings_shell_modal_delete_game_soundtrack_title, platformGameDelete.title
-                ),
-                message = stringResource(
-                    R.string.settings_shell_modal_delete_game_soundtrack_message, saveWarning
-                ),
-                cancelLabel = stringResource(R.string.settings_shell_modal_delete_game_cancel),
-                neutralLabel = stringResource(R.string.settings_shell_modal_delete_game_only),
-                onNeutral = { viewModel.confirmStoragePlatformGameDelete(platformGameDelete.gameId, withSoundtrack = false) },
-                confirmLabel = stringResource(R.string.settings_shell_modal_delete_game_with_soundtrack),
-                destructive = true,
-                onConfirm = { viewModel.confirmStoragePlatformGameDelete(platformGameDelete.gameId, withSoundtrack = true) },
-                onDismiss = { viewModel.dismissStoragePlatformGameDelete() }
-            )
-        } else {
-            ArgosyConfirmModalHost(
-                visible = true,
-                title = stringResource(
-                    R.string.settings_shell_modal_delete_game_plain_title, platformGameDelete.title
-                ),
-                message = stringResource(
-                    R.string.settings_shell_modal_delete_game_plain_message, saveWarning
-                ),
-                confirmLabel = stringResource(R.string.settings_shell_modal_delete_game_plain_confirm),
-                destructive = true,
-                onConfirm = { viewModel.confirmStoragePlatformGameDelete(platformGameDelete.gameId, withSoundtrack = false) },
-                onDismiss = { viewModel.dismissStoragePlatformGameDelete() }
-            )
-        }
+        com.nendo.argosy.ui.common.GameConfirmModal(
+            confirm = platformGameDelete,
+            onConfirm = { withSoundtrack ->
+                viewModel.confirmStoragePlatformGameDelete(platformGameDelete.gameId, withSoundtrack)
+            },
+            onDismiss = { viewModel.dismissStoragePlatformGameDelete() }
+        )
     }
 
     val platformCategoryDelete = uiState.storagePlatformGames.categoryDeleteConfirm
@@ -1066,6 +1073,21 @@ fun SettingsScreen(
                 )
             },
             onDismiss = { viewModel.dismissStoragePlatformCategoryDelete() }
+        )
+    }
+
+    val playTimeDelete = uiState.playTime.deleteConfirm
+    if (playTimeDelete != null) {
+        val gameTitle = playTimeDelete.gameTitle
+            .ifBlank { stringResource(R.string.settings_play_time_list_unknown_game) }
+        ArgosyConfirmModalHost(
+            visible = true,
+            title = stringResource(R.string.settings_play_time_delete_title),
+            message = stringResource(R.string.settings_play_time_delete_message, gameTitle),
+            confirmLabel = stringResource(R.string.settings_play_time_delete_confirm),
+            destructive = true,
+            onConfirm = { viewModel.confirmPlayTimeGameDelete() },
+            onDismiss = { viewModel.dismissPlayTimeGameDelete() }
         )
     }
 
@@ -1643,10 +1665,8 @@ private fun getFilePathFromUri(context: Context, uri: Uri): String? {
     val rawPath = uri.path ?: return null
     val path = Uri.decode(rawPath)
 
-    // Tree URIs have format: /tree/primary:path/to/folder
-    // or /tree/primary:path/to/folder/document/primary:path/to/folder
     val treePath = path.substringAfter("/tree/", "")
-        .substringBefore("/document/") // Handle document URIs
+        .substringBefore("/document/")
     if (treePath.isEmpty()) return null
 
     return when {
@@ -1659,7 +1679,6 @@ private fun getFilePathFromUri(context: Context, uri: Uri): String? {
             }
         }
         treePath.contains(":") -> {
-            // External SD card: storage-id:path
             val parts = treePath.split(":", limit = 2)
             if (parts.size == 2) {
                 val storageId = parts[0]
@@ -1843,6 +1862,7 @@ private fun SettingsFooter(
     val playTimeMoveHint = stringResource(R.string.settings_shell_footer_play_time_move)
     val playTimeOpenHint = stringResource(R.string.settings_shell_footer_play_time_open)
     val playTimeSortHint = stringResource(R.string.settings_shell_footer_play_time_sort)
+    val playTimeDeleteHint = stringResource(R.string.settings_shell_footer_play_time_delete)
     val categoryHint = stringResource(R.string.settings_shell_footer_category)
     val mainGroupHint = stringResource(R.string.settings_shell_footer_main_group)
     val deleteHint = stringResource(R.string.settings_shell_footer_delete)
@@ -2004,6 +2024,9 @@ private fun SettingsFooter(
         }
         if (uiState.currentSection == SettingsSection.PLAY_TIME_GAMES) {
             add(InputButton.X to playTimeSortHint)
+            if (playTimeListFocusedGameId(uiState) != null) {
+                add(InputButton.Y to playTimeDeleteHint)
+            }
         }
         if (uiState.currentSection == SettingsSection.STORAGE_PLATFORM_GAMES) {
             val pgInfo = createStoragePlatformGamesLayoutInfo(uiState)
@@ -2129,6 +2152,7 @@ private fun SettingsFooter(
             val ps = platformContext?.let { uiState.platformLibretro.platformSettings[it.platformId] }
             val hasOverride = when (item) {
                 com.nendo.argosy.ui.screens.settings.sections.BuiltinControlsItem.Rumble -> ps?.rumbleEnabled != null
+                com.nendo.argosy.ui.screens.settings.sections.BuiltinControlsItem.Motion -> ps?.motionEnabled != null
                 com.nendo.argosy.ui.screens.settings.sections.BuiltinControlsItem.AnalogAsDpad -> ps?.analogAsDpad != null
                 com.nendo.argosy.ui.screens.settings.sections.BuiltinControlsItem.DpadAsAnalog -> ps?.dpadAsAnalog != null
                 else -> false
@@ -2154,7 +2178,6 @@ private fun cachesClearConfirmTitle(target: CachesClearTarget?): String = when (
     CachesClearTarget.MISC_DOWNLOADS -> stringResource(R.string.settings_shell_caches_misc_downloads_title)
     CachesClearTarget.SHADERS_CATALOG -> stringResource(R.string.settings_shell_caches_shaders_catalog_title)
     CachesClearTarget.FRAMES -> stringResource(R.string.settings_shell_caches_frames_title)
-    CachesClearTarget.STEAM_DOWNLOADS -> stringResource(R.string.settings_shell_caches_steam_downloads_title)
     null -> ""
 }
 
@@ -2168,7 +2191,6 @@ private fun cachesClearConfirmMessage(target: CachesClearTarget?): String = when
     CachesClearTarget.EMULATOR_APKS -> stringResource(R.string.settings_shell_caches_emulator_apks_message)
     CachesClearTarget.SHADERS_CATALOG -> stringResource(R.string.settings_shell_caches_shaders_catalog_message)
     CachesClearTarget.FRAMES -> stringResource(R.string.settings_shell_caches_frames_message)
-    CachesClearTarget.STEAM_DOWNLOADS -> stringResource(R.string.settings_shell_caches_steam_downloads_message)
     null -> ""
 }
 

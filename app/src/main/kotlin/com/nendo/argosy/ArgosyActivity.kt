@@ -3,6 +3,7 @@ package com.nendo.argosy
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.nendo.argosy.ui.dualscreen.onDisplay
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,6 +29,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.nendo.argosy.core.input.ControllerPointerGuard
+import com.nendo.argosy.core.input.controllerTouchpadGuarding
 import com.nendo.argosy.data.cache.ImageCacheManager
 import com.nendo.argosy.data.local.dao.DownloadQueueDao
 import com.nendo.argosy.data.local.dao.GameDao
@@ -162,12 +166,10 @@ class ArgosyActivity : ComponentActivity() {
     @Inject lateinit var emulatorConfigDao: com.nendo.argosy.data.local.dao.EmulatorConfigDao
     @Inject lateinit var builtinCoreResolver: com.nendo.argosy.data.emulator.BuiltinCoreResolver
     @Inject lateinit var saveHandlerRegistry: com.nendo.argosy.data.sync.platform.PlatformSaveHandlerRegistry
-    @Inject lateinit var steamDownloadQueueDao: com.nendo.argosy.data.local.dao.SteamDownloadQueueDao
     @Inject lateinit var steamRepository: com.nendo.argosy.data.repository.SteamRepository
     @Inject lateinit var playSessionTracker: com.nendo.argosy.data.emulator.PlaySessionTracker
     @Inject lateinit var repairImageCacheUseCase: com.nendo.argosy.domain.usecase.cache.RepairImageCacheUseCase
     @Inject lateinit var downloadFileStatusRepository: com.nendo.argosy.data.repository.DownloadFileStatusRepository
-    @Inject lateinit var steamContentManager: com.nendo.argosy.data.steam.SteamContentManager
     @Inject lateinit var presenceManager: com.nendo.argosy.data.social.PresenceManager
     @Inject lateinit var discordPresenceManager: com.nendo.argosy.data.social.discord.DiscordPresenceManager
     @Inject lateinit var gradientExtractionDelegate: com.nendo.argosy.ui.screens.common.GradientExtractionDelegate
@@ -178,6 +180,7 @@ class ArgosyActivity : ComponentActivity() {
     @Inject lateinit var resolveMediaPlayTargetUseCase:
         com.nendo.argosy.domain.usecase.media.ResolveMediaPlayTargetUseCase
     @Inject lateinit var mediaPlaybackTracker: com.nendo.argosy.data.media.MediaPlaybackTracker
+    @Inject lateinit var launchProgressTracker: com.nendo.argosy.data.emulator.LaunchProgressTracker
     @Inject lateinit var mediaAvailabilityVerifier: com.nendo.argosy.data.media.MediaAvailabilityVerifier
     @Inject lateinit var mediaDownloadDelegate:
         com.nendo.argosy.ui.screens.media.delegates.MediaDownloadDelegate
@@ -222,6 +225,12 @@ class ArgosyActivity : ComponentActivity() {
 
     private var hasResumedBefore = false
     private var yieldedFocusToGame = false
+    private var attachedToDsmHolder = false
+    private val pointerGuard = ControllerPointerGuard(
+        windowName = "launcher",
+        scope = lifecycleScope,
+        setWindowTouchable = ::setWindowTouchable
+    )
 
     @SuppressLint("NewApi")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -235,6 +244,7 @@ class ArgosyActivity : ComponentActivity() {
                 dualScreenEnabled = sessionStateStore.isDualScreenEnabled(),
                 docked = !desktopMode && DisplayAffinityHelper.dockedExternalDisplayId(this) != null
             )
+            if (launch != NonDefaultDisplayLaunch.RUN_HERE) forwardDeepLinkToDefaultDisplay()
             if (launch == NonDefaultDisplayLaunch.YIELD) {
                 Log.d(TAG, "ArgosyActivity on non-default display with dual-screen disabled, finishing")
                 finish()
@@ -301,11 +311,9 @@ class ArgosyActivity : ComponentActivity() {
                 configureEmulatorUseCase = configureEmulatorUseCase,
                 builtinCoreResolver = builtinCoreResolver,
                 saveHandlerRegistry = saveHandlerRegistry,
-                steamDownloadQueueDao = steamDownloadQueueDao,
                 steamRepository = steamRepository,
                 playSessionTracker = playSessionTracker,
                 permissionHelper = permissionHelper,
-                steamContentManager = steamContentManager,
                 repairImageCacheUseCase = repairImageCacheUseCase,
                 downloadFileStatusRepository = downloadFileStatusRepository,
                 gradientExtractionDelegate = gradientExtractionDelegate,
@@ -319,6 +327,7 @@ class ArgosyActivity : ComponentActivity() {
                 getRelatedMediaUseCase = getRelatedMediaUseCase,
                 resolveMediaPlayTargetUseCase = resolveMediaPlayTargetUseCase,
                 mediaPlaybackTracker = mediaPlaybackTracker,
+                launchProgressTracker = launchProgressTracker,
                 mediaAvailabilityVerifier = mediaAvailabilityVerifier,
                 mediaDownloadDelegate = mediaDownloadDelegate,
                 mediaSeriesDelegate = mediaSeriesDelegate,
@@ -334,6 +343,8 @@ class ArgosyActivity : ComponentActivity() {
             )
             DualScreenManagerHolder.instance = dualScreenManager
         }
+        DualScreenManagerHolder.attach()
+        attachedToDsmHolder = true
 
         dualScreenManager.onRoleSwapped = { swapped ->
             if (swapped && !dualScreenManager.isMovingGame) refocusSelf()
@@ -363,6 +374,7 @@ class ArgosyActivity : ComponentActivity() {
         )
         preferencesObserver.collectIn(activityScope)
         revealCallerWhenExternalSessionCloses()
+        pointerGuard.follow(controllerTouchpadGuarding(playSessionTracker, preferencesRepository))
 
         setContent {
             ALauncherTheme {
@@ -400,8 +412,9 @@ class ArgosyActivity : ComponentActivity() {
                                 connectedControllerTracker.activeLayout
                             ) {
                                 com.nendo.argosy.ui.components.ProvideStatusBarItems(preferences) {
+                                    val ownDisplay = androidx.compose.ui.platform.LocalView.current.display?.displayId
                                     com.nendo.argosy.ui.dualscreen.PresentationSlotContent(
-                                        slot,
+                                        slot.onDisplay(ownDisplay, gameDisplay.value),
                                         showsNotifications = true
                                     )
                                 }
@@ -432,6 +445,7 @@ class ArgosyActivity : ComponentActivity() {
     @SuppressLint("NewApi")
     override fun onResume() {
         super.onResume()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) pointerGuard.onInFrontChanged(true)
         systemBars.apply()
         if (::dualScreenManager.isInitialized) {
             dualScreenManager.notifyUserActivity("mainResume")
@@ -450,8 +464,11 @@ class ArgosyActivity : ComponentActivity() {
         } else {
             if (displayAffinityHelper.hasSecondaryDisplay && !dualScreenManager.isRolesSwapped.value) {
                 window.decorView.postDelayed({
-                    if (!sessionStateStore.hasActiveSession() &&
-                        !dualScreenManager.swappedIsGameActive.value
+                    if (com.nendo.argosy.ui.dualscreen.companionTakesFocusOnFirstResume(
+                            sessionActive = sessionStateStore.hasActiveSession(),
+                            gameActive = dualScreenManager.swappedIsGameActive.value,
+                            launchLive = launchProgressTracker.launchLive.value
+                        )
                     ) {
                         dualScreenManager.controlCompanion?.refocusSelf()
                     }
@@ -463,6 +480,7 @@ class ArgosyActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) pointerGuard.onInFrontChanged(false)
         if (!ambientAudioManager.keepsPlayingAsleep()) ambientAudioManager.suspend()
         if (!dualScreenManager.isCompanionActive.value) {
             dualScreenManager.broadcastForegroundState(false)
@@ -478,9 +496,12 @@ class ArgosyActivity : ComponentActivity() {
         super.onDestroy()
         if (::screenCaptureManager.isInitialized) screenCaptureManager.stopCapture()
         activityScope.cancel()
-        if (isFinishing && ::dualScreenManager.isInitialized) {
+        val othersAttached = attachedToDsmHolder && DualScreenManagerHolder.detachAndCountRemaining() > 0
+        if (isFinishing && ::dualScreenManager.isInitialized && !othersAttached) {
             dualScreenManager.unregisterReceivers()
-            DualScreenManagerHolder.instance = null
+            if (DualScreenManagerHolder.instance === dualScreenManager) {
+                DualScreenManagerHolder.instance = null
+            }
         }
     }
 
@@ -559,6 +580,7 @@ class ArgosyActivity : ComponentActivity() {
     private var mediaDimSwallowsTouch = false
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (pointerGuard.consumes(event)) return true
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             val dimmed = isMediaDimmed()
             ambientAudioManager.resumeFromSuspend()
@@ -589,6 +611,7 @@ class ArgosyActivity : ComponentActivity() {
             android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (pointerGuard.consumes(event)) return true
         triggerAxisKeyEmitter.emit(event).forEach { dispatchKeyEvent(it) }
 
         if (!dualScreenManager.claimInput(event)) return true
@@ -605,6 +628,16 @@ class ArgosyActivity : ComponentActivity() {
         if (gamepadInputHandler.processStickMotion(event, steerRightStick, ::deliverStickEvent)) return true
         if (gamepadInputHandler.handleMotionEvent(event)) return true
         return super.dispatchGenericMotionEvent(event)
+    }
+
+    private fun setWindowTouchable(touchable: Boolean) {
+        val flag = android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        if (touchable) window.clearFlags(flag) else window.addFlags(flag)
+    }
+
+    override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
+        super.onTopResumedActivityChanged(isTopResumedActivity)
+        pointerGuard.onInFrontChanged(isTopResumedActivity)
     }
 
     private fun deliverStickEvent(stickEvent: GamepadEvent, isRepeat: Boolean) {
@@ -672,6 +705,16 @@ class ArgosyActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun forwardDeepLinkToDefaultDisplay() {
+        if (intent?.data?.scheme != "argosy") return
+        val forwarded = Intent(intent).setClass(this, ArgosyActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val options = android.app.ActivityOptions.makeBasic()
+            .setLaunchDisplayId(Display.DEFAULT_DISPLAY)
+            .toBundle()
+        startActivity(forwarded, options)
     }
 
     private fun handDisplayToCompanion(displayId: Int) {

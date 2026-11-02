@@ -15,6 +15,7 @@ import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -54,23 +55,32 @@ class StartupMaintenanceCoordinatorTest {
     )
 
     @Test
+    fun `the home does not wait on a hanging server call`() = runBlocking {
+        coEvery { romMRepository.syncCollections() } coAnswers { awaitCancellation() }
+
+        withTimeout(PASS_TIMEOUT_MS) { coordinator().awaitPass() }
+
+        coVerify(exactly = 1) { libretroMigrationUseCase.cleanupRemovedCores() }
+    }
+
+    @Test
     fun `a throwing step does not stop the steps after it or the pointer repair`() = runBlocking {
         coEvery { romMRepository.syncCollections() } throws IllegalStateException("server down")
 
         withTimeout(PASS_TIMEOUT_MS) { coordinator().awaitPass() }
 
         coVerify(exactly = 1) { libretroMigrationUseCase.cleanupRemovedCores() }
-        verify(exactly = 1) { libraryPointerRepair.start() }
+        verify(timeout = PASS_TIMEOUT_MS, exactly = 1) { libraryPointerRepair.start() }
     }
 
     @Test
-    fun `a throwing last step still starts the pointer repair`() = runBlocking {
+    fun `a throwing blocking step still runs the background steps`() = runBlocking {
         coEvery { libretroMigrationUseCase.cleanupRemovedCores() } throws IllegalStateException("cores dir gone")
 
         withTimeout(PASS_TIMEOUT_MS) { coordinator().awaitPass() }
 
-        coVerify(exactly = 1) { romMRepository.syncCollections() }
-        verify(exactly = 1) { libraryPointerRepair.start() }
+        coVerify(timeout = PASS_TIMEOUT_MS, exactly = 1) { romMRepository.syncCollections() }
+        verify(timeout = PASS_TIMEOUT_MS, exactly = 1) { libraryPointerRepair.start() }
     }
 
     @Test
@@ -83,8 +93,8 @@ class StartupMaintenanceCoordinatorTest {
             coordinator.awaitPass()
         }
 
-        coVerify(exactly = 1) { romMRepository.syncCollections() }
-        verify(exactly = 1) { libraryPointerRepair.start() }
+        coVerify(timeout = PASS_TIMEOUT_MS, exactly = 1) { romMRepository.syncCollections() }
+        verify(timeout = PASS_TIMEOUT_MS, exactly = 1) { libraryPointerRepair.start() }
     }
 
     private fun preferencesWith(deleteOrphans: Boolean, weeklyIntegrity: Boolean = false) {
@@ -101,8 +111,8 @@ class StartupMaintenanceCoordinatorTest {
 
         withTimeout(PASS_TIMEOUT_MS) { coordinator().awaitPass() }
 
+        coVerify(timeout = PASS_TIMEOUT_MS, exactly = 1) { romMRepository.syncCollections() }
         coVerify(exactly = 0) { romMRepository.pruneServerRemovedGames() }
-        coVerify(exactly = 1) { romMRepository.syncCollections() }
     }
 
     @Test
@@ -111,7 +121,7 @@ class StartupMaintenanceCoordinatorTest {
 
         withTimeout(PASS_TIMEOUT_MS) { coordinator().awaitPass() }
 
-        coVerify(exactly = 1) { romMRepository.pruneServerRemovedGames() }
+        coVerify(timeout = PASS_TIMEOUT_MS, exactly = 1) { romMRepository.pruneServerRemovedGames() }
     }
 
     @Test
@@ -120,6 +130,7 @@ class StartupMaintenanceCoordinatorTest {
 
         withTimeout(PASS_TIMEOUT_MS) { coordinator().awaitPass() }
 
+        verify(timeout = PASS_TIMEOUT_MS, exactly = 1) { libraryPointerRepair.start() }
         coVerifyOrder {
             gameRepository.validateLocalFiles()
             gameRepository.discoverLocalFiles()

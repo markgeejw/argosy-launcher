@@ -37,7 +37,11 @@ class SyncStatesOnSessionEndUseCaseTest {
 
     private val stateCacheManager = mockk<StateCacheManager>(relaxed = true)
     private val gameDao = mockk<GameDao>()
-    private val emulatorDetector = mockk<EmulatorDetector>(relaxed = true)
+    private val emulatorDetector = mockk<EmulatorDetector>(relaxed = true) {
+        every { getByPackage(any()) } answers {
+            com.nendo.argosy.data.emulator.EmulatorRegistry.getByPackage(firstArg())
+        }
+    }
     private val emulatorConfigDao = mockk<EmulatorConfigDao>(relaxed = true)
     private val preferencesRepository = mockk<UserPreferencesRepository>()
     private val ownershipTracker = mockk<StateOwnershipTracker>()

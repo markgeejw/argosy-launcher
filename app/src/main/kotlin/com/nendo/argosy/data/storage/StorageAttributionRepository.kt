@@ -291,7 +291,7 @@ class StorageAttributionRepository @Inject constructor(
                     launch {
                         walkSemaphore.withPermit {
                             runCategory(StorageCategory.STEAM) {
-                                collectSteamPc(volumes, internalKey, ctx, reusableVolumeKeys)
+                                collectSteamPc(volumes, ctx, reusableVolumeKeys)
                             }
                         }
                     }
@@ -777,24 +777,11 @@ class StorageAttributionRepository @Inject constructor(
 
     private fun collectSteamPc(
         volumes: List<StorageVolumeInfo>,
-        internalKey: String?,
         ctx: CoroutineContext,
         reusableVolumeKeys: Set<String>
     ): CategoryUsage {
         val priorPerVolume = _snapshot.value?.categories?.get(StorageCategory.STEAM)?.perVolume
         val total = UsageAccumulator()
-        val stagingRoots = listOf(
-            AppPaths.steamStagingRoot(context.filesDir),
-            File(context.filesDir, "steam_downloads")
-        )
-        for (root in stagingRoots) {
-            if (!root.exists()) continue
-            val volumeKey = volumeKeyFor(StoragePathUtils.canonicalize(root.absolutePath), volumes, internalKey)
-            val measured = nioWalk(root, ctx) { bytes, files ->
-                setWalkState(StorageCategory.STEAM, WalkState.Walking(total.bytes + bytes, total.files + files))
-            }
-            total.add(measured.first, measured.second, volumeKey)
-        }
         for (volume in volumes) {
             val statsBytes = queryStoreStats(volume)
             val reusable = volume.key in reusableVolumeKeys && priorPerVolume?.containsKey(volume.key) == true

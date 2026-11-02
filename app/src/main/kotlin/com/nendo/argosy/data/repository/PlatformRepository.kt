@@ -77,4 +77,7 @@ class PlatformRepository @Inject constructor(
 
     suspend fun isCombineContentEnabled(platformId: Long): Boolean =
         platformDao.getCombineContent(platformId) == true
+
+    suspend fun updateSkipFullSync(platformId: Long, skip: Boolean) =
+        platformDao.updateSkipFullSync(platformId, skip)
 }

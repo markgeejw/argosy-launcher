@@ -1,7 +1,10 @@
 package com.nendo.argosy.data.social.uploader
 
 import com.nendo.argosy.data.local.dao.GameDao
+import com.nendo.argosy.data.local.dao.PlayRecordDeletionDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
+import com.nendo.argosy.data.local.dao.cutoffsFor
+import com.nendo.argosy.data.model.PlayRecordCutoffs
 import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.remote.romm.RomMApi
 import com.nendo.argosy.data.remote.romm.RomMConnectionManager
@@ -27,6 +30,7 @@ private const val PAGE_SIZE = 200
 @Singleton
 class PlaySessionPull @Inject constructor(
     private val playSessionDao: PlaySessionDao,
+    private val playRecordDeletionDao: PlayRecordDeletionDao,
     private val gameDao: GameDao,
     private val syncPreferencesRepository: SyncPreferencesRepository,
     private val connectionManager: RomMConnectionManager
@@ -48,6 +52,7 @@ class PlaySessionPull @Inject constructor(
         val api = connectionManager.getApi() ?: return Summary(0, 0, "No api")
         val ownerUserId = syncPreferencesRepository.getRommUserId() ?: return Summary(0, 0, "No account")
         val thisDeviceId = connectionManager.getDeviceId()
+        val cutoffs = playRecordDeletionDao.cutoffsFor(ownerUserId)
 
         val devices = try {
             val response = api.getDevices()
@@ -82,7 +87,7 @@ class PlaySessionPull @Inject constructor(
                     return Summary(added, devicesDone, e.message ?: "Network failure")
                 }
                 if (page.isEmpty()) break
-                added += insertMissing(page, device, ownerUserId) { romId ->
+                added += insertMissing(page, device, ownerUserId, cutoffs) { romId ->
                     romCache.getOrPut(romId) { resolveGame(api, romId) }
                 }
                 if (page.size < PAGE_SIZE) break
@@ -95,14 +100,11 @@ class PlaySessionPull @Inject constructor(
         Summary(added, devicesDone)
     }
 
-    /**
-     * Inserts every session in [page] whose server id is not already held, filed under the
-     * game [resolveGame] answers for its rom. Returns how many rows were written.
-     */
     internal suspend fun insertMissing(
         page: List<RomMPlaySession>,
         device: RomMDevice,
         ownerUserId: Long,
+        cutoffs: PlayRecordCutoffs,
         resolveGame: suspend (Long) -> PulledGameRef
     ): Int {
         val held = playSessionDao.getHeldRommSessionIds(page.map { it.id }).toSet()
@@ -110,6 +112,7 @@ class PlaySessionPull @Inject constructor(
         var alreadyHeld = 0
         var noRom = 0
         var unmappable = 0
+        var deleted = 0
         for (remote in page) {
             if (remote.id in held) {
                 alreadyHeld++
@@ -125,6 +128,10 @@ class PlaySessionPull @Inject constructor(
                 unmappable++
                 continue
             }
+            if (cutoffs.blocks(entity.gameId, entity.startTime)) {
+                deleted++
+                continue
+            }
             playSessionDao.insert(entity)
             added++
         }
@@ -132,7 +139,7 @@ class PlaySessionPull @Inject constructor(
             Logger.info(
                 TAG,
                 "insertMissing: device=${device.id} page=${page.size} added=$added held=$alreadyHeld " +
-                    "noRom=$noRom unmappable=$unmappable sample=${page.firstOrNull()?.startTime}"
+                    "noRom=$noRom unmappable=$unmappable deleted=$deleted sample=${page.firstOrNull()?.startTime}"
             )
         }
         return added

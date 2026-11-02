@@ -39,6 +39,7 @@ namespace libretrodroid {
 
 class Video {
 public:
+    enum SensorUsage { SENSOR_ACCELEROMETER = 1, SENSOR_GYROSCOPE = 2 };
 
     struct RenderingOptions {
         bool hardwareAccelerated = false;
@@ -59,11 +60,17 @@ public:
         GLint gPreviousPassTextureHandle = 0;
         GLint gScreenDensityHandle = 0;
         GLint gTextureSizeHandle = 0;
+        GLint gOrigTextureHandle = -1;
+        GLint gOrigTextureSizeHandle = -1;
+        GLint gOrigInputSizeHandle = -1;
         GLint gInputSizeHandle = -1;
         GLint gOutputSizeHandle = -1;
         GLint gFrameCountHandle = -1;
         GLint gFrameDirectionHandle = -1;
         GLint gMVPMatrixHandle = -1;
+        GLint gGyroscopeHandle = -1;
+        GLint gAccelerometerHandle = -1;
+        GLint gAccelerometerRestHandle = -1;
     };
 
     Video(
@@ -91,6 +98,8 @@ public:
     void setIntegerScaling(bool enabled);
     void setTextureCrop(float left, float top, float right, float bottom);
     void setBlackFrameInsertion(bool enabled);
+    void setShaderSensorState(const std::array<float, 9>& state);
+    int prepareShaderAndGetSensorUsage();
 
     void setBackgroundFrame(const uint8_t* data, int width, int height);
     void clearBackgroundFrame();
@@ -170,6 +179,8 @@ private:
     bool backgroundFrameBehind = false;
     ImmersiveMode immersiveMode;
     BackgroundFrame backgroundFrame;
+    std::array<float, 9> shaderSensorState {};
+    int shaderSensorUsage = 0;
     VideoLayout videoLayout;
 
     Renderer* renderer;

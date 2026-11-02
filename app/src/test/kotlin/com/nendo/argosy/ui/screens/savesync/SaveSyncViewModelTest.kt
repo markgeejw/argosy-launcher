@@ -1,8 +1,5 @@
 package com.nendo.argosy.ui.screens.savesync
 
-import com.nendo.argosy.data.local.dao.GameDao
-import com.nendo.argosy.data.local.dao.PendingConflictDao
-import com.nendo.argosy.data.local.dao.SaveSyncDao
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.local.entity.PendingConflictEntity
 import com.nendo.argosy.data.local.entity.SaveSyncEntity
@@ -12,6 +9,7 @@ import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.remote.romm.ConnectionState
 import com.nendo.argosy.data.remote.romm.RomMCapabilities
 import com.nendo.argosy.data.remote.romm.RomMRepository
+import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.data.sync.ConflictResolution
 import com.nendo.argosy.data.sync.ConflictResolutionService
@@ -48,10 +46,8 @@ class SaveSyncViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var saveSyncDao: SaveSyncDao
-    private lateinit var pendingConflictDao: PendingConflictDao
     private lateinit var syncQueueManager: SyncQueueManager
-    private lateinit var gameDao: GameDao
+    private lateinit var gameRepository: GameRepository
     private lateinit var preferencesRepository: UserPreferencesRepository
     private lateinit var romMRepository: RomMRepository
     private lateinit var conflictResolutionService: ConflictResolutionService
@@ -61,25 +57,23 @@ class SaveSyncViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        saveSyncDao = mockk(relaxed = true)
-        pendingConflictDao = mockk(relaxed = true)
         syncQueueManager = mockk(relaxed = true)
-        gameDao = mockk(relaxed = true)
+        gameRepository = mockk(relaxed = true)
         preferencesRepository = mockk(relaxed = true)
         romMRepository = mockk(relaxed = true)
         conflictResolutionService = mockk(relaxed = true)
         saveSyncRepository = mockk(relaxed = true)
 
-        every { saveSyncDao.observeAll(any()) } returns flowOf(emptyList())
-        every { saveSyncDao.observeSaveCountsByDevice(any()) } returns flowOf(emptyList())
-        every { pendingConflictDao.observeOpenConflicts(any()) } returns flowOf(emptyList())
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(emptyList())
+        every { saveSyncRepository.observeSaveCountsByDevice(any()) } returns flowOf(emptyList())
+        every { conflictResolutionService.observeOpenConflicts(any()) } returns flowOf(emptyList())
         every { syncQueueManager.state } returns MutableStateFlow(SyncQueueState())
         every { preferencesRepository.preferences } returns flowOf(UserPreferences())
         every { romMRepository.connectionState } returns MutableStateFlow(
             ConnectionState.Connected("4.9.0", RomMCapabilities.from("4.9.0"))
         )
         coEvery { romMRepository.getRegisteredDevices() } returns emptyList()
-        coEvery { gameDao.getByIds(any()) } returns emptyList()
+        coEvery { gameRepository.getByIdsBatched(any()) } returns emptyList()
     }
 
     @After
@@ -128,7 +122,7 @@ class SaveSyncViewModelTest {
     @Test
     fun `attention rows are produced from open conflicts and include game title`() = runTest(testDispatcher) {
         val game = makeGame(id = 42, title = "Persona 5")
-        every { pendingConflictDao.observeOpenConflicts(any()) } returns flowOf(
+        every { conflictResolutionService.observeOpenConflicts(any()) } returns flowOf(
             listOf(
                 PendingConflictEntity(
                     id = 7,
@@ -143,7 +137,7 @@ class SaveSyncViewModelTest {
                 )
             )
         )
-        coEvery { gameDao.getByIds(any()) } returns listOf(game)
+        coEvery { gameRepository.getByIdsBatched(any()) } returns listOf(game)
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -159,7 +153,7 @@ class SaveSyncViewModelTest {
     @Test
     fun `game rows are produced from save_sync rows joined with games`() = runTest(testDispatcher) {
         val game = makeGame(id = 1L, title = "Tekken")
-        every { saveSyncDao.observeAll(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(
             listOf(
                 SaveSyncEntity(
                     id = 100L,
@@ -174,7 +168,7 @@ class SaveSyncViewModelTest {
                 )
             )
         )
-        coEvery { gameDao.getByIds(listOf(1L)) } returns listOf(game)
+        coEvery { gameRepository.getByIdsBatched(listOf(1L)) } returns listOf(game)
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -190,7 +184,7 @@ class SaveSyncViewModelTest {
     @Test
     fun `every slot of one game lands in a single row`() = runTest(testDispatcher) {
         val game = makeGame(id = 1L, title = "Chrono Trigger")
-        every { saveSyncDao.observeAll(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(
             listOf(
                 SaveSyncEntity(
                     id = 100L,
@@ -212,7 +206,7 @@ class SaveSyncViewModelTest {
                 )
             )
         )
-        coEvery { gameDao.getByIds(listOf(1L)) } returns listOf(game)
+        coEvery { gameRepository.getByIdsBatched(listOf(1L)) } returns listOf(game)
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -225,7 +219,7 @@ class SaveSyncViewModelTest {
     @Test
     fun `a slot in conflict is left to the attention section`() = runTest(testDispatcher) {
         val game = makeGame(id = 1L, title = "Chrono Trigger")
-        every { saveSyncDao.observeAll(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(
             listOf(
                 SaveSyncEntity(
                     id = 100L,
@@ -247,7 +241,7 @@ class SaveSyncViewModelTest {
                 )
             )
         )
-        coEvery { gameDao.getByIds(listOf(1L)) } returns listOf(game)
+        coEvery { gameRepository.getByIdsBatched(listOf(1L)) } returns listOf(game)
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -274,7 +268,7 @@ class SaveSyncViewModelTest {
             )
         )
         every { syncQueueManager.state } returns queueState
-        coEvery { gameDao.getByIds(listOf(1L, 2L)) } returns listOf(makeGame(1, "A"), makeGame(2, "B"))
+        coEvery { gameRepository.getByIdsBatched(listOf(1L, 2L)) } returns listOf(makeGame(1, "A"), makeGame(2, "B"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -291,9 +285,8 @@ class SaveSyncViewModelTest {
             slot = "Slot 1", emulator = "duckstation",
             localUpdatedAt = Instant.now(), serverUpdatedAt = Instant.now()
         )
-        every { pendingConflictDao.observeOpenConflicts(any()) } returns flowOf(listOf(conflict))
-        coEvery { pendingConflictDao.getById(7L) } returns conflict
-        coEvery { gameDao.getByIds(any()) } returns listOf(makeGame(42, "P5"))
+        every { conflictResolutionService.observeOpenConflicts(any()) } returns flowOf(listOf(conflict))
+        coEvery { gameRepository.getByIdsBatched(any()) } returns listOf(makeGame(42, "P5"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -304,7 +297,7 @@ class SaveSyncViewModelTest {
         handler.onConfirm()
         advanceUntilIdle()
 
-        coVerify { conflictResolutionService.resolve(conflict, ConflictResolution.SKIP) }
+        coVerify { conflictResolutionService.resolveById(conflict.id, ConflictResolution.SKIP) }
         assertEquals(null, navTarget)
     }
 
@@ -315,9 +308,8 @@ class SaveSyncViewModelTest {
             slot = "Slot 1", emulator = "duckstation",
             localUpdatedAt = Instant.now(), serverUpdatedAt = Instant.now()
         )
-        every { pendingConflictDao.observeOpenConflicts(any()) } returns flowOf(listOf(conflict))
-        coEvery { pendingConflictDao.getById(7L) } returns conflict
-        coEvery { gameDao.getByIds(any()) } returns listOf(makeGame(42, "P5"))
+        every { conflictResolutionService.observeOpenConflicts(any()) } returns flowOf(listOf(conflict))
+        coEvery { gameRepository.getByIdsBatched(any()) } returns listOf(makeGame(42, "P5"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -338,7 +330,7 @@ class SaveSyncViewModelTest {
 
         handler.onConfirm()
         advanceUntilIdle()
-        coVerify { conflictResolutionService.resolve(conflict, ConflictResolution.KEEP_LOCAL) }
+        coVerify { conflictResolutionService.resolveById(conflict.id, ConflictResolution.KEEP_LOCAL) }
     }
 
     @Test
@@ -351,10 +343,8 @@ class SaveSyncViewModelTest {
         val first = conflict(7, 42)
         val second = conflict(8, 43)
         val open = kotlinx.coroutines.flow.MutableStateFlow(listOf(first, second))
-        every { pendingConflictDao.observeOpenConflicts(any()) } returns open
-        coEvery { pendingConflictDao.getById(7L) } returns first
-        coEvery { pendingConflictDao.getById(8L) } returns second
-        coEvery { gameDao.getByIds(any()) } returns listOf(makeGame(42, "P5"), makeGame(43, "P4"))
+        every { conflictResolutionService.observeOpenConflicts(any()) } returns open
+        coEvery { gameRepository.getByIdsBatched(any()) } returns listOf(makeGame(42, "P5"), makeGame(43, "P4"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -368,19 +358,19 @@ class SaveSyncViewModelTest {
         vm.resolveFocusedAttention(AttentionAction.KEEP_LOCAL, tappedKey)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { conflictResolutionService.resolve(first, ConflictResolution.KEEP_LOCAL) }
-        coVerify(exactly = 0) { conflictResolutionService.resolve(second, any()) }
+        coVerify(exactly = 1) { conflictResolutionService.resolveById(first.id, ConflictResolution.KEEP_LOCAL) }
+        coVerify(exactly = 0) { conflictResolutionService.resolveById(second.id, any()) }
     }
 
     @Test
     fun `tapping a game row focuses it and tapping it again opens the game`() = runTest(testDispatcher) {
-        every { saveSyncDao.observeAll(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(
             listOf(
                 SaveSyncEntity(id = 1L, gameId = 5L, rommId = 5L, emulatorId = "e", channelName = null, syncStatus = SaveSyncEntity.STATUS_SYNCED),
                 SaveSyncEntity(id = 2L, gameId = 6L, rommId = 6L, emulatorId = "e", channelName = null, syncStatus = SaveSyncEntity.STATUS_SYNCED)
             )
         )
-        coEvery { gameDao.getByIds(any()) } returns listOf(makeGame(5, "X"), makeGame(6, "Y"))
+        coEvery { gameRepository.getByIdsBatched(any()) } returns listOf(makeGame(5, "X"), makeGame(6, "Y"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -399,7 +389,7 @@ class SaveSyncViewModelTest {
 
     @Test
     fun `confirm on focused synced game row navigates to game`() = runTest(testDispatcher) {
-        every { saveSyncDao.observeAll(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(
             listOf(
                 SaveSyncEntity(
                     id = 1L, gameId = 5L, rommId = 5L, emulatorId = "e", channelName = null,
@@ -407,7 +397,7 @@ class SaveSyncViewModelTest {
                 )
             )
         )
-        coEvery { gameDao.getByIds(listOf(5L)) } returns listOf(makeGame(5, "X"))
+        coEvery { gameRepository.getByIdsBatched(listOf(5L)) } returns listOf(makeGame(5, "X"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -424,7 +414,7 @@ class SaveSyncViewModelTest {
     @Test
     fun `other devices row starts collapsed below the first game and confirm toggles it`() = runTest(testDispatcher) {
         every { preferencesRepository.preferences } returns flowOf(UserPreferences(rommDeviceId = "this-device"))
-        every { saveSyncDao.observeAll(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveRows(any()) } returns flowOf(
             listOf(
                 SaveSyncEntity(
                     id = 1L, gameId = 5L, rommId = 5L, emulatorId = "e", channelName = null,
@@ -432,13 +422,13 @@ class SaveSyncViewModelTest {
                 )
             )
         )
-        every { saveSyncDao.observeSaveCountsByDevice(any()) } returns flowOf(
+        every { saveSyncRepository.observeSaveCountsByDevice(any()) } returns flowOf(
             listOf(com.nendo.argosy.data.local.dao.SaveCountByDevice("odin", "ayn Odin3", 4, Instant.now()))
         )
         coEvery { romMRepository.getRegisteredDevices() } returns listOf(
             com.nendo.argosy.data.remote.romm.RomMDevice("odin", "ayn Odin3", "android", "argosy", "2.3")
         )
-        coEvery { gameDao.getByIds(listOf(5L)) } returns listOf(makeGame(5, "X"))
+        coEvery { gameRepository.getByIdsBatched(listOf(5L)) } returns listOf(makeGame(5, "X"))
 
         val vm = build()
         backgroundScope.launch { vm.uiState.collect {} }
@@ -465,10 +455,7 @@ class SaveSyncViewModelTest {
 
     private fun build(): SaveSyncViewModel = SaveSyncViewModel(
         context = mockk<android.content.Context>(relaxed = true),
-        saveSyncDao = saveSyncDao,
-        pendingConflictDao = pendingConflictDao,
         syncQueueManager = syncQueueManager,
-        gameDao = gameDao,
         preferencesRepository = preferencesRepository,
         romMRepository = romMRepository,
         conflictResolutionService = conflictResolutionService,
@@ -476,7 +463,7 @@ class SaveSyncViewModelTest {
         saveAccessNotices = com.nendo.argosy.data.sync.SaveAccessNotices(),
         gameActivityRepository = mockk(relaxed = true),
         syncCoordinator = mockk(relaxed = true),
-        gameRepository = mockk(relaxed = true)
+        gameRepository = gameRepository
     )
 
     private fun makeGame(id: Long, title: String): GameEntity = GameEntity(
