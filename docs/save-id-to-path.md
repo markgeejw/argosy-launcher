@@ -57,7 +57,7 @@ shift it right by 8 bits, render 8 lowercase hex digits. `00113200` becomes
 `00040000001b5100` -> `00001b50`; `000400000008d300` has no extdata. A
 short low id is normalized with the base `00040000` category before this exact
 lookup; a supplied category is retained. All other titles use the derived rule.
-`N3dsFolderHandler.extdataIdFor` encodes the derived rule. Some titles keep every
+`N3dsTitleIds.fromSaveId` encodes this lookup and derived fallback. Some titles keep every
 byte of progress in extdata and never create `data` (Fantasy Life writes
 `extdata/00000000/00001132/user/fl_ext0.fsd` and nothing under
 `title/00040000/00113200`), which is why either directory alone counts as a
@@ -125,7 +125,12 @@ normalization and extdata case discovery against pinned Sigil sources. Both
 Android and host builds apply it to build-local copies after verifying source
 hashes; the upstream submodule remains unchanged. Native 3DS caches rooted at
 `data/` and `extdata/` convert through a validated scratch restore before Sigil
-collection. Missing components stay untouched in both implementations.
+collection. Missing components stay untouched in both implementations. For
+3DS collect, probe and restore, existing extdata directories also supply bounded
+relative directory hints, including empty case variants. Hints are discovery
+metadata only, never archive members or evidence of a nonempty save. Known-none
+titles supply no extdata hints; aliases outside the root and ambiguous case
+variants refuse placement.
 
 ### PS2 (`Ps2FolderHandler`)
 

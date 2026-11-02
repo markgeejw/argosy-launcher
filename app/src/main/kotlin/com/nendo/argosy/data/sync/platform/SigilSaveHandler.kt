@@ -605,6 +605,7 @@ class SigilSaveHandler @Inject constructor(
                 core = route.layout,
                 contentPath = contentName(game),
                 saveRoot = route.root,
+                listing = n3dsListing(route, game),
                 options = route.options,
                 gameIds = ids,
                 state = committedState(stored),
@@ -680,6 +681,7 @@ class SigilSaveHandler @Inject constructor(
                 core = route.layout,
                 contentPath = contentName(game),
                 saveRoot = route.root,
+                listing = n3dsListing(route, game),
                 options = route.options,
                 gameIds = ids,
                 state = anchor,
@@ -795,6 +797,38 @@ class SigilSaveHandler @Inject constructor(
         return true
     }
 
+    private fun n3dsListing(route: SigilRoute, game: GameEntity): List<String>? {
+        if (game.platformSlug !in setOf("3ds", "n3ds")) return null
+        val files = Sigil.listSaveRoot(route.root, route.layout, fileAccess)
+        val extdataId = N3dsTitleIds.fromSaveId(game.saveId ?: game.titleId.orEmpty()).extdataId ?: return files
+        val subdirs = Sigil.layoutSubdirs(route.layout)
+        val prefixes = listOf("") + files.mapNotNull { path ->
+            subdirs.firstNotNullOfOrNull { subdir ->
+                path.indexOf("$subdir/").takeIf { it >= 0 }?.let { path.take(it) }
+            }
+        }.distinct()
+        val hints = mutableListOf<String>()
+        try {
+            for (prefix in prefixes.distinct()) {
+                for (subdir in subdirs.filter { it.endsWith("extdata/00000000") }) {
+                    val parent = "$prefix$subdir"
+                    fileAccess.list(route.root, parent).orEmpty()
+                        .filter { it.isDirectory && it.name.equals(extdataId, ignoreCase = true) }
+                        .forEach { directory ->
+                            val path = "$parent/${directory.name}"
+                            if (path.startsWith('/') || '\\' in path || path.split('/').any { it in setOf("", ".", "..") } ||
+                                !com.nendo.argosy.util.FileNames.isWithin(File(route.root, path), File(route.root))
+                            ) throw java.io.IOException("invalid 3DS directory hint: $path")
+                            hints.add("$path/")
+                        }
+                }
+            }
+        } catch (e: java.io.IOException) {
+            throw SigilException(SigilException.IO, e.message ?: "can't list 3DS extdata")
+        }
+        return files + hints.distinct()
+    }
+
     private suspend fun restore(route: SigilRoute, game: GameEntity, unit: ByteArray): SigilRestore {
         val ids = titleIdCandidates(game)
         val stateKey = stateKey(route, game)
@@ -804,6 +838,7 @@ class SigilSaveHandler @Inject constructor(
             core = route.layout,
             contentPath = contentName(game),
             saveRoot = route.root,
+            listing = n3dsListing(route, game),
             options = route.options,
             gameIds = ids,
             state = committedState(loadState(stateKey)),

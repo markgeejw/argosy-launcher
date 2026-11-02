@@ -228,7 +228,44 @@ static void malformed_ids(void) {
     }
 }
 
+static void empty_directory_hints(void) {
+    const char *ids[] = { "0000055d", "0000055D" };
+    for (size_t i = 0; i < 2; i++) {
+        mem_root root = {0};
+        char directory[1024], path[1024];
+        snprintf(directory, sizeof(directory), EXT "%s/", ids[i]);
+        snprintf(path, sizeof(path), EXT "%s/main", ids[i]);
+        text(&root, directory, "");
+        game g;
+        init(&g, &root, "00055E00", "azahar");
+        sigil_sync_result *r = NULL;
+        CHECK(collect(&g, &r) == SIGIL_OK);
+        CHECK(r && !r->data && !r->len);
+        sigil_sync_result_free(r);
+        const char *names[] = { "extdata/main" };
+        sigil_sync_result incoming = unit(names, 1);
+        r = NULL;
+        CHECK(restore(&g, &incoming, &r) == SIGIL_OK);
+        CHECK(holds(&root, path, "cloud"));
+        CHECK(root.count == 2);
+        sigil_sync_result_free(r);
+        free(incoming.data);
+        root_free(&root);
+    }
+    mem_root collision = {0};
+    text(&collision, EXT "0000055d/", "");
+    text(&collision, EXT "0000055D/", "");
+    game g;
+    init(&g, &collision, "00055E00", "azahar");
+    sigil_sync_result *r = NULL;
+    CHECK(collect(&g, &r) == SIGIL_ERR_AMBIGUOUS);
+    CHECK(collision.writes == 0 && collision.removes == 0);
+    sigil_sync_result_free(r);
+    root_free(&collision);
+}
+
 int main(void) {
+    empty_directory_hints();
     malformed_ids();
     verified_ids();
     partial_and_refused();

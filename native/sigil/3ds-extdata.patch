@@ -12,7 +12,7 @@ index 56edac0..6af0d7e 100644
        "{extdata_id}/",
        "{save_id}/extdata/", SIGIL_SAVE_AREA_DEVICE, false, "extdata/", true },
 diff --git a/src/save_profiles.c b/src/save_profiles.c
-index 7d2e686..6ea47ea 100644
+index 7d2e686..20e25a6 100644
 --- a/src/save_profiles.c
 +++ b/src/save_profiles.c
 @@ -132,19 +132,41 @@ static bool save_id_fits(const sigil_profile_root *p, const char *name) {
@@ -98,10 +98,10 @@ index 7d2e686..6ea47ea 100644
 +    for (size_t i = 0; i < p->req->listing_count; i++) {
 +        char path[SIGIL_SAVE_PATH_MAX];
 +        folder_vars listed;
-+        const char *rest = NULL;
++        const char *rest = NULL, *template_end = NULL;
 +        if (!p->req->listing[i] || !to_base(p, p->req->listing[i], path) ||
-+            !in_folder(p->row, p->row->areas[1].template_, path, &listed, &rest) ||
-+            strcasecmp(listed.extdata_id, v->extdata_id) != 0) continue;
++            !walk(p->row, p->row->areas[1].template_, path, &listed, &template_end, &rest) ||
++            *template_end || strcasecmp(listed.extdata_id, v->extdata_id) != 0) continue;
 +        if (found[0] && strcmp(found, listed.extdata_id) != 0) return SIGIL_ERR_AMBIGUOUS;
 +        snprintf(found, sizeof(found), "%s", listed.extdata_id);
 +    }
@@ -143,13 +143,14 @@ index 7d2e686..6ea47ea 100644
              if (!expand(row_area->template_, &v, rest, base_path, sizeof(base_path))) return SIGIL_ERR_NOT_FOUND;
              if (to_root(p, base_path, f->path)) return SIGIL_OK;
 diff --git a/src/sync_profiles.c b/src/sync_profiles.c
-index cb2570e..5f74299 100644
+index cb2570e..3167f53 100644
 --- a/src/sync_profiles.c
 +++ b/src/sync_profiles.c
-@@ -147,9 +147,13 @@ static size_t area_index(int area) {
+@@ -146,10 +146,13 @@ static size_t area_index(int area) {
+     return 0;
  }
  
- /* Two members of `u` before `i` go to the same file. */
+-/* Two members of `u` before `i` go to the same file. */
 -static bool placed_twice(const incoming_unit *u, size_t i) {
 +static bool paths_collide(const incoming_unit *u, size_t i) {
      for (size_t k = 0; k < i; k++) {
@@ -162,7 +163,7 @@ index cb2570e..5f74299 100644
      }
      return false;
  }
-@@ -233,7 +237,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
+@@ -233,7 +236,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
          }
          if (rc != SIGIL_OK) {
              snprintf(r->problem, sizeof(r->problem), "%s", u->members[i].name);
@@ -171,7 +172,7 @@ index cb2570e..5f74299 100644
          }
          snprintf(u->paths[i], SIGIL_SAVE_PATH_MAX, "%s", f.path);
          snprintf(u->parts[i].name, sizeof(u->parts[i].name), "%s", f.entry);
-@@ -241,7 +245,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
+@@ -241,7 +244,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
          u->folders[i] = skip ? NULL : f.folder;
          if (!skip) u->carried[area_index(f.area)] = true;
          if (u->paths[i][0] && !sigil_sync_path_inside(u->paths[i])) return SIGIL_ERR_IO;

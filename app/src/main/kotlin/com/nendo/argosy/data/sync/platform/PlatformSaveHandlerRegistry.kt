@@ -481,36 +481,13 @@ private class N3dsFolderHandler(
 
     companion object {
         private const val TAG = "N3dsFolderHandler"
-        private const val BASE_CATEGORY = "00040000"
         private const val SDMC_DIR = "sdmc"
         private const val SD_ROOT = "Nintendo 3DS"
         private const val TITLE_DIR = "title"
         private const val TITLE_DATA_ROOT = "data"
         private const val EXTDATA_DIR = "extdata"
         private const val EXTDATA_HIGH = "00000000"
-        private const val ID_HEX_LENGTH = 8
-        private const val FULL_ID_HEX_LENGTH = 16
-        private const val EXTDATA_ID_SHIFT = 8
-        private const val HEX_RADIX = 16
-
-        private val nativeExtdataIds: Map<String, String?> = mapOf(
-            "0004000000055e00" to "0000055d",
-            "000400000011c400" to "000011c5",
-            "00040000001b5100" to "00001b50",
-            "000400000008d300" to null
-        )
-
-        fun extdataIdFor(lowId: String): String? = lowId.toLongOrNull(HEX_RADIX)?.let {
-            java.lang.Long.toHexString(it shr EXTDATA_ID_SHIFT).padStart(ID_HEX_LENGTH, '0')
-        }
     }
-
-    private data class TitleKey(
-        val category: String,
-        val lowId: String,
-        val extdataId: String?,
-        val legacyExtdataId: String?
-    )
 
     private data class SaveUnit(val titleData: String, val extdata: String?)
 
@@ -557,7 +534,7 @@ private class N3dsFolderHandler(
             return null
         }
 
-        val key = titleKeyFor(saveId)
+        val key = N3dsTitleIds.fromSaveId(saveId)
         Logger.debug(TAG, "Searching for save | baseDir=$basePath, category=${key.category}, lowId=${key.lowId}, extdataId=${key.extdataId}")
 
         val unit = discoverUnit(basePath, key) ?: return null
@@ -569,7 +546,7 @@ private class N3dsFolderHandler(
     }
 
     override fun findAllSaveFoldersBySaveId(basePath: String, saveId: String): List<String> {
-        val key = titleKeyFor(saveId)
+        val key = N3dsTitleIds.fromSaveId(saveId)
         val unit = unitAt(basePath, key) ?: discoverUnit(basePath, key) ?: return emptyList()
         return existingComponents(unit).map { it.folder.path }
     }
@@ -581,7 +558,7 @@ private class N3dsFolderHandler(
      * already cached on game rows in the case they were first extracted with.
      */
     override fun constructSavePath(baseDir: String, saveId: String): String? {
-        val key = titleKeyFor(saveId)
+        val key = N3dsTitleIds.fromSaveId(saveId)
 
         val id0Folder = fal.listFiles(baseDir)?.firstOrNull { it.isDirectory }
         if (id0Folder == null) {
@@ -601,14 +578,14 @@ private class N3dsFolderHandler(
     }
 
     override fun namedArchiveRoots(savePath: String, saveId: String): List<ArchiveRoot>? =
-        unitAt(savePath, titleKeyFor(saveId))?.let(::existingComponents)
+        unitAt(savePath, N3dsTitleIds.fromSaveId(saveId))?.let(::existingComponents)
 
     override suspend fun sourcePathsFor(
         localPath: String,
         context: SaveContext
     ): List<String> = withContext(Dispatchers.IO) {
         val saveId = context.saveId ?: return@withContext listOf(localPath)
-        val unit = unitAt(localPath, titleKeyFor(saveId)) ?: return@withContext listOf(localPath)
+        val unit = unitAt(localPath, N3dsTitleIds.fromSaveId(saveId)) ?: return@withContext listOf(localPath)
         existingComponents(unit).map { it.folder.path }
     }
 
@@ -622,7 +599,7 @@ private class N3dsFolderHandler(
     ): PreparedSave? = withContext(Dispatchers.IO) {
         val saveId = context.saveId
             ?: return@withContext super.prepareForUpload(localPath, context)
-        val unit = unitAt(localPath, titleKeyFor(saveId))
+        val unit = unitAt(localPath, N3dsTitleIds.fromSaveId(saveId))
             ?: return@withContext super.prepareForUpload(localPath, context)
 
         val roots = existingComponents(unit)
@@ -645,7 +622,7 @@ private class N3dsFolderHandler(
 
     override fun unpackArchive(tempFile: File, targetFolder: File, saveId: String?): Boolean {
         val unit = try {
-            saveId?.let { unitAt(targetFolder.path, titleKeyFor(it)) }
+            saveId?.let { unitAt(targetFolder.path, N3dsTitleIds.fromSaveId(it)) }
         } catch (e: IllegalStateException) {
             Logger.error(TAG, "unpackArchive: ambiguous save destinations", e)
             return false
@@ -672,27 +649,10 @@ private class N3dsFolderHandler(
         return saveArchiver.unzipRootsTo(tempFile, destinations.mapValues { fal.getTransformedFile(it.value) })
     }
 
-    private fun titleKeyFor(saveId: String): TitleKey {
-        val flat = saveId.replace("/", "").trim().lowercase()
-        val category = if (flat.length >= FULL_ID_HEX_LENGTH) flat.take(ID_HEX_LENGTH) else BASE_CATEGORY
-        val lowId = flat.takeLast(ID_HEX_LENGTH)
-        val derivedExtdataId = extdataIdFor(lowId)
-        val normalizedTitleId = "$category$lowId"
-        val nativeExtdataId = if (
-            flat.length in setOf(ID_HEX_LENGTH, FULL_ID_HEX_LENGTH) &&
-            normalizedTitleId in nativeExtdataIds
-        ) {
-            nativeExtdataIds.getValue(normalizedTitleId)
-        } else {
-            derivedExtdataId
-        }
-        return TitleKey(category, lowId, nativeExtdataId, derivedExtdataId)
-    }
-
     private fun titleDataPath(id1Root: String, category: String, lowId: String): String =
         "$id1Root/$TITLE_DIR/$category/$lowId/$TITLE_DATA_ROOT"
 
-    private fun extdataPath(id1Root: String, key: TitleKey): String? = key.extdataId?.let { extdataId ->
+    private fun extdataPath(id1Root: String, key: N3dsTitleIds): String? = key.extdataId?.let { extdataId ->
         val parent = "$id1Root/$EXTDATA_DIR/$EXTDATA_HIGH"
         val matches = fal.listFiles(parent).orEmpty()
             .filter { it.isDirectory && it.name.equals(extdataId, ignoreCase = true) }
@@ -719,13 +679,13 @@ private class N3dsFolderHandler(
             .flatMap { id0 -> fal.listFiles(id0.path).orEmpty().filter { it.isDirectory } }
             .map { it.path }
 
-    private fun discoverUnit(basePath: String, key: TitleKey): SaveUnit? =
+    private fun discoverUnit(basePath: String, key: N3dsTitleIds): SaveUnit? =
         id1Roots(basePath)
             .map { unitUnder(it, key) }
             .filter { resolvedPathOf(it) != null }
             .maxByOrNull { unitNewestTime(it) }
 
-    private fun unitUnder(id1Root: String, key: TitleKey): SaveUnit {
+    private fun unitUnder(id1Root: String, key: N3dsTitleIds): SaveUnit {
         val titleData = existingTitleData(id1Root, key) ?: titleDataPath(id1Root, key.category, key.lowId)
         return SaveUnit(titleData, extdataPath(id1Root, key))
     }
@@ -735,7 +695,7 @@ private class N3dsFolderHandler(
      * wins over an update or DLC tree carrying the same low id, then the id's own category, then
      * whichever was written most recently.
      */
-    private fun existingTitleData(id1Root: String, key: TitleKey): String? {
+    private fun existingTitleData(id1Root: String, key: N3dsTitleIds): String? {
         val candidates = fal.listFiles("$id1Root/$TITLE_DIR").orEmpty()
             .filter { it.isDirectory }
             .mapNotNull { categoryDir ->
@@ -752,8 +712,8 @@ private class N3dsFolderHandler(
             .firstOrNull()?.second
     }
 
-    private fun categoryRank(category: String, key: TitleKey): Int = when {
-        category.equals(BASE_CATEGORY, ignoreCase = true) -> 0
+    private fun categoryRank(category: String, key: N3dsTitleIds): Int = when {
+        category.equals(N3dsTitleIds.BASE_CATEGORY, ignoreCase = true) -> 0
         category.equals(key.category, ignoreCase = true) -> 1
         else -> 2
     }
@@ -763,7 +723,7 @@ private class N3dsFolderHandler(
      * `data` directory or the extdata directory. The id1 root above it locates the other. Null
      * for a path that is neither, which callers treat as a plain folder.
      */
-    private fun unitAt(path: String, key: TitleKey): SaveUnit? {
+    private fun unitAt(path: String, key: N3dsTitleIds): SaveUnit? {
         val trimmed = path.trimEnd('/')
         val segments = trimmed.split('/')
         val n = segments.size

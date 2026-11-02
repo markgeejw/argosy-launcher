@@ -50,6 +50,7 @@ class N3dsSigilRestorePathsTest {
     private lateinit var sigil: SigilSaveHandler
     private lateinit var registry: PlatformSaveHandlerRegistry
     private lateinit var route: SigilRoute
+    private lateinit var fal: com.nendo.argosy.data.storage.FileAccessLayer
     private val context = mockk<Context>(relaxed = true)
     private val games = mockk<GameDao>(relaxed = true)
     private val caches = mockk<SaveCacheDao>(relaxed = true)
@@ -75,7 +76,7 @@ class N3dsSigilRestorePathsTest {
         coEvery { states.get(any(), any(), any(), any()) } returns null
         coEvery { prefs.getRommUserId() } returns 7L
         coEvery { prefs.isSecureSaves() } returns true
-        val fal = realFsFal()
+        fal = realFsFal()
         val archiver = SaveArchiver(mockk<AndroidDataAccessor>(relaxed = true), fal)
         sigil = spyk(SigilSaveHandler(
             context, games, emulator, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
@@ -208,6 +209,74 @@ class N3dsSigilRestorePathsTest {
             assertArrayEquals(bytes, file.readBytes())
             coVerify(exactly = 0) { states.upsert(any()) }
         }
+    }
+
+    @Test
+    fun `empty extdata directory hints preserve case without fabricating saves`() = runTest {
+        for (id in listOf("0000055d", "0000055D")) {
+            target = File(temp, id).apply { mkdirs() }
+            route = route.copy(root = target.path)
+            coEvery { sigil.route(GAME_ID, "azahar") } returns route
+            val directory = File(target, "$EXT$id").apply { mkdirs() }
+            assertEquals(SigilCollect.Absent, sigil.collect(GAME_ID, "azahar"))
+            assertEquals(SigilProbe.Absent, sigil.probe(route, GAME_ID))
+            assertTrue(sigil.restoreInto(route, GAME_ID, zip("extdata/main")) is SigilRestore.Restored)
+            assertEquals("cloud", File(directory, "main").readText())
+            val sibling = if (id.endsWith('D')) "0000055d" else "0000055D"
+            assertFalse(File(directory.parentFile, sibling).exists())
+        }
+    }
+
+    @Test
+    fun `empty case collisions refuse collect probe and restore without deleting aliases`() = runTest {
+        coEvery { sigil.route(GAME_ID, "azahar") } returns route
+        val lower = File(target, "${EXT}0000055d").apply { mkdirs() }
+        val upper = File(target, "${EXT}0000055D").apply { mkdirs() }
+        val data = local("${TITLE}00040000/00055e00/data/main")
+        assertTrue(sigil.collect(GAME_ID, "azahar") is SigilCollect.Unreadable)
+        assertTrue(sigil.probe(route, GAME_ID) is SigilProbe.Unreadable)
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("data/main", "extdata/main")) is SigilRestore.Refused)
+        assertEquals("local", data.readText())
+        assertTrue(lower.isDirectory && upper.isDirectory)
+        assertTrue(lower.listFiles().isNullOrEmpty() && upper.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun `known none empty extdata variants are not hints or saves`() = runTest {
+        game = game("000400000008D300")
+        coEvery { sigil.route(GAME_ID, "azahar") } returns route
+        val lower = File(target, "${EXT}000008d3").apply { mkdirs() }
+        val upper = File(target, "${EXT}000008D3").apply { mkdirs() }
+        assertEquals(SigilCollect.Absent, sigil.collect(GAME_ID, "azahar"))
+        assertEquals(SigilProbe.Absent, sigil.probe(route, GAME_ID))
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("extdata/main")) is SigilRestore.Refused)
+        assertTrue(lower.listFiles().isNullOrEmpty() && upper.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun `unreadable extdata is not mistaken for an absent empty directory`() = runTest {
+        coEvery { sigil.route(GAME_ID, "azahar") } returns route
+        val parent = File(target, EXT).apply { mkdirs() }
+        every { fal.listFilesUnion(parent.path.trimEnd('/')) } returns emptyList()
+        every { fal.isListable(parent.path.trimEnd('/')) } returns false
+        assertTrue(sigil.collect(GAME_ID, "azahar") is SigilCollect.Unreadable)
+        assertTrue(sigil.probe(route, GAME_ID) is SigilProbe.Unreadable)
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("extdata/main")) is SigilRestore.Refused)
+        assertTrue(parent.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun `a directory hint alias outside the save root is refused`() = runTest {
+        coEvery { sigil.route(GAME_ID, "azahar") } returns route
+        val outside = File(temp, "outside").apply { mkdirs() }
+        val alias = File(target, "${EXT}0000055D")
+        alias.parentFile?.mkdirs()
+        java.nio.file.Files.createSymbolicLink(alias.toPath(), outside.toPath())
+        assertTrue(sigil.collect(GAME_ID, "azahar") is SigilCollect.Unreadable)
+        assertTrue(sigil.probe(route, GAME_ID) is SigilProbe.Unreadable)
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("extdata/main")) is SigilRestore.Refused)
+        assertTrue(outside.listFiles().isNullOrEmpty())
+        assertTrue(java.nio.file.Files.isSymbolicLink(alias.toPath()))
     }
 
     private fun migrator(): CrossEmulatorSaveMigrator {
