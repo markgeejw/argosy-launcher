@@ -8,6 +8,10 @@ function(argosy_patch_sigil)
         e3d23a536796587786cdde6817abb84aa1d5d122a80b98b4829f6411aa36492e
         b1c408b1f6ee32c161cd184e9f5abbcaafd1e9c8e42f3e11087987a97080af2b
         e427a0db6c51307225dd54253bdbf6f0335ecbcbd3b1b24bfd4cd01552f04c1d)
+    set(patched_hashes
+        f99568dabc86906519784dd7397e324215911e32715a62aba28390b6f40fe4a9
+        8cad768590bebf96c68c5014c38964ce80be6cc8c2700f4444415cf88b05fca5
+        74e39a239fed777a1c88a98910fc7c55e2da00957b85dfd70d5589a5172b75b8)
     file(MAKE_DIRECTORY "${overlay}/src")
     foreach(index RANGE 0 2)
         list(GET files ${index} name)
@@ -19,14 +23,25 @@ function(argosy_patch_sigil)
         configure_file("${source_dir}/src/${name}.c" "${overlay}/src/${name}.c" COPYONLY)
     endforeach()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ARGOSY_SIGIL_PATCH_DIR}/3ds-extdata.patch")
-    find_program(ARGOSY_GIT git REQUIRED)
-    execute_process(
-        COMMAND "${ARGOSY_GIT}" apply --unsafe-paths "--directory=${overlay}" "${ARGOSY_SIGIL_PATCH_DIR}/3ds-extdata.patch"
-        WORKING_DIRECTORY "${overlay}"
-        RESULT_VARIABLE patch_result ERROR_VARIABLE patch_error)
-    if(NOT patch_result EQUAL 0)
-        message(FATAL_ERROR "Sigil patch failed: ${patch_error}")
+    find_program(ARGOSY_PATCH NAMES patch NO_CMAKE_FIND_ROOT_PATH REQUIRED)
+    execute_process(COMMAND "${ARGOSY_PATCH}" --version OUTPUT_VARIABLE patch_version RESULT_VARIABLE version_result)
+    if(NOT version_result EQUAL 0 OR NOT patch_version MATCHES "GNU patch")
+        message(FATAL_ERROR "Sigil patch requires host GNU patch(1)")
     endif()
+    execute_process(
+        COMMAND "${ARGOSY_PATCH}" -p1 -F0 --batch --forward -d "${overlay}" -i "${ARGOSY_SIGIL_PATCH_DIR}/3ds-extdata.patch"
+        RESULT_VARIABLE patch_result OUTPUT_VARIABLE patch_output ERROR_VARIABLE patch_error)
+    if(NOT patch_result EQUAL 0)
+        message(FATAL_ERROR "Sigil patch failed: ${patch_output} ${patch_error}")
+    endif()
+    foreach(index RANGE 0 2)
+        list(GET files ${index} name)
+        list(GET patched_hashes ${index} expected)
+        file(SHA256 "${overlay}/src/${name}.c" actual)
+        if(NOT actual STREQUAL expected)
+            message(FATAL_ERROR "Sigil ${name}.c patched source hash mismatch")
+        endif()
+    endforeach()
     get_target_property(sources sigil SOURCES)
     get_target_property(original_dir sigil SOURCE_DIR)
     set(patched_sources)

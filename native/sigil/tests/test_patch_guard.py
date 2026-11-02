@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 class SigilPatchGuardTest(unittest.TestCase):
-    def configure(self, *, change_source=False, break_patch=False):
+    def configure(self, *, change_source=False, break_patch=False, change_output=False, nested_git=False):
         with tempfile.TemporaryDirectory(prefix="argosy-sigil-patch-") as directory:
             root = pathlib.Path(directory)
             integration = root / "native/sigil"
@@ -24,6 +24,14 @@ class SigilPatchGuardTest(unittest.TestCase):
                     stream.write("\nchanged source\n")
             if break_patch:
                 (integration / "3ds-extdata.patch").write_text("not a patch\n")
+            if change_output:
+                patch = integration / "3ds-extdata.patch"
+                patch.write_text(patch.read_text().replace('"0000055d"', '"0000055c"'))
+            build = root / "build"
+            if nested_git:
+                subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+                subprocess.run(["git", "init", "--quiet", str(root / "sigil")], check=True)
+                build = root / "sigil/bindings/android/.cxx/Debug/arm64-v8a"
             (root / "dummy.c").write_text("int dummy;\n")
             (root / "CMakeLists.txt").write_text(
                 "cmake_minimum_required(VERSION 3.22.1)\n"
@@ -33,11 +41,11 @@ class SigilPatchGuardTest(unittest.TestCase):
                 "argosy_patch_sigil()\n"
             )
             result = subprocess.run(
-                ["cmake", "-S", str(root), "-B", str(root / "build")],
+                ["cmake", "-S", str(root), "-B", str(build)],
                 text=True, capture_output=True,
             )
             if result.returncode == 0:
-                patched = (root / "build/argosy-sigil-patched/src/save_profiles.c").read_text()
+                patched = (build / "argosy-sigil-patched/src/save_profiles.c").read_text()
                 self.assertIn('{ "00040000/00055e00", "0000055d" }', patched)
                 self.assertNotIn("native_ids", (source / "save_profiles.c").read_text())
             return result
@@ -45,6 +53,15 @@ class SigilPatchGuardTest(unittest.TestCase):
     def test_patch_applies_to_a_fresh_source_copy_without_modifying_it(self):
         result = self.configure()
         self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_patch_applies_inside_a_nested_git_worktree(self):
+        result = self.configure(nested_git=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_unexpected_patched_output_fails_closed(self):
+        result = self.configure(change_output=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("patched source hash mismatch", result.stderr)
 
     def test_changed_pinned_source_fails_closed(self):
         result = self.configure(change_source=True)
