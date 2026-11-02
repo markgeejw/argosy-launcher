@@ -1,0 +1,182 @@
+diff --git a/src/save_layout.c b/src/save_layout.c
+index 56edac0..6af0d7e 100644
+--- a/src/save_layout.c
++++ b/src/save_layout.c
+@@ -413,7 +413,7 @@ static const char *const RYUJINX_SUBDIRS[] = { "bis/user/save", "bis/system/save
+  * as data/ and extdata/. */
+ static const sigil_layout_area CTR_AREAS[] = {
+     { "sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{save_id}/data/",
+-      "{save_id}/data/", SIGIL_SAVE_AREA_DEVICE, false, "data/", false },
++      "{save_id}/data/", SIGIL_SAVE_AREA_DEVICE, false, "data/", true },
+     { "sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/extdata/00000000/"
+       "{extdata_id}/",
+       "{save_id}/extdata/", SIGIL_SAVE_AREA_DEVICE, false, "extdata/", true },
+diff --git a/src/save_profiles.c b/src/save_profiles.c
+index 7d2e686..6ea47ea 100644
+--- a/src/save_profiles.c
++++ b/src/save_profiles.c
+@@ -132,19 +132,41 @@ static bool save_id_fits(const sigil_profile_root *p, const char *name) {
+     return p->prefix ? strncmp(name, p->save_id, n) == 0 : strcmp(name, p->save_id) == 0;
+ }
+ 
+-/* A 3DS title's extra data folder: the low half of its id shifted right 8
+- * bits, as 8 lowercase hex digits (00113200 gives 00001132); "" when the
+- * save id has no hex low half. */
+-static void extdata_id_of(const char *save_id, char out[16]) {
+-    const char *low = strrchr(save_id, '/');
+-    low = low ? low + 1 : save_id;
+-    char *end = NULL;
+-    unsigned long value = strtoul(low, &end, 16);
+-    if (!*low || *end) {
+-        out[0] = '\0';
+-        return;
++static bool ctr_layout(const sigil_profile_root *p) {
++    return p->row->save_id_segments == 2 && p->row->area_count == 2 &&
++           strstr(p->row->areas[1].template_, "{extdata_id}") != NULL;
++}
++
++static bool ctr_save_id(char *id, size_t cap) {
++    char flat[17];
++    size_t n = 0;
++    for (const char *c = id; *c; c++) {
++        if (*c == '/' && c == id + 8 && strlen(id) == 17) continue;
++        if (!isxdigit((unsigned char)*c) || n == 16) return false;
++        flat[n++] = (char)tolower((unsigned char)*c);
++    }
++    if (n != 8 && n != 16) return false;
++    flat[n] = '\0';
++    return snprintf(id, cap, "%.*s/%s", 8, n == 8 ? "00040000" : flat, n == 8 ? flat : flat + 8) < (int)cap;
++}
++
++static void extdata_id_of(const sigil_profile_root *p, char out[16]) {
++    out[0] = '\0';
++    if (!ctr_layout(p)) return;
++    static const struct { const char *title; const char *extdata; } native_ids[] = {
++        { "00040000/00055e00", "0000055d" },
++        { "00040000/0011c400", "000011c5" },
++        { "00040000/001b5100", "00001b50" },
++        { "00040000/0008d300", "" },
++    };
++    for (size_t i = 0; i < sizeof(native_ids) / sizeof(native_ids[0]); i++) {
++        if (strcmp(p->save_id, native_ids[i].title) == 0) {
++            snprintf(out, 16, "%s", native_ids[i].extdata);
++            return;
++        }
+     }
+-    snprintf(out, 16, "%08lx", value >> 8);
++    const char *low = strrchr(p->save_id, '/');
++    if (low) snprintf(out, 16, "%08lx", strtoul(low + 1, NULL, 16) >> 8);
+ }
+ 
+ /* The folder a walk bound is the game's: by its save id, or by the extdata id
+@@ -153,12 +175,15 @@ static void extdata_id_of(const char *save_id, char out[16]) {
+  * template with any of them expands. */
+ static bool game_fits(const sigil_profile_root *p, folder_vars *v) {
+     char extdata[16];
+-    extdata_id_of(p->save_id, extdata);
++    extdata_id_of(p, extdata);
+     if (!p->save_id[0]) return false;
+     if (v->category[0] && strcmp(v->category, p->category) != 0) return false;
+     if (!v->category[0]) snprintf(v->category, sizeof(v->category), "%s", p->category);
+-    if (v->save_id[0] && !save_id_fits(p, v->save_id)) return false;
+-    if (!v->save_id[0] && v->extdata_id[0] && strcmp(v->extdata_id, extdata) != 0) return false;
++    if (v->save_id[0] && !(ctr_layout(p) ? strcasecmp(v->save_id, p->save_id) == 0 : save_id_fits(p, v->save_id))) {
++        return false;
++    }
++    if (ctr_layout(p) && v->save_id[0]) snprintf(v->save_id, sizeof(v->save_id), "%s", p->save_id);
++    if (!v->save_id[0] && v->extdata_id[0] && strcasecmp(v->extdata_id, extdata) != 0) return false;
+     if (!v->save_id[0]) snprintf(v->save_id, sizeof(v->save_id), "%s", p->save_id);
+     if (!v->extdata_id[0]) snprintf(v->extdata_id, sizeof(v->extdata_id), "%s", extdata);
+     return true;
+@@ -942,12 +967,30 @@ static void pick(sigil_profile_root *p, const char *id) {
+     snprintf(p->profile, sizeof(p->profile), "%s", id);
+ }
+ 
++static int ctr_extdata_case(const sigil_profile_root *p, folder_vars *v) {
++    if (!ctr_layout(p) || !v->extdata_id[0]) return SIGIL_OK;
++    char found[16] = "";
++    for (size_t i = 0; i < p->req->listing_count; i++) {
++        char path[SIGIL_SAVE_PATH_MAX];
++        folder_vars listed;
++        const char *rest = NULL;
++        if (!p->req->listing[i] || !to_base(p, p->req->listing[i], path) ||
++            !in_folder(p->row, p->row->areas[1].template_, path, &listed, &rest) ||
++            strcasecmp(listed.extdata_id, v->extdata_id) != 0) continue;
++        if (found[0] && strcmp(found, listed.extdata_id) != 0) return SIGIL_ERR_AMBIGUOUS;
++        snprintf(found, sizeof(found), "%s", listed.extdata_id);
++    }
++    if (found[0]) snprintf(v->extdata_id, sizeof(v->extdata_id), "%s", found);
++    return SIGIL_OK;
++}
++
+ int sigil_profile_root_open(const sigil_save_request *req, const sigil_layout_profiles *row, sigil_profile_root *p,
+                             char problem[SIGIL_SAVE_PATH_MAX]) {
+     memset(p, 0, sizeof(*p));
+     p->req = req;
+     p->row = row;
+     if (req->result) snprintf(p->save_id, sizeof(p->save_id), "%s", req->result->save_id);
++    if (ctr_layout(p) && p->save_id[0] && !ctr_save_id(p->save_id, sizeof(p->save_id))) return SIGIL_ERR_INVALID_ARG;
+     p->prefix = row->prefix;
+     if (row->category) {
+         const char *slash = strchr(p->save_id, '/');
+@@ -965,6 +1008,11 @@ int sigil_profile_root_open(const sigil_save_request *req, const sigil_layout_pr
+         if (rc != SIGIL_OK) return rc;
+     }
+ 
++    folder_vars extdata = {0};
++    extdata_id_of(p, extdata.extdata_id);
++    int case_rc = ctr_extdata_case(p, &extdata);
++    if (case_rc != SIGIL_OK) return case_rc;
++
+     int rc = SIGIL_OK;
+     if (row->fixed_profile) add_profile(p, row->fixed_profile, "");
+     else if (!list_reachable(p)) folder_profiles(p);
+@@ -1133,6 +1181,10 @@ int sigil_profile_place(const sigil_profile_root *p, const char *entry, sigil_pr
+                 if (!p->profile[0]) return SIGIL_ERR_NO_TARGET;
+                 snprintf(v.profile, sizeof(v.profile), "%s", p->profile);
+             }
++            if (strstr(row_area->template_, "{extdata_id}")) {
++                int rc = ctr_extdata_case(p, &v);
++                if (rc != SIGIL_OK) return rc;
++            }
+             char base_path[SIGIL_SAVE_PATH_MAX];
+             if (!expand(row_area->template_, &v, rest, base_path, sizeof(base_path))) return SIGIL_ERR_NOT_FOUND;
+             if (to_root(p, base_path, f->path)) return SIGIL_OK;
+diff --git a/src/sync_profiles.c b/src/sync_profiles.c
+index cb2570e..5f74299 100644
+--- a/src/sync_profiles.c
++++ b/src/sync_profiles.c
+@@ -147,9 +147,13 @@ static size_t area_index(int area) {
+ }
+ 
+ /* Two members of `u` before `i` go to the same file. */
+-static bool placed_twice(const incoming_unit *u, size_t i) {
++static bool paths_collide(const incoming_unit *u, size_t i) {
+     for (size_t k = 0; k < i; k++) {
+-        if (u->paths[k][0] && strcmp(u->paths[k], u->paths[i]) == 0) return true;
++        if (!u->paths[k][0]) continue;
++        size_t a = strlen(u->paths[k]), b = strlen(u->paths[i]);
++        if (strcmp(u->paths[k], u->paths[i]) == 0 ||
++            (a < b && strncmp(u->paths[k], u->paths[i], a) == 0 && u->paths[i][a] == '/') ||
++            (b < a && strncmp(u->paths[k], u->paths[i], b) == 0 && u->paths[k][b] == '/')) return true;
+     }
+     return false;
+ }
+@@ -233,7 +237,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
+         }
+         if (rc != SIGIL_OK) {
+             snprintf(r->problem, sizeof(r->problem), "%s", u->members[i].name);
+-            return SIGIL_ERR_NO_TARGET;
++            return rc == SIGIL_ERR_AMBIGUOUS ? rc : SIGIL_ERR_NO_TARGET;
+         }
+         snprintf(u->paths[i], SIGIL_SAVE_PATH_MAX, "%s", f.path);
+         snprintf(u->parts[i].name, sizeof(u->parts[i].name), "%s", f.entry);
+@@ -241,7 +245,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
+         u->folders[i] = skip ? NULL : f.folder;
+         if (!skip) u->carried[area_index(f.area)] = true;
+         if (u->paths[i][0] && !sigil_sync_path_inside(u->paths[i])) return SIGIL_ERR_IO;
+-        if (u->paths[i][0] && placed_twice(u, i)) return SIGIL_ERR_UNSUPPORTED_FORMAT;
++        if (u->paths[i][0] && paths_collide(u, i)) return SIGIL_ERR_UNSUPPORTED_FORMAT;
+     }
+     return SIGIL_OK;
+ }

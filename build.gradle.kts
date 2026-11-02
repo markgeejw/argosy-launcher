@@ -6,6 +6,14 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+project(":sigil") {
+    afterEvaluate {
+        extensions.configure<com.android.build.gradle.LibraryExtension> {
+            externalNativeBuild.cmake.path = rootProject.file("native/sigil/android/CMakeLists.txt")
+        }
+    }
+}
+
 detekt {
     buildUponDefaultConfig = true
     allRules = false

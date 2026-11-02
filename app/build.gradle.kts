@@ -210,6 +210,11 @@ android.applicationVariants.all {
 val runIntegrationTests = project.hasProperty("runIntegrationTests")
 
 tasks.withType<Test> {
+    providers.gradleProperty("sigilHostJniDir").orNull?.let {
+        systemProperty("java.library.path", it)
+        inputs.files(fileTree(it) { include("*sigil-jni*") }).withPropertyName("sigilHostJni")
+    }
+    systemProperty("sigil.requireHostJni", providers.gradleProperty("sigilRequireHostJni").getOrElse("false"))
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
     maxHeapSize = "2g"
     if (name == "testDebugUnitTest" || name == "testReleaseUnitTest") {

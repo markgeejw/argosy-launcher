@@ -512,11 +512,6 @@ private class N3dsFolderHandler(
         val legacyExtdataId: String?
     )
 
-    /**
-     * The two directories one title's save can occupy under an id1 root. [titleData] is where
-     * a `data` root lands whether or not it exists yet; [extdata] is null only when no extdata
-     * id could be derived.
-     */
     private data class SaveUnit(val titleData: String, val extdata: String?)
 
     /**
@@ -648,18 +643,13 @@ private class N3dsFolderHandler(
     override fun pathsClearedBeforeRestore(paths: List<String>, archiveRoots: Set<String>?): List<String> =
         emptyList()
 
-    /**
-     * A `data` root lands in the title tree and an `extdata` root in the extdata tree whichever
-     * component the target names, so an archive holding only extdata restores to the right place
-     * even when the resolved path is the title `data` directory. Each component the archive
-     * carries is replaced, not overlaid, and a component it does not carry is left untouched, so
-     * a legacy archive rooted at `data` alone lands exactly where it always has and never costs
-     * the extdata beside it. A target that is not a component of any unit is unpacked as the
-     * plain folder it was resolved to.
-     */
     override fun unpackArchive(tempFile: File, targetFolder: File, saveId: String?): Boolean {
-        val unit = saveId?.let { unitAt(targetFolder.path, titleKeyFor(it)) }
-            ?: return super.unpackArchive(tempFile, targetFolder, saveId)
+        val unit = try {
+            saveId?.let { unitAt(targetFolder.path, titleKeyFor(it)) }
+        } catch (e: IllegalStateException) {
+            Logger.error(TAG, "unpackArchive: ambiguous save destinations", e)
+            return false
+        } ?: return false
 
         val destinations = buildMap {
             put(TITLE_DATA_ROOT, unit.titleData)
@@ -672,6 +662,9 @@ private class N3dsFolderHandler(
         }
         Logger.debug(TAG, "unpackArchive: placing roots | roots=$archiveRoots, titleData=${unit.titleData}, extdata=${unit.extdata}")
 
+        if (!saveArchiver.validateRootDestinations(tempFile, destinations.mapValues { fal.getTransformedFile(it.value) })) {
+            return false
+        }
         destinations.filterKeys { it in archiveRoots }.values.filter(::isDir).forEach { component ->
             Logger.debug(TAG, "unpackArchive: replacing component the archive carries | path=$component")
             fal.deleteRecursively(component)
@@ -699,8 +692,13 @@ private class N3dsFolderHandler(
     private fun titleDataPath(id1Root: String, category: String, lowId: String): String =
         "$id1Root/$TITLE_DIR/$category/$lowId/$TITLE_DATA_ROOT"
 
-    private fun extdataPath(id1Root: String, key: TitleKey): String? =
-        key.extdataId?.let { "$id1Root/$EXTDATA_DIR/$EXTDATA_HIGH/$it" }
+    private fun extdataPath(id1Root: String, key: TitleKey): String? = key.extdataId?.let { extdataId ->
+        val parent = "$id1Root/$EXTDATA_DIR/$EXTDATA_HIGH"
+        val matches = fal.listFiles(parent).orEmpty()
+            .filter { it.isDirectory && it.name.equals(extdataId, ignoreCase = true) }
+        check(matches.size <= 1) { "Ambiguous 3DS extdata directories for $extdataId under $parent" }
+        matches.singleOrNull()?.path ?: "$parent/$extdataId"
+    }
 
     private fun isDir(path: String): Boolean = fal.exists(path) && fal.isDirectory(path)
 

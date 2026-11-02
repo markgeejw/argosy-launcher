@@ -719,11 +719,32 @@ class SigilSaveHandler @Inject constructor(
             val ids = titleIdCandidates(game)
             val sigilGame = identity(game, ids)
             var refusal: String? = null
-            val arrangements = nativeArrangements(route.layout, Sigil.layoutSubdirs(route.layout), route.options, files)
+            val legacy3ds = game.platformSlug in setOf("3ds", "n3ds") &&
+                files.keys.any { it.substringBefore('/') in setOf("data", "extdata") }
+            val arrangements = if (legacy3ds) {
+                listOf(NativeArrangement(route.layout, files, route.options))
+            } else {
+                nativeArrangements(route.layout, Sigil.layoutSubdirs(route.layout), route.options, files)
+            }
             for (arrangement in arrangements) {
                 val scratch = File(context.cacheDir, "sigil_convert_${System.nanoTime()}")
                 try {
-                    if (!layOut(scratch, arrangement.files)) return@withContext SigilCollect.Unreadable("a save file name leaves the save root")
+                    if (legacy3ds) {
+                        Sigil.restore(
+                            unit = nativeFolderUnit(files),
+                            game = sigilGame,
+                            core = route.layout,
+                            contentPath = contentName(game),
+                            saveRoot = scratch.absolutePath,
+                            options = route.options,
+                            gameIds = ids,
+                            unmanaged = true,
+                            overwriteLocal = true,
+                            fileAccess = PosixFileAccess
+                        )
+                    } else if (!layOut(scratch, arrangement.files)) {
+                        return@withContext SigilCollect.Unreadable("a save file name leaves the save root")
+                    }
                     val result = Sigil.collect(
                         game = sigilGame,
                         core = arrangement.layout,
@@ -750,6 +771,18 @@ class SigilSaveHandler @Inject constructor(
             }
             refusal?.let { SigilCollect.Unreadable(it) } ?: SigilCollect.Absent
         }
+
+    private fun nativeFolderUnit(files: Map<String, ByteArray>): ByteArray {
+        val bytes = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(bytes).use { zip ->
+            files.forEach { (path, data) ->
+                zip.putNextEntry(java.util.zip.ZipEntry(path))
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
+        return bytes.toByteArray()
+    }
 
     private fun layOut(scratch: File, files: Map<String, ByteArray>): Boolean {
         val base = scratch.canonicalFile

@@ -436,4 +436,100 @@ class N3dsExtdataUnitTest {
         assertFalse(result.success)
         assertFalse("nothing is placed from a refused archive", File(destData, "00000001").exists())
     }
+    @Test
+    fun `native extdata case is discovered independently of title data case`() {
+        val titleId = "0004000000055E00"
+        val data = File(sdRoot, "$id0/$id1/title/00040000/00055e00/data").apply { mkdirs() }
+        val ext = File(sdRoot, "$id0/$id1/extdata/00000000/0000055D").apply { mkdirs() }
+        File(data, "main").writeText("data")
+        File(ext, "main").writeText("extdata")
+        assertEquals(listOf(data.path, ext.path), handler.findAllSaveFoldersBySaveId(sdRoot.path, titleId))
+        val archive = File(tempDir, "uppercase.zip")
+        assertTrue(archiver.zipNamedFolders(listOf(ArchiveRoot("extdata", ext)), archive))
+        File(ext, "main").writeText("older")
+        assertTrue(handler.placeArchive(archive, data, titleId))
+        assertEquals("extdata", File(ext, "main").readText())
+        assertEquals("data", File(data, "main").readText())
+        assertFalse(File(ext.parentFile, "0000055d").exists())
+    }
+
+    @Test
+    fun `ambiguous extdata case variants refuse placement before deleting title data`() {
+        val data = File(sdRoot, "$id0/$id1/title/00040000/00055e00/data").apply { mkdirs() }
+        File(data, "main").writeText("local")
+        listOf("0000055d", "0000055D").forEach {
+            File(sdRoot, "$id0/$id1/extdata/00000000/$it").mkdirs()
+        }
+        val archive = File(tempDir, "ambiguous.zip")
+        assertTrue(archiver.zipNamedFolders(listOf(ArchiveRoot("data", data)), archive))
+        assertFalse(handler.placeArchive(archive, data, "00055E00"))
+        assertEquals("local", File(data, "main").readText())
+    }
+
+    @Test
+    fun `all member destinations are validated before any component is cleared`() {
+        val data = writeTitleData(sdRoot)
+        val ext = writeExtdata(sdRoot)
+        for (bad in listOf("extdata/../../escape", "elsewhere/main", "extdata", "data/main/child")) {
+            val archive = File(tempDir, "malformed.zip")
+            java.util.zip.ZipOutputStream(archive.outputStream()).use { zip ->
+                for (name in listOf("data/main", bad)) {
+                    zip.putNextEntry(java.util.zip.ZipEntry(name))
+                    zip.write(byteArrayOf(1))
+                    zip.closeEntry()
+                }
+            }
+            val original = archive.readBytes().toList()
+            assertFalse(handler.placeArchive(archive, data, saveId))
+            assertEquals(listOf<Byte>(1, 2, 3), File(data, "00000001").readBytes().toList())
+            assertEquals(listOf<Byte>(9, 8, 7), File(ext, "user/fl_ext0.fsd").readBytes().toList())
+            assertEquals(original, archive.readBytes().toList())
+        }
+    }
+
+    @Test
+    fun `an unidentified target is not a fallback destination for 3ds roots`() {
+        val data = writeTitleData(sdRoot)
+        val archive = File(tempDir, "unidentified.zip")
+        assertTrue(archiver.zipFolder(data, archive))
+        val target = File(tempDir, "unidentified").apply { mkdirs() }
+        File(target, "local").writeText("local")
+        assertFalse(handler.placeArchive(archive, target, saveId))
+        assertEquals("local", File(target, "local").readText())
+        assertFalse(File(target, "00000001").exists())
+    }
+
+    @Test
+    fun `a corrupt payload and a non-directory destination leave valid components intact`() {
+        val data = writeTitleData(sdRoot)
+        val archive = File(tempDir, "corrupt.zip")
+        val payload = "original payload".toByteArray()
+        java.util.zip.ZipOutputStream(archive.outputStream()).use { zip ->
+            val entry = java.util.zip.ZipEntry("data/main").apply {
+                method = java.util.zip.ZipEntry.STORED
+                size = payload.size.toLong()
+                compressedSize = size
+                crc = java.util.zip.CRC32().also { it.update(payload) }.value
+            }
+            zip.putNextEntry(entry)
+            zip.write(payload)
+            zip.closeEntry()
+        }
+        val bytes = archive.readBytes()
+        bytes[30 + "data/main".length] = (bytes[30 + "data/main".length].toInt() xor 1).toByte()
+        archive.writeBytes(bytes)
+        assertFalse(handler.placeArchive(archive, data, saveId))
+        assertEquals(listOf<Byte>(1, 2, 3), File(data, "00000001").readBytes().toList())
+
+        val ext = writeExtdata(sdRoot)
+        val mixed = File(tempDir, "obstructed.zip")
+        assertTrue(archiver.zipNamedFolders(listOf(ArchiveRoot("data", data), ArchiveRoot("extdata", ext)), mixed))
+        ext.deleteRecursively()
+        ext.writeText("not a directory")
+        assertFalse(handler.placeArchive(mixed, data, saveId))
+        assertEquals(listOf<Byte>(1, 2, 3), File(data, "00000001").readBytes().toList())
+        assertEquals("not a directory", ext.readText())
+        assertEquals(bytes.toList(), archive.readBytes().toList())
+    }
+
 }

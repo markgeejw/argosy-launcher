@@ -111,11 +111,21 @@ root leaves the existing unit unchanged. PSP and PS2 clear every match either
 way, as they always have. `clearSavesForTitle` without an archive remains the
 full clear used by "clear active save" and the account-switch teardown, which
 has already verified the archive holds the whole unit.
-Every door that zips or unpacks a 3DS unit asks the handler for its named
-roots rather than the folder's own name: upload, the local cache, the cache
-restore, the hardcore downgrade and `downloadSaveById` all go through
-`FolderSaveHandler.namedArchiveRoots` / `placeArchive`. `N3dsSaveCaseRepair`
-reconciles the title tree only; extdata directory case is outside its scope.
+Legacy upload, native-format cache, ordinary download and hardcore downgrade
+use `FolderSaveHandler.namedArchiveRoots` / `placeArchive`. Placement validates
+all member destinations and payload CRCs before clearing any component.
+`N3dsSaveCaseRepair` reconciles the title tree only. The folder handler discovers
+an existing extdata-id directory independently of title-directory case and
+refuses ambiguous case variants.
+
+Neutral caches and cross-provider migration use Sigil independently of the
+server's `SAVE_SYNC` capability. The tracked `native/sigil/3ds-extdata.patch`
+provides the same exact-title overrides, known-none refusal, short-id
+normalization and extdata case discovery against pinned Sigil sources. Both
+Android and host builds apply it to build-local copies after verifying source
+hashes; the upstream submodule remains unchanged. Native 3DS caches rooted at
+`data/` and `extdata/` convert through a validated scratch restore before Sigil
+collection. Missing components stay untouched in both implementations.
 
 ### PS2 (`Ps2FolderHandler`)
 

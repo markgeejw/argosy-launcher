@@ -22,7 +22,9 @@ class ForkReleaseContractTest(unittest.TestCase):
         gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertIn('applicationId = "com.nendo.argosy.kaegr"', gradle)
         self.assertIn('namespace = "com.nendo.argosy"', gradle)
-        self.assertIn('versionName = "2.24.0-kaegr.3"', gradle)
+        self.assertIn('versionName = "2.27.3-kaegr.1"', gradle)
+        self.assertEqual(3_036_801, version_guard.validate(*version_guard.source_version(ROOT / "app/build.gradle.kts"), "v2.27.3-kaegr.1"))
+        self.assertGreater(3_036_801, 3_035_803)
         debug_strings = (ROOT / "app/src/debug/res/values/strings.xml").read_text()
         self.assertIn("Argosy kaegr DBG", debug_strings)
 
@@ -83,24 +85,40 @@ class ForkReleaseContractTest(unittest.TestCase):
 
     def test_version_guard_accepts_the_current_fork_version(self):
         self.assertEqual(
-            3_035_801,
-            version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_801),
+            3_036_801,
+            version_guard.validate("2.27.3-kaegr.1", 36_801, "v2.27.3-kaegr.1", 3_036_801),
         )
 
+    def test_version_guard_keeps_the_fork_suffix_range(self):
+        self.assertEqual(3_036_899, version_guard.validate("2.27.3-kaegr.99", 36_899, "v2.27.3-kaegr.99"))
+        for suffix in ("0", "01", "100"):
+            with self.subTest(suffix=suffix), self.assertRaises(ValueError):
+                version_guard.validate(f"2.27.3-kaegr.{suffix}", 36_801, f"v2.27.3-kaegr.{suffix}")
+
+    def test_native_patch_tests_are_required_before_signing(self):
+        source = WORKFLOW.read_text()
+        self.assertLess(source.index("Test patched Sigil sources"), source.index("Write signing config"))
+        self.assertIn("cmake -S native/sigil", source)
+        self.assertEqual(2, source.count("-PsigilRequireHostJni=true"))
+        self.assertIn('native/sigil/android/CMakeLists.txt', (ROOT / 'build.gradle.kts').read_text())
+        patch_guard = (ROOT / 'native/sigil/ApplyPatch.cmake').read_text()
+        self.assertIn('file(SHA256', patch_guard)
+        self.assertIn('message(FATAL_ERROR', patch_guard)
+
     def test_version_guard_rejects_a_tag_suffix_and_source_code_mismatch(self):
-        with self.assertRaisesRegex(ValueError, "versionCode 35801 does not match expected 35802"):
-            version_guard.validate("2.24.0-kaegr.2", 35_801, "v2.24.0-kaegr.2")
+        with self.assertRaisesRegex(ValueError, "versionCode 36801 does not match expected 36802"):
+            version_guard.validate("2.27.3-kaegr.2", 36_801, "v2.27.3-kaegr.2")
 
     def test_version_guard_rejects_an_unmapped_upstream_version(self):
-        for upstream in ("2.24.1", "2.25.0", "3.0.0"):
+        for upstream in ("2.24.0", "2.24.1", "2.25.0", "2.27.2", "3.0.0"):
             with self.subTest(upstream=upstream), self.assertRaises(ValueError):
-                version_guard.validate(f"{upstream}-kaegr.1", 35_801, f"v{upstream}-kaegr.1")
+                version_guard.validate(f"{upstream}-kaegr.1", 36_801, f"v{upstream}-kaegr.1")
 
     def test_version_guard_rejects_the_wrong_universal_apk_code(self):
-        with self.assertRaisesRegex(ValueError, "APK versionCode 3035802 does not match expected 3035801"):
-            version_guard.validate("2.24.0-kaegr.1", 35_801, "v2.24.0-kaegr.1", 3_035_802)
+        with self.assertRaisesRegex(ValueError, "APK versionCode 3036802 does not match expected 3036801"):
+            version_guard.validate("2.27.3-kaegr.1", 36_801, "v2.27.3-kaegr.1", 3_036_802)
 
-    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version="2.24.0-kaegr.3", code="3035803"):
+    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version="2.27.3-kaegr.1", code="3036801"):
         source = WORKFLOW.read_text()
         match = re.search(
             r"      - name: Verify signed APK identity\n.*?        run: \|\n(?P<body>.*?)(?=\n      - name: Upload APK identity reports)",
@@ -139,7 +157,7 @@ class ForkReleaseContractTest(unittest.TestCase):
                 "MOCK_PACKAGE": package,
                 "MOCK_VERSION": version,
                 "MOCK_CODE": code,
-                "RELEASE_TAG": "v2.24.0-kaegr.3",
+                "RELEASE_TAG": "v2.27.3-kaegr.1",
             }
             return subprocess.run(["sh", str(script)], cwd=ROOT, env=env, text=True, capture_output=True)
 
@@ -193,8 +211,8 @@ class ForkReleaseContractTest(unittest.TestCase):
     def test_identity_guard_rejects_wrong_package_version_and_code(self):
         for values, label in [
             ({"package": "com.example.other"}, "identity-package:"),
-            ({"version": "2.24.0-kaegr.1"}, "identity-version:"),
-            ({"code": "3035801"}, "identity-version:"),
+            ({"version": "2.24.0-kaegr.3"}, "identity-version:"),
+            ({"code": "3035803"}, "identity-version:"),
         ]:
             with self.subTest(values=values):
                 result = self.identity_guard_result(**values)

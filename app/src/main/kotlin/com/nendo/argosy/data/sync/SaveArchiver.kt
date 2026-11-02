@@ -493,6 +493,44 @@ class SaveArchiver @Inject constructor(
         }
     }
 
+    fun validateRootDestinations(sourceZip: File, destinations: Map<String, File>): Boolean = try {
+        ZipFile.builder().setFile(sourceZip).get().use { zip ->
+            val entries = zip.entries.toList()
+            val paths = mutableMapOf<String, Boolean>()
+            val buffer = ByteArray(BUFFER_SIZE)
+            val valid = entries.isNotEmpty() && entries.all { entry ->
+                val name = entry.name
+                val destination = destinations[name.substringBefore('/')] ?: return@all false
+                val relative = name.substringAfter('/', "")
+                val target = File(destination, relative)
+                val ancestors = generateSequence(destination) { it.parentFile }
+                if (!name.contains('/') || entry.isUnixSymlink || !zip.canReadEntryData(entry) ||
+                    (relative.isEmpty() && !entry.isDirectory) ||
+                    !FileNames.isWithin(target, destination) || paths.put(target.canonicalPath, entry.isDirectory) != null ||
+                    ancestors.any { it.exists() && !it.isDirectory }
+                ) return@all false
+                if (entry.isDirectory) return@all true
+                val crc = java.util.zip.CRC32()
+                var size = 0L
+                zip.getInputStream(entry).use { input ->
+                    var count = input.read(buffer)
+                    while (count != -1) {
+                        crc.update(buffer, 0, count)
+                        size += count
+                        count = input.read(buffer)
+                    }
+                }
+                size == entry.size && crc.value == entry.crc
+            }
+            valid && paths.none { (path, directory) ->
+                !directory && paths.keys.any { it.startsWith(path + File.separator) }
+            }
+        }
+    } catch (e: Exception) {
+        Logger.error(TAG, "[SaveSync] ARCHIVE | Invalid root destinations | zip=${sourceZip.name}", e)
+        false
+    }
+
     private fun extractRoots(sourceZip: File, writeDirs: Map<String, File>): Boolean {
         return try {
             var fileCount = 0

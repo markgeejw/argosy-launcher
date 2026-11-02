@@ -51,6 +51,13 @@ jobs:
           --source app/build.gradle.kts
           --tag "$RELEASE_TAG"
 
+      - name: Test patched Sigil sources
+        run: |
+          python3 -m unittest discover -s native/sigil/tests -p 'test_*.py'
+          cmake -S native/sigil -B "$RUNNER_TEMP/argosy-sigil-host" -DCMAKE_BUILD_TYPE=Debug -DSIGIL_BUILD_JNI_HOST=ON
+          cmake --build "$RUNNER_TEMP/argosy-sigil-host" --parallel 2
+          ctest --test-dir "$RUNNER_TEMP/argosy-sigil-host" --output-on-failure
+
       - name: Run full lint
         run: >-
           ./gradlew lint -PquayPassDark
@@ -60,12 +67,14 @@ jobs:
       - name: Run debug unit tests
         run: >-
           ./gradlew testDebugUnitTest -PquayPassDark
+          -PsigilHostJniDir=${{ runner.temp }}/argosy-sigil-host/bindings -PsigilRequireHostJni=true
           -Pkotlin.compiler.execution.strategy=in-process
           -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
 
       - name: Run release unit tests
         run: >-
           ./gradlew testReleaseUnitTest -PquayPassDark
+          -PsigilHostJniDir=${{ runner.temp }}/argosy-sigil-host/bindings -PsigilRequireHostJni=true
           -Pkotlin.compiler.execution.strategy=in-process
           -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
 
