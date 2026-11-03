@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.os.StatFs
 import com.nendo.argosy.data.emulator.BuiltinCoreResolver
 import com.nendo.argosy.data.emulator.EmulatorRegistry
@@ -450,30 +451,35 @@ class SaveSyncApiClient @Inject constructor(
             return@withContext false
         }
 
-        val matchesAtTarget = handler.findAllSaveFoldersBySaveId(targetPath, titleId)
-        val (parentPath, matches) = if (matchesAtTarget.isNotEmpty()) {
-            targetPath to matchesAtTarget
-        } else {
-            val p = File(targetPath).parent ?: return@withContext true
-            p to handler.findAllSaveFoldersBySaveId(p, titleId)
-        }
-        if (matches.isEmpty()) {
-            Logger.debug(TAG, "clearSavesForTitle: no prefix matches for titleId=$titleId at parent=$parentPath, nothing to clear")
-            return@withContext true
-        }
+        try {
+            val matchesAtTarget = handler.findAllSaveFoldersBySaveId(targetPath, titleId)
+            val (parentPath, matches) = if (matchesAtTarget.isNotEmpty()) {
+                targetPath to matchesAtTarget
+            } else {
+                val p = File(targetPath).parent ?: return@withContext true
+                p to handler.findAllSaveFoldersBySaveId(p, titleId)
+            }
+            if (matches.isEmpty()) {
+                Logger.debug(TAG, "clearSavesForTitle: no prefix matches for titleId=$titleId at parent=$parentPath, nothing to clear")
+                return@withContext true
+            }
 
-        val selected = selectFor(handler)(matches)
-        if (selected.size != matches.size) {
-            Logger.debug(TAG, "clearSavesForTitle: keeping ${matches.size - selected.size} component(s) the incoming archive does not carry | titleId=$titleId, kept=${matches - selected.toSet()}")
-        }
-        if (selected.isEmpty()) return@withContext true
+            val selected = selectFor(handler)(matches)
+            if (selected.size != matches.size) {
+                Logger.debug(TAG, "clearSavesForTitle: keeping ${matches.size - selected.size} component(s) the incoming archive does not carry | titleId=$titleId, kept=${matches - selected.toSet()}")
+            }
+            if (selected.isEmpty()) return@withContext true
 
-        Logger.debug(TAG, "clearSavesForTitle: deleting ${selected.size} folder(s) | titleId=$titleId, parent=$parentPath")
-        var allOk = true
-        for (path in selected) {
-            if (!clearSaveAtPath(path)) allOk = false
+            Logger.debug(TAG, "clearSavesForTitle: deleting ${selected.size} folder(s) | titleId=$titleId, parent=$parentPath")
+            var allOk = true
+            for (path in selected) {
+                if (!clearSaveAtPath(path)) allOk = false
+            }
+            allOk
+        } catch (e: SaveAccessException) {
+            Logger.error(TAG, "clearSavesForTitle: ambiguous save location", e)
+            false
         }
-        allOk
     }
 
     suspend fun discoverSavePathChecked(

@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.content.Context
 import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.GameCubeHeaderParser
@@ -61,6 +62,20 @@ class SaveUploader @Inject constructor(
         forceOverwrite: Boolean = false,
         isHardcore: Boolean = false,
         uploadedCacheId: Long? = null
+    ): SaveSyncResult = try {
+        uploadAccessibleSave(gameId, emulatorId, channelName, forceOverwrite, isHardcore, uploadedCacheId)
+    } catch (e: SaveAccessException) {
+        Logger.error(TAG, "[SaveSync] UPLOAD | Ambiguous save location", e)
+        SaveSyncResult.Error(e.message ?: "Unreadable save location")
+    }
+
+    private suspend fun uploadAccessibleSave(
+        gameId: Long,
+        emulatorId: String,
+        channelName: String?,
+        forceOverwrite: Boolean,
+        isHardcore: Boolean,
+        uploadedCacheId: Long?
     ): SaveSyncResult = withContext(Dispatchers.IO) {
         Logger.debug(TAG, "[SaveSync] UPLOAD gameId=$gameId emulator=$emulatorId channel=$channelName | Starting upload")
         val client = apiClient.get()

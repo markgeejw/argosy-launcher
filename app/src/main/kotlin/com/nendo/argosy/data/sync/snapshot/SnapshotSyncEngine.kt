@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.sync.snapshot
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.content.Context
 import com.nendo.argosy.data.emulator.ArchiveRomNaming
 import com.nendo.argosy.data.emulator.EmulatorRegistry
@@ -315,19 +316,26 @@ class SnapshotSyncEngine @Inject constructor(
         }
 
     private suspend fun nativeSave(game: GameEntity, emulatorId: String): LocalSave {
-        val client = apiClient.get()
-        val savePath = client.discoverSavePath(
-            emulatorId = emulatorId,
-            gameTitle = game.title,
-            platformSlug = game.platformSlug,
-            romPath = game.localPath,
-            cachedSaveId = game.saveId ?: game.titleId,
-            coreName = client.resolveCoreForGame(game, emulatorId),
-            emulatorPackage = emulatorResolver.getEmulatorPackageForGame(game.id, game.platformId, game.platformSlug),
-            gameId = game.id
-        ) ?: return LocalSave.None
-        val hash = saveCacheManager.get().calculateLocalSaveHash(savePath, game.id, emulatorId) ?: return LocalSave.None
-        return LocalSave.Native(savePath, hash)
+        try {
+            val client = apiClient.get()
+            val savePath = client.discoverSavePath(
+                emulatorId = emulatorId,
+                gameTitle = game.title,
+                platformSlug = game.platformSlug,
+                romPath = game.localPath,
+                cachedSaveId = game.saveId ?: game.titleId,
+                coreName = client.resolveCoreForGame(game, emulatorId),
+                emulatorPackage = emulatorResolver.getEmulatorPackageForGame(game.id, game.platformId, game.platformSlug),
+                gameId = game.id
+            ) ?: return LocalSave.None
+            return when (val probe = saveCacheManager.get().probeLocalSave(savePath, game.id, emulatorId)) {
+                is SaveCacheManager.LocalSaveProbe.Present -> LocalSave.Native(savePath, probe.contentHash)
+                SaveCacheManager.LocalSaveProbe.Absent -> LocalSave.None
+                SaveCacheManager.LocalSaveProbe.Unreadable -> LocalSave.Unreadable("Unreadable save location")
+            }
+        } catch (e: SaveAccessException) {
+            return LocalSave.Unreadable(e.message ?: "Unreadable save location")
+        }
     }
 
     private fun held(ctx: ChannelView): SnapshotPoint? {

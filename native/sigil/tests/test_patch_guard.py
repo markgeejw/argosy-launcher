@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 class SigilPatchGuardTest(unittest.TestCase):
-    def configure(self, *, change_source=False, break_patch=False, change_output=False, nested_git=False):
+    def configure(self, *, change_source=False, break_patch=False, change_output=False, nested_git=False, change_after_configure=None, generator=None):
         with tempfile.TemporaryDirectory(prefix="argosy-sigil-patch-") as directory:
             root = pathlib.Path(directory)
             integration = root / "native/sigil"
@@ -41,13 +41,17 @@ class SigilPatchGuardTest(unittest.TestCase):
                 "argosy_patch_sigil()\n"
             )
             result = subprocess.run(
-                ["cmake", "-S", str(root), "-B", str(build)],
+                ["cmake", "-S", str(root), "-B", str(build)] + (["-G", generator] if generator else []),
                 text=True, capture_output=True,
             )
             if result.returncode == 0:
                 patched = (build / "argosy-sigil-patched/src/save_profiles.c").read_text()
                 self.assertIn('{ "00040000/00055e00", "0000055d" }', patched)
                 self.assertNotIn("native_ids", (source / "save_profiles.c").read_text())
+                if change_after_configure:
+                    with (source / change_after_configure).open("a") as stream:
+                        stream.write("\nchanged pinned source\n")
+                    result = subprocess.run(["cmake", "--build", str(build)], text=True, capture_output=True)
             return result
 
     def test_patch_applies_to_a_fresh_source_copy_without_modifying_it(self):
@@ -67,6 +71,20 @@ class SigilPatchGuardTest(unittest.TestCase):
         result = self.configure(change_source=True)
         self.assertNotEqual(0, result.returncode)
         self.assertRegex(result.stderr, r"differs from pinned\s+794d99fe")
+
+    def test_incremental_build_rechecks_each_pinned_source(self):
+        for name in ("save_profiles.c", "save_layout.c", "sync_profiles.c"):
+            with self.subTest(name=name):
+                result = self.configure(change_after_configure=name)
+                self.assertNotEqual(0, result.returncode)
+                self.assertRegex(result.stderr, r"differs from pinned\s+794d99fe")
+
+    @unittest.skipUnless(shutil.which("ninja"), "Ninja unavailable")
+    def test_ninja_incremental_build_has_no_duplicate_dependency_rules(self):
+        result = self.configure(nested_git=True, change_after_configure="save_layout.c", generator="Ninja")
+        self.assertNotEqual(0, result.returncode)
+        self.assertRegex(result.stderr, r"differs from pinned\s+794d99fe")
+        self.assertNotIn("multiple rules generate", result.stderr)
 
     def test_invalid_patch_fails_closed(self):
         result = self.configure(break_patch=True)

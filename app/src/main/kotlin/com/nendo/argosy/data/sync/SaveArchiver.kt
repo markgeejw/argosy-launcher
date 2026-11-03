@@ -498,18 +498,10 @@ class SaveArchiver @Inject constructor(
             val entries = zip.entries.toList()
             val paths = mutableMapOf<String, Boolean>()
             val buffer = ByteArray(BUFFER_SIZE)
-            val valid = entries.isNotEmpty() && entries.all { entry ->
+            for (entry in entries) {
                 val name = entry.name
-                val destination = destinations[name.substringBefore('/')] ?: return@all false
-                val relative = name.substringAfter('/', "")
-                val target = File(destination, relative)
-                val ancestors = generateSequence(destination) { it.parentFile }
-                if (!name.contains('/') || entry.isUnixSymlink || !zip.canReadEntryData(entry) ||
-                    (relative.isEmpty() && !entry.isDirectory) ||
-                    !FileNames.isWithin(target, destination) || paths.put(target.canonicalPath, entry.isDirectory) != null ||
-                    ancestors.any { it.exists() && !it.isDirectory }
-                ) return@all false
-                if (entry.isDirectory) return@all true
+                if (!zip.canReadEntryData(entry)) throw CorruptZipException("Unreadable zip entry: $name")
+                if (entry.isDirectory) continue
                 val crc = java.util.zip.CRC32()
                 var size = 0L
                 zip.getInputStream(entry).use { input ->
@@ -520,12 +512,33 @@ class SaveArchiver @Inject constructor(
                         count = input.read(buffer)
                     }
                 }
-                size == entry.size && crc.value == entry.crc
+                if (size != entry.size || crc.value != entry.crc) throw CorruptZipException("Zip size or CRC mismatch: $name")
+            }
+            val valid = entries.isNotEmpty() && entries.all { entry ->
+                try {
+                    val name = entry.name
+                    val destination = destinations[name.substringBefore('/')] ?: return@all false
+                    val relative = name.substringAfter('/', "")
+                    val target = File(destination, relative)
+                    val ancestors = generateSequence(destination) { it.parentFile }
+                    if (!name.contains('/') || entry.isUnixSymlink ||
+                        (relative.isEmpty() && !entry.isDirectory) ||
+                        !FileNames.isWithin(target, destination) || paths.put(target.canonicalPath, entry.isDirectory) != null ||
+                        ancestors.any { it.exists() && !it.isDirectory }
+                    ) return@all false
+                    true
+                } catch (e: java.io.IOException) {
+                    false
+                }
             }
             valid && paths.none { (path, directory) ->
                 !directory && paths.keys.any { it.startsWith(path + File.separator) }
             }
         }
+    } catch (e: CorruptZipException) {
+        throw e
+    } catch (e: java.io.IOException) {
+        throw CorruptZipException("Source zip is damaged: ${e.message}", e)
     } catch (e: Exception) {
         Logger.error(TAG, "[SaveSync] ARCHIVE | Invalid root destinations | zip=${sourceZip.name}", e)
         false

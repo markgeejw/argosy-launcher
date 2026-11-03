@@ -72,7 +72,14 @@ class ReconcileEffectApplier @Inject constructor(
             )
         }
         val clientHash = existing?.localSavePath?.let {
-            saveCacheManager.get().calculateLocalSaveHash(it, existing.gameId, existing.emulatorId)
+            when (val probe = saveCacheManager.get().probeLocalSave(it, existing.gameId, existing.emulatorId)) {
+                is com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Present -> probe.contentHash
+                com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Absent -> null
+                com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Unreadable -> {
+                    Logger.warn(TAG, "Conflict save location unreadable; leaving sync state unchanged | path=$it")
+                    return ReconcileEffectOutcome.NONE
+                }
+            }
         }
         val localTime = resolveLocalTimeFromEntity(existing, fallback = null)
 

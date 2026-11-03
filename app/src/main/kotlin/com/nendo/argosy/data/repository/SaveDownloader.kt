@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.content.Context
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.GameCubeHeaderParser
@@ -130,6 +131,19 @@ class SaveDownloader @Inject constructor(
     }
 
     private suspend fun downloadSaveLocked(
+        gameId: Long,
+        emulatorId: String,
+        channelName: String?,
+        skipBackup: Boolean,
+        knownServerSaveId: Long?,
+        fromSnapshot: Boolean
+    ): SaveSyncResult = try {
+        downloadFromAccessibleLocation(gameId, emulatorId, channelName, skipBackup, knownServerSaveId, fromSnapshot)
+    } catch (e: SaveAccessException) {
+        SaveSyncResult.Error(e.message ?: "Unreadable save location")
+    }
+
+    private suspend fun downloadFromAccessibleLocation(
         gameId: Long,
         emulatorId: String,
         channelName: String?,

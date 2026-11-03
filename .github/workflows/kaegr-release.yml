@@ -107,6 +107,10 @@ jobs:
           -Pkotlin.compiler.execution.strategy=in-process
           -Dorg.gradle.jvmargs="-Xmx12g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
 
+      - name: Verify patched Sigil in release APK
+        run: |
+          python3 scripts/ci/verify_sigil_apk.py app/build/outputs/apk/release/app-release.apk
+
       - name: Verify signed APK identity
         env:
           EXPECTED_SIGNER_SHA256: ${{ secrets.KAEGR_SIGNER_SHA256 }}

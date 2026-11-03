@@ -91,6 +91,8 @@ class SyncCoordinatorApplyPlanTest {
         coEvery { mockSaveSyncRepository.resolveEmulatorForGame(any()) } returns "mgba"
         mockSaveCacheManager = mockk(relaxed = true)
         val payloadCodec = SyncPayloadCodec(com.squareup.moshi.Moshi.Builder().build())
+        coEvery { mockSaveCacheManager.probeLocalSave(any(), any(), any()) } returns
+            com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Absent
         val effectApplier = ReconcileEffectApplier(
             pendingSyncQueueDao = pendingSyncQueueDao,
             saveSyncDao = saveSyncDao,
@@ -340,7 +342,8 @@ class SyncCoordinatorApplyPlanTest {
             lastUploadedHash = "server-anchor",
             localContentHash = "client-anchor"
         )
-        coEvery { mockSaveCacheManager.calculateLocalSaveHash("/storage/saves/g.srm", any(), any()) } returns "live-local"
+        coEvery { mockSaveCacheManager.probeLocalSave("/storage/saves/g.srm", any(), any()) } returns
+            com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Present("live-local")
         val captured = slot<PendingConflictEntity>()
         coEvery { pendingConflictDao.upsert(capture(captured)) } returns 1L
 

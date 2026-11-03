@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.SavePathRegistry
 import com.nendo.argosy.data.local.dao.EmulatorConfigDao
@@ -190,7 +191,11 @@ class SaveSyncConflictResolver @Inject constructor(
         val cachedPath = syncEntity?.localSavePath?.takeIf { path ->
             saveHandlerRegistry.isValidCachedSavePath(game.platformSlug, path) && fal.exists(path)
         }
-        if (cachedPath != null) return cachedPath
+        if (cachedPath != null) {
+            val saveId = game.saveId ?: game.titleId
+            if (saveId != null) saveHandlerRegistry.getFolderHandler(game.platformSlug)?.namedArchiveRoots(cachedPath, saveId)
+            return cachedPath
+        }
         if (syncEntity?.localSavePath != null) {
             Logger.debug(TAG, "[SaveSync] findLocalSavePath gameId=$gameId | Cached path stale on disk, re-discovering")
         }
@@ -224,7 +229,12 @@ class SaveSyncConflictResolver @Inject constructor(
         val game = gameDao.getById(gameId) ?: return@withContext SyncAnalysis.NoLocalSave
         val rommId = game.rommId ?: return@withContext SyncAnalysis.NoConnection
 
-        val localPath = findLocalSavePath(gameId, emulatorId, channelName)
+        val localPath = try {
+            findLocalSavePath(gameId, emulatorId, channelName)
+        } catch (e: SaveAccessException) {
+            Logger.warn(TAG, "analyzeChannel: ambiguous save location", e)
+            return@withContext SyncAnalysis.NoConnection
+        }
         val localFile = localPath?.let { File(it) }?.takeIf { it.exists() }
 
         val serverSaves = try {

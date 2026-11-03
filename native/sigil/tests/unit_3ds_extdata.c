@@ -212,6 +212,86 @@ static void known_none(void) {
     }
 }
 
+static void title_directory_case(void) {
+    mem_root root = {0};
+    const char *path = TITLE "00040000/00055E00/data/main";
+    text(&root, path, "local");
+    game g;
+    init(&g, &root, "00055e00", "azahar");
+    const char *names[] = { "data/main" };
+    sigil_sync_result incoming = unit(names, 1), *r = NULL;
+    CHECK(restore(&g, &incoming, &r) == SIGIL_OK);
+    CHECK(holds(&root, path, "cloud"));
+    CHECK(!root_find(&root, TITLE "00040000/00055e00/data/main"));
+    CHECK(root.writes == 1 && root.removes == 0);
+    sigil_sync_result_free(r);
+    r = NULL;
+    CHECK(collect(&g, &r) == SIGIL_OK);
+    sigil_zip_member *members = NULL;
+    size_t count = 0;
+    CHECK(r && sigil_zip_read_mem(r->data, r->len, 1024, &members, &count) == SIGIL_OK);
+    CHECK(count == 1 && strcmp(members[0].name, "00040000/00055e00/data/main") == 0);
+    sigil_zip_members_free(members, count);
+    sigil_sync_result_free(r);
+    text(&root, TITLE "00040000/00055e00/data/main", "alias");
+    int writes = root.writes;
+    r = NULL;
+    CHECK(restore(&g, &incoming, &r) == SIGIL_ERR_AMBIGUOUS);
+    CHECK(root.writes == writes && root.removes == 0);
+    CHECK(holds(&root, path, "cloud"));
+    CHECK(holds(&root, TITLE "00040000/00055e00/data/main", "alias"));
+    sigil_sync_result_free(r);
+    r = NULL;
+    CHECK(collect(&g, &r) == SIGIL_ERR_AMBIGUOUS);
+    CHECK(root.writes == writes && root.removes == 0);
+    sigil_sync_result_free(r);
+    free(incoming.data);
+    root_free(&root);
+}
+
+static void empty_title_directory_case(void) {
+    mem_root root = {0};
+    text(&root, TITLE "00040000/00055E00/", "");
+    game g;
+    init(&g, &root, "00055e00", "azahar");
+    const char *names[] = { "data/main" };
+    sigil_sync_result incoming = unit(names, 1), *r = NULL;
+    CHECK(collect(&g, &r) == SIGIL_OK);
+    CHECK(r && !r->data && !r->len);
+    sigil_sync_result_free(r);
+    r = NULL;
+    CHECK(restore(&g, &incoming, &r) == SIGIL_OK);
+    CHECK(holds(&root, TITLE "00040000/00055E00/data/main", "cloud"));
+    CHECK(!root_find(&root, TITLE "00040000/00055e00/data/main"));
+    CHECK(root.writes == 1 && root.removes == 0);
+    sigil_sync_result_free(r);
+    text(&root, TITLE "00040000/00055e00/", "");
+    r = NULL;
+    CHECK(restore(&g, &incoming, &r) == SIGIL_ERR_AMBIGUOUS);
+    CHECK(root.writes == 1 && root.removes == 0);
+    sigil_sync_result_free(r);
+    r = NULL;
+    CHECK(collect(&g, &r) == SIGIL_ERR_AMBIGUOUS);
+    sigil_sync_result_free(r);
+    free(incoming.data);
+    root_free(&root);
+}
+
+static void fresh_extdata_case(void) {
+    mem_root root = {0};
+    game g;
+    init(&g, &root, "00055e00", "azahar");
+    const char *names[] = { "extdata/main" };
+    sigil_sync_result incoming = unit(names, 1), *r = NULL;
+    CHECK(restore(&g, &incoming, &r) == SIGIL_OK);
+    CHECK(holds(&root, EXT "0000055D/main", "cloud"));
+    CHECK(!root_find(&root, EXT "0000055d/main"));
+    CHECK(root.writes == 1 && root.removes == 0);
+    sigil_sync_result_free(r);
+    free(incoming.data);
+    root_free(&root);
+}
+
 static void malformed_ids(void) {
     const char *ids[] = { "00055E0", "00040000/00055e00/extra", "00040000/not-hex!" };
     for (size_t i = 0; i < 3; i++) {
@@ -265,6 +345,9 @@ static void empty_directory_hints(void) {
 }
 
 int main(void) {
+    fresh_extdata_case();
+    empty_title_directory_case();
+    title_directory_case();
     empty_directory_hints();
     malformed_ids();
     verified_ids();

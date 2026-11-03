@@ -56,6 +56,8 @@ class ReconcileEffectApplierTest {
         saveSyncRepository = mockk(relaxed = true)
         coEvery { saveSyncRepository.resolveEmulatorForGame(any()) } returns "mgba"
         coEvery { gameDao.getByRommId(100L) } returns game
+        coEvery { saveCacheManager.probeLocalSave(any(), any(), any()) } returns
+            com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Absent
 
         applier = ReconcileEffectApplier(
             pendingSyncQueueDao = pendingSyncQueueDao,
@@ -258,6 +260,21 @@ class ReconcileEffectApplierTest {
 
         assertEquals(0, outcome.applied)
         coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+    }
+
+    @Test
+    fun `CONFLICT with unreadable local roots leaves sync rows and remote work unchanged`() = runTest {
+        coEvery { saveSyncDao.getByGameEmulatorAndChannel(any(), any(), any(), any()) } returns SaveSyncEntity(
+            gameId = game.id, rommId = 100L, emulatorId = "mgba", channelName = "autosave",
+            localSavePath = "/saves/ambiguous", syncStatus = SaveSyncEntity.STATUS_CONFLICT
+        )
+        coEvery { saveCacheManager.probeLocalSave(any(), any(), any()) } returns
+            com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Unreadable
+        assertEquals(ReconcileEffectOutcome.NONE, applier.apply(op(ReconcileAction.CONFLICT), sessionId = null))
+        coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+        coVerify(exactly = 0) { pendingSyncQueueDao.insert(any()) }
+        coVerify(exactly = 0) { pendingConflictDao.upsert(any()) }
+        coVerify(exactly = 0) { conflictAutoResolver.classify(any(), any()) }
     }
 
     @Test

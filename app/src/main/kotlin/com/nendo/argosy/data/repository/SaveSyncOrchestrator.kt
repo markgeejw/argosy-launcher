@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.getByIdsChunked
@@ -152,7 +153,7 @@ class SaveSyncOrchestrator @Inject constructor(
             val emulatorPackage = emulatorResolver.getEmulatorPackageForGame(game.id, game.platformId, game.platformSlug)
             val coreName = client.resolveCoreForGame(game, emulatorId)
 
-            val savePath = savePathResolver.discoverSavePath(
+            val lookup = savePathResolver.discoverSavePathChecked(
                 emulatorId = emulatorId,
                 gameTitle = game.title,
                 platformSlug = game.platformSlug,
@@ -161,7 +162,15 @@ class SaveSyncOrchestrator @Inject constructor(
                 coreName = coreName,
                 emulatorPackage = emulatorPackage,
                 gameId = game.id
-            ) ?: continue
+            )
+            val savePath = when (lookup) {
+                is SaveLookup.Found -> lookup.path
+                SaveLookup.Absent -> continue
+                is SaveLookup.Unreadable -> {
+                    saveAccessNotices.record(lookup.dirPath, emulatorId)
+                    continue
+                }
+            }
 
             val localFile = File(savePath)
             if (!localFile.exists()) continue
@@ -239,7 +248,12 @@ class SaveSyncOrchestrator @Inject constructor(
         if (!localFile.exists()) return@withContext RefreshOutcome.Unchanged
 
         val scan = if (localFile.isDirectory) {
-            scanFolderSave(game, savePath) ?: return@withContext RefreshOutcome.Unchanged
+            try {
+                scanFolderSave(game, savePath) ?: return@withContext RefreshOutcome.Unchanged
+            } catch (e: SaveAccessException) {
+                saveAccessNotices.record(e.dirPath, emulatorId)
+                return@withContext RefreshOutcome.Unreadable(e.dirPath)
+            }
         } else {
             SystemSaveScan(newestMillis = localFile.lastModified(), wholePath = true)
         }

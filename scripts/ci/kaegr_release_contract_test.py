@@ -5,6 +5,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/kaegr-release.yml"
@@ -24,7 +25,7 @@ class ForkReleaseContractTest(unittest.TestCase):
         self.assertIn('namespace = "com.nendo.argosy"', gradle)
         self.assertIn('versionName = "2.27.3-kaegr.1"', gradle)
         self.assertEqual(3_036_801, version_guard.validate(*version_guard.source_version(ROOT / "app/build.gradle.kts"), "v2.27.3-kaegr.1"))
-        self.assertGreater(3_036_801, 3_035_803)
+        self.assertGreater(version_guard.validate(*version_guard.source_version(ROOT / "app/build.gradle.kts"), "v2.27.3-kaegr.1"), 3_035_803)
         debug_strings = (ROOT / "app/src/debug/res/values/strings.xml").read_text()
         self.assertIn("Argosy kaegr DBG", debug_strings)
 
@@ -104,6 +105,28 @@ class ForkReleaseContractTest(unittest.TestCase):
         patch_guard = (ROOT / 'native/sigil/ApplyPatch.cmake').read_text()
         self.assertIn('file(SHA256', patch_guard)
         self.assertIn('message(FATAL_ERROR', patch_guard)
+
+    def test_release_checks_every_packaged_sigil_library_before_identity_and_publication(self):
+        source = WORKFLOW.read_text()
+        check = source.index("      - name: Verify patched Sigil in release APK")
+        self.assertLess(source.index("      - name: Build signed release"), check)
+        self.assertLess(check, source.index("      - name: Verify signed APK identity"))
+        self.assertLess(check, source.index("      - name: Prepare draft prerelease"))
+        self.assertIn("python3 scripts/ci/verify_sigil_apk.py app/build/outputs/apk/release/app-release.apk", source)
+        with tempfile.TemporaryDirectory() as directory:
+            apk = pathlib.Path(directory) / "app-release.apk"
+            for payloads, expected in [
+                ({"arm64-v8a": b"00040000/0008d300\x000000055d", "x86_64": b"0000055d 00040000/0008d300"}, 0),
+                ({"arm64-v8a": b"00040000/0008d300 0000055d", "x86_64": b"unpatched"}, 1),
+                ({"arm64-v8a": b"0000055d"}, 1),
+                ({}, 1),
+            ]:
+                with self.subTest(payloads=payloads):
+                    with zipfile.ZipFile(apk, "w") as archive:
+                        for abi, payload in payloads.items():
+                            archive.writestr(f"lib/{abi}/libsigil-jni.so", payload)
+                    result = subprocess.run(["python3", str(ROOT / "scripts/ci/verify_sigil_apk.py"), str(apk)], capture_output=True)
+                    self.assertEqual(expected, result.returncode, result.stderr)
 
     def test_version_guard_rejects_a_tag_suffix_and_source_code_mismatch(self):
         with self.assertRaisesRegex(ValueError, "versionCode 36801 does not match expected 36802"):

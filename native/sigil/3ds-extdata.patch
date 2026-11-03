@@ -1,8 +1,6 @@
-diff --git a/src/save_layout.c b/src/save_layout.c
-index 56edac0..6af0d7e 100644
 --- a/src/save_layout.c
 +++ b/src/save_layout.c
-@@ -413,7 +413,7 @@ static const char *const RYUJINX_SUBDIRS[] = { "bis/user/save", "bis/system/save
+@@ -413,7 +413,7 @@
   * as data/ and extdata/. */
  static const sigil_layout_area CTR_AREAS[] = {
      { "sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{save_id}/data/",
@@ -11,11 +9,9 @@ index 56edac0..6af0d7e 100644
      { "sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/extdata/00000000/"
        "{extdata_id}/",
        "{save_id}/extdata/", SIGIL_SAVE_AREA_DEVICE, false, "extdata/", true },
-diff --git a/src/save_profiles.c b/src/save_profiles.c
-index 7d2e686..20e25a6 100644
 --- a/src/save_profiles.c
 +++ b/src/save_profiles.c
-@@ -132,19 +132,41 @@ static bool save_id_fits(const sigil_profile_root *p, const char *name) {
+@@ -132,19 +132,41 @@
      return p->prefix ? strncmp(name, p->save_id, n) == 0 : strcmp(name, p->save_id) == 0;
  }
  
@@ -69,7 +65,7 @@ index 7d2e686..20e25a6 100644
  }
  
  /* The folder a walk bound is the game's: by its save id, or by the extdata id
-@@ -153,12 +175,15 @@ static void extdata_id_of(const char *save_id, char out[16]) {
+@@ -153,12 +175,15 @@
   * template with any of them expands. */
  static bool game_fits(const sigil_profile_root *p, folder_vars *v) {
      char extdata[16];
@@ -88,24 +84,34 @@ index 7d2e686..20e25a6 100644
      if (!v->save_id[0]) snprintf(v->save_id, sizeof(v->save_id), "%s", p->save_id);
      if (!v->extdata_id[0]) snprintf(v->extdata_id, sizeof(v->extdata_id), "%s", extdata);
      return true;
-@@ -942,12 +967,30 @@ static void pick(sigil_profile_root *p, const char *id) {
+@@ -942,12 +967,40 @@
      snprintf(p->profile, sizeof(p->profile), "%s", id);
  }
  
-+static int ctr_extdata_case(const sigil_profile_root *p, folder_vars *v) {
-+    if (!ctr_layout(p) || !v->extdata_id[0]) return SIGIL_OK;
-+    char found[16] = "";
++static int ctr_area_case(const sigil_profile_root *p, folder_vars *v, size_t area) {
++    char *id = area == 0 ? v->save_id : v->extdata_id;
++    size_t cap = area == 0 ? sizeof(v->save_id) : sizeof(v->extdata_id);
++    if (!ctr_layout(p) || !id[0]) return SIGIL_OK;
++    char found[SIGIL_SAVE_PATH_MAX] = "";
++    char template_[SIGIL_SAVE_PATH_MAX];
++    snprintf(template_, sizeof(template_), "%s", p->row->areas[area].template_);
++    if (area == 0) strstr(template_, "{save_id}")[strlen("{save_id}/")] = '\0';
 +    for (size_t i = 0; i < p->req->listing_count; i++) {
 +        char path[SIGIL_SAVE_PATH_MAX];
 +        folder_vars listed;
 +        const char *rest = NULL, *template_end = NULL;
 +        if (!p->req->listing[i] || !to_base(p, p->req->listing[i], path) ||
-+            !walk(p->row, p->row->areas[1].template_, path, &listed, &template_end, &rest) ||
-+            *template_end || strcasecmp(listed.extdata_id, v->extdata_id) != 0) continue;
-+        if (found[0] && strcmp(found, listed.extdata_id) != 0) return SIGIL_ERR_AMBIGUOUS;
-+        snprintf(found, sizeof(found), "%s", listed.extdata_id);
++            !walk(p->row, template_, path, &listed, &template_end, &rest) ||
++            *template_end) continue;
++        const char *variant = area == 0 ? listed.save_id : listed.extdata_id;
++        if (strcasecmp(variant, id) != 0) continue;
++        if (found[0] && strcmp(found, variant) != 0) return SIGIL_ERR_AMBIGUOUS;
++        snprintf(found, sizeof(found), "%s", variant);
 +    }
-+    if (found[0]) snprintf(v->extdata_id, sizeof(v->extdata_id), "%s", found);
++    if (found[0]) snprintf(id, cap, "%s", found);
++    else if (area == 1) {
++        for (char *c = id; *c; c++) *c = (char)toupper((unsigned char)*c);
++    }
 +    return SIGIL_OK;
 +}
 +
@@ -119,34 +125,34 @@ index 7d2e686..20e25a6 100644
      p->prefix = row->prefix;
      if (row->category) {
          const char *slash = strchr(p->save_id, '/');
-@@ -965,6 +1008,11 @@ int sigil_profile_root_open(const sigil_save_request *req, const sigil_layout_pr
+@@ -965,6 +1018,13 @@
          if (rc != SIGIL_OK) return rc;
      }
  
-+    folder_vars extdata = {0};
-+    extdata_id_of(p, extdata.extdata_id);
-+    int case_rc = ctr_extdata_case(p, &extdata);
++    folder_vars existing = {0};
++    snprintf(existing.save_id, sizeof(existing.save_id), "%s", p->save_id);
++    extdata_id_of(p, existing.extdata_id);
++    int case_rc = ctr_area_case(p, &existing, 0);
++    if (case_rc == SIGIL_OK) case_rc = ctr_area_case(p, &existing, 1);
 +    if (case_rc != SIGIL_OK) return case_rc;
 +
      int rc = SIGIL_OK;
      if (row->fixed_profile) add_profile(p, row->fixed_profile, "");
      else if (!list_reachable(p)) folder_profiles(p);
-@@ -1133,6 +1181,10 @@ int sigil_profile_place(const sigil_profile_root *p, const char *entry, sigil_pr
+@@ -1133,6 +1193,10 @@
                  if (!p->profile[0]) return SIGIL_ERR_NO_TARGET;
                  snprintf(v.profile, sizeof(v.profile), "%s", p->profile);
              }
-+            if (strstr(row_area->template_, "{extdata_id}")) {
-+                int rc = ctr_extdata_case(p, &v);
++            if (ctr_layout(p)) {
++                int rc = ctr_area_case(p, &v, a);
 +                if (rc != SIGIL_OK) return rc;
 +            }
              char base_path[SIGIL_SAVE_PATH_MAX];
              if (!expand(row_area->template_, &v, rest, base_path, sizeof(base_path))) return SIGIL_ERR_NOT_FOUND;
              if (to_root(p, base_path, f->path)) return SIGIL_OK;
-diff --git a/src/sync_profiles.c b/src/sync_profiles.c
-index cb2570e..3167f53 100644
 --- a/src/sync_profiles.c
 +++ b/src/sync_profiles.c
-@@ -146,10 +146,13 @@ static size_t area_index(int area) {
+@@ -146,10 +146,13 @@
      return 0;
  }
  
@@ -163,7 +169,7 @@ index cb2570e..3167f53 100644
      }
      return false;
  }
-@@ -233,7 +236,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
+@@ -233,7 +236,7 @@
          }
          if (rc != SIGIL_OK) {
              snprintf(r->problem, sizeof(r->problem), "%s", u->members[i].name);
@@ -172,7 +178,7 @@ index cb2570e..3167f53 100644
          }
          snprintf(u->paths[i], SIGIL_SAVE_PATH_MAX, "%s", f.path);
          snprintf(u->parts[i].name, sizeof(u->parts[i].name), "%s", f.entry);
-@@ -241,7 +244,7 @@ static int read_unit(const sigil_sync_ctx *x, profile_sync *s, const uint8_t *un
+@@ -241,7 +244,7 @@
          u->folders[i] = skip ? NULL : f.folder;
          if (!skip) u->carried[area_index(f.area)] = true;
          if (u->paths[i][0] && !sigil_sync_path_inside(u->paths[i])) return SIGIL_ERR_IO;

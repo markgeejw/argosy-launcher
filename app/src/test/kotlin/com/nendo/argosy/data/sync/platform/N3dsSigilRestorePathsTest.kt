@@ -153,6 +153,25 @@ class N3dsSigilRestorePathsTest {
     }
 
     @Test
+    fun `neutral cache restore adopts uppercase title directory without deleting the placed save`() = runTest {
+        val (row, _) = cache(SaveCacheEntity.FORMAT_NEUTRAL, zip("data/main"))
+        val data = local("${TITLE}00040000/00055E00/data/main")
+        assertTrue(manager.restoreSave(row.id, target.path, "azahar"))
+        assertEquals("cloud", data.readText())
+        assertFalse(File(target, "${TITLE}00040000/00055e00").exists())
+    }
+
+    @Test
+    fun `cross provider migration adopts uppercase title directory without deleting the placed save`() = runTest {
+        cache(SaveCacheEntity.FORMAT_NEUTRAL, zip("data/main"))
+        val data = local("${TITLE}00040000/00055E00/data/main")
+        coEvery { sigil.probe(route, GAME_ID) } returns SigilProbe.Absent
+        assertEquals(CrossEmulatorSaveMigrator.Outcome.Placed, migrator().migrateBeforeLaunch(GAME_ID))
+        assertEquals("cloud", data.readText())
+        assertFalse(File(target, "${TITLE}00040000/00055e00").exists())
+    }
+
+    @Test
     fun `native cache goes through Kotlin placement with the same corrected case destination`() = runTest {
         val (row, _) = cache(SaveCacheEntity.FORMAT_NATIVE, zip("data/main", "extdata/main"))
         val data = local("${TITLE}00040000/00055e00/data/main")
@@ -185,7 +204,7 @@ class N3dsSigilRestorePathsTest {
         val bytes = file.readBytes()
         assertEquals(CrossEmulatorSaveMigrator.Outcome.Placed, migrator().migrateBeforeLaunch(GAME_ID))
         assertEquals("cloud", File(target, "${TITLE}00040000/00055e00/data/main").readText())
-        assertEquals("cloud", File(target, "${EXT}0000055d/main").readText())
+        assertEquals("cloud", File(target, "${EXT}0000055D/main").readText())
         assertArrayEquals(bytes, file.readBytes())
     }
 
@@ -193,7 +212,7 @@ class N3dsSigilRestorePathsTest {
     fun `neutral migration goes directly through native restore without snapshot capability`() = runTest {
         cache(SaveCacheEntity.FORMAT_NEUTRAL, zip("00040000/00055e00/data/main", "00040000/00055e00/extdata/main"))
         assertEquals(CrossEmulatorSaveMigrator.Outcome.Placed, migrator().migrateBeforeLaunch(GAME_ID))
-        assertEquals("cloud", File(target, "${EXT}0000055d/main").readText())
+        assertEquals("cloud", File(target, "${EXT}0000055D/main").readText())
     }
 
     @Test
@@ -239,6 +258,47 @@ class N3dsSigilRestorePathsTest {
         assertEquals("local", data.readText())
         assertTrue(lower.isDirectory && upper.isDirectory)
         assertTrue(lower.listFiles().isNullOrEmpty() && upper.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun `empty uppercase title directory is adopted and a colliding empty alias is refused`() = runTest {
+        coEvery { sigil.route(GAME_ID, "azahar") } returns route
+        val upper = File(target, "${TITLE}00040000/00055E00").apply { mkdirs() }
+        val lower = File(target, "${TITLE}00040000/00055e00")
+        assertEquals(SigilCollect.Absent, sigil.collect(GAME_ID, "azahar"))
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("data/main")) is SigilRestore.Restored)
+        assertEquals("cloud", File(upper, "data/main").readText())
+        assertFalse(lower.exists())
+        lower.mkdirs()
+        assertTrue(sigil.collect(GAME_ID, "azahar") is SigilCollect.Unreadable)
+        assertTrue(sigil.probe(route, GAME_ID) is SigilProbe.Unreadable)
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("data/main")) is SigilRestore.Refused)
+        assertTrue(lower.listFiles().isNullOrEmpty())
+        assertEquals("cloud", File(upper, "data/main").readText())
+    }
+
+    @Test
+    fun `unrelated empty title directories do not supply hints`() = runTest {
+        coEvery { sigil.route(GAME_ID, "azahar") } returns route
+        val outside = File(temp, "unrelated-outside").apply { mkdirs() }
+        val alias = File(target, "${TITLE}00040000/0011C400")
+        alias.parentFile?.mkdirs()
+        java.nio.file.Files.createSymbolicLink(alias.toPath(), outside.toPath())
+        File(target, "${TITLE}00040000/0011c400").mkdirs()
+        assertEquals(SigilCollect.Absent, sigil.collect(GAME_ID, "azahar"))
+        assertTrue(sigil.restoreInto(route, GAME_ID, zip("data/main", "extdata/main")) is SigilRestore.Restored)
+        assertEquals("cloud", File(target, "${EXT}0000055D/main").readText())
+        assertTrue(outside.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun `legacy hash probe maps ambiguous named roots to unreadable not absent`() = runTest {
+        val data = local("${TITLE}00040000/00055e00/data/main")
+        local("${EXT}0000055d/main", "lower")
+        local("${EXT}0000055D/main", "upper")
+        assertEquals(com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Unreadable,
+            manager.probeLocalSave(data.parent, GAME_ID, "azahar"))
+        assertEquals("local", data.readText())
     }
 
     @Test

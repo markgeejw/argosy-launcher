@@ -79,6 +79,8 @@ interface PlatformSaveHandler {
     fun isValidCachedSavePath(path: String): Boolean = true
 }
 
+class SaveAccessException(val dirPath: String, message: String) : java.io.IOException(message)
+
 data class SaveContext(
     val config: SavePathConfig,
     val romPath: String?,

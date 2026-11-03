@@ -120,6 +120,34 @@ class SavePathResolverDiscoveryTest {
     }
 
     @Test
+    fun `checked discovery reports extdata case collisions as unreadable and legacy discovery never reports absent`() = runTest {
+        val base = File(tempDir, "3ds").apply { mkdirs() }
+        val parent = File(base, "${"0".repeat(32)}/${"1".repeat(32)}/extdata/00000000")
+        File(parent, "0000055d/main").apply { parentFile?.mkdirs(); writeText("lower") }
+        File(parent, "0000055D/main").apply { parentFile?.mkdirs(); writeText("upper") }
+        val fal = realFsFal()
+        val registry = PlatformSaveHandlerRegistry(
+            context, fal, SaveArchiver(mockk(relaxed = true), fal), switchSaveHandler,
+            gciSaveHandler, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
+            mockk(relaxed = true), mockk(relaxed = true)
+        )
+        val handler = registry.getFolderHandler("3ds")!!
+        every { saveHandlerRegistry.getFolderHandler("3ds") } returns handler
+        coEvery { emulatorSaveConfigDao.getByEmulator("azahar") } returns EmulatorSaveConfigEntity(
+            emulatorId = "azahar", savePathPattern = base.path, isAutoDetected = false, isUserOverride = true
+        )
+        assertEquals(SaveLookup.Unreadable(parent.path), resolver.discoverSavePathChecked(
+            "azahar", "Y", "3ds", cachedSaveId = "00040000/00055e00"
+        ))
+        try {
+            resolver.discoverSavePath("azahar", "Y", "3ds", cachedSaveId = "00040000/00055e00")
+            org.junit.Assert.fail("ambiguous save must not be absent")
+        } catch (e: com.nendo.argosy.data.sync.platform.SaveAccessException) {
+            assertEquals(parent.path, e.dirPath)
+        }
+    }
+
+    @Test
     fun `a Switch save with nothing on disk is placed in the emulator's title folder, not a literal package path`() = runTest {
         stubBuiltinSettings()
         val pkg = "dev.eden.eden_emulator"

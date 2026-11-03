@@ -1,5 +1,6 @@
 package com.nendo.argosy.domain.usecase.save
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.SavePathRegistry
 import com.nendo.argosy.data.local.dao.GameDao
@@ -70,6 +71,19 @@ class SyncSaveOnSessionEndUseCase @Inject constructor(
         coreName: String? = null,
         isHardcore: Boolean = false,
         channelName: String? = null
+    ): Result = try {
+        syncSessionSave(gameId, emulatorPackage, sessionStartTime, coreName, isHardcore, channelName)
+    } catch (e: SaveAccessException) {
+        Result.Error(e.message ?: "Unreadable save location")
+    }
+
+    private suspend fun syncSessionSave(
+        gameId: Long,
+        emulatorPackage: String,
+        sessionStartTime: Long,
+        coreName: String?,
+        isHardcore: Boolean,
+        channelName: String?
     ): Result {
         Logger.debug(TAG, "[SaveSync] SESSION gameId=$gameId | Session end sync starting | emulatorPackage=$emulatorPackage, core=$coreName, sessionStart=$sessionStartTime, hardcore=$isHardcore")
 

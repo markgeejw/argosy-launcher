@@ -174,6 +174,83 @@ class N3dsRestoreDoorsTest {
     }
 
     @Test
+    fun `damaged zip triggers corrupt recovery without deleting local data`() = runTest {
+        for (bytes in listOf("not a zip".toByteArray(), damagedZip())) {
+            val source = serve(bytes)
+            coEvery { uploader.uploadSave(any(), any(), any(), any(), any(), any()) } coAnswers {
+                assertEquals("local data", File(data, "local").readText())
+                SaveSyncResult.Error("test recovery refused")
+            }
+            val result = downloader.downloadSave(4L, "azahar")
+            assertTrue("$result", result is SaveSyncResult.Error)
+            assertEquals("local data", File(data, "local").readText())
+            assertFalse(File(data, "main").exists())
+            assertArrayEquals(bytes, source.readBytes())
+        }
+        coVerify(exactly = 2) { sync.markCorruptZip(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 2) { uploader.uploadSave(4L, "azahar", any(), true, false, any()) }
+        coVerify(exactly = 0) { sync.upsert(any()) }
+        coVerify(exactly = 0) { api.confirmSaveDownloaded(any(), any()) }
+    }
+
+    private fun damagedZip(): ByteArray {
+        val payloadBytes = "cloud".toByteArray()
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zip ->
+            val entry = ZipEntry("data/main").apply {
+                method = ZipEntry.STORED
+                size = payloadBytes.size.toLong()
+                compressedSize = size
+                crc = java.util.zip.CRC32().also { it.update(payloadBytes) }.value
+            }
+            zip.putNextEntry(entry)
+            zip.write(payloadBytes)
+            zip.closeEntry()
+        }
+        val bytes = output.toByteArray()
+        val nameSize = (bytes[26].toInt() and 255) + ((bytes[27].toInt() and 255) shl 8)
+        val extraSize = (bytes[28].toInt() and 255) + ((bytes[29].toInt() and 255) shl 8)
+        val payload = 30 + nameSize + extraSize
+        bytes[payload] = (bytes[payload].toInt() xor 255).toByte()
+        return bytes
+    }
+
+    @Test
+    fun `valid zip with an invalid filesystem destination is refused without corrupt recovery`() = runTest {
+        val bytes = zip("data/invalid\u0000name")
+        serve(bytes)
+        assertTrue(downloader.downloadSave(4L, "azahar") is SaveSyncResult.Error)
+        assertEquals("local data", File(data, "local").readText())
+        coVerify(exactly = 0) { sync.markCorruptZip(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { uploader.uploadSave(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { sync.upsert(any()) }
+    }
+
+    @Test
+    fun `ambiguous extdata blocks download clear and upload without deleting or advancing saves`() = runTest {
+        val parent = File(temp, "${ROOT}extdata/00000000")
+        val lower = File(parent, "0000055d/main").apply { parentFile?.mkdirs(); writeText("lower") }
+        val upper = File(parent, "0000055D/main").apply { parentFile?.mkdirs(); writeText("upper") }
+        serve(zip("data/main", "extdata/main"))
+        assertTrue(downloader.downloadSave(4L, "azahar") is SaveSyncResult.Error)
+        assertFalse(client.clearSavesBeforeRestore(data.path, "3ds", game.saveId, setOf("data", "extdata")))
+        val realUploader = SaveUploader(
+            context, sync, mockk(relaxed = true), mockk(relaxed = true), games, mockk(relaxed = true),
+            archiver, mockk(relaxed = true), fal, registry, dagger.Lazy { client }, mockk(relaxed = true),
+            dagger.Lazy { cache }, prefs, mockk(relaxed = true)
+        )
+        assertTrue(realUploader.uploadSave(4L, "azahar") is SaveSyncResult.Error)
+        assertEquals("local data", File(data, "local").readText())
+        assertEquals("lower", lower.readText())
+        assertEquals("upper", upper.readText())
+        coVerify(exactly = 0) { sync.upsert(any()) }
+        coVerify(exactly = 0) { sync.markCorruptZip(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { api.confirmSaveDownloaded(any(), any()) }
+        coVerify(exactly = 0) { api.uploadSave(any(), any(), any(), any(), any(), any<okhttp3.MultipartBody.Part>(), any()) }
+        coVerify(exactly = 0) { api.uploadSaveWithDevice(any(), any(), any(), any(), any(), any(), any(), any<okhttp3.MultipartBody.Part>(), any()) }
+    }
+
+    @Test
     fun `hardcore downgrade refusal keeps valid components and caller owned archive without advancing sync`() = runTest {
         game = game("000400000008D300")
         targetForGame()

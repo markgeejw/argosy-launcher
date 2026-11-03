@@ -617,13 +617,36 @@ private class N3dsFolderHandler(
         PreparedSave(outputFile, isTemporary = true, roots.map { it.folder.path })
     }
 
+    override suspend fun extractDownload(tempFile: File, context: SaveContext): ExtractResult = withContext(Dispatchers.IO) {
+        val target = context.localSavePath ?: resolveBasePath(context.config, context.basePathOverride)
+            ?.let { base -> context.saveId?.let { constructSavePath(base, it) } }
+            ?: return@withContext ExtractResult(false, null, "No 3DS save destination")
+        val unit = try {
+            context.saveId?.let { unitAt(target, N3dsTitleIds.fromSaveId(it)) }
+        } catch (e: SaveAccessException) {
+            return@withContext ExtractResult(false, null, e.message)
+        } ?: return@withContext ExtractResult(false, null, "No 3DS save unit")
+        val destinations = buildMap {
+            put(TITLE_DATA_ROOT, fal.getTransformedFile(unit.titleData))
+            unit.extdata?.let { put(EXTDATA_DIR, fal.getTransformedFile(it)) }
+        }
+        try {
+            if (!saveArchiver.validateRootDestinations(tempFile, destinations)) {
+                return@withContext ExtractResult(false, null, "Unplaceable 3DS archive")
+            }
+        } catch (e: com.nendo.argosy.data.sync.CorruptZipException) {
+            return@withContext ExtractResult(false, null, e.message, corruptZip = true)
+        }
+        return@withContext super.extractDownload(tempFile, context.copy(localSavePath = target))
+    }
+
     override fun pathsClearedBeforeRestore(paths: List<String>, archiveRoots: Set<String>?): List<String> =
         emptyList()
 
     override fun unpackArchive(tempFile: File, targetFolder: File, saveId: String?): Boolean {
         val unit = try {
             saveId?.let { unitAt(targetFolder.path, N3dsTitleIds.fromSaveId(it)) }
-        } catch (e: IllegalStateException) {
+        } catch (e: SaveAccessException) {
             Logger.error(TAG, "unpackArchive: ambiguous save destinations", e)
             return false
         } ?: return false
@@ -656,8 +679,8 @@ private class N3dsFolderHandler(
         val parent = "$id1Root/$EXTDATA_DIR/$EXTDATA_HIGH"
         val matches = fal.listFiles(parent).orEmpty()
             .filter { it.isDirectory && it.name.equals(extdataId, ignoreCase = true) }
-        check(matches.size <= 1) { "Ambiguous 3DS extdata directories for $extdataId under $parent" }
-        matches.singleOrNull()?.path ?: "$parent/$extdataId"
+        if (matches.size > 1) throw SaveAccessException(parent, "Ambiguous 3DS extdata directories for $extdataId under $parent")
+        matches.singleOrNull()?.path ?: "$parent/${extdataId.uppercase()}"
     }
 
     private fun isDir(path: String): Boolean = fal.exists(path) && fal.isDirectory(path)

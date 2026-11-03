@@ -474,7 +474,8 @@ class SnapshotSyncEngineTest {
         coEvery { sigil.route(GAME_ID, EMULATOR) } returns null
         coEvery { apiClient.discoverSavePath(any(), any(), any(), any(), any(), any(), any(), any()) } returns "/saves/Emerald.srm"
         coEvery { apiClient.resolveCoreForGame(any<GameEntity>(), any()) } returns "mgba"
-        coEvery { cacheManager.calculateLocalSaveHash("/saves/Emerald.srm", GAME_ID, EMULATOR) } returns "disk-hash"
+        coEvery { cacheManager.probeLocalSave("/saves/Emerald.srm", GAME_ID, EMULATOR) } returns
+            com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Present("disk-hash")
         coEvery {
             cacheManager.cacheCurrentSave(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns com.nendo.argosy.data.repository.SaveCacheManager.CacheResult.Created(1L, 7L)
@@ -482,6 +483,19 @@ class SnapshotSyncEngineTest {
         coEvery { cacheManager.getCacheById(7L) } returns entity
         val cached = tempDir.newFile("Emerald.srm").apply { writeBytes(bytes) }
         every { cacheManager.getCacheFile(entity) } returns cached
+    }
+
+    @Test
+    fun `unreadable native roots fail negotiation without pushing or adopting a remote save`() = runBlocking {
+        stubNativeSave(ByteArray(8))
+        coEvery { cacheManager.probeLocalSave("/saves/Emerald.srm", GAME_ID, EMULATOR) } returns
+            com.nendo.argosy.data.repository.SaveCacheManager.LocalSaveProbe.Unreadable
+        coEvery { channelDao.get(3L, GAME_ID, "default") } returns null
+        coEvery { api.listChannels(listOf(FILE_ID)) } returns channelsOf(listOf(snapshot(41, "remote")))
+        assertTrue(engine.sync(GAME_ID, EMULATOR, null) is SnapshotSyncResult.Failed)
+        coVerify(exactly = 0) { api.pushSnapshot(any(), any()) }
+        coVerify(exactly = 0) { api.reportSnapshotHeld(any(), any()) }
+        coVerify(exactly = 0) { channelDao.upsert(any()) }
     }
 
     @Test

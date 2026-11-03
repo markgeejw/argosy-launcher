@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.emulator
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.app.Activity
 import android.app.Application
 import android.content.BroadcastReceiver
@@ -647,25 +648,30 @@ class PlaySessionTracker @Inject constructor(
                     emulatorPackage = emulatorPackage
                 )
             )?.let { Logger.info(TAG, "[GameSession] Save folder settled | emulatorId=$emulatorId, path=$it") }
-            saveSyncRepository.get().discoverSavePath(
-                emulatorId = emulatorId,
-                gameTitle = game.title,
-                platformSlug = game.platformSlug,
-                romPath = game.localPath,
-                cachedSaveId = game.saveId ?: game.titleId,
-                coreName = coreName,
-                emulatorPackage = emulatorPackage,
-                gameId = gameId
-            ) ?: saveSyncRepository.get().predictFolderSavePath(
-                emulatorId = emulatorId,
-                platformSlug = game.platformSlug,
-                romPath = game.localPath,
-                gameId = gameId,
-                gameTitle = game.title,
-                cachedSaveId = game.saveId ?: game.titleId,
-                emulatorPackage = emulatorPackage
-            )?.also {
-                Logger.debug(TAG, "[GameSession] No existing save; watching predicted first-save path | path=$it")
+            try {
+                saveSyncRepository.get().discoverSavePath(
+                    emulatorId = emulatorId,
+                    gameTitle = game.title,
+                    platformSlug = game.platformSlug,
+                    romPath = game.localPath,
+                    cachedSaveId = game.saveId ?: game.titleId,
+                    coreName = coreName,
+                    emulatorPackage = emulatorPackage,
+                    gameId = gameId
+                ) ?: saveSyncRepository.get().predictFolderSavePath(
+                    emulatorId = emulatorId,
+                    platformSlug = game.platformSlug,
+                    romPath = game.localPath,
+                    gameId = gameId,
+                    gameTitle = game.title,
+                    cachedSaveId = game.saveId ?: game.titleId,
+                    emulatorPackage = emulatorPackage
+                )?.also {
+                    Logger.debug(TAG, "[GameSession] No existing save; watching predicted first-save path | path=$it")
+                }
+            } catch (e: SaveAccessException) {
+                Logger.warn(TAG, "[GameSession] Ambiguous save location; watcher disabled", e)
+                null
             }
         } else null
 
@@ -1068,16 +1074,21 @@ class PlaySessionTracker @Inject constructor(
         val emulatorId = emulatorResolver.resolveSessionEmulator(
             game.id, game.platformId, game.platformSlug, session.emulatorPackage
         )?.emulatorId ?: return null
-        val savePath = saveSyncRepository.get().discoverSavePath(
-            emulatorId = emulatorId,
-            gameTitle = game.title,
-            platformSlug = game.platformSlug,
-            romPath = game.localPath,
-            cachedSaveId = game.saveId ?: game.titleId,
-            coreName = session.coreName,
-            emulatorPackage = session.emulatorPackage,
-            gameId = session.gameId
-        ) ?: return null
+        val savePath = try {
+            saveSyncRepository.get().discoverSavePath(
+                emulatorId = emulatorId,
+                gameTitle = game.title,
+                platformSlug = game.platformSlug,
+                romPath = game.localPath,
+                cachedSaveId = game.saveId ?: game.titleId,
+                coreName = session.coreName,
+                emulatorPackage = session.emulatorPackage,
+                gameId = session.gameId
+            ) ?: return null
+        } catch (e: SaveAccessException) {
+            Logger.warn(TAG, "[SaveSync] QUIT | Ambiguous save location", e)
+            return SaveCacheManager.CacheResult.Failed
+        }
         val activeChannel = snapshotRouter.get().sessionChannel(session.gameId, session.isHardcore, session.channelName)
         return try {
             saveCacheManager.get().cacheCurrentSave(

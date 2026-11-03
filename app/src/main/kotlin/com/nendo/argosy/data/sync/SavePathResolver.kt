@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.sync
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.content.Context
 import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.RetroArchConfigParser
@@ -146,7 +147,11 @@ class SavePathResolver @Inject constructor(
         emulatorPackage: String? = null,
         gameId: Long? = null
     ): SaveLookup {
-        val lookup = discover(emulatorId, gameTitle, platformSlug, romPath, cachedSaveId, coreName, emulatorPackage, gameId)
+        val lookup = try {
+            discover(emulatorId, gameTitle, platformSlug, romPath, cachedSaveId, coreName, emulatorPackage, gameId)
+        } catch (e: SaveAccessException) {
+            return SaveLookup.Unreadable(e.dirPath)
+        }
         if (lookup !is SaveLookup.Absent) return lookup
         val unreadable = findUnreadableCandidateDir(emulatorId, platformSlug, romPath, coreName, emulatorPackage, gameId)
         return if (unreadable != null) SaveLookup.Unreadable(unreadable) else SaveLookup.Absent

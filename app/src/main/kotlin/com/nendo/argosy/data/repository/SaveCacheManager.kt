@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.repository
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.content.Context
 import android.util.Log
 import com.nendo.argosy.util.Logger
@@ -1415,6 +1416,9 @@ class SaveCacheManager @Inject constructor(
             } else {
                 unitHashFor(savePath, gameId, emulatorId) ?: saveArchiver.calculateContentHash(saveFile)
             }
+        } catch (e: SaveAccessException) {
+            Logger.error(TAG, "Ambiguous save roots for $savePath", e)
+            return@withContext LocalSaveProbe.Unreadable
         } catch (e: Exception) {
             Logger.error(TAG,"Failed to calculate hash for $savePath", e)
             null

@@ -1,7 +1,7 @@
 set(ARGOSY_SIGIL_PATCH_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 function(argosy_patch_sigil)
-    set(source_dir "${ARGOSY_SIGIL_PATCH_DIR}/../../sigil")
+    get_filename_component(source_dir "${ARGOSY_SIGIL_PATCH_DIR}/../../sigil" ABSOLUTE)
     set(overlay "${CMAKE_CURRENT_BINARY_DIR}/argosy-sigil-patched")
     set(files save_profiles save_layout sync_profiles)
     set(hashes
@@ -9,7 +9,7 @@ function(argosy_patch_sigil)
         b1c408b1f6ee32c161cd184e9f5abbcaafd1e9c8e42f3e11087987a97080af2b
         e427a0db6c51307225dd54253bdbf6f0335ecbcbd3b1b24bfd4cd01552f04c1d)
     set(patched_hashes
-        f99568dabc86906519784dd7397e324215911e32715a62aba28390b6f40fe4a9
+        48b893c84ad11991d8b6acfc17d55194379a23c21a92988c180ff23da8b9afc9
         8cad768590bebf96c68c5014c38964ce80be6cc8c2700f4444415cf88b05fca5
         74e39a239fed777a1c88a98910fc7c55e2da00957b85dfd70d5589a5172b75b8)
     file(MAKE_DIRECTORY "${overlay}/src")
@@ -20,6 +20,7 @@ function(argosy_patch_sigil)
         if(NOT actual STREQUAL expected)
             message(FATAL_ERROR "Sigil ${name}.c differs from pinned 794d99fe271d034960b67d71d0833064bb665fa9")
         endif()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source_dir}/src/${name}.c")
         configure_file("${source_dir}/src/${name}.c" "${overlay}/src/${name}.c" COPYONLY)
     endforeach()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ARGOSY_SIGIL_PATCH_DIR}/3ds-extdata.patch")

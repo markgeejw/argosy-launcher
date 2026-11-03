@@ -91,6 +91,12 @@ the unit: `sourcePathsFor`, `namedArchiveRoots` and `findAllSaveFoldersBySaveId`
 read the `id1` root back out of whichever path they are handed and answer with
 every component that exists.
 
+New extdata directories use uppercase hex as Azahar's backend
+`GetExtSaveDataPath` writes them (`archive_extsavedata.cpp`, pinned 2126.1.2).
+A single existing case variant takes precedence; multiple variants are unreadable,
+not absent. Title directories stay lowercase when new and retain their existing
+case on native restore.
+
 Archive shape: root `data` for the title directory, unchanged, so every
 archive already uploaded still matches; plus root `extdata` for the extdata
 directory. Neither root names a title, so both sit in
@@ -126,8 +132,9 @@ Android and host builds apply it to build-local copies after verifying source
 hashes; the upstream submodule remains unchanged. Native 3DS caches rooted at
 `data/` and `extdata/` convert through a validated scratch restore before Sigil
 collection. Missing components stay untouched in both implementations. For
-3DS collect, probe and restore, existing extdata directories also supply bounded
-relative directory hints, including empty case variants. Hints are discovery
+3DS collect, probe and restore, the selected title's category/low directories and
+existing extdata directories also supply bounded relative directory hints, including
+empty case variants. Hints are discovery
 metadata only, never archive members or evidence of a nonempty save. Known-none
 titles supply no extdata hints; aliases outside the root and ambiguous case
 variants refuse placement.

@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.sync
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.SavePathRegistry
 import com.nendo.argosy.data.local.dao.GameDao
@@ -167,6 +168,15 @@ class AccountSwitchArtifactService @Inject constructor(
      * stale save: an empty slot is recovered by a sync, an overwritten one is not.
      */
     suspend fun place(
+        artifact: AccountSwitchArtifact,
+        toUserId: Long
+    ): PlacementResult = try {
+        placeAtAccessiblePath(artifact, toUserId)
+    } catch (e: SaveAccessException) {
+        PlacementResult.FAILED
+    }
+
+    private suspend fun placeAtAccessiblePath(
         artifact: AccountSwitchArtifact,
         toUserId: Long
     ): PlacementResult = withContext(Dispatchers.IO) {

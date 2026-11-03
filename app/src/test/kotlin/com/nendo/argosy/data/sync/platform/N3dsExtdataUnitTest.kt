@@ -361,7 +361,7 @@ class N3dsExtdataUnitTest {
         assertTrue(handler.placeArchive(zip, staleExtdata, titleId))
 
         val correctedData = File(destRoot, "$id0/$id1/title/$baseCategory/$nativeLowId/data")
-        val correctedExtdata = File(destRoot, "$id0/$id1/extdata/00000000/$nativeExtdataId")
+        val correctedExtdata = File(destRoot, "$id0/$id1/extdata/00000000/${nativeExtdataId.uppercase()}")
         val correctedPaths = listOf(correctedData.absolutePath, correctedExtdata.absolutePath)
         assertEquals(
             correctedPaths,
@@ -454,6 +454,22 @@ class N3dsExtdataUnitTest {
     }
 
     @Test
+    fun `fresh extdata placement uses backend uppercase while preserving lowercase title directories`() {
+        val data = File(sdRoot, "$id0/$id1/title/00040000/00055e00/data").apply { mkdirs() }
+        val archive = File(tempDir, "fresh.zip")
+        java.util.zip.ZipOutputStream(archive.outputStream()).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("extdata/main"))
+            zip.write("cloud".toByteArray())
+            zip.closeEntry()
+        }
+        assertTrue(handler.placeArchive(archive, data, "00055E00"))
+        val parent = File(sdRoot, "$id0/$id1/extdata/00000000")
+        assertEquals("cloud", File(parent, "0000055D/main").readText())
+        assertFalse(File(parent, "0000055d").exists())
+        assertTrue(data.isDirectory)
+    }
+
+    @Test
     fun `ambiguous extdata case variants refuse placement before deleting title data`() {
         val data = File(sdRoot, "$id0/$id1/title/00040000/00055e00/data").apply { mkdirs() }
         File(data, "main").writeText("local")
@@ -518,7 +534,9 @@ class N3dsExtdataUnitTest {
         val bytes = archive.readBytes()
         bytes[30 + "data/main".length] = (bytes[30 + "data/main".length].toInt() xor 1).toByte()
         archive.writeBytes(bytes)
-        assertFalse(handler.placeArchive(archive, data, saveId))
+        org.junit.Assert.assertThrows(com.nendo.argosy.data.sync.CorruptZipException::class.java) {
+            handler.placeArchive(archive, data, saveId)
+        }
         assertEquals(listOf<Byte>(1, 2, 3), File(data, "00000001").readBytes().toList())
 
         val ext = writeExtdata(sdRoot)

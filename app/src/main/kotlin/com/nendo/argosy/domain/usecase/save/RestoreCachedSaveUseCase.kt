@@ -1,5 +1,6 @@
 package com.nendo.argosy.domain.usecase.save
 
+import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.util.Log
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.local.dao.GameDao
@@ -38,6 +39,17 @@ class RestoreCachedSaveUseCase @Inject constructor(
     }
 
     suspend operator fun invoke(
+        entry: UnifiedSaveEntry,
+        gameId: Long,
+        emulatorId: String,
+        syncToServer: Boolean
+    ): Result = try {
+        restoreCachedSave(entry, gameId, emulatorId, syncToServer)
+    } catch (e: SaveAccessException) {
+        Result.Error(RestoreCachedSaveFailureReason.SaveLocationUnresolved)
+    }
+
+    private suspend fun restoreCachedSave(
         entry: UnifiedSaveEntry,
         gameId: Long,
         emulatorId: String,
@@ -131,7 +143,13 @@ class RestoreCachedSaveUseCase @Inject constructor(
         return Result.Restored
     }
 
-    suspend fun clearActiveSave(gameId: Long, emulatorId: String): Boolean {
+    suspend fun clearActiveSave(gameId: Long, emulatorId: String): Boolean = try {
+        clearActiveSaveAtAccessiblePath(gameId, emulatorId)
+    } catch (e: SaveAccessException) {
+        false
+    }
+
+    private suspend fun clearActiveSaveAtAccessiblePath(gameId: Long, emulatorId: String): Boolean {
         val game = gameDao.getById(gameId) ?: return true
         if (game.localPath == null) return true
         val emulatorPackage = emulatorResolver.getEmulatorPackageForGame(
