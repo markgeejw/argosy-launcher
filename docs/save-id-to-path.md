@@ -51,8 +51,10 @@ directories under the same `id1` root, and the save unit is both of them:
 and are discovered, never constructed.
 
 The extdata id rule for retail titles: take the low 8 hex of the title id,
-shift it right by 8 bits, render 8 lowercase hex digits. `00113200` becomes
-`00001132`, `00175e00` becomes `0000175e`. Exact full title-id overrides are
+shift it right by 8 bits, render the normalized id token as 8 lowercase hex
+digits. On-disk extdata directories retain their existing spelling, or use
+uppercase hex when new. `00113200` becomes the token `00001132`, `00175e00`
+becomes `0000175e`. Exact full title-id overrides are
 `0004000000055e00` -> `0000055d`, `000400000011c400` -> `000011c5`, and
 `00040000001b5100` -> `00001b50`; `000400000008d300` has no extdata. A
 short low id is normalized with the base `00040000` category before this exact

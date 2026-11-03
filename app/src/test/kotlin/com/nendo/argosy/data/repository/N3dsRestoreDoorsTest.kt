@@ -251,6 +251,47 @@ class N3dsRestoreDoorsTest {
     }
 
     @Test
+    fun `hardcore downgrade of a CRC damaged zip returns an error without advancing saves`() = runTest {
+        assertCorruptHardcoreDowngrade(damagedZip())
+    }
+
+    @Test
+    fun `hardcore downgrade of a non zip returns an error without advancing saves`() = runTest {
+        assertCorruptHardcoreDowngrade("not a zip".toByteArray())
+    }
+
+    private suspend fun assertCorruptHardcoreDowngrade(bytes: ByteArray) {
+        val ext = File(temp, "${ROOT}extdata/00000000/0000055D/main").apply {
+            parentFile?.mkdirs()
+            writeText("local ext")
+        }
+        val original = File(temp, "owned.zip").apply { writeBytes(bytes) }
+        val disposable = File(context.cacheDir, "held.zip").apply { writeBytes(bytes) }
+        val resolver = SaveSyncConflictResolver(
+            sync, mockk(relaxed = true), mockk(relaxed = true), games, archiver, mockk(relaxed = true),
+            users, prefs, { cache }, { client }, fal, registry, mockk(relaxed = true)
+        )
+        val result = resolver.resolveHardcoreConflict(
+            SaveSyncResult.NeedsHardcoreResolution(
+                disposable.path, 4L, "Game", "azahar", data.path, true, "autosave"
+            ), HardcoreResolutionChoice.DOWNGRADE_TO_CASUAL
+        )
+        assertTrue("$result", result is SaveSyncResult.Error)
+        assertTrue((result as SaveSyncResult.Error).message.startsWith("Corrupt server zip: "))
+        assertEquals("local data", File(data, "local").readText())
+        assertEquals("local ext", ext.readText())
+        assertFalse(File(data, "main").exists())
+        assertArrayEquals(bytes, original.readBytes())
+        assertFalse(disposable.exists())
+        coVerify(exactly = 0) { sync.upsert(any()) }
+        coVerify(exactly = 0) { active.activateCache(any(), any()) }
+        coVerify(exactly = 0) {
+            cache.cacheCurrentSave(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+        coVerify(exactly = 0) { api.confirmSaveDownloaded(any(), any()) }
+    }
+
+    @Test
     fun `hardcore downgrade refusal keeps valid components and caller owned archive without advancing sync`() = runTest {
         game = game("000400000008D300")
         targetForGame()

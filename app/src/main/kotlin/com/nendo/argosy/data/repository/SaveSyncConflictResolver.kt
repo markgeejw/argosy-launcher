@@ -10,6 +10,7 @@ import com.nendo.argosy.data.local.entity.SaveSyncEntity
 import com.nendo.argosy.data.preferences.SyncPreferencesRepository
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.sync.ConflictInfo
+import com.nendo.argosy.data.sync.CorruptZipException
 import com.nendo.argosy.data.sync.SaveArchiver
 import com.nendo.argosy.data.sync.SavePathResolver
 import com.nendo.argosy.data.sync.platform.SaveContext
@@ -109,10 +110,14 @@ class SaveSyncConflictResolver @Inject constructor(
                             ?: return@withContext SaveSyncResult.Error(placed.error ?: "Failed to place GameCube save")
                     } else if (resolution.isFolderBased) {
                         val folderHandler = game?.platformSlug?.let { saveHandlerRegistry.getFolderHandler(it) }
-                        val unzipSuccess = if (folderHandler != null && game != null) {
-                            folderHandler.placeArchive(tempFile, targetFile, game.saveId ?: game.titleId)
-                        } else {
-                            saveArchiver.unzipSingleFolder(tempFile, targetFile)
+                        val unzipSuccess = try {
+                            if (folderHandler != null && game != null) {
+                                folderHandler.placeArchive(tempFile, targetFile, game.saveId ?: game.titleId)
+                            } else {
+                                saveArchiver.unzipSingleFolder(tempFile, targetFile)
+                            }
+                        } catch (e: CorruptZipException) {
+                            return@withContext SaveSyncResult.Error("Corrupt server zip: ${e.message}")
                         }
                         if (!unzipSuccess) {
                             return@withContext SaveSyncResult.Error("Failed to unzip save")
