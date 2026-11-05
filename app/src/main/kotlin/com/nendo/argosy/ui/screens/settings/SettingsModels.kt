@@ -21,6 +21,7 @@ import com.nendo.argosy.data.local.entity.GameListItem
 import com.nendo.argosy.data.local.entity.PlatformEntity
 import com.nendo.argosy.data.local.entity.PlatformLibretroSettingsEntity
 import com.nendo.argosy.data.preferences.AppLanguage
+import com.nendo.argosy.data.preferences.RecentNewGamesLimit
 import com.nendo.argosy.data.preferences.ControlsPreferences
 import com.nendo.argosy.data.repository.HardResetPreview
 import com.nendo.argosy.data.preferences.BoxArtBorderStyle
@@ -351,6 +352,7 @@ data class DisplayState(
     val screenRoleModalOpen: Boolean = false,
     val screenRoleModalFocus: Int = 0,
     val installedOnlyHome: Boolean = false,
+    val recentNewGamesLimit: Int = RecentNewGamesLimit.DEFAULT,
     val showStatusClock: Boolean = true,
     val showStatusBattery: Boolean = true,
     val showStatusNetwork: Boolean = false
@@ -568,7 +570,7 @@ data class EmulatorState(
     val totalCoreCount: Int = 0,
     val coreUpdatesAvailable: Int = 0,
     val builtinLibretroEnabled: Boolean = true,
-    val closeEmulatorOnSessionEnd: Boolean = true,
+    val closeEmulatorOnSessionEnd: Boolean = false,
     val architectureDisplay: String = "",
     val ingameMenuTwoColumn: Boolean = false,
     val hudEnabled: Boolean = false,
@@ -801,6 +803,9 @@ data class BuiltinControlsState(
     val controllerPorts: List<ControllerPortChoiceUi> = emptyList(),
     val rumbleEnabled: Boolean = true,
     val motionEnabled: Boolean = true,
+    val gyroAimInvertX: Boolean = false,
+    val gyroAimInvertY: Boolean = false,
+    val gyroAimSensitivity: Int = com.nendo.argosy.data.preferences.GyroAimSensitivity.DEFAULT,
     val limitHotkeysToPlayer1: Boolean = true,
     val speedrunStartOnReset: Boolean = true,
     val speedrunPanelSide: String = "Right",

@@ -84,6 +84,7 @@ object SettingsBackupKeys {
         SettingsBackupKey("presentation_background_blur", SettingsBackupType.INT),
         SettingsBackupKey("default_view", SettingsBackupType.STRING),
         SettingsBackupKey("installed_only_home", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("recent_new_games_limit", SettingsBackupType.INT),
         SettingsBackupKey("show_status_clock", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("show_status_battery", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("show_status_network", SettingsBackupType.BOOLEAN),
@@ -193,6 +194,9 @@ object SettingsBackupKeys {
         SettingsBackupKey("builtin_dpad_as_analog", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("builtin_rumble_enabled", SettingsBackupType.BOOLEAN),
         SettingsBackupKey("builtin_motion_enabled", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("builtin_gyro_aim_invert_x", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("builtin_gyro_aim_invert_y", SettingsBackupType.BOOLEAN),
+        SettingsBackupKey("builtin_gyro_aim_sensitivity", SettingsBackupType.INT),
         SettingsBackupKey("builtin_select_as_back", SettingsBackupType.STRING)
     )
 

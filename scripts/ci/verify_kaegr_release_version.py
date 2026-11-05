@@ -2,18 +2,18 @@ import argparse
 import pathlib
 import re
 
-FORK_VERSION = re.compile(r"^(2)\.(27)\.(3)-kaegr\.([1-9]\d?)$")
+FORK_VERSION = re.compile(r"^(2)\.(28)\.(1)-kaegr\.([1-9]\d?)$")
 VERSION_NAME = re.compile(r'^\s*versionName = "([^"]+)"', re.MULTILINE)
 VERSION_CODE = re.compile(r"^\s*versionCode = (\d+)", re.MULTILINE)
 APK_VERSION_CODE = re.compile(r"\bversionCode='(\d+)'")
-UPSTREAM_VERSION_CODE = 368
+UPSTREAM_VERSION_CODE = 370
 UNIVERSAL_VERSION_CODE_PREFIX = 3_000_000
 
 
 def expected_base_version_code(version_name: str) -> int:
     match = FORK_VERSION.fullmatch(version_name)
     if match is None:
-        raise ValueError(f"versionName must match 2.27.3-kaegr.<1-99>: {version_name}")
+        raise ValueError(f"versionName must match 2.28.1-kaegr.<1-99>: {version_name}")
     return UPSTREAM_VERSION_CODE * 100 + int(match.group(4))
 
 

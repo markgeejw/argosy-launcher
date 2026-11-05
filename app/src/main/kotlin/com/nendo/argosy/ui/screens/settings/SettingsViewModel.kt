@@ -104,6 +104,7 @@ class SettingsViewModel @Inject constructor(
     internal val libretroSettingsRepo: LibretroSettingsRepository,
     internal val touchLayoutRepository: com.nendo.argosy.data.repository.TouchLayoutRepository,
     internal val launchArgsRepo: com.nendo.argosy.data.repository.LaunchArgsRepository,
+    internal val keepAlivePolicy: com.nendo.argosy.data.emulator.background.KeepAlivePolicy,
     internal val installedAppResolver: com.nendo.argosy.data.platform.InstalledAppResolver,
     internal val iconPackRepository: com.nendo.argosy.data.iconpack.IconPackRepository,
     internal val emulatorConfigRepo: EmulatorConfigRepository,
@@ -740,6 +741,9 @@ class SettingsViewModel @Inject constructor(
     fun confirmAppPickerSelection() = routeConfirmAppPickerSelection(this)
     fun setBuiltinRumbleEnabled(enabled: Boolean) = routeSetBuiltinRumbleEnabled(this, enabled)
     fun setBuiltinMotionEnabled(enabled: Boolean) = routeSetBuiltinMotionEnabled(this, enabled)
+    fun setBuiltinGyroAimInvertX(enabled: Boolean) = routeSetBuiltinGyroAimInvertX(this, enabled)
+    fun setBuiltinGyroAimInvertY(enabled: Boolean) = routeSetBuiltinGyroAimInvertY(this, enabled)
+    fun stepBuiltinGyroAimSensitivity(direction: Int) = routeStepBuiltinGyroAimSensitivity(this, direction)
     fun setBuiltinLimitHotkeysToPlayer1(enabled: Boolean) = routeSetBuiltinLimitHotkeysToPlayer1(this, enabled)
     fun setSpeedrunStartOnReset(enabled: Boolean) = routeSetSpeedrunStartOnReset(this, enabled)
     fun setSpeedrunPanelSide(side: String) = routeSetSpeedrunPanelSide(this, side)
@@ -1482,6 +1486,7 @@ class SettingsViewModel @Inject constructor(
     fun setAmbientLedScreenEnabled(enabled: Boolean) = displayDelegate.setAmbientLedScreenEnabled(viewModelScope, enabled)
     fun setAmbientLedAchievementFlash(enabled: Boolean) = displayDelegate.setAmbientLedAchievementFlash(viewModelScope, enabled)
     fun setInstalledOnlyHome(enabled: Boolean) = displayDelegate.setInstalledOnlyHome(viewModelScope, enabled)
+    fun cycleRecentNewGamesLimit(direction: Int = 1) = displayDelegate.cycleRecentNewGamesLimit(viewModelScope, direction)
 
     fun setShowStatusClock(show: Boolean) = displayDelegate.setShowStatusClock(viewModelScope, show)
 

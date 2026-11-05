@@ -430,6 +430,15 @@
     <string name="settings_home_screen_box_art_option_2d">Portada 2D</string>
     <string name="settings_home_screen_box_art_option_3d">Caja 3D</string>
     <string name="settings_home_screen_installed_only_subtitle">Mostrar solo los juegos descargados en la pantalla de inicio</string>
+    <string name="settings_home_screen_recent_new_games_title">Juegos nuevos en Recientes</string>
+    <string name="settings_home_screen_recent_new_games_subtitle">Juegos sin jugar añadidos en el último día</string>
+    <string name="settings_home_screen_recent_new_games_none">Ninguno</string>
+    <string name="settings_home_screen_recent_new_games_all">Todos</string>
+    <plurals name="settings_home_screen_recent_new_games_up_to">
+        <item quantity="one">Hasta %d</item>
+        <item quantity="many">Hasta %d</item>
+        <item quantity="other">Hasta %d</item>
+    </plurals>
 
     <!-- ===== Saves section ===== -->
 
@@ -1534,6 +1543,12 @@
     <string name="settings_builtin_controls_rumble_subtitle">Activar la respuesta por vibración del mando</string>
     <string name="settings_builtin_controls_motion_title">Controles de movimiento</string>
     <string name="settings_builtin_controls_motion_subtitle">Permite que los juegos lean la inclinación y la rotación del dispositivo</string>
+    <string name="settings_builtin_controls_gyro_sensitivity_title">Sensibilidad de la puntería con giroscopio</string>
+    <string name="settings_builtin_controls_gyro_sensitivity_subtitle">Cuánto se mueve la mira al girar el dispositivo</string>
+    <string name="settings_builtin_controls_gyro_invert_x_title">Invertir la puntería con giroscopio en horizontal</string>
+    <string name="settings_builtin_controls_gyro_invert_x_subtitle">Girar a la izquierda mueve la mira a la derecha</string>
+    <string name="settings_builtin_controls_gyro_invert_y_title">Invertir la puntería con giroscopio en vertical</string>
+    <string name="settings_builtin_controls_gyro_invert_y_subtitle">Inclinar hacia arriba mueve la mira hacia abajo</string>
     <string name="settings_builtin_controls_order_title">Orden de mandos</string>
     <string name="settings_builtin_controls_order_subtitle">Define el orden de los jugadores pulsando un botón en cada mando</string>
     <plurals name="settings_builtin_controls_order_assigned">
@@ -1989,6 +2004,7 @@
     <string name="settings_hotkeys_action_reset_timer">Reiniciar cronómetro</string>
     <string name="settings_hotkeys_action_sun_brighter">Subir luz solar</string>
     <string name="settings_hotkeys_action_sun_dimmer">Bajar luz solar</string>
+    <string name="settings_hotkeys_action_recenter_gyro_aim">Centrar puntería con giroscopio</string>
 
     <!-- ===== Input mapping modal (Settings > components > InputMappingModal) ===== -->
 

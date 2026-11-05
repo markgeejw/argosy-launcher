@@ -669,6 +669,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             gamesLaunchTarget = prefs.gamesDisplayTarget,
             appsLaunchTarget = prefs.appsDisplayTarget,
             installedOnlyHome = prefs.installedOnlyHome,
+            recentNewGamesLimit = prefs.recentNewGamesLimit,
             showStatusClock = prefs.showStatusClock,
             showStatusBattery = prefs.showStatusBattery,
             showStatusNetwork = prefs.showStatusNetwork
@@ -965,6 +966,9 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
                     controllerOrderCount = it.builtinControls.controllerOrderCount,
                     rumbleEnabled = refreshSettings.rumbleEnabled,
                     motionEnabled = refreshSettings.motionEnabled,
+                    gyroAimInvertX = refreshSettings.gyroAimInvertX,
+                    gyroAimInvertY = refreshSettings.gyroAimInvertY,
+                    gyroAimSensitivity = refreshSettings.gyroAimSensitivity,
                     limitHotkeysToPlayer1 = refreshSettings.limitHotkeysToPlayer1,
                     speedrunStartOnReset = refreshSettings.speedrunStartOnReset,
                     speedrunPanelSide = refreshSettings.speedrunPanelSide,
