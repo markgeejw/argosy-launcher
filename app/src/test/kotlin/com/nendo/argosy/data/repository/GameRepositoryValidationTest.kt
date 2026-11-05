@@ -73,7 +73,8 @@ class GameRepositoryValidationTest {
             attributionRepository = mockk(relaxed = true),
             gameArtDao = mockk(relaxed = true),
             gameScreenshotDao = mockk(relaxed = true),
-            platformFolderResolver = mockk(relaxed = true)
+            platformFolderResolver = mockk(relaxed = true),
+            baseRomFileResolver = mockk(relaxed = true)
         )
     }
 

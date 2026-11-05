@@ -8,6 +8,7 @@ import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import com.nendo.argosy.data.download.ZipExtractor
+import com.nendo.argosy.data.emulator.BaseRomFileResolver
 import com.nendo.argosy.data.emulator.M3uManager
 import com.nendo.argosy.util.DiscSheets
 import com.nendo.argosy.util.FileNames
@@ -90,7 +91,8 @@ class GameRepository @Inject constructor(
     private val attributionRepository: StorageAttributionRepository,
     private val gameArtDao: GameArtDao,
     private val gameScreenshotDao: GameScreenshotDao,
-    private val platformFolderResolver: PlatformFolderResolver
+    private val platformFolderResolver: PlatformFolderResolver,
+    private val baseRomFileResolver: BaseRomFileResolver
 ) {
     private val defaultDownloadDir: File get() = platformFolderResolver.defaultStorageBase
 
@@ -283,7 +285,7 @@ class GameRepository @Inject constructor(
             val candidate = claims[game.id] ?: continue
             val entry = entries[candidate] ?: continue
             val resolved = if (candidate.isDirectory) {
-                findPrimaryRomInFolder(entry, platform)
+                findPrimaryRomInFolder(entry, platform)?.let { baseRomFileResolver.locate(game, it) }
             } else {
                 entry
             } ?: continue
