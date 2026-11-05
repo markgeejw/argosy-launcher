@@ -102,6 +102,7 @@ data class HomeGameUi(
     val isFavorite: Boolean,
     val isDownloaded: Boolean,
     val isRommGame: Boolean = false,
+    val rommId: Long? = null,
     val canRemoveFromLibrary: Boolean = false,
     val isSteamGame: Boolean = false,
     val rating: Float? = null,
@@ -331,6 +332,7 @@ data class HomeUiState(
     val gameMenuFocusIndex: Int = 0,
     val gameMenuDisplays: List<com.nendo.argosy.ui.components.AppLaunchTarget> = emptyList(),
     val gameMenuHasSiblingGroup: Boolean = false,
+    val gameMenuCanStream: Boolean = false,
     val showAddToCollectionModal: Boolean = false,
     val collectionGameId: Long? = null,
     val collections: List<CollectionItemUi> = emptyList(),
@@ -814,6 +816,7 @@ data class BreadcrumbItem(val label: String, val isCurrent: Boolean)
 
 sealed class HomeEvent {
     data class LaunchIntent(val intent: Intent, val options: android.os.Bundle? = null) : HomeEvent()
+    data class StreamIntent(val intent: Intent, val moonlightPackage: String) : HomeEvent()
     data class NavigateToCollections(val collectionId: Long) : HomeEvent()
     data object NavigateToApps : HomeEvent()
     data class NavigateToLibrary(

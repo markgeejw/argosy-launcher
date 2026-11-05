@@ -49,6 +49,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
@@ -160,6 +161,7 @@ import com.nendo.argosy.ui.input.ChangelogInputHandler
 import com.nendo.argosy.ui.input.DiscPickerInputHandler
 import com.nendo.argosy.ui.screens.media.components.MediaSignedOutState
 import com.nendo.argosy.ui.screens.media.modals.MediaResumeModalHost
+import com.nendo.argosy.ui.screens.gamedetail.tryStartStream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
@@ -307,6 +309,11 @@ fun HomeScreen(
                         context.startActivity(event.intent, event.options)
                     } catch (e: Exception) {
                         android.util.Log.e("HomeScreen", "Failed to start activity", e)
+                    }
+                }
+                is HomeEvent.StreamIntent -> {
+                    if (!tryStartStream { context.startActivity(event.intent) }) {
+                        viewModel.showStreamClientMissing(event.moonlightPackage)
                     }
                 }
                 is HomeEvent.NavigateToLibrary -> {
@@ -1466,6 +1473,11 @@ fun HomeScreen(
                         viewModel.showAddToCollectionModal(focusedGame.id)
                     },
                     hasSiblingGroup = uiState.gameMenuHasSiblingGroup,
+                    canStream = uiState.gameMenuCanStream,
+                    onStream = {
+                        viewModel.toggleGameMenu()
+                        viewModel.streamGame(focusedGame)
+                    },
                     onActiveVariant = { viewModel.openActiveVariant(focusedGame.id) },
                     onRefresh = { viewModel.refreshGameData(focusedGame.id) },
                     onResyncPlatform = {
@@ -1985,6 +1997,8 @@ private fun GameSelectOverlay(
     onDetails: () -> Unit,
     onAddToCollection: () -> Unit,
     hasSiblingGroup: Boolean,
+    canStream: Boolean,
+    onStream: () -> Unit,
     onActiveVariant: () -> Unit,
     onRefresh: () -> Unit,
     onResyncPlatform: () -> Unit,
@@ -2039,6 +2053,9 @@ private fun GameSelectOverlay(
                     )
                 )
             }
+        }
+        if (canStream) {
+            add(MenuEntry(Icons.Default.Cast, stringResource(R.string.kaegr_gamedetail_menu_stream), onClick = onStream))
         }
         add(
             MenuEntry(

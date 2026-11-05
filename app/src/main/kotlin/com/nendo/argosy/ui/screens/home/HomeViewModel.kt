@@ -60,6 +60,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.stream.MoonlightStream
+import com.nendo.argosy.data.stream.toIntent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -2105,7 +2108,10 @@ class HomeViewModel @Inject constructor(
                     com.nendo.argosy.ui.components.AppLaunchTarget(screen.displayId, screen.number)
                 }
                 .orEmpty()
-            _uiState.update { it.copy(gameMenuDisplays = displays, gameMenuHasSiblingGroup = hasChoice) }
+            val canStream = _uiState.value.focusedGame?.let { canStream(it) } == true
+            _uiState.update {
+                it.copy(gameMenuDisplays = displays, gameMenuHasSiblingGroup = hasChoice, gameMenuCanStream = canStream)
+            }
             gameMenuDelegate.toggleGameMenu()
         }
     }
@@ -2123,7 +2129,8 @@ class HomeViewModel @Inject constructor(
             state.focusedGame,
             isPlatformRow,
             extraRows,
-            state.gameMenuHasSiblingGroup
+            state.gameMenuHasSiblingGroup,
+            state.gameMenuCanStream
         )
     }
 
@@ -2150,7 +2157,8 @@ class HomeViewModel @Inject constructor(
             game,
             isPlatformRow,
             state.gameMenuDisplays.map { it.displayId },
-            state.gameMenuHasSiblingGroup
+            state.gameMenuHasSiblingGroup,
+            state.gameMenuCanStream
         )
         when (action) {
             is GameMenuAction.Play -> {
@@ -2160,6 +2168,10 @@ class HomeViewModel @Inject constructor(
             is GameMenuAction.PlayOnDisplay -> {
                 toggleGameMenu()
                 playGameOnDisplay(action.gameId, action.displayId)
+            }
+            is GameMenuAction.Stream -> {
+                toggleGameMenu()
+                streamGame(game)
             }
             is GameMenuAction.ToggleFavorite -> toggleFavorite(action.gameId)
             is GameMenuAction.ViewDetails -> {
@@ -2199,6 +2211,26 @@ class HomeViewModel @Inject constructor(
                 hideGame(action.gameId)
             }
         }
+    }
+
+    private suspend fun canStream(game: HomeGameUi): Boolean =
+        canStream(game, preferencesRepository.userPreferences.first().streamSettings)
+
+    private fun canStream(game: HomeGameUi, settings: StreamSettings): Boolean =
+        MoonlightStream.canStream(settings, game.rommId, game.platformSlug, game.isSteamGame, game.isAndroidApp)
+
+    fun streamGame(game: HomeGameUi) {
+        val rommId = game.rommId ?: return
+        viewModelScope.launch {
+            val settings = preferencesRepository.userPreferences.first().streamSettings
+            if (!canStream(game, settings)) return@launch
+            val intent = MoonlightStream.request(settings.host, game.title, rommId).toIntent(settings.moonlightPackage)
+            _events.emit(HomeEvent.StreamIntent(intent, settings.moonlightPackage))
+        }
+    }
+
+    fun showStreamClientMissing(moonlightPackage: String) {
+        notificationManager.showError(NotificationText.Res(R.string.kaegr_stream_no_client, listOf(moonlightPackage)))
     }
 
     fun syncPlatform(platformId: Long, platformName: String) {
