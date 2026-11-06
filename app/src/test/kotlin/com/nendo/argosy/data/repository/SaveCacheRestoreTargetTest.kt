@@ -30,6 +30,7 @@ import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,6 +38,8 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 import java.time.Instant
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.io.path.createTempDirectory
 
 class SaveCacheRestoreTargetTest {
@@ -172,12 +175,149 @@ class SaveCacheRestoreTargetTest {
         assertFalse(root.exists())
     }
 
+    private fun ps2Cache(format: String? = SaveCacheEntity.FORMAT_NATIVE): Pair<SaveCacheEntity, SigilRoute> {
+        val pending = cachedRow(SaveCacheEntity.FORMAT_NATIVE).copy(
+            saveFormat = format,
+            emulatorId = PS2_TARGET,
+            cachePath = "u3/4/20261012_000000/Suikoden III.zip"
+        )
+        coEvery { gameDao.getById(GAME_ID) } returns GAME.copy(
+            platformSlug = "ps2",
+            titleId = "SLUS-20387",
+            saveId = "BASLUS-20387"
+        )
+        val cached = manager.getCacheFile(pending)
+        ZipOutputStream(cached.outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("BASLUS-20387sui3_u01/gamedata"))
+            zip.write(byteArrayOf(1, 2, 3))
+            zip.closeEntry()
+        }
+        val row = pending.copy(saveSize = cached.length(), contentHash = archiver.calculateContentHash(cached))
+        coEvery { saveCacheDao.getById(ROW_ID) } returns row
+        val root = File(tempDir, "NetherSX2")
+        File(root, "memcards/Mcd001.ps2").apply { parentFile.mkdirs(); writeBytes(byteArrayOf(9)) }
+        val route = SigilRoute("pcsx2_standalone", root.absolutePath, "xyz.aethersx2.android", null)
+        coEvery { sigil.localRoute(GAME_ID, PS2_TARGET) } returns route
+        return row to route
+    }
+
+    @Test
+    fun `a native PS2 cache is imported into the selected card through Sigil`() = runTest {
+        val (row, route) = ps2Cache()
+        val unit = slot<ByteArray>()
+        coEvery { sigil.restoreInto(route, GAME_ID, capture(unit)) } returns SigilRestore.Restored(hardcoreMarker = false)
+
+        assertTrue(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        assertArrayEquals(manager.getCacheFile(row).readBytes(), unit.captured)
+        assertFalse(File(route.root, "BASLUS-20387sui3_u01").exists())
+        coVerify(exactly = 1) { ownership.record(route.root, PS2_TARGET, any(), GAME_ID, any()) }
+    }
+
+    @Test
+    fun `a refused PS2 card import leaves its files and tracking unchanged`() = runTest {
+        val (_, route) = ps2Cache()
+        coEvery { sigil.restoreInto(route, GAME_ID, any()) } returns SigilRestore.Refused("invalid archive")
+
+        assertFalse(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        assertArrayEquals(byteArrayOf(9), File(route.root, "memcards/Mcd001.ps2").readBytes())
+        assertFalse(File(route.root, "BASLUS-20387sui3_u01").exists())
+        coVerify(exactly = 0) { ownership.record(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+    }
+
+    @Test
+    fun `a PS2 cache without a format marker uses its selected card route`() = runTest {
+        val (_, route) = ps2Cache(format = null)
+        coEvery { sigil.restoreInto(route, GAME_ID, any()) } returns SigilRestore.Restored(hardcoreMarker = false)
+
+        assertTrue(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        coVerify(exactly = 1) { sigil.restoreInto(route, GAME_ID, any()) }
+        coVerify(exactly = 0) { sigil.restore(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a PS2 emulator root without a selected card route is left untouched`() = runTest {
+        val (_, route) = ps2Cache()
+        coEvery { sigil.localRoute(GAME_ID, PS2_TARGET) } returns null
+
+        assertFalse(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        assertArrayEquals(byteArrayOf(9), File(route.root, "memcards/Mcd001.ps2").readBytes())
+        assertFalse(File(route.root, "BASLUS-20387sui3_u01").exists())
+        coVerify(exactly = 0) { sigil.restoreInto(any(), any(), any()) }
+        coVerify(exactly = 0) { ownership.record(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+    }
+
+    @Test
+    fun `a PS2 cache refuses a route for a different save layout`() = runTest {
+        val (_, route) = ps2Cache()
+        coEvery { sigil.localRoute(GAME_ID, PS2_TARGET) } returns route.copy(layout = "ppsspp_standalone")
+
+        assertFalse(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        assertArrayEquals(byteArrayOf(9), File(route.root, "memcards/Mcd001.ps2").readBytes())
+        assertFalse(File(route.root, "BASLUS-20387sui3_u01").exists())
+        coVerify(exactly = 0) { sigil.restoreInto(any(), any(), any()) }
+        coVerify(exactly = 0) { ownership.record(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+    }
+
+    @Test
+    fun `an unrouted PS2 card import cannot fall through to folder extraction`() = runTest {
+        val (_, route) = ps2Cache()
+        coEvery { sigil.restoreInto(route, GAME_ID, any()) } returns SigilRestore.NotRouted
+
+        assertFalse(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        assertFalse(File(route.root, "BASLUS-20387sui3_u01").exists())
+        coVerify(exactly = 0) { ownership.record(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { saveSyncDao.upsert(any()) }
+    }
+
+    @Test
+    fun `a PS2 card route cannot record placement at a different root`() = runTest {
+        val (_, route) = ps2Cache()
+        val target = File(tempDir, "another-emulator").absolutePath
+
+        assertFalse(manager.restoreSave(ROW_ID, target, PS2_TARGET))
+
+        assertArrayEquals(byteArrayOf(9), File(route.root, "memcards/Mcd001.ps2").readBytes())
+        assertFalse(File(target).exists())
+        coVerify(exactly = 0) { sigil.restoreInto(any(), any(), any()) }
+        coVerify(exactly = 0) { ownership.record(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a neutral PS2 cache uses its selected card route`() = runTest {
+        val (_, route) = ps2Cache(format = SaveCacheEntity.FORMAT_NEUTRAL)
+        coEvery { sigil.restoreInto(route, GAME_ID, any()) } returns SigilRestore.Restored(hardcoreMarker = false)
+
+        assertTrue(manager.restoreSave(ROW_ID, route.root, PS2_TARGET))
+
+        coVerify(exactly = 1) { sigil.restoreInto(route, GAME_ID, any()) }
+    }
+
+    @Test
+    fun `the direct PS2 cache helper restores native bytes through its selected card route`() = runTest {
+        val (row, route) = ps2Cache()
+        coEvery { sigil.restoreInto(route, GAME_ID, any()) } returns SigilRestore.Restored(hardcoreMarker = false)
+
+        assertEquals(SigilRestore.Restored(hardcoreMarker = false), manager.restoreThroughSigil(row))
+
+        coVerify(exactly = 1) { sigil.restoreInto(route, GAME_ID, any()) }
+    }
+
     private companion object {
         const val GAME_ID = 4L
         const val ROW_ID = 31L
         const val OWNER = 3L
         const val SOURCE = "retroarch"
         const val TARGET = "argosy"
+        const val PS2_TARGET = "aethersx2"
         const val CACHE_PATH = "u3/4/20261012_000000/Lunar.srm"
         val GAME = GameEntity(
             id = GAME_ID,

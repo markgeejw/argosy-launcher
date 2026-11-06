@@ -664,13 +664,19 @@ class SaveCacheManager @Inject constructor(
     suspend fun restoreThroughSigil(entity: SaveCacheEntity): SigilRestore = withContext(Dispatchers.IO) {
         val cacheFile = File(cacheBaseDir, entity.cachePath)
         if (!cacheFile.exists()) return@withContext SigilRestore.NotRouted
-        restoreUnlessNative(entity, cacheFile, entity.emulatorId)
+        restoreWithSigil(entity, cacheFile, entity.emulatorId)
     }
 
     private fun formatOf(sigil: SigilCollect.Found?): String =
         if (sigil != null) SaveCacheEntity.FORMAT_NEUTRAL else SaveCacheEntity.FORMAT_NATIVE
 
-    private suspend fun restoreUnlessNative(entity: SaveCacheEntity, cacheFile: File, emulatorId: String?): SigilRestore {
+    private suspend fun restoreWithSigil(
+        entity: SaveCacheEntity,
+        cacheFile: File,
+        emulatorId: String?,
+        targetPath: String? = null
+    ): SigilRestore {
+        restorePs2Cache(entity, cacheFile, emulatorId, targetPath)?.let { return it }
         if (entity.saveFormat == SaveCacheEntity.FORMAT_NATIVE) return SigilRestore.NotRouted
         if (entity.saveFormat != SaveCacheEntity.FORMAT_NEUTRAL) {
             return sigilSaveHandler.restore(entity.gameId, cacheFile, emulatorId)
@@ -679,6 +685,37 @@ class SaveCacheManager @Inject constructor(
         val route = sigilSaveHandler.localRoute(entity.gameId, emulatorId) ?: return unrouted
         val restored = sigilSaveHandler.restoreInto(route, entity.gameId, cacheFile.readBytes())
         return if (restored == SigilRestore.NotRouted) unrouted else restored
+    }
+
+    private suspend fun restorePs2Cache(
+        entity: SaveCacheEntity,
+        cacheFile: File,
+        emulatorId: String?,
+        targetPath: String?
+    ): SigilRestore? {
+        val game = gameDao.getById(entity.gameId) ?: return null
+        if (PlatformDefinitions.getCanonicalSlug(game.platformSlug) != "ps2") return null
+        val targetId = emulatorId ?: entity.emulatorId
+        val config = SavePathRegistry.getConfigForPlatform(targetId, game.platformSlug)
+        if (SigilSaveHandler.layoutFor(config?.emulatorId ?: targetId, game.platformSlug) != "pcsx2_standalone") return null
+        val resolved = sigilSaveHandler.localRoute(entity.gameId, targetId)
+        Logger.debug(
+            TAG,
+            "[RESTORE_PS2] cache=${entity.id} gameId=${entity.gameId} emulator=$targetId " +
+                "target=$targetPath layout=${resolved?.layout} root=${resolved?.root}"
+        )
+        if (targetPath != null && !fal.isFile(targetPath) &&
+            (File(targetPath).name.endsWith(".ps2", ignoreCase = true) || fal.isFile("$targetPath/_pcsx2_superblock"))
+        ) return null
+        val route = resolved?.takeIf { it.layout == "pcsx2_standalone" }
+            ?: return if (targetPath == null) null else SigilRestore.Refused("the selected PS2 card has no save route")
+        if (targetPath != null && route.root.trimEnd('/') != targetPath.trimEnd('/')) {
+            return SigilRestore.Refused("the selected PS2 card does not belong to $targetPath")
+        }
+        val restored = sigilSaveHandler.restoreInto(route, entity.gameId, cacheFile.readBytes())
+        return if (restored == SigilRestore.NotRouted) {
+            SigilRestore.Refused("the selected PS2 card could not receive the save")
+        } else restored
     }
 
     private suspend fun isSigilRouteRoot(gameId: Long, emulatorId: String, path: String): Boolean =
@@ -709,7 +746,7 @@ class SaveCacheManager @Inject constructor(
         fal.prepareSaveAccess(targetPath)
         var placedGciMembers: List<String>? = null
         try {
-            when (val sigilRestore = restoreUnlessNative(entity, cacheFile, targetEmulatorId)) {
+            when (val sigilRestore = restoreWithSigil(entity, cacheFile, targetEmulatorId, targetPath)) {
                 SigilRestore.NotRouted -> if (isSigilRouteRoot(entity.gameId, targetEmulatorId, targetPath)) {
                     Logger.warn(TAG, "Restore of cache $cacheId refused: $targetPath is the Sigil save root of $targetEmulatorId and the cache holds native files")
                     return@withContext false

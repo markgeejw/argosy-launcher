@@ -3,6 +3,7 @@ package com.nendo.argosy.data.sync.platform
 import android.content.Context
 import com.nendo.argosy.data.emulator.BuiltinSaveBase
 import com.nendo.argosy.data.emulator.CartFeatureScanner
+import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.EmulatorResolver
 import com.nendo.argosy.data.emulator.RetroArchPathResolver
 import com.nendo.argosy.data.local.dao.SigilSyncStateDao
@@ -468,7 +469,10 @@ class SigilSaveHandler @Inject constructor(
         if (effectiveId in PlatformSaveHandlerRegistry.UNIT_EMULATOR_IDS) {
             return@withContext libretroRoute(game, effectiveId, allowGeneric)
         }
-        val config = SavePathRegistry.getConfigForPlatform(effectiveId, game.platformSlug)
+        val config = emulatorPackage
+            ?.takeIf { EmulatorRegistry.getById(effectiveId)?.packageName == it }
+            ?.let { SavePathRegistry.getConfigForPlatformByPackage(it, game.platformSlug) }
+            ?: SavePathRegistry.getConfigForPlatform(effectiveId, game.platformSlug)
             ?: emulatorPackage?.let { SavePathRegistry.getConfigForPlatformByPackage(it, game.platformSlug) }
             ?: return@withContext null
         val layout = layoutFor(config.emulatorId, game.platformSlug) ?: return@withContext null
