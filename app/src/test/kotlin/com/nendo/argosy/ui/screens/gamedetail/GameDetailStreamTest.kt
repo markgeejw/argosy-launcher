@@ -10,20 +10,29 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import android.content.Intent
+import io.mockk.mockkStatic
+import io.mockk.mockk
+import io.mockk.every
+import com.nendo.argosy.data.stream.toIntent
+import io.mockk.unmockkStatic
+import io.mockk.verify
 
 class GameDetailStreamTest {
 
     private fun detail(
         platformSlug: String = "switch",
-        source: GameSource = GameSource.ROMM_REMOTE
+        source: GameSource = GameSource.ROMM_REMOTE,
+        title: String = "The Legend of Zelda: Tears of the Kingdom",
+        rommId: Long? = 29L
     ) = GameEntity(
         id = 7L,
         platformId = 1L,
         platformSlug = platformSlug,
-        title = "The Legend of Zelda: Tears of the Kingdom",
+        title = title,
         sortTitle = "legend of zelda tears of the kingdom",
         localPath = null,
-        rommId = 29L,
+        rommId = rommId,
         igdbId = null,
         source = source
     ).toGameDetailUi(
@@ -40,24 +49,13 @@ class GameDetailStreamTest {
     }
 
     @Test
-    fun `an undownloaded switch game shows the stream row right below play`() {
-        val layout = GameDetailUiState(game = detail()).menuLayoutState
-
-        assertTrue(layout.hasStream)
-        assertEquals(
-            MenuItem.Stream,
-            menuLayout.itemAtFocusIndex(menuLayout.focusIndexOf(MenuItem.Play, layout) + 1, layout)
+    fun `moonlight offer appears immediately below play`() {
+        val offer = com.nendo.argosy.ui.screens.stream.StreamOffer(
+            "", false, kind = com.nendo.argosy.data.stream.StreamKind.MOONLIGHT
         )
-    }
-
-    @Test
-    fun `a platform the user has not enabled shows no stream row`() {
-        val state = GameDetailUiState(
-            game = detail(),
-            streamSettings = StreamSettings(platforms = setOf("3ds"))
-        )
-
-        assertFalse(state.menuLayoutState.hasStream)
+        val layout = GameDetailUiState(game = detail(), stream = offer).menuLayoutState
+        assertEquals(offer, layout.stream)
+        assertEquals(MenuItem.Stream, menuLayout.itemAtFocusIndex(menuLayout.focusIndexOf(MenuItem.Play, layout) + 1, layout))
     }
 
     @Test
@@ -71,13 +69,43 @@ class GameDetailStreamTest {
     }
 
     @Test
-    fun `steam and android games show no stream row`() {
-        assertFalse(GameDetailUiState(game = detail(source = GameSource.STEAM)).menuLayoutState.hasStream)
-        assertFalse(GameDetailUiState(game = detail(source = GameSource.ANDROID_APP)).menuLayoutState.hasStream)
+    fun `a steam tap resolves the bare-name intent`() {
+        val event = streamLaunchEvent(
+            detail(source = GameSource.STEAM, title = "Hades", rommId = null),
+            StreamSettings()
+        )
+
+        assertTrue(event is LaunchEvent.StreamIntent)
+        assertEquals(StreamSettings.DEFAULT_MOONLIGHT_PACKAGE, event?.moonlightPackage)
+    }
+
+    @Test
+    fun `moonlight events carry requests for the selected games`() {
+        mockkStatic("com.nendo.argosy.data.stream.MoonlightStreamKt")
+        try {
+            val intent = mockk<Intent>()
+            every { any<com.nendo.argosy.data.model.stream.StreamRequest>().toIntent(any()) } returns intent
+            assertEquals(intent, streamLaunchEvent(detail(), StreamSettings())?.intent)
+            verify { match<com.nendo.argosy.data.model.stream.StreamRequest> { it.appId == "1494549554" }.toIntent("com.limelight") }
+            assertEquals(intent, streamLaunchEvent(detail(source = GameSource.STEAM, title = "Hades", rommId = null), StreamSettings())?.intent)
+            verify { match<com.nendo.argosy.data.model.stream.StreamRequest> { it.appId == "1285314453" }.toIntent("com.limelight") }
+        } finally {
+            unmockkStatic("com.nendo.argosy.data.stream.MoonlightStreamKt")
+        }
+    }
+
+    @Test
+    fun `a blank steam title resolves nothing`() {
+        assertNull(
+            streamLaunchEvent(
+                detail(source = GameSource.STEAM, title = "  ", rommId = null),
+                StreamSettings()
+            )
+        )
     }
 
     @Test
     fun `without a game there is no stream row`() {
-        assertFalse(GameDetailUiState().menuLayoutState.hasStream)
+        assertNull(GameDetailUiState().menuLayoutState.stream)
     }
 }

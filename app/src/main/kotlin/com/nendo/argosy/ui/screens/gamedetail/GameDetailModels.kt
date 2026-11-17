@@ -5,7 +5,6 @@ import androidx.annotation.StringRes
 import com.nendo.argosy.core.game.AchievementUi
 import com.nendo.argosy.data.model.ArtSlot
 import com.nendo.argosy.data.model.stream.StreamSettings
-import com.nendo.argosy.data.stream.MoonlightStream
 import com.nendo.argosy.domain.model.SyncProgress
 import com.nendo.argosy.domain.model.SyncState
 import com.nendo.argosy.ui.common.savechannel.SaveChannelState
@@ -395,13 +394,6 @@ data class GameDetailUiState(
                 hasPerGameSettings = game != null && !game.isSteamGame && !game.isAndroidApp &&
                     downloadStatus == GameDownloadStatus.DOWNLOADED,
                 hasDocuments = documents.isNotEmpty(),
-                hasStream = game != null && MoonlightStream.canStream(
-                    streamSettings,
-                    game.rommId,
-                    game.platformSlug,
-                    game.isSteamGame,
-                    game.isAndroidApp
-                ),
                 isRunning = running != null,
                 moveTargetCount = if (running != null) runningMoveTargets.size else 0,
                 stream = stream

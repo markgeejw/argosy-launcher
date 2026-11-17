@@ -14,6 +14,9 @@ import com.nendo.argosy.data.remote.romm.RomMStreamingContainer
 import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
+import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.stream.StreamKind
+import com.nendo.argosy.data.stream.StreamRoute
 import com.nendo.argosy.data.streaming.StreamClaimOutcome
 import com.nendo.argosy.data.streaming.StreamFirstRule
 import com.nendo.argosy.data.streaming.StreamPicker
@@ -85,6 +88,18 @@ class StreamLaunchController private constructor(
         val found = deps.configStore.containerFor(platformSlug) ?: return null
         val label = StreamTriggerGate.labelOf(found) ?: return null
         return StreamOffer(label, isLive = false, leads = leads)
+    }
+
+    fun offerFor(
+        gameId: Long, platformSlug: String, rommId: Long?, title: String,
+        isSteamGame: Boolean, isAndroidApp: Boolean, settings: StreamSettings,
+        isOnDevice: Boolean = false
+    ): StreamOffer? {
+        val found = deps.configStore.containerFor(platformSlug)
+        val route = StreamRoute.resolve(settings, found, rommId, platformSlug, isSteamGame, isAndroidApp, title)
+        if (route?.kind == StreamKind.MOONLIGHT) return StreamOffer("", isLive = false, kind = route.kind)
+        if (settings.host.isBlank() || isAndroidApp || isSteamGame) return null
+        return offerFor(gameId, platformSlug, isOnDevice)
     }
 
     fun leadsWithStream(platformSlug: String?, isRommGame: Boolean, isOnDevice: Boolean): Boolean =

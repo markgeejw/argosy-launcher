@@ -275,12 +275,18 @@ class GameDetailViewModel @Inject constructor(
             kotlinx.coroutines.flow.combine(
                 streamLauncher.offers.onStart { emit(Unit) },
                 _uiState.map { state ->
-                    state.game?.takeIf {
-                        it.isRommGame && state.downloadStatus == GameDownloadStatus.NOT_DOWNLOADED
-                    }?.let { it.id to it.platformSlug }
+                    Triple(state.game, state.downloadStatus, state.streamSettings)
                 }.distinctUntilChanged()
-            ) { _, streamable ->
-                streamable?.let { (gameId, platformSlug) -> streamLauncher.offerFor(gameId, platformSlug) }
+            ) { _, (game, downloadStatus, settings) ->
+                game?.let {
+                    val offer = streamLauncher.offerFor(
+                        it.id, it.platformSlug, it.rommId, it.title, it.isSteamGame, it.isAndroidApp, settings
+                    )
+                    offer?.takeIf { candidate ->
+                        candidate.kind == com.nendo.argosy.data.stream.StreamKind.MOONLIGHT ||
+                            (it.isRommGame && downloadStatus == GameDownloadStatus.NOT_DOWNLOADED)
+                    }
+                }
             }.distinctUntilChanged().collect { offer ->
                 _uiState.update { state ->
                     val next = state.copy(stream = offer)
@@ -1211,7 +1217,7 @@ class GameDetailViewModel @Inject constructor(
         val state = _uiState.value
         if (state.running?.isClosing == true) return
         if (state.stream?.leads == true) {
-            streamLauncher.open(currentGameId)
+            openStream()
             return
         }
         when (state.downloadStatus) {
@@ -2295,7 +2301,7 @@ class GameDetailViewModel @Inject constructor(
         val state = menuLayoutState()
         when (val item = menuLayout.itemAtFocusIndex(_uiState.value.menuFocusIndex, state)) {
             MenuItem.Play -> primaryAction()
-            MenuItem.Stream -> streamGame()
+            MenuItem.Stream -> openStream()
             is MenuItem.MoveToDisplay -> moveRunningGame(item.slot)
             MenuItem.Saves -> syncSavesNow()
             MenuItem.Favorite -> toggleFavorite()
@@ -2315,8 +2321,11 @@ class GameDetailViewModel @Inject constructor(
     }
 
     fun openStream() {
-        if (_uiState.value.stream == null) return
-        streamLauncher.open(currentGameId)
+        when (_uiState.value.stream?.kind) {
+            com.nendo.argosy.data.stream.StreamKind.MOONLIGHT -> streamGame()
+            com.nendo.argosy.data.stream.StreamKind.CONTAINER -> streamLauncher.open(currentGameId)
+            null -> Unit
+        }
     }
 
     private var moveTargetsJob: kotlinx.coroutines.Job? = null

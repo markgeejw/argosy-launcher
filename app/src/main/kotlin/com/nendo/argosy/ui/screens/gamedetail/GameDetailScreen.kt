@@ -624,7 +624,7 @@ private fun GameDetailContent(
                                 onItemClick = { item ->
                                     when (item) {
                                         MenuItem.Play -> viewModel.primaryAction()
-                                        MenuItem.Stream -> viewModel.streamGame()
+                                        MenuItem.Stream -> viewModel.openStream()
                                         is MenuItem.MoveToDisplay -> viewModel.moveRunningGame(item.slot)
                                         MenuItem.Saves -> viewModel.syncSavesNow()
                                         MenuItem.Favorite -> viewModel.toggleFavorite()

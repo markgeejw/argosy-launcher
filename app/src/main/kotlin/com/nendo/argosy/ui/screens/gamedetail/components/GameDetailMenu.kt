@@ -87,7 +87,6 @@ data class MenuLayoutState(
     val hasRelated: Boolean = false,
     val hasPerGameSettings: Boolean = false,
     val hasDocuments: Boolean = false,
-    val hasStream: Boolean = false,
     val isRunning: Boolean = false,
     val moveTargetCount: Int = 0,
     val stream: com.nendo.argosy.ui.screens.stream.StreamOffer? = null
@@ -99,7 +98,7 @@ sealed class MenuItem(
 ) {
     data object Play : MenuItem("play")
     data object Stream : MenuItem("stream",
-        visibleWhen = { it.hasStream || (it.stream != null && !it.stream.leads) })
+        visibleWhen = { it.stream != null && !it.stream.leads })
 
     /**
      * The Move to Display row for the [slot]th move target of the running game.
@@ -234,10 +233,11 @@ fun GameDetailMenu(
                 MenuItem.Stream -> {
                     val offer = layoutState.stream
                     IconTextMenuItem(
-                        label = if (offer?.isLive == true) {
-                            stringResource(R.string.stream_entry_gamedetail_menu_resume)
-                        } else {
-                            stringResource(R.string.stream_entry_gamedetail_menu, offer?.containerLabel.orEmpty())
+                        label = when {
+                            offer?.kind == com.nendo.argosy.data.stream.StreamKind.MOONLIGHT ->
+                                stringResource(R.string.kaegr_gamedetail_menu_stream_moonlight)
+                            offer?.isLive == true -> stringResource(R.string.stream_entry_gamedetail_menu_resume)
+                            else -> stringResource(R.string.stream_entry_gamedetail_menu, offer?.containerLabel.orEmpty())
                         },
                         icon = ImageVector.vectorResource(R.drawable.ic_stream_play_network),
                         isFocused = isFocused,
@@ -251,16 +251,6 @@ fun GameDetailMenu(
                     IconTextMenuItem(
                         label = stringResource(R.string.gamedetail_menu_move_to_display, screenNumber),
                         icon = Icons.Default.Tv,
-                        isFocused = isFocused,
-                        isCompact = isCompact,
-                        onClick = { onFocusChange(focusIndex); onItemClick(item) }
-                    )
-                }
-
-                MenuItem.Stream -> {
-                    IconTextMenuItem(
-                        label = stringResource(R.string.kaegr_gamedetail_menu_stream),
-                        icon = Icons.Default.Cast,
                         isFocused = isFocused,
                         isCompact = isCompact,
                         onClick = { onFocusChange(focusIndex); onItemClick(item) }
