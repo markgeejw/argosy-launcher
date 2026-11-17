@@ -16,10 +16,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
+import com.nendo.argosy.ui.util.observeTouchDown
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -27,7 +25,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nendo.argosy.data.preferences.LibraryListStyle
 import com.nendo.argosy.ui.common.rememberResolvedCoverPath
+import com.nendo.argosy.ui.components.animateScrollToItemCentered
 import com.nendo.argosy.ui.components.fastAnimateScrollToItem
+import com.nendo.argosy.ui.components.scrollToItemCentered
 import com.nendo.argosy.ui.components.gamelist.CompactGameListRow
 import com.nendo.argosy.ui.components.gamelist.GameCoverImage
 import com.nendo.argosy.ui.components.gamelist.GameListRow
@@ -50,28 +50,22 @@ internal fun LibraryGameList(
     val initialIndex = remember { viewModel.gameIndexToGridIndex(uiState.focusedIndex) }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val downloadIndicators = viewModel.downloadIndicators.collectAsState()
-    var isProgrammaticScroll by remember { mutableStateOf(false) }
 
     suspend fun revealCompactSelection() {
         val listIndex = viewModel.gameIndexToGridIndex(uiState.focusedIndex)
         val layout = listState.layoutInfo
         val item = layout.visibleItemsInfo.firstOrNull { it.index == listIndex }
-        isProgrammaticScroll = true
-        try {
-            if (item == null) {
-                listState.fastAnimateScrollToItem(index = listIndex, scrollOffset = 0)
-            } else {
-                val top = layout.viewportStartOffset + headerHeightPx
-                val bottom = layout.viewportEndOffset - footerHeightPx
-                val distance = when {
-                    item.offset < top -> item.offset - top
-                    item.offset + item.size > bottom -> item.offset + item.size - bottom
-                    else -> 0
-                }
-                if (distance != 0) listState.animateScrollBy(distance.toFloat())
+        if (item == null) {
+            listState.fastAnimateScrollToItem(index = listIndex, scrollOffset = 0)
+        } else {
+            val top = layout.viewportStartOffset + headerHeightPx
+            val bottom = layout.viewportEndOffset - footerHeightPx
+            val distance = when {
+                item.offset < top -> item.offset - top
+                item.offset + item.size > bottom -> item.offset + item.size - bottom
+                else -> 0
             }
-        } finally {
-            isProgrammaticScroll = false
+            if (distance != 0) listState.animateScrollBy(distance.toFloat())
         }
     }
 
@@ -81,7 +75,12 @@ internal fun LibraryGameList(
 
     LaunchedEffect(uiState.games.size) {
         if (uiState.games.isNotEmpty() && uiState.focusedIndex > 0) {
-            listState.scrollToItem(viewModel.gameIndexToGridIndex(uiState.focusedIndex))
+            listState.scrollToItemCentered(
+                viewModel.gameIndexToGridIndex(uiState.focusedIndex),
+                animate = false,
+                topInsetPx = headerHeightPx,
+                bottomInsetPx = footerHeightPx
+            )
         }
     }
 
@@ -91,17 +90,11 @@ internal fun LibraryGameList(
             revealCompactSelection()
             return@LaunchedEffect
         }
-        val layoutInfo = listState.layoutInfo
-        val viewportHeight = layoutInfo.viewportSize.height
-        if (viewportHeight == 0) return@LaunchedEffect
-        val listIndex = viewModel.gameIndexToGridIndex(uiState.focusedIndex)
-        val itemHeight = layoutInfo.visibleItemsInfo.firstOrNull { it.index == listIndex }?.size
-            ?: layoutInfo.visibleItemsInfo.firstOrNull()?.size
-            ?: return@LaunchedEffect
-        val centeringOffset = (viewportHeight - headerHeightPx - footerHeightPx - itemHeight) / 2
-        isProgrammaticScroll = true
-        listState.animateScrollToItem(index = listIndex, scrollOffset = -centeringOffset)
-        isProgrammaticScroll = false
+        listState.animateScrollToItemCentered(
+            viewModel.gameIndexToGridIndex(uiState.focusedIndex),
+            topInsetPx = headerHeightPx,
+            bottomInsetPx = footerHeightPx
+        )
     }
 
     LaunchedEffect(uiState.sectionJumpTrigger) {
@@ -110,29 +103,12 @@ internal fun LibraryGameList(
             revealCompactSelection()
             return@LaunchedEffect
         }
-        val listIndex = viewModel.gameIndexToGridIndex(uiState.focusedIndex)
-        val layoutInfo = listState.layoutInfo
-        val viewportHeight = layoutInfo.viewportSize.height
-        if (viewportHeight == 0) {
-            listState.scrollToItem(listIndex)
-            return@LaunchedEffect
-        }
-        val itemHeight = layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 0
-        val centeringOffset = if (itemHeight > 0) {
-            (viewportHeight - headerHeightPx - footerHeightPx - itemHeight) / 2
-        } else {
-            0
-        }
-        isProgrammaticScroll = true
-        listState.fastAnimateScrollToItem(index = listIndex, scrollOffset = -centeringOffset)
-        isProgrammaticScroll = false
-    }
-
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
-            .collect { isScrolling ->
-                if (isScrolling && !isProgrammaticScroll) viewModel.enterTouchMode()
-            }
+        listState.animateScrollToItemCentered(
+            viewModel.gameIndexToGridIndex(uiState.focusedIndex),
+            topInsetPx = headerHeightPx,
+            bottomInsetPx = footerHeightPx,
+            snapFarJumps = true
+        )
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -162,6 +138,7 @@ internal fun LibraryGameList(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    .observeTouchDown { viewModel.enterTouchMode() }
             ) {
                 items(
                     count = uiState.gridItems.size,
@@ -217,7 +194,8 @@ internal fun LibraryGameList(
                                     saveState = uiState.saveStates[game.id],
                                     onCoverLoadFailed = { path -> viewModel.repairCoverImage(game.id, path) },
                                     onClick = onClick,
-                                    onLongClick = onLongClick
+                                    onLongClick = onLongClick,
+                                    running = com.nendo.argosy.ui.common.LocalRunningGames.current.markFor(game.id)
                                 )
                             }
                         }

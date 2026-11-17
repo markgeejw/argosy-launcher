@@ -144,7 +144,7 @@ internal fun routeObserveDelegateStates(vm: SettingsViewModel) {
                             .createStoragePlatformGamesLayoutInfo(updated)
                     )
                 val clampedFocus = state.focusedIndex.coerceAtMost(maxIndex).coerceAtLeast(0)
-                val focusedBuckets = storagePlatformGames.games.getOrNull(clampedFocus)?.buckets?.size ?: 0
+                val focusedBuckets = storagePlatformGames.visibleGames.getOrNull(clampedFocus)?.buckets?.size ?: 0
                 val clampedCategory = storagePlatformGames.highlightedCategoryIndex
                     .coerceAtMost((focusedBuckets - 1).coerceAtLeast(0))
                     .coerceAtLeast(0)
@@ -193,6 +193,11 @@ internal fun routeObserveDelegateStates(vm: SettingsViewModel) {
         vm._uiState.update { it.copy(retroAchievements = ra) }
     }.launchIn(vm.viewModelScope)
 
+    vm.clientCertDelegate.state.onEach { clientCert ->
+        vm._uiState.update { it.copy(clientCert = clientCert) }
+    }.launchIn(vm.viewModelScope)
+    vm.clientCertDelegate.start(vm.viewModelScope)
+
     vm.permissionsDelegate.state.onEach { permissions ->
         vm._uiState.update { it.copy(permissions = permissions) }
     }.launchIn(vm.viewModelScope)
@@ -219,19 +224,14 @@ internal fun routeUpdateSteamState(vm: SettingsViewModel, steam: SteamSettingsSt
 
 internal fun routeObserveDelegateEvents(vm: SettingsViewModel) {
     merge(
-        vm.syncDelegate.requestStoragePermissionEvent,
         vm.steamDelegate.requestStoragePermissionEvent,
         vm.storageDelegate.requestStoragePermissionEvent
     ).onEach {
         vm._requestStoragePermissionEvent.emit(Unit)
     }.launchIn(vm.viewModelScope)
 
-    vm.syncDelegate.requestNotificationPermissionEvent.onEach {
-        vm._requestNotificationPermissionEvent.emit(Unit)
-    }.launchIn(vm.viewModelScope)
-
-    vm.syncDelegate.requestMediaPermissionEvent.onEach {
-        vm._requestMediaPermissionEvent.emit(Unit)
+    vm.permissionsDelegate.grantRequests.onEach { permission ->
+        vm._grantPermissionEvent.emit(permission)
     }.launchIn(vm.viewModelScope)
 
     vm.emulatorDelegate.openUrlEvent.onEach { url ->
@@ -303,6 +303,10 @@ internal fun routeObserveConnectionState(vm: SettingsViewModel) {
             deviceInstallSupported = deviceInstall
         ))
         vm.soundsDelegate.setMusicApiSupported(musicApi)
+    }.launchIn(vm.viewModelScope)
+
+    vm.streamingConfigStore.enabled.onEach { available ->
+        vm.serverDelegate.updateState(vm._uiState.value.server.copy(streamingAvailable = available))
     }.launchIn(vm.viewModelScope)
 
     vm.jellyfinConnectionManager.connectionState.onEach { jellyfinState ->
@@ -556,7 +560,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
 
         val downloadedSize = vm.gameRepository.getDownloadedGamesSize()
         val downloadedCount = vm.gameRepository.getDownloadedGamesCount()
-        val adoptedCount = vm.gameRepository.getAdoptedGamesCount()
+        val localOnlyCount = vm.gameRepository.getLocalOnlyGamesCount()
         val availableSpace = vm.gameRepository.getAvailableStorageBytes()
         val box3dCapableGames = vm.gameRepository.countBox3dCapableGames()
         val libraryRegionOptions = vm.gameRepository.getDistinctRegions()
@@ -603,12 +607,18 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             compactFooter = prefs.compactFooter,
             hideSystemNavigationBar = prefs.hideSystemNavigationBar,
             hideSystemStatusBar = prefs.hideSystemStatusBar,
+            screenOrientation = prefs.screenOrientation,
             quickPanelInEmulators = prefs.quickPanelInEmulators,
             lockScreenArt = prefs.lockScreenArt,
             homeAppAvailable = prefs.homeAppAvailable,
             isDefaultHome = vm.displayDelegate.isDefaultHome(),
             preLaunchRecaps = prefs.preLaunchRecapsEnabled,
             monthlyRecap = prefs.monthlyRecapEnabled,
+            notificationsEnabled = prefs.notificationsEnabled,
+            notifyDownloadsFinished = prefs.notifyDownloadsFinished,
+            notifyBattery = prefs.notifyBattery,
+            notifyCharging = prefs.notifyCharging,
+            notifyControllers = prefs.notifyControllers,
             iconPack = prefs.iconPack,
             iconPacks = iconPacks,
             boxArtShape = prefs.boxArtShape,
@@ -670,6 +680,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             appsLaunchTarget = prefs.appsDisplayTarget,
             installedOnlyHome = prefs.installedOnlyHome,
             recentNewGamesLimit = prefs.recentNewGamesLimit,
+            newBadgePlacement = prefs.newBadgePlacement,
             showStatusClock = prefs.showStatusClock,
             showStatusBattery = prefs.showStatusBattery,
             showStatusNetwork = prefs.showStatusNetwork
@@ -701,7 +712,11 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             navRingRoutes = com.nendo.argosy.ui.navigation.NavRing.resolve(prefs.navRingRoutes),
             quickNavigation = prefs.quickNavigation,
             navBarAutoHide = prefs.navBarAutoHide,
-            ignoreControllerTouchpad = prefs.ignoreControllerTouchpad
+            ignoreControllerTouchpad = prefs.ignoreControllerTouchpad,
+            systemHotkeysEnabled = prefs.systemHotkeysEnabled,
+            homeButtonInGames = prefs.homeButtonInGames,
+            systemHomeCombo = prefs.systemHomeCombo,
+            systemBackCombo = prefs.systemBackCombo
         ))
         vm.controlsDelegate.refreshUsageStatsPermission()
 
@@ -731,12 +746,16 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             .getOrNull(vm._uiState.value.platformDetail.platformIndex)?.platform?.id
         val archOverride = vm.libretroSettingsRepo.getArchitectureOverride().first()
         val builtinSettings = vm.libretroSettingsRepo.getBuiltinEmulatorSettings().first()
+        val externalGamesStayOpen = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            vm.keepAlivePolicy.isSupported
+        }
         vm.emulatorDelegate.updateState(EmulatorState(
             platforms = filteredPlatformConfigs,
             installedEmulators = installedEmulators,
             platformSubFocusIndex = currentEmulatorState.platformSubFocusIndex,
             builtinLibretroEnabled = prefs.builtinLibretroEnabled,
             closeEmulatorOnSessionEnd = prefs.closeEmulatorOnSessionEnd,
+            externalGamesStayOpen = externalGamesStayOpen,
             architectureDisplay = architectureAbiToDisplay(archOverride),
             ingameMenuTwoColumn = builtinSettings.ingameMenuTwoColumn,
             hudEnabled = builtinSettings.hudEnabled,
@@ -770,7 +789,9 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             boxArtCacheEnabled = prefs.boxArtCacheEnabled,
             screenshotUploadSupported = rommCapabilities?.supportsScreenshotUpload == true,
             musicApiSupported = rommCapabilities?.supportsMusicApi == true,
-            deviceInstallSupported = rommCapabilities?.supportsDeviceInstall == true
+            deviceInstallSupported = rommCapabilities?.supportsDeviceInstall == true,
+            streamingAvailable = vm.streamingConfigStore.isEnabled(),
+            notOnDeviceAction = prefs.notOnDeviceAction
         ))
 
         val jellyfinInFlight = vm.jellyfinDelegate.state.value
@@ -813,7 +834,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
             romStoragePath = prefs.romStoragePath ?: "",
             downloadedGamesSize = downloadedSize,
             downloadedGamesCount = downloadedCount,
-            adoptedGamesCount = adoptedCount,
+            localOnlyGamesCount = localOnlyCount,
             maxConcurrentDownloads = prefs.maxConcurrentDownloads,
             allowRemoteInstalls = prefs.allowRemoteInstalls,
             autoStartDownloads = prefs.autoStartDownloads,
@@ -910,7 +931,6 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
         vm.syncDelegate.updateState(SyncSettingsState(
             syncFilters = prefs.syncFilters,
             regionPriority = prefs.regionPriority,
-            saveSyncEnabled = prefs.saveSyncEnabled,
             secureSaves = prefs.secureSaves,
             stateCacheEnabled = prefs.stateCacheEnabled,
             saveCacheLimit = prefs.saveCacheLimit,
@@ -926,6 +946,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
         vm._uiState.update {
             it.copy(
                 betaUpdatesEnabled = prefs.betaUpdatesEnabled,
+                debugUpdateChecksEnabled = prefs.debugUpdateChecksEnabled,
                 appLanguage = prefs.appLanguage,
                 fileLoggingEnabled = prefs.fileLoggingEnabled,
                 fileLoggingPath = prefs.fileLoggingPath,
@@ -970,6 +991,7 @@ internal fun routeLoadSettings(vm: SettingsViewModel) {
                     gyroAimInvertY = refreshSettings.gyroAimInvertY,
                     gyroAimSensitivity = refreshSettings.gyroAimSensitivity,
                     limitHotkeysToPlayer1 = refreshSettings.limitHotkeysToPlayer1,
+                    confirmReturnHome = refreshSettings.confirmReturnHome,
                     speedrunStartOnReset = refreshSettings.speedrunStartOnReset,
                     speedrunPanelSide = refreshSettings.speedrunPanelSide,
                     speedrunPanelWidthPercent = refreshSettings.speedrunPanelWidthPercent,

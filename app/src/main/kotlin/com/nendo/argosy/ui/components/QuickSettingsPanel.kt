@@ -34,7 +34,10 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material.icons.filled.StayCurrentLandscape
+import androidx.compose.material.icons.filled.StayCurrentPortrait
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -55,11 +58,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.nendo.argosy.R
+import com.nendo.argosy.data.preferences.ScreenOrientationMode
 import com.nendo.argosy.data.preferences.ThemeMode
 import com.nendo.argosy.hardware.FanController
 import com.nendo.argosy.ui.primitives.FocusIndicators
@@ -86,6 +89,7 @@ fun QuickSettingsPanel(
     focusedIndex: Int,
     controller: QuickSettingsController,
     onOpenDeviceAccess: (() -> Unit)?,
+    onOpenRoute: ((String) -> Unit)?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     friendsPage: @Composable () -> Unit = {},
@@ -163,7 +167,9 @@ fun QuickSettingsPanel(
                                 state = state,
                                 focusedIndex = focusedIndex,
                                 controller = controller,
-                                onOpenDeviceAccess = onOpenDeviceAccess
+                                onDismiss = onDismiss,
+                                onOpenDeviceAccess = onOpenDeviceAccess,
+                                onOpenRoute = onOpenRoute
                             )
                         }
                     }
@@ -185,8 +191,8 @@ private fun quickPanelWidthFor(page: QuickSettingsPage): Dp {
     val cap = LocalConfiguration.current.screenWidthDp.dp * WIDE_PAGE_MAX_SCREEN_FRACTION
     val width = when (page) {
         QuickSettingsPage.MUSIC -> Dimens.quickPanelWidthMedia
-        QuickSettingsPage.FRIENDS, QuickSettingsPage.QUICK, QuickSettingsPage.PERFORMANCE,
-        QuickSettingsPage.CONNECTIONS -> Dimens.quickPanelWidthWide
+        QuickSettingsPage.FRIENDS, QuickSettingsPage.QUICK, QuickSettingsPage.ACTIVITY, QuickSettingsPage.PERFORMANCE,
+        QuickSettingsPage.CONNECTIONS, QuickSettingsPage.POWER -> Dimens.quickPanelWidthWide
     }
     return min(width, cap)
 }
@@ -206,10 +212,10 @@ private fun QuickPanelHeader(title: String) {
             style = MaterialTheme.typography.titleMedium,
             color = theme.textPrimary,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            softWrap = false,
             modifier = Modifier.weight(1f)
         )
-        SystemStatusBar(contentColor = theme.textDim, scrim = false)
+        SystemStatusBar(contentColor = theme.textDim, scrim = false, showsRunningSlots = false)
     }
 }
 
@@ -302,7 +308,9 @@ private fun QuickSettingsList(
     state: QuickSettingsState,
     focusedIndex: Int,
     controller: QuickSettingsController,
-    onOpenDeviceAccess: (() -> Unit)?
+    onDismiss: () -> Unit,
+    onOpenDeviceAccess: (() -> Unit)?,
+    onOpenRoute: ((String) -> Unit)?
 ) {
     val visibleItems = remember(page, state) { quickSettingsVisibleItems(page, state) }
     val focusable = remember(page, state) { quickSettingsFocusableItems(page, state) }
@@ -327,7 +335,9 @@ private fun QuickSettingsList(
                 state = state,
                 isFocused = focusable.indexOf(item) == focusedIndex,
                 controller = controller,
-                onOpenDeviceAccess = onOpenDeviceAccess
+                onDismiss = onDismiss,
+                onOpenDeviceAccess = onOpenDeviceAccess,
+                onOpenRoute = onOpenRoute
             )
         }
     }
@@ -339,11 +349,21 @@ private fun QuickSettingsItemRow(
     state: QuickSettingsState,
     isFocused: Boolean,
     controller: QuickSettingsController,
-    onOpenDeviceAccess: (() -> Unit)?
+    onDismiss: () -> Unit,
+    onOpenDeviceAccess: (() -> Unit)?,
+    onOpenRoute: ((String) -> Unit)?
 ) {
     val focus = { controller.focusItem(item) }
     val enabled = !item.isLocked(state)
     when (item) {
+        QuickSettingsItem.PowerAccess, QuickSettingsItem.PowerSleep, QuickSettingsItem.PowerRestart,
+        QuickSettingsItem.PowerOff, QuickSettingsItem.PowerMenu, QuickSettingsItem.OpenGames ->
+            QuickPowerRow(item = item, state = state, isFocused = isFocused, power = controller.power, onFocus = focus, onDismiss = onDismiss)
+
+        QuickSettingsItem.ActivityDownloads, QuickSettingsItem.ActivitySync, QuickSettingsItem.ActivityIdle,
+        QuickSettingsItem.ActivityRecent ->
+            QuickActivityRow(item = item, state = state.activity, isFocused = isFocused, onFocus = focus, onOpenRoute = onOpenRoute)
+
         is QuickSettingsItem.Header -> QuickSectionHeader(title = stringResource(item.headerGroup.titleRes))
 
         QuickSettingsItem.Theme -> QuickSegmentedRow(
@@ -401,6 +421,21 @@ private fun QuickSettingsItemRow(
             isFocused = isFocused,
             onFocus = focus,
             onToggle = { controller.swapDisplays() }
+        )
+
+        QuickSettingsItem.ScreenOrientation -> QuickSegmentedRow(
+            icon = when (state.screenOrientation) {
+                ScreenOrientationMode.AUTO -> Icons.Default.ScreenRotation
+                ScreenOrientationMode.LANDSCAPE -> Icons.Default.StayCurrentLandscape
+                ScreenOrientationMode.PORTRAIT -> Icons.Default.StayCurrentPortrait
+            },
+            label = stringResource(R.string.ui_quick_settings_orientation),
+            options = ScreenOrientationMode.entries.map { stringResource(it.quickLabelRes()) },
+            selectedIndex = ScreenOrientationMode.entries.indexOf(state.screenOrientation),
+            isFocused = isFocused,
+            onFocus = focus,
+            onSelect = { controller.setScreenOrientation(ScreenOrientationMode.entries[it]) },
+            inline = false
         )
 
         QuickSettingsItem.SystemVolume -> QuickSliderRow(
@@ -461,6 +496,8 @@ private fun QuickSettingsItemRow(
             onToggle = controller::setSwapStartSelect
         )
 
+        QuickSettingsItem.HardwareStats -> state.hardwareStats?.let { HardwareStatsBlock(it) }
+
         QuickSettingsItem.DeviceAccess -> QuickNoticeRow(
             message = stringResource(R.string.ui_quick_settings_device_access_notice),
             actionLabel = stringResource(R.string.ui_quick_settings_device_access_allow),
@@ -470,6 +507,16 @@ private fun QuickSettingsItemRow(
                 onOpenDeviceAccess?.invoke()
             },
             enabled = onOpenDeviceAccess != null
+        )
+
+        QuickSettingsItem.RootAccess -> QuickNoticeRow(
+            message = stringResource(R.string.ui_quick_settings_root_access_notice),
+            actionLabel = stringResource(R.string.ui_quick_settings_root_access_request),
+            isFocused = isFocused,
+            onAction = {
+                focus()
+                controller.requestRootAccess()
+            }
         )
 
         QuickSettingsItem.Performance -> QuickSegmentedRow(

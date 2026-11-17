@@ -68,6 +68,8 @@ class ServerSettingsDelegate @Inject constructor(
     private fun RomMResult.Error.describe(): String = when (kind) {
         com.nendo.argosy.data.remote.romm.RomMErrorKind.UNTRUSTED_CERTIFICATE ->
             context.getString(R.string.settings_romm_config_error_untrusted_certificate)
+        com.nendo.argosy.data.remote.romm.RomMErrorKind.CLIENT_CERTIFICATE_REQUIRED ->
+            context.getString(R.string.settings_romm_config_error_client_certificate_required)
         null -> message
     }
 
@@ -124,7 +126,7 @@ class ServerSettingsDelegate @Inject constructor(
      * pairing form. The first row is the address the session is on, so a second stored address
      * lands in the second row whichever column it came from.
      */
-    fun startRommConfig(scope: CoroutineScope, hasCamera: Boolean, onFocusReset: () -> Unit) {
+    fun startRommConfig(scope: CoroutineScope, onFocusReset: () -> Unit) {
         scope.launch {
             val account = accountRepository.activeAccount()
             val rows = account?.let { addressRowsFrom(it) }.orEmpty()
@@ -140,7 +142,6 @@ class ServerSettingsDelegate @Inject constructor(
                     rommAddressVerifyPrompt = null,
                     rommAddressVerifyFocusIndex = 0,
                     rommConfigPairingCode = "",
-                    rommHasCamera = hasCamera,
                     rommConfigError = null,
                     rommDevicePairing = false,
                     rommDeviceUserCode = null,
@@ -278,6 +279,13 @@ class ServerSettingsDelegate @Inject constructor(
         }
     }
 
+    private fun requestAddressEditorKeyboard() {
+        _state.update { state ->
+            val editor = state.rommAddressEditor ?: return@update state
+            state.copy(rommAddressEditor = editor.copy(focus = editor.focus.requestKeyboard()))
+        }
+    }
+
     fun moveAddressEditorButton(delta: Int) {
         _state.update { state ->
             val editor = state.rommAddressEditor ?: return@update state
@@ -290,7 +298,7 @@ class ServerSettingsDelegate @Inject constructor(
     fun confirmAddressEditor(scope: CoroutineScope) {
         val editor = _state.value.rommAddressEditor ?: return
         when {
-            editor.focus.row == TextEntryRow.FIELD -> moveAddressEditorRow(TextEntryRow.BUTTONS)
+            editor.focus.row == TextEntryRow.FIELD -> requestAddressEditorKeyboard()
             editor.focus.buttonIndex == TEXT_ENTRY_CANCEL_BUTTON -> closeAddressEditor()
             else -> saveAddress(scope, editor.row)
         }
@@ -520,26 +528,6 @@ class ServerSettingsDelegate @Inject constructor(
                 rommDeviceVerificationUrl = null
             )
         }
-    }
-
-    fun showScanner() {
-        _state.update { it.copy(rommShowScanner = true) }
-    }
-
-    fun dismissScanner() {
-        _state.update { it.copy(rommShowScanner = false) }
-    }
-
-    fun handleScanResult(origin: String, code: String, scope: CoroutineScope, onSuccess: suspend () -> Unit) {
-        _state.update {
-            it.copy(
-                rommShowScanner = false,
-                rommConfigUrl = origin,
-                rommConfigPairingCode = code,
-                rommAuthMethod = RomMAuthMethod.PAIRING_CODE
-            )
-        }
-        connectToRomm(scope, onSuccess)
     }
 
     fun clearRommFocusField() {

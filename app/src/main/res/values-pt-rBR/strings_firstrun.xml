@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="firstrun_romm_url_keyboard_submit">Continuar</string>
+    <string name="firstrun_romm_url_button_checking">Verificando...</string>
+    <string name="firstrun_romm_certificate_button">Adicionar certificado</string>
+    <string name="firstrun_romm_certificate_button_count">Certificados (%1$d)</string>
+    <string name="firstrun_romm_certificate_import_failed">Esse arquivo não é um certificado legível.</string>
+    <string name="firstrun_romm_error_untrusted_certificate">Este dispositivo não confia no certificado do servidor. Adicione o certificado para conectar.</string>
+
+    <string name="firstrun_pairing_code_title">Digite o código de emparelhamento</string>
+    <string name="firstrun_pairing_code_hint">Crie um token de API na interface web do RomM e depois digite o código de 8 caracteres.</string>
+    <string name="firstrun_pairing_code_button_connect">Conectar</string>
+    <string name="firstrun_pairing_code_keyboard_submit">Conectar</string>
+    <string name="firstrun_pairing_code_button_connecting">Conectando...</string>
+    <string name="firstrun_pairing_code_error_incomplete">Digite o código de emparelhamento completo de 8 caracteres</string>
+
+    <string name="firstrun_device_pairing_button_manual_code">Usar código de emparelhamento</string>
+    <string name="firstrun_device_pairing_error_denied">O emparelhamento foi negado no servidor</string>
+    <string name="firstrun_device_pairing_error_expired">O código de emparelhamento expirou, recomece</string>
+    <string name="firstrun_device_pairing_error_unexpected">Resultado de emparelhamento inesperado</string>
+
+    <string name="firstrun_romm_success_library">%1$s em %2$s</string>
+    <plurals name="firstrun_romm_success_game_count">
+        <item quantity="one">%,d jogo</item>
+        <item quantity="many">%,d jogos</item>
+        <item quantity="other">%,d jogos</item>
+    </plurals>
+    <plurals name="firstrun_romm_success_platform_count">
+        <item quantity="one">%d plataforma</item>
+        <item quantity="many">%d plataformas</item>
+        <item quantity="other">%d plataformas</item>
+    </plurals>
+    <string name="firstrun_romm_success_error_library_fetch">Falha ao buscar a biblioteca: %1$s</string>
+
+    <string name="firstrun_save_sync_title">Sincronização de saves</string>
+    <string name="firstrun_save_sync_option_on_title">Sincronizar saves</string>
+    <string name="firstrun_save_sync_option_on_description">Faz backup de saves e estados, e os restaura antes de você jogar</string>
+    <string name="firstrun_save_sync_option_off_title">Manter os saves neste dispositivo</string>
+    <string name="firstrun_save_sync_option_off_description">Nada é enviado. Você pode ativar a sincronização depois em Configurações.</string>
+    <string name="firstrun_save_sync_option_selected">Selecionado</string>
+
+    <plurals name="firstrun_platform_select_game_count">
+        <item quantity="one">%d jogo</item>
+        <item quantity="many">%d jogos</item>
+        <item quantity="other">%d jogos</item>
+    </plurals>
+    <string name="firstrun_platform_select_button_select_all">Selecionar tudo</string>
+    <string name="firstrun_platform_select_button_deselect_all">Desselecionar tudo</string>
+    <string name="firstrun_romm_client_certificate_button">Adicionar certificado de cliente</string>
+    <string name="firstrun_romm_client_certificate_button_active">Certificado de cliente: %1$s</string>
+    <string name="firstrun_romm_error_client_certificate_required">O servidor exige um certificado de cliente. Adicione-o para conectar.</string>
+</resources>

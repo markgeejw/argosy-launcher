@@ -2,11 +2,9 @@ package com.nendo.argosy.ui.screens.settings.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -47,11 +45,14 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import com.nendo.argosy.data.remote.ssl.ClientCertTarget
 import com.nendo.argosy.R
 import com.nendo.argosy.ui.components.ActionPreference
 import com.nendo.argosy.ui.components.CyclePreference
+import com.nendo.argosy.ui.components.keyboard.ControllerKeyboardSession
+import com.nendo.argosy.ui.components.keyboard.ControllerKeyboardTapTarget
+import com.nendo.argosy.ui.components.keyboard.KeyboardFieldType
 import com.nendo.argosy.ui.components.QrCodeWithOverlay
-import com.nendo.argosy.ui.components.QrScannerWithPermission
 import com.nendo.argosy.ui.components.preferenceContentColor
 import com.nendo.argosy.ui.components.preferenceModifier
 import com.nendo.argosy.ui.components.preferenceSecondaryColor
@@ -80,8 +81,8 @@ internal data class RomMConfigIndices(
     val authMethodIndex: Int,
     val pairingCodeIndex: Int?,
     val connectIndex: Int,
-    val scanIndex: Int?,
     val certificateIndex: Int,
+    val clientCertificateIndex: Int,
     val cancelIndex: Int
 ) {
     val maxIndex: Int get() = cancelIndex
@@ -99,8 +100,8 @@ internal fun rommConfigIndices(server: ServerState): RomMConfigIndices {
     val authMethod = next++
     val code = if (pairingCode) next++ else null
     val connect = next++
-    val scan = if (pairingCode && server.rommHasCamera) next++ else null
     val certificate = next++
+    val clientCertificate = next++
     val cancel = next
     return RomMConfigIndices(
         firstFieldIndex = firstField,
@@ -109,8 +110,8 @@ internal fun rommConfigIndices(server: ServerState): RomMConfigIndices {
         authMethodIndex = authMethod,
         pairingCodeIndex = code,
         connectIndex = connect,
-        scanIndex = scan,
         certificateIndex = certificate,
+        clientCertificateIndex = clientCertificate,
         cancelIndex = cancel
     )
 }
@@ -131,18 +132,6 @@ private fun cycleAuthMethod(current: RomMAuthMethod, direction: Int): RomMAuthMe
 
 @Composable
 fun RomMConfigForm(uiState: SettingsUiState, viewModel: SettingsViewModel) {
-    if (uiState.server.rommShowScanner) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            QrScannerWithPermission(
-                onResult = { result ->
-                    viewModel.handleRommScanResult(result.origin, result.code)
-                },
-                onDismiss = { viewModel.dismissRommScanner() }
-            )
-        }
-        return
-    }
-
     if (uiState.server.rommDevicePairing) {
         DevicePairingScreen(uiState, viewModel)
         return
@@ -155,19 +144,46 @@ fun RomMConfigForm(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     var wasUrlFocused by remember { mutableStateOf(false) }
     val firstFieldFocusRequester = remember { FocusRequester() }
     val pairingCodeFocusRequester = remember { FocusRequester() }
+    var keyboardField by remember { mutableStateOf<Int?>(null) }
 
     val authMethod = server.rommAuthMethod
     val isDevice = authMethod == RomMAuthMethod.DEVICE
     val isPairingCode = authMethod == RomMAuthMethod.PAIRING_CODE
 
     LaunchedEffect(server.rommFocusField) {
-        when (server.rommFocusField) {
-            null -> return@LaunchedEffect
-            indices.firstFieldIndex -> firstFieldFocusRequester.requestFocus()
-            indices.pairingCodeIndex -> pairingCodeFocusRequester.requestFocus()
+        val requested = server.rommFocusField ?: return@LaunchedEffect
+        if (requested == indices.firstFieldIndex || requested == indices.pairingCodeIndex) {
+            keyboardField = requested
         }
         viewModel.clearRommFocusField()
     }
+
+    val commitUrlFromKeyboard = {
+        keyboardField = null
+        if (server.rommConfigUrl.isNotBlank()) viewModel.commitRommUrl()
+    }
+    ControllerKeyboardSession(
+        open = keyboardField != null && keyboardField == indices.firstFieldIndex,
+        label = stringResource(R.string.settings_romm_config_server_url_label),
+        text = server.rommConfigUrl,
+        onTextChange = { viewModel.setRommConfigUrl(it) },
+        onSubmit = commitUrlFromKeyboard,
+        onClose = commitUrlFromKeyboard,
+        submitLabel = stringResource(R.string.settings_romm_config_url_keyboard_submit),
+        placeholder = stringResource(R.string.settings_romm_config_server_url_placeholder),
+        fieldType = KeyboardFieldType.URI,
+        canSubmit = !server.rommConnecting && server.rommConfigUrl.isNotBlank()
+    )
+    ControllerKeyboardSession(
+        open = keyboardField != null && keyboardField == indices.pairingCodeIndex,
+        label = stringResource(R.string.settings_romm_config_pairing_code_keyboard_label),
+        text = server.rommConfigPairingCode,
+        onTextChange = { raw -> pairingCodeFilter(raw)?.let { viewModel.setRommConfigPairingCode(it) } },
+        onSubmit = { keyboardField = null },
+        onClose = { keyboardField = null },
+        submitLabel = stringResource(R.string.settings_romm_config_pairing_code_keyboard_submit),
+        maxLength = PAIRING_CODE_LENGTH
+    )
 
     Column(
         modifier = Modifier
@@ -192,34 +208,44 @@ fun RomMConfigForm(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             }
             Spacer(modifier = Modifier.height(Dimens.spacingSm))
             SectionHeader(stringResource(R.string.settings_romm_config_section_pairing))
-        } else {
-            OutlinedTextField(
-                value = server.rommConfigUrl,
-                onValueChange = { viewModel.setRommConfigUrl(it) },
-                label = { Text(stringResource(R.string.settings_romm_config_server_url_label)) },
-                placeholder = { Text(stringResource(R.string.settings_romm_config_server_url_placeholder)) },
-                singleLine = true,
-                shape = inputShape,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(
-                    onGo = {
-                        if (!server.rommConnecting && server.rommConfigUrl.isNotBlank()) {
-                            keyboard?.hide()
-                            viewModel.commitRommUrl()
+        } else if (indices.firstFieldIndex != null) {
+            val urlFieldIndex = indices.firstFieldIndex
+            ControllerKeyboardTapTarget(
+                onTap = {
+                    viewModel.setFocusIndex(urlFieldIndex)
+                    keyboardField = urlFieldIndex
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = server.rommConfigUrl,
+                    onValueChange = { viewModel.setRommConfigUrl(it) },
+                    label = { Text(stringResource(R.string.settings_romm_config_server_url_label)) },
+                    placeholder = { Text(stringResource(R.string.settings_romm_config_server_url_placeholder)) },
+                    singleLine = true,
+                    shape = inputShape,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(
+                        onGo = {
+                            if (!server.rommConnecting && server.rommConfigUrl.isNotBlank()) {
+                                keyboard?.hide()
+                                viewModel.commitRommUrl()
+                            }
                         }
-                    }
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(firstFieldFocusRequester)
-                    .onFocusChanged { fs ->
-                        if (wasUrlFocused && !fs.isFocused && server.rommConfigUrl.isNotBlank()) {
-                            viewModel.commitRommUrl()
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(firstFieldFocusRequester)
+                        .onFocusChanged { fs ->
+                            if (fs.isFocused) keyboardField = null
+                            if (wasUrlFocused && !fs.isFocused && server.rommConfigUrl.isNotBlank()) {
+                                viewModel.commitRommUrl()
+                            }
+                            wasUrlFocused = fs.isFocused
                         }
-                        wasUrlFocused = fs.isFocused
-                    }
-                    .then(fieldFocusModifier(uiState.focusedIndex == indices.firstFieldIndex, inputShape))
-            )
+                        .then(fieldFocusModifier(uiState.focusedIndex == urlFieldIndex, inputShape))
+                )
+            }
         }
 
         CyclePreference(
@@ -255,7 +281,14 @@ fun RomMConfigForm(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     code = server.rommConfigPairingCode,
                     onCodeChange = { viewModel.setRommConfigPairingCode(it) },
                     isFocused = uiState.focusedIndex == indices.pairingCodeIndex,
-                    focusRequester = pairingCodeFocusRequester
+                    focusRequester = pairingCodeFocusRequester,
+                    onTap = {
+                        indices.pairingCodeIndex?.let { codeIndex ->
+                            viewModel.setFocusIndex(codeIndex)
+                            keyboardField = codeIndex
+                        }
+                    },
+                    onInputFocused = { keyboardField = null }
                 )
             }
         }
@@ -287,15 +320,6 @@ fun RomMConfigForm(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             onClick = { viewModel.connectToRomm() }
         )
 
-        if (indices.scanIndex != null) {
-            ActionPreference(
-                title = stringResource(R.string.settings_romm_config_scan_title),
-                subtitle = stringResource(R.string.settings_romm_config_scan_subtitle),
-                isFocused = uiState.focusedIndex == indices.scanIndex,
-                onClick = { viewModel.showRommScanner() }
-            )
-        }
-
         ActionPreference(
             title = stringResource(R.string.settings_romm_config_certificate_title),
             subtitle = if (server.importedCertCount > 0) {
@@ -309,6 +333,12 @@ fun RomMConfigForm(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             },
             isFocused = uiState.focusedIndex == indices.certificateIndex,
             onClick = { viewModel.requestCertificatePicker() }
+        )
+
+        ClientCertificatePreference(
+            summary = uiState.clientCert.summary,
+            isFocused = uiState.focusedIndex == indices.clientCertificateIndex,
+            onClick = { viewModel.openClientCertManager(ClientCertTarget.ROMM) }
         )
 
         ActionPreference(

@@ -40,6 +40,7 @@ import com.nendo.argosy.data.repository.SaveCacheManager
 import com.nendo.argosy.DualScreenManagerHolder
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.PermissionHelper
+import com.nendo.argosy.util.UsageStatsAvailability
 import dagger.hilt.android.AndroidEntryPoint
 import com.nendo.argosy.util.SafeCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,13 +65,13 @@ class GameSessionService : Service() {
     @Inject lateinit var saveCacheManager: SaveCacheManager
     @Inject lateinit var gameDao: GameDao
     @Inject lateinit var activeSaveRepository: com.nendo.argosy.data.repository.ActiveSaveRepository
-    @Inject lateinit var screenshotCaptureMonitor: ScreenshotCaptureMonitor
     @Inject lateinit var saveScreenshotCapture: com.nendo.argosy.hardware.SaveScreenshotCapture
     @Inject lateinit var playSessionTracker: dagger.Lazy<PlaySessionTracker>
     @Inject lateinit var activityReporter:
         com.nendo.argosy.data.social.uploader.RomMActivityReporter
     @Inject lateinit var permissionHelper: PermissionHelper
     @Inject lateinit var pspSavePrefixLearner: com.nendo.argosy.data.sync.PspSavePrefixLearner
+    @Inject lateinit var androidDataAccessor: com.nendo.argosy.data.storage.AndroidDataAccessor
 
     private val serviceScope = SafeCoroutineScope(Dispatchers.IO, "GameSessionService")
     private val handler = Handler(Looper.getMainLooper())
@@ -86,6 +87,7 @@ class GameSessionService : Service() {
 
     private var activityJob: Job? = null
     private var presenceJob: Job? = null
+    private var mirrorRefreshJob: Job? = null
     private var currentGameId: Long = -1
     private var currentEmulatorId: String? = null
     private var currentEmulatorPackage: String? = null
@@ -177,9 +179,9 @@ class GameSessionService : Service() {
                     stopWatching()
                     removeOverlay()
                     startWatching(watchPath)
+                    startMirrorRefresh(savePath)
                 }
 
-                screenshotCaptureMonitor.start(gameId, emulatorPackage, sessionStartTime)
                 startActivityReporting(gameId)
                 startPresenceWatch(emulatorPackage)
             }
@@ -195,7 +197,6 @@ class GameSessionService : Service() {
         stopActivityReporting()
         activityReporter.clearAsync()
         cleanupPresenceKeepalive()
-        screenshotCaptureMonitor.stop()
         stopWatching()
         removeOverlay()
         releaseWakeLock()
@@ -257,7 +258,11 @@ class GameSessionService : Service() {
         stopPresenceWatch()
         if (emulatorPackage == null || emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE) return
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return
-        if (!permissionHelper.hasUsageStatsPermission(this)) return
+        val usageStats = permissionHelper.usageStatsAvailability(this)
+        if (usageStats != UsageStatsAvailability.AVAILABLE) {
+            Logger.info(TAG, "Presence watch off, usage stats $usageStats | session ends on launcher focus")
+            return
+        }
         val tracker = playSessionTracker.get()
         if (tracker.activeSession.value?.isNetplayGuest == true) return
         val emulator = EmulatorIdentity(emulatorPackage)
@@ -418,7 +423,19 @@ class GameSessionService : Service() {
         relative.substringBefore('/').takeIf { it.isNotEmpty() }?.let { sessionWrittenFolders += it }
     }
 
+    private fun startMirrorRefresh(savePath: String?) {
+        if (savePath == null || !androidDataAccessor.isRestrictedAndroidPath(savePath)) return
+        mirrorRefreshJob = serviceScope.launch {
+            while (isActive) {
+                delay(MIRROR_REFRESH_MS)
+                if (androidDataAccessor.syncMirror(listOf(savePath)) == null) break
+            }
+        }
+    }
+
     private fun stopWatching() {
+        mirrorRefreshJob?.cancel()
+        mirrorRefreshJob = null
         watchGeneration++
         isWaitingForDirectory = false
         watchRoot = null
@@ -785,6 +802,7 @@ class GameSessionService : Service() {
         private const val RESET_DELAY_MS = 1700L
         private const val OVERLAY_DEBOUNCE_MS = 30 * 1000L
         private const val POLL_INTERVAL_MS = 2000L
+        private const val MIRROR_REFRESH_MS = 5_000L
         private const val PRESENCE_TICK_MS = 2_000L
         private const val PRESENCE_LOOKBACK_MS = 2 * 60 * 1000L
         private const val PRESENCE_WAKE_GRACE_MS = 3_000L

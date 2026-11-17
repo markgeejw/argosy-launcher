@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.remote.romm
 
+import com.nendo.argosy.data.local.entity.GameScreenshotEntity
 import com.nendo.argosy.data.local.entity.PlatformEntity
 import com.nendo.argosy.data.model.ArtSlot
 import com.nendo.argosy.data.model.ServerArt
@@ -17,6 +18,7 @@ class RomMRepository @Inject constructor(
     private val collectionSyncService: RomMCollectionSyncService,
     private val userPropertyService: RomMUserPropertyService,
     private val achievementService: RomMAchievementService,
+    private val galleryService: RomMGalleryService,
     private val userPreferencesRepository: UserPreferencesRepository
 ) {
     val syncProgress: StateFlow<SyncProgress> get() = librarySyncService.syncProgress
@@ -139,6 +141,23 @@ class RomMRepository @Inject constructor(
     }.getOrDefault(false)
 
     suspend fun getRom(romId: Long): RomMResult<RomMRom> = apiClient.getRom(romId)
+
+    fun newDownloadCall(
+        romId: Long,
+        fileName: String,
+        rangeHeader: String? = null,
+        fileIds: String? = null,
+        ifRange: String? = null,
+        isGameFile: Boolean = false
+    ): retrofit2.Call<okhttp3.ResponseBody> =
+        apiClient.newDownloadCall(romId, fileName, rangeHeader, fileIds, ifRange, isGameFile)
+
+    fun downloadRequestKey(
+        romId: Long,
+        fileName: String,
+        fileIds: String? = null,
+        isGameFile: Boolean = false
+    ): String = apiClient.downloadRequestKey(romId, fileName, fileIds, isGameFile)
 
     suspend fun downloadRom(
         romId: Long,
@@ -293,8 +312,11 @@ class RomMRepository @Inject constructor(
     suspend fun ensureSoundtrackFiles(gameId: Long): Boolean =
         userPropertyService.ensureSoundtrackFiles(gameId)
 
-    suspend fun fetchUserScreenshots(rommId: Long): List<String> =
-        userPropertyService.fetchUserScreenshots(rommId)
+    suspend fun refreshGalleryScreenshots(
+        gameId: Long,
+        rommId: Long,
+        downloadEnabled: Boolean
+    ): List<GameScreenshotEntity>? = galleryService.refresh(gameId, rommId, downloadEnabled)
 
     // --- Achievements ---
 

@@ -36,6 +36,7 @@
     <string name="error_download_no_discs_queued">未能将任何光盘加入下载队列</string>
     <string name="error_download_game_not_found_for_repair">未找到游戏</string>
     <string name="error_download_not_multi_disc">不是多光盘游戏</string>
+    <string name="error_download_game_no_rom_folder">下载前请先选择游戏文件夹</string>
 
     <string name="error_download_invalid_content_type">无效的文件类型：%1$s</string>
     <string name="error_download_file_too_small">文件过小，不像是ROM</string>
@@ -50,7 +51,16 @@
     <string name="error_download_downloaded_file_missing">未找到下载的文件</string>
     <string name="error_download_no_download_entry">未找到下载记录</string>
     <string name="error_download_no_longer_exists">下载的文件已不存在</string>
+    <string name="error_download_no_rom_folder">下载前请先选择游戏文件夹</string>
     <string name="error_download_extraction_failed">解压失败</string>
 
     <string name="error_filepicker_already_downloaded">游戏已下载</string>
+    <string name="error_download_http">下载失败（HTTP %1$d）</string>
+    <string name="error_download_http_unauthorized">RomM 登录已过期或需要登录（HTTP %1$d）</string>
+    <string name="error_download_http_forbidden">RomM 拒绝访问此下载（HTTP %1$d）</string>
+    <string name="error_download_http_not_found">在 RomM 上找不到下载（HTTP %1$d）</string>
+    <string name="error_download_integrity_check_failed">下载完整性检查失败。请重新下载。</string>
+    <string name="error_download_invalid_response">RomM 返回了无效的下载响应。</string>
+    <string name="error_download_storage_access_failed">无法访问下载存储空间。请检查可用空间和权限。</string>
+    <string name="error_download_tls_verification_failed">无法验证服务器证书。请检查服务器和证书设置。</string>
 </resources>

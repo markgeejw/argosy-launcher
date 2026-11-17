@@ -105,6 +105,7 @@
     <string name="settings_shell_header_storage_games">SPIELE-SPEICHER</string>
     <string name="settings_shell_header_storage_media">MEDIEN-SPEICHER</string>
     <string name="settings_shell_header_storage_platform_games_fallback">PLATTFORM-SPIELE</string>
+    <string name="settings_shell_header_storage_local_only">NUR LOKALE SPIELE</string>
     <string name="settings_shell_header_storage_caches">CACHES &amp; SYSTEM</string>
     <string name="settings_shell_header_theme">DESIGN</string>
     <string name="settings_shell_header_audio">AUDIO</string>
@@ -137,6 +138,7 @@
     <string name="settings_shell_header_drivers">GPU-TREIBER</string>
     <string name="settings_shell_header_about">ÜBER</string>
     <string name="settings_shell_header_social">SOZIAL</string>
+    <string name="settings_shell_header_network">NETZWERK UND BLUETOOTH</string>
     <string name="settings_shell_header_context_global">Global</string>
 
     <string name="settings_shell_context_previous_desc">Vorheriger Kontext</string>
@@ -349,6 +351,8 @@
     <string name="settings_shell_footer_reset_platformdetail">Zurücksetzen</string>
     <string name="settings_shell_footer_launch_targets_screen">Bildschirm</string>
     <string name="settings_shell_footer_launch_targets_reset">Zurücksetzen</string>
+    <string name="settings_shell_footer_network_forget">Halten zum Entfernen</string>
+    <string name="settings_shell_footer_network_group">Abschnitt</string>
     <string name="settings_shell_footer_toggle_label">Umschalten</string>
     <string name="settings_shell_footer_open_label">Öffnen</string>
     <string name="settings_shell_footer_select_label">Auswählen</string>
@@ -363,7 +367,9 @@
     <string name="settings_shell_footer_reset_builtincontrols_override">Zurücksetzen</string>
     <string name="settings_shell_footer_reset_builtinsaves_override">Zurücksetzen</string>
     <string name="settings_shell_footer_back">Zurück</string>
+    <string name="settings_shell_footer_local_only_location">Speicherort</string>
     <string name="settings_shell_footer_unassign_shortcut">Entfernen</string>
+    <string name="settings_shell_footer_reset_system_combo">Zurücksetzen</string>
 
     <!-- ===== SettingsScreen: cache clear confirm modals ===== -->
 

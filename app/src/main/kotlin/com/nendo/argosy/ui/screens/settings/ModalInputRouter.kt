@@ -17,9 +17,11 @@ internal class ModalInputRouter(private val viewModel: SettingsViewModel) {
             state.builtinControls.showInputMappingModal ||
             state.builtinControls.showHotkeysModal ||
             state.display.showGripControllerModal ||
-            state.controls.shortcutCaptureTarget != null
+            state.controls.shortcutCaptureTarget != null ||
+            state.controls.systemComboCaptureTarget != null
         ) return null
 
+        interceptButtonCheck(state, method)?.let { return it }
         interceptNavRingModal(state, method)?.let { return it }
         interceptGpuDriverPrompt(state, method)?.let { return it }
         interceptDriverPicker(state, method)?.let { return it }
@@ -39,6 +41,8 @@ internal class ModalInputRouter(private val viewModel: SettingsViewModel) {
         interceptAddressEditor(state, method)?.let { return it }
         interceptAddressMenu(state, method)?.let { return it }
         interceptRAWebApiKeyEditor(state, method)?.let { return it }
+        interceptClientCertPassword(state, method)?.let { return it }
+        interceptClientCertManager(state, method)?.let { return it }
         interceptUpdateModal(state, method)?.let { return it }
         interceptVariantPicker(state, method)?.let { return it }
         interceptSteamVariantPicker(state, method)?.let { return it }
@@ -54,6 +58,31 @@ internal class ModalInputRouter(private val viewModel: SettingsViewModel) {
         interceptStreamHostModal(state, method)?.let { return it }
 
         return null
+    }
+
+    private fun interceptButtonCheck(state: SettingsUiState, method: InputMethod): InputResult? {
+        if (!state.controls.showButtonCheck) return null
+        val check = viewModel.buttonCheck
+        if (check.state.value.testing) {
+            if (method == InputMethod.BACK) check.finishTest()
+            return InputResult.handled(SoundType.SILENT)
+        }
+        return when (method) {
+            InputMethod.UP -> check.move(0, -1)
+            InputMethod.DOWN -> check.move(0, 1)
+            InputMethod.LEFT -> check.move(-1, 0)
+            InputMethod.RIGHT -> check.move(1, 0)
+            InputMethod.CONFIRM -> {
+                val (result, exit) = check.confirm()
+                if (exit != null) viewModel.closeButtonCheck()
+                result
+            }
+            InputMethod.BACK -> {
+                viewModel.closeButtonCheck()
+                InputResult.handled(SoundType.CLOSE_MODAL)
+            }
+            else -> InputResult.HANDLED
+        }
     }
 
     private fun interceptNavRingModal(state: SettingsUiState, method: InputMethod): InputResult? {
@@ -447,6 +476,36 @@ internal class ModalInputRouter(private val viewModel: SettingsViewModel) {
             InputMethod.RIGHT -> { viewModel.moveRAWebApiKeyButton(1); InputResult.HANDLED }
             InputMethod.CONFIRM -> { viewModel.confirmRAWebApiKeyEditor(); InputResult.HANDLED }
             InputMethod.BACK -> { viewModel.closeRAWebApiKeyEditor(); InputResult.handled(SoundType.CLOSE_MODAL) }
+            else -> InputResult.HANDLED
+        }
+    }
+
+    private fun interceptClientCertPassword(state: SettingsUiState, method: InputMethod): InputResult? {
+        if (state.clientCert.passwordEntry == null) return null
+        return when (method) {
+            InputMethod.UP -> { viewModel.moveClientCertPasswordRow(TextEntryRow.FIELD); InputResult.HANDLED }
+            InputMethod.DOWN -> { viewModel.moveClientCertPasswordRow(TextEntryRow.BUTTONS); InputResult.HANDLED }
+            InputMethod.LEFT -> { viewModel.moveClientCertPasswordButton(-1); InputResult.HANDLED }
+            InputMethod.RIGHT -> { viewModel.moveClientCertPasswordButton(1); InputResult.HANDLED }
+            InputMethod.CONFIRM -> { viewModel.confirmClientCertPassword(); InputResult.HANDLED }
+            InputMethod.BACK -> { viewModel.closeClientCertPassword(); InputResult.handled(SoundType.CLOSE_MODAL) }
+            else -> InputResult.HANDLED
+        }
+    }
+
+    private fun interceptClientCertManager(state: SettingsUiState, method: InputMethod): InputResult? {
+        if (state.clientCert.managerOpenFor == null) return null
+        return when (method) {
+            InputMethod.UP -> { viewModel.moveClientCertManagerFocus(-1); InputResult.HANDLED }
+            InputMethod.DOWN -> { viewModel.moveClientCertManagerFocus(1); InputResult.HANDLED }
+            InputMethod.LEFT, InputMethod.RIGHT ->
+                if (viewModel.setFocusedClientCertToggle(enabled = method == InputMethod.RIGHT)) {
+                    InputResult.handled(SoundType.TOGGLE)
+                } else {
+                    InputResult.HANDLED
+                }
+            InputMethod.CONFIRM -> { viewModel.selectClientCertAction(); InputResult.HANDLED }
+            InputMethod.BACK -> { viewModel.closeClientCertManager(); InputResult.handled(SoundType.CLOSE_MODAL) }
             else -> InputResult.HANDLED
         }
     }

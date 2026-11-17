@@ -6,6 +6,8 @@
     <string name="settings_main_section_gameplay">ИГРОВОЙ ПРОЦЕСС</string>
     <string name="settings_main_section_library">БИБЛИОТЕКА</string>
     <string name="settings_main_section_connections">ПОДКЛЮЧЕНИЯ</string>
+    <string name="settings_main_network_title">Сеть и Bluetooth</string>
+    <string name="settings_main_network_subtitle">Сети Wi-Fi и контроллеры Bluetooth</string>
     <string name="settings_main_section_system">СИСТЕМА</string>
 
     <string name="settings_main_theme_title">Тема</string>
@@ -114,6 +116,11 @@
     <string name="settings_interface_hide_system_nav_bar_subtitle">Скрывает кнопки Android «Назад», «Домой» и «Недавние» или панель жестов. Проведите от края экрана, чтобы показать их</string>
     <string name="settings_interface_hide_system_status_bar_title">Скрывать системную строку состояния</string>
     <string name="settings_interface_hide_system_status_bar_subtitle">Скрывает строку состояния Android и значки уведомлений. Проведите сверху вниз, чтобы показать её</string>
+    <string name="settings_interface_screen_orientation_title">Ориентация экрана</string>
+    <string name="settings_interface_screen_orientation_subtitle">Держит Argosy и встроенные игры в одной ориентации независимо от блокировки поворота устройства</string>
+    <string name="settings_interface_screen_orientation_auto">Авто</string>
+    <string name="settings_interface_screen_orientation_landscape">Альбомная</string>
+    <string name="settings_interface_screen_orientation_portrait">Книжная</string>
     <string name="settings_interface_quick_panel_in_emulators_title">Быстрая панель в других эмуляторах</string>
     <string name="settings_interface_quick_panel_in_emulators_subtitle">Удерживайте Назад в эмуляторе, запущенном из Argosy, чтобы открыть быструю панель. Нужна служба специальных возможностей Argosy</string>
     <string name="settings_interface_quick_panel_in_emulators_service_off">Служба специальных возможностей выключена. Включите её в разделе «Разрешения»</string>
@@ -235,6 +242,20 @@
     <string name="settings_navigation_shortcut_capture_subtitle">В меню Argosy кнопка больше не будет делать ничего другого</string>
     <string name="settings_navigation_shortcut_capture_reserved">%1$s нужна для перемещения по меню и не может быть назначена</string>
     <string name="settings_navigation_shortcut_capture_hint_cancel">Отмена</string>
+    <string name="settings_navigation_section_system_buttons">Глобальные сочетания</string>
+    <string name="settings_navigation_system_hotkeys_title">Комбинации Домой и Назад</string>
+    <string name="settings_navigation_system_hotkeys_subtitle">Комбинации кнопок контроллера, которые работают как Домой и Назад, пока открыто другое приложение</string>
+    <string name="settings_navigation_home_button_in_games_title">Удерживать Домой для смены игры</string>
+    <string name="settings_navigation_home_button_in_games_subtitle">Удерживайте кнопку Домой на устройстве в игре, запущенной Argosy, чтобы открыть переключатель игр. Выключите, чтобы оставить кнопку Домой устройству. Нужен root</string>
+    <string name="settings_navigation_system_hotkeys_access_title">Служба специальных возможностей</string>
+    <string name="settings_navigation_system_hotkeys_access_subtitle">Комбинации доходят до других приложений через службу специальных возможностей Argosy</string>
+    <string name="settings_navigation_system_hotkeys_access_on">Вкл.</string>
+    <string name="settings_navigation_system_hotkeys_access_needed">Нужны спец. возможности</string>
+    <string name="settings_navigation_system_home_title">Домой</string>
+    <string name="settings_navigation_system_home_subtitle">Удерживайте вместе 2 секунды. Нажатие кнопки Guide тоже ведёт домой</string>
+    <string name="settings_navigation_system_back_title">Назад</string>
+    <string name="settings_navigation_system_back_subtitle">Удерживайте первые кнопки, затем нажмите последнюю. В игре удержание комбинации 3 секунды открывает быструю панель</string>
+    <string name="settings_navigation_system_combo_capture_prompt">Удерживайте 2 или 3 кнопки по порядку...</string>
 
     <!-- ===== Displays section ===== -->
 
@@ -391,6 +412,17 @@
     <string name="settings_interface_pre_launch_recaps_subtitle">Перед игрой RetroAchievements, в которую вы не играли неделю, показывать, на чём вы остановились</string>
     <string name="settings_interface_monthly_recap_title">Итоги месяца</string>
     <string name="settings_interface_monthly_recap_subtitle">В начале каждого месяца показывать на главном экране сводку за прошлый месяц</string>
+    <string name="settings_interface_section_notifications">Уведомления</string>
+    <string name="settings_interface_notifications_title">Уведомления</string>
+    <string name="settings_interface_notifications_subtitle">Показывать уведомления Argosy в лаунчере и поверх игр. Уведомления о батарее по-прежнему показываются</string>
+    <string name="settings_interface_notify_downloads_finished_title">Загрузки завершены</string>
+    <string name="settings_interface_notify_downloads_finished_subtitle">Показывать уведомление, когда загрузка завершится</string>
+    <string name="settings_interface_notify_battery_title">Батарея</string>
+    <string name="settings_interface_notify_battery_subtitle" formatted="false">Предупреждать при 15% и 5%. Встроенные игры всё равно сохраняются при 5%</string>
+    <string name="settings_interface_notify_charging_title">Зарядка</string>
+    <string name="settings_interface_notify_charging_subtitle">Показывать уведомление, когда зарядку подключают или отключают во время игры</string>
+    <string name="settings_interface_notify_controllers_title">Контроллеры</string>
+    <string name="settings_interface_notify_controllers_subtitle">Показывать уведомление, когда контроллер подключается, отключается или разряжается</string>
 
     <string name="settings_home_screen_background_title">Фон</string>
     <string name="settings_home_screen_background_subtitle">Арт игры или фоновый узор</string>
@@ -436,6 +468,12 @@
         <item quantity="many">До %d</item>
         <item quantity="other">До %d</item>
     </plurals>
+
+    <string name="settings_home_screen_new_badge_title">Значок «НОВОЕ»</string>
+    <string name="settings_home_screen_new_badge_subtitle">Расположение значка «НОВОЕ» на карточках главного экрана или скрыть его</string>
+    <string name="settings_home_screen_new_badge_option_right">Справа</string>
+    <string name="settings_home_screen_new_badge_option_left">Слева</string>
+    <string name="settings_home_screen_new_badge_option_hidden">Скрыт</string>
 
     <!-- ===== Saves section ===== -->
 
@@ -507,7 +545,6 @@
     <string name="settings_sync_upload_screenshots_title">Выгружать скриншоты</string>
     <string name="settings_sync_upload_screenshots_subtitle">Отправлять скриншоты, сделанные во время игры, в RomM</string>
     <string name="settings_sync_upload_screenshots_subtitle_unsupported">Требуется RomM 5.0 или новее</string>
-    <string name="settings_sync_upload_screenshots_subtitle_needs_usage">Предоставьте доступ к статистике использования для точного сопоставления игр</string>
 
     <string name="settings_sync_image_cache_title">Расположение кэша изображений</string>
     <string name="settings_sync_image_cache_path_internal">Внутреннее (по умолчанию)</string>
@@ -625,6 +662,10 @@
         <item quantity="other">%d файла</item>
     </plurals>
     <string name="settings_bios_distribute_result_dismiss">ОК</string>
+    <string name="settings_bios_distribute_failure_files_missing">Ключи или прошивка не загружены</string>
+    <string name="settings_bios_distribute_failure_keys_mismatch">Ключи не подходят к этой прошивке</string>
+    <string name="settings_bios_distribute_failure_emulator_missing">Эмулятор не установлен</string>
+    <string name="settings_bios_distribute_failure_install_failed">Не удалось установить</string>
 
     <string name="settings_bios_download_failed_title">Некоторые файлы не загрузились</string>
     <plurals name="settings_bios_download_failed_message">
@@ -639,7 +680,7 @@
     <string name="settings_bios_gpu_prompt_detected">Обнаружено: %1$s</string>
     <string name="settings_bios_gpu_prompt_message">Свой драйвер GPU может улучшить производительность эмуляции Switch на устройствах со Snapdragon 8.</string>
     <string name="settings_bios_gpu_prompt_installing">Установка драйвера...</string>
-    <string name="settings_bios_gpu_prompt_install_versioned">Установить рекомендованный (%1$s)</string>
+    <string name="settings_bios_gpu_prompt_recommended">Рекомендуемый драйвер: %1$s</string>
     <string name="settings_bios_gpu_prompt_install">Установить рекомендованный</string>
     <string name="settings_bios_gpu_prompt_install_from_file">Установить из файла</string>
     <string name="settings_bios_gpu_prompt_skip">Пропустить</string>
@@ -660,26 +701,16 @@
 
     <!-- ===== Permissions section ===== -->
 
-    <string name="settings_permissions_intro">Argosy требует определённых разрешений для полноценной работы. Нажмите на каждое разрешение, чтобы предоставить доступ.</string>
-    <string name="settings_permissions_storage_title">Доступ к хранилищу</string>
-    <string name="settings_permissions_storage_description">Требуется для скачивания игр, синхронизации файлов сохранений и доступа к файлам ROM на устройстве.</string>
-    <string name="settings_permissions_usage_stats_title">Доступ к статистике использования</string>
-    <string name="settings_permissions_usage_stats_description">Обеспечивает точный учёт времени игры и бесшовное возобновление игровой сессии при переключении между приложениями.</string>
-    <string name="settings_permissions_notifications_title">Уведомления</string>
-    <string name="settings_permissions_notifications_description">Показывает прогресс загрузки при скачивании игр в фоне.</string>
-    <string name="settings_permissions_write_settings_title">Доступ к системным настройкам</string>
-    <string name="settings_permissions_write_settings_description">Позволяет управлять режимом производительности устройства и настройками вентилятора из панели быстрых настроек.</string>
-    <string name="settings_permissions_screen_capture_title">Захват экрана</string>
-    <string name="settings_permissions_screen_capture_description">Позволяет LED-подсветке считывать цвета экрана во время игры.</string>
-    <string name="settings_permissions_display_overlay_title">Отображение поверх других приложений</string>
-    <string name="settings_permissions_display_overlay_description">Показывает уведомления об обнаружении сохранений при игре во внешних эмуляторах.</string>
-    <string name="settings_permissions_accessibility_title">Служба специальных возможностей</string>
-    <string name="settings_permissions_accessibility_description">Позволяет открывать быструю панель поверх других эмуляторов и беззвучно делать снимки сохранений</string>
-    <string name="settings_permissions_live_wallpaper_title">Анимированный экран блокировки</string>
-    <string name="settings_permissions_live_wallpaper_description">Разрешите Argosy установить анимированный экран блокировки.</string>
+    <!-- %1$s is a root or system-access app name, such as Magisk or Shizuku -->
+    <string name="settings_permissions_privileged_title">Доступ через %1$s</string>
+    <string name="settings_permissions_privileged_description_off">Разрешите Argosy доступ к папкам сохранений эмуляторов в Android/data.</string>
+    <string name="settings_permissions_privileged_description_checking">Проверка доступа...</string>
+    <string name="settings_permissions_privileged_description_root">Папки сохранений и функции root доступны.</string>
+    <string name="settings_permissions_privileged_description_app_data">Папки сохранений доступны. Для работы игр в фоне нужен root.</string>
+    <string name="settings_permissions_privileged_description_unreachable">Нет доступа к папкам сохранений на этом устройстве.</string>
+    <string name="settings_permissions_privileged_description_refused">Доступ не предоставлен. Выберите, чтобы запросить снова.</string>
     <string name="settings_lock_screen_wallpaper_label">Библиотека Argosy</string>
     <string name="settings_lock_screen_wallpaper_description">Разрешите Argosy установить анимированный экран блокировки.</string>
-    <string name="settings_permissions_status_footer">Статус: предоставлено %1$d/%2$d разрешений</string>
 
     <!-- ===== About section ===== -->
 
@@ -700,7 +731,7 @@
     <string name="settings_about_update_subtitle_current">Актуальная версия</string>
     <string name="settings_about_update_subtitle_on_prerelease">Используется пре-релизная сборка</string>
     <string name="settings_about_update_subtitle_idle">Проверить наличие новых версий</string>
-    <string name="settings_about_update_action_download">Скачать</string>
+    <string name="settings_about_update_action_install">Установить</string>
     <string name="settings_about_update_action_check">Проверить</string>
     <string name="settings_about_update_action_changelog">Список изменений</string>
     <string name="settings_about_changelog_preview_title">Что нового - %1$s</string>
@@ -989,13 +1020,24 @@
 
     <string name="settings_storage_games_integrity_title">Еженедельная проверка целостности ROM</string>
     <string name="settings_storage_games_integrity_subtitle">Проверяет скачанные файлы игр при запуске раз в неделю</string>
-    <string name="settings_storage_games_not_from_romm_title">Не из RomM</string>
-    <plurals name="settings_storage_games_not_from_romm_subtitle">
-        <item quantity="one">%1$d файл игры добавлен вручную и сохраняется при полном сбросе</item>
-        <item quantity="few">%1$d файла игр добавлены вручную и сохраняются при полном сбросе</item>
-        <item quantity="many">%1$d файлов игр добавлены вручную и сохраняются при полном сбросе</item>
-        <item quantity="other">%1$d файла игр добавлены вручную и сохраняются при полном сбросе</item>
+    <string name="settings_storage_games_local_only_title">Только локально</string>
+    <plurals name="settings_storage_games_local_only_subtitle">
+        <item quantity="one">%1$d игра на этом устройстве, которой нет в RomM</item>
+        <item quantity="few">%1$d игры на этом устройстве, которых нет в RomM</item>
+        <item quantity="many">%1$d игр на этом устройстве, которых нет в RomM</item>
+        <item quantity="other">%1$d игры на этом устройстве, которых нет в RomM</item>
     </plurals>
+    <string name="settings_storage_local_only_empty_message">Игры на этом устройстве, которых нет в RomM, появятся здесь с размером и расположением.</string>
+    <string name="settings_storage_game_source_local_only">Только локально</string>
+    <string name="settings_storage_location_internal">Внутренняя память</string>
+    <string name="settings_storage_location_removable">SD-карта</string>
+    <string name="settings_storage_location_mixed">Внутренняя + SD-карта</string>
+    <string name="settings_storage_location_unknown">Неизвестное место</string>
+    <string name="settings_storage_local_only_tab_all">Все</string>
+    <string name="settings_storage_local_only_tab_internal">Внутренняя</string>
+    <string name="settings_storage_local_only_tab_sd_card">SD-карта</string>
+    <string name="settings_storage_local_only_tab_unknown">Неизвестно</string>
+    <string name="settings_storage_local_only_tab_empty_message">Здесь нет игр, хранящихся только локально.</string>
 
     <plurals name="settings_storage_games_totals_count">
         <item quantity="one">%d скачано</item>
@@ -1088,6 +1130,25 @@
     <string name="settings_storage_platform_games_loading">Загрузка...</string>
     <string name="settings_storage_platform_games_empty_title">Нет скачанных игр</string>
     <string name="settings_storage_platform_games_empty_message">Скачанные игры для %1$s появятся здесь с разбивкой по категориям.</string>
+    <string name="settings_storage_platform_games_tab_empty_message">Здесь нет игр для %1$s.</string>
+    <plurals name="settings_storage_platform_games_summary">
+        <item quantity="one">%1$d игра, %2$s</item>
+        <item quantity="few">%1$d игры, %2$s</item>
+        <item quantity="many">%1$d игр, %2$s</item>
+        <item quantity="other">%1$d игры, %2$s</item>
+    </plurals>
+    <string name="settings_storage_platform_games_sort_size">Сначала крупные</string>
+    <string name="settings_storage_platform_games_sort_title">От А до Я</string>
+    <string name="settings_storage_platform_games_sort_least_played">Давно не запускались</string>
+    <string name="settings_storage_platform_games_last_played">Последний запуск: %1$s</string>
+    <string name="settings_storage_platform_games_never_played">Ни разу не запускалась</string>
+    <string name="settings_storage_platform_games_play_time">Сыграно %1$s</string>
+    <plurals name="settings_storage_platform_games_unsynced_saves">
+        <item quantity="one">%d несинхронизированное сохранение</item>
+        <item quantity="few">%d несинхронизированных сохранения</item>
+        <item quantity="many">%d несинхронизированных сохранений</item>
+        <item quantity="other">%d несинхронизированного сохранения</item>
+    </plurals>
 
     <string name="settings_storage_bucket_base">Основное</string>
     <string name="settings_storage_bucket_updates">Обновления</string>
@@ -1125,6 +1186,7 @@
     </plurals>
     <string name="settings_caches_pending_uploads_subtitle_online">Синхронизируйте перед очисткой кэшей синхронизации</string>
     <string name="settings_caches_pending_uploads_subtitle_offline">Подключитесь к серверу, чтобы синхронизировать</string>
+    <string name="settings_caches_pending_uploads_search_label">Сохранения ожидают выгрузки</string>
 
     <string name="settings_caches_save_cache_title">Сбросить кэш сохранений</string>
     <string name="settings_caches_save_cache_busy">Сброс...</string>
@@ -1604,6 +1666,8 @@
     <string name="settings_builtin_controls_hotkeys_subtitle">Настроить сочетания для меню, перемотки вперёд и назад</string>
     <string name="settings_builtin_controls_limit_hotkeys_title">Горячие клавиши только для игрока 1</string>
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">Горячие клавиши работают только с контроллером игрока 1</string>
+    <string name="settings_builtin_controls_confirm_return_title">Подтверждать возврат в Argosy</string>
+    <string name="settings_builtin_controls_confirm_return_subtitle">Спрашивать перед выходом из игры по кнопке Home</string>
     <string name="settings_builtin_controls_select_as_back_title">Select как «Назад»</string>
     <string name="settings_builtin_controls_select_as_back_subtitle">Для контроллеров, у которых Select отправляет «Назад». В режиме «Авто» «Назад» работает как Select на контроллерах без кнопки Select.</string>
     <string name="settings_builtin_controls_select_as_back_auto">Авто</string>
@@ -1755,9 +1819,10 @@
     <string name="settings_emulators_section_disabled">Отключённые платформы</string>
     <string name="settings_emulators_rail_platforms">Платформы</string>
 
-    <string name="settings_emulators_close_on_session_end_title">Закрывать эмулятор при возврате в Argosy</string>
-    <string name="settings_emulators_close_on_session_end_subtitle_on">Закрывает эмулятор после синхронизации сохранения. Несохранённый прогресс теряется.</string>
-    <string name="settings_emulators_close_on_session_end_subtitle_off">Приложение эмулятора остаётся открытым в фоне</string>
+    <string name="settings_emulators_close_on_session_end_title">Закрывать игры при возврате в Argosy</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_on">Закрывает игру после синхронизации сохранения. Несохранённый прогресс теряется.</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_off">Игры остаются открытыми в фоне</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_built_in_only">Встроенные игры остаются открытыми. Другие эмуляторы остаются открытыми только на устройствах с root-доступом.</string>
     <string name="settings_emulators_check_updates_title">Проверить обновления</string>
     <string name="settings_emulators_check_updates_subtitle">Проверить обновления эмуляторов</string>
     <plurals name="settings_emulators_check_updates_available">
@@ -2148,7 +2213,16 @@
     <!-- ===== RomM config form (Settings > components > RomMConfigForm) ===== -->
 
     <string name="settings_romm_config_server_url_label">URL сервера</string>
-    <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
+    <string name="settings_romm_config_url_keyboard_submit">Готово</string>
+    <string name="settings_romm_config_pairing_code_keyboard_label">Код привязки</string>
+    <string name="settings_romm_config_pairing_code_keyboard_submit">Готово</string>
+    <string name="settings_jellyfin_config_keyboard_submit">Сохранить</string>
+    <string name="settings_jellyfin_signin_username_keyboard_submit">Готово</string>
+    <string name="settings_jellyfin_signin_password_keyboard_submit">Войти</string>
+    <string name="settings_ra_login_username_keyboard_submit">Готово</string>
+    <string name="settings_ra_login_password_keyboard_submit">Готово</string>
+    <string name="settings_ra_proxy_address_keyboard_submit">Готово</string>
+    <string name="settings_steam_add_game_keyboard_submit">Добавить</string>    <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
     <string name="settings_romm_config_auth_method_title">Способ входа</string>
     <string name="settings_romm_config_auth_method_device">Привязка устройства</string>
     <string name="settings_romm_config_auth_method_pairing_code">Код привязки</string>
@@ -2160,8 +2234,6 @@
     <string name="settings_romm_config_connect_title">Подключить</string>
     <string name="settings_romm_config_connect_device_subtitle">Создать QR-код для привязки</string>
     <string name="settings_romm_config_connect_subtitle">Подключиться к серверу RomM</string>
-    <string name="settings_romm_config_scan_title">Сканировать QR-код</string>
-    <string name="settings_romm_config_scan_subtitle">Отсканируйте QR-код привязки из веб-интерфейса RomM</string>
     <string name="settings_romm_config_certificate_title">Добавить сертификат</string>
     <string name="settings_romm_config_certificate_subtitle">Доверять серверу с частным центром сертификации</string>
     <plurals name="settings_romm_config_certificate_subtitle_count">
@@ -2860,4 +2932,65 @@
     <string name="settings_builtin_gpu_driver_reason_core_system_only">%1$s использует системный драйвер</string>
     <string name="settings_builtin_gpu_driver_reason_backend">Действует, когда рендерер Vulkan</string>
     <string name="settings_builtin_gpu_driver_reason_device">Свои драйверы требуют GPU Adreno</string>
+    <string name="settings_client_cert_row_title">Клиентский сертификат</string>
+    <string name="settings_client_cert_row_subtitle_none">Для серверов, требующих клиентский сертификат (mTLS)</string>
+    <string name="settings_client_cert_row_subtitle_active">%1$s · действителен до %2$s</string>
+    <string name="settings_client_cert_modal_header">Клиентский сертификат</string>
+    <string name="settings_client_cert_modal_title_none">Клиентский сертификат не импортирован</string>
+    <string name="settings_client_cert_modal_title_active">%1$s · действителен до %2$s</string>
+    <string name="settings_client_cert_use_romm_title">Использовать для RomM</string>
+    <string name="settings_client_cert_use_romm_subtitle">Предъявлять этот сертификат при подключении к вашему серверу RomM</string>
+    <string name="settings_client_cert_use_jellyfin_title">Использовать для Jellyfin</string>
+    <string name="settings_client_cert_use_jellyfin_subtitle">Предъявлять этот сертификат при подключении к вашему серверу Jellyfin</string>
+    <string name="settings_client_cert_import_subtitle">Выберите файл .p12 или .pfx с сертификатом и закрытым ключом</string>
+    <string name="settings_client_cert_replace_subtitle">Импортировать другой файл .p12 или .pfx вместо этого</string>
+    <string name="settings_client_cert_remove_subtitle">Удалить сертификат и его закрытый ключ с этого устройства</string>
+    <string name="settings_client_cert_import">Импортировать сертификат…</string>
+    <string name="settings_client_cert_replace">Заменить сертификат…</string>
+    <string name="settings_client_cert_remove">Удалить сертификат</string>
+    <string name="settings_client_cert_remove_title">Удалить клиентский сертификат?</string>
+    <string name="settings_client_cert_remove_message">Сертификат и его закрытый ключ будут удалены с этого устройства. Серверы, которые его требуют, будут отклонять подключения, пока вы снова не импортируете файл.</string>
+    <string name="settings_client_cert_remove_confirm">Удалить</string>
+    <string name="settings_client_cert_filebrowser_title">Выберите клиентский сертификат</string>
+    <string name="settings_romm_config_error_client_certificate_required">Сервер требует клиентский сертификат. Импортируйте его в разделе «Клиентский сертификат» или включите там «Использовать для RomM».</string>
+    <string name="settings_accounts_pairing_error_client_certificate_required">Сервер требует клиентский сертификат. Импортируйте его в разделе «Клиентский сертификат» или включите там «Использовать для RomM».</string>
+    <string name="settings_jellyfin_error_client_certificate_required">Сервер требует клиентский сертификат. Включите «Использовать для Jellyfin» в разделе «Клиентский сертификат».</string>
+    <string name="settings_search_row_title">Поиск настроек</string>
+    <string name="settings_search_keyboard_label">Поиск настроек</string>
+    <string name="settings_search_keyboard_submit">Готово</string>
+    <string name="settings_search_no_results">Нет настроек по запросу «%1$s»</string>
+    <string name="settings_search_crumb_displays">Экраны</string>
+    <string name="settings_search_crumb_ambient_led">Управление LED</string>
+    <string name="settings_search_crumb_audio">Аудио</string>
+    <string name="settings_search_crumb_theme">Тема</string>
+    <string name="settings_search_crumb_platforms">Платформы</string>
+    <string name="settings_search_crumb_builtin_emulator">Встроенный эмулятор</string>
+    <string name="settings_search_crumb_core_options">Настройки ядра</string>
+    <string name="settings_search_crumb_storage">Хранилище</string>
+    <string name="settings_search_crumb_storage_caches">Кэши и система</string>
+    <string name="settings_search_crumb_bios">Файлы BIOS</string>
+    <string name="settings_search_crumb_sounds">Звуки</string>
+    <string name="settings_search_crumb_music">Музыка</string>
+    <string name="settings_search_crumb_fonts">Шрифты</string>
+    <string name="settings_search_crumb_backdrop">Фон экрана</string>
+    <string name="settings_search_crumb_interface">Интерфейс</string>
+    <string name="settings_search_crumb_box_art">Обложки</string>
+    <string name="settings_search_crumb_controller_grip">Хват контроллера</string>
+    <string name="settings_search_crumb_saves">Сохранения</string>
+    <string name="settings_search_crumb_sync_settings">Настройки синхронизации</string>
+    <string name="settings_search_crumb_social">Социальное</string>
+    <string name="settings_search_crumb_permissions">Разрешения</string>
+    <string name="settings_search_crumb_about">О приложении</string>
+    <string name="settings_search_label_jellyfin_account">Аккаунт</string>
+    <string name="settings_search_label_social_account">Аккаунт</string>
+    <string name="settings_search_label_about_changelog">Список изменений</string>
+    <string name="settings_search_crumb_home_screen">Главный экран</string>
+    <string name="settings_search_crumb_presentation">Презентация</string>
+    <string name="settings_search_crumb_library_view">Библиотека</string>
+    <string name="settings_search_crumb_navigation">Навигация</string>
+    <string name="settings_search_crumb_builtin_video">A/V и производительность</string>
+    <string name="settings_search_crumb_builtin_controls">Управление</string>
+    <string name="settings_search_crumb_builtin_saves">Сохранения</string>
+    <string name="settings_search_label_home_layout_selector">Раскладка</string>
+    <string name="settings_search_label_platform_emulator">Эмулятор</string>
 </resources>

@@ -4,10 +4,12 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
+import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -96,6 +98,27 @@ interface RomMApi {
         @Path("fileName", encoded = true) fileName: String,
         @Header("Range") range: String? = null
     ): Response<ResponseBody>
+
+    @Streaming
+    @Headers("Accept-Encoding: identity")
+    @GET("api/roms/{id}/content/{fileName}")
+    fun downloadRomCall(
+        @Path("id") romId: Long,
+        @Path("fileName", encoded = true) fileName: String,
+        @Header("Range") range: String? = null,
+        @Query("file_ids") fileIds: String? = null,
+        @Header("If-Range") ifRange: String? = null
+    ): Call<ResponseBody>
+
+    @Streaming
+    @Headers("Accept-Encoding: identity")
+    @GET("api/roms/{fileId}/files/content/{fileName}")
+    fun downloadRomFileCall(
+        @Path("fileId") fileId: Long,
+        @Path("fileName", encoded = true) fileName: String,
+        @Header("Range") range: String? = null,
+        @Header("If-Range") ifRange: String? = null
+    ): Call<ResponseBody>
 
     @GET("api/music/tracks")
     suspend fun getMusicTracks(
@@ -283,12 +306,6 @@ interface RomMApi {
         @Part parts: List<MultipartBody.Part>
     ): Response<ResponseBody>
 
-    @PUT("api/snapshots/{id}/devices/{deviceId}")
-    suspend fun reportSnapshotHeld(
-        @Path("id") snapshotId: Long,
-        @Path("deviceId") deviceId: String
-    ): Response<Unit>
-
     @Multipart
     @POST("api/screenshots")
     suspend fun uploadScreenshot(
@@ -470,4 +487,86 @@ interface RomMApi {
     suspend fun getSyncSession(
         @Path("id") sessionId: Long
     ): Response<RomMSyncSession>
+
+    @GET("api/streaming/config")
+    suspend fun getStreamingConfig(): Response<RomMStreamingConfig>
+
+    @GET("api/roms/{id}")
+    suspend fun getStreamRomAssets(
+        @Path("id") romId: Long
+    ): Response<RomMStreamRomAssets>
+
+    @GET("api/streaming/states/{romId}")
+    suspend fun getStreamStatePicks(
+        @Path("romId") romId: Long
+    ): Response<RomMStreamStatePicks>
+
+    @POST("api/streaming/sessions")
+    suspend fun claimStreamSession(
+        @Body body: RomMStreamClaimRequest
+    ): Response<RomMStreamLaunching>
+
+    @GET("api/streaming/sessions/{platform}/status")
+    suspend fun getStreamSessionStatus(
+        @Path("platform") platform: String,
+        @Query("claimed_at") claimedAt: String?
+    ): Response<RomMStreamSessionStatus>
+
+    @POST("api/streaming/sessions/{platform}/heartbeat")
+    suspend fun heartbeatStreamSession(
+        @Path("platform") platform: String,
+        @Query("container") container: String?,
+        @Query("claimed_at") claimedAt: String?
+    ): Response<RomMStreamSessionStatus>
+
+    @GET("api/streaming/sessions/joinable")
+    suspend fun getJoinableStreamSessions(
+        @Query("rom_id") romId: Long
+    ): Response<RomMStreamJoinableSessions>
+
+    @POST("api/streaming/sessions/{platform}/join")
+    suspend fun joinStreamSession(
+        @Path("platform") platform: String,
+        @Query("container") container: String?
+    ): Response<RomMStreamJoined>
+
+    @POST("api/streaming/sessions/{platform}/save-state")
+    suspend fun saveStreamState(
+        @Path("platform") platform: String,
+        @Body body: RomMStreamSlotRequest,
+        @Query("container") container: String?,
+        @Query("claimed_at") claimedAt: String?
+    ): Response<ResponseBody>
+
+    @POST("api/streaming/sessions/{platform}/load-state")
+    suspend fun loadStreamState(
+        @Path("platform") platform: String,
+        @Body body: RomMStreamSlotRequest,
+        @Query("container") container: String?,
+        @Query("claimed_at") claimedAt: String?
+    ): Response<ResponseBody>
+
+    @POST("api/streaming/sessions/{platform}/swap-disc")
+    suspend fun swapStreamDisc(
+        @Path("platform") platform: String,
+        @Body body: RomMStreamSwapDiscRequest,
+        @Query("container") container: String?,
+        @Query("claimed_at") claimedAt: String?
+    ): Response<ResponseBody>
+
+    @POST("api/streaming/sessions/{platform}/save-and-exit")
+    suspend fun saveAndExitStreamSession(
+        @Path("platform") platform: String,
+        @Body body: RomMStreamSaveAndExitRequest,
+        @Query("container") container: String?,
+        @Query("claimed_at") claimedAt: String?
+    ): Response<RomMStreamSaveAndExitResponse>
+
+    @DELETE("api/streaming/sessions/{platform}")
+    suspend fun releaseStreamSession(
+        @Path("platform") platform: String,
+        @Query("container") container: String?,
+        @Query("claimed_at") claimedAt: String?,
+        @Query("save") save: Boolean
+    ): Response<RomMStreamReleaseResponse>
 }

@@ -39,11 +39,15 @@ class PlaySessionPullTest {
     private val syncPreferencesRepository: SyncPreferencesRepository = mockk {
         coEvery { getRommUserId() } returns 7L
         coEvery { setRommPlaySessionLastPull(any()) } returns Unit
+        coEvery { getRommPlaySessionLastPull() } returns null
     }
-    private val api: RomMApi = mockk()
+    private val api: RomMApi = mockk {
+        coEvery { getPlaySessions(null, null, any(), any(), any(), any()) } returns Response.success(emptyList())
+    }
     private val connectionManager: RomMConnectionManager = mockk {
         every { getCapabilities() } returns mockk<RomMCapabilities> {
             every { supportsPlaySessionIngest } returns true
+            every { supportsStreaming } returns true
         }
         every { isConnected() } returns true
         every { getApi() } returns api
@@ -223,6 +227,112 @@ class PlaySessionPullTest {
 
         assertEquals("Play sessions returned 500", summary.stoppedBy)
         coVerify(exactly = 0) { syncPreferencesRepository.setRommPlaySessionLastPull(any()) }
+    }
+
+    @Test
+    fun `sessions with no device are stored under the streaming token`() = runTest {
+        coEvery { api.getDevices() } returns Response.success(emptyList())
+        coEvery { api.getPlaySessions(null, null, null, null, 200, 0) } returns
+            Response.success(listOf(remote(1).copy(deviceId = null)))
+        coEvery { playSessionDao.getHeldRommSessionIds(any()) } returns emptyList()
+        coEvery { api.getRom(any()) } returns Response.error(404, okhttp3.ResponseBody.create(null, ""))
+        val captured = slot<PlaySessionEntity>()
+        coEvery { playSessionDao.insert(capture(captured)) } returns 1L
+
+        val summary = pull.run()
+
+        assertEquals(PlaySessionPull.Summary(added = 1, devices = 0), summary)
+        assertEquals(PlaySessionPull.ROMM_STREAMING_DEVICE_ID, captured.captured.deviceId)
+        assertEquals(1L, captured.captured.rommSessionId)
+        assertNull(captured.captured.userId)
+    }
+
+    @Test
+    fun `the streaming pass ignores device-bound sessions in the all-devices page`() = runTest {
+        coEvery { api.getDevices() } returns Response.success(emptyList())
+        coEvery { api.getPlaySessions(null, null, null, null, 200, 0) } returns
+            Response.success(listOf(remote(1), remote(2).copy(deviceId = null), remote(3).copy(deviceId = "dev-this")))
+        coEvery { playSessionDao.getHeldRommSessionIds(listOf(2L)) } returns emptyList()
+        coEvery { api.getRom(any()) } returns Response.error(404, okhttp3.ResponseBody.create(null, ""))
+
+        val summary = pull.run()
+
+        assertEquals(1, summary.added)
+        val inserted = mutableListOf<PlaySessionEntity>()
+        coVerify(exactly = 1) { playSessionDao.insert(capture(inserted)) }
+        assertEquals(listOf(2L), inserted.map { it.rommSessionId })
+        coVerify(exactly = 1) { playSessionDao.getHeldRommSessionIds(listOf(2L)) }
+    }
+
+    @Test
+    fun `a streaming session whose server id is already held is not inserted again`() = runTest {
+        coEvery { api.getDevices() } returns Response.success(emptyList())
+        coEvery { api.getPlaySessions(null, null, null, null, 200, 0) } returns
+            Response.success(listOf(remote(3).copy(deviceId = null)))
+        coEvery { playSessionDao.getHeldRommSessionIds(listOf(3L)) } returns listOf(3L)
+
+        val summary = pull.run()
+
+        assertEquals(PlaySessionPull.Summary(added = 0, devices = 0), summary)
+        coVerify(exactly = 0) { playSessionDao.insert(any()) }
+    }
+
+    @Test
+    fun `the streaming pass asks only for sessions newer than the latest streaming one held`() = runTest {
+        val since = Instant.parse("2026-05-10T00:00:00Z")
+        coEvery { api.getDevices() } returns Response.success(emptyList())
+        coEvery {
+            playSessionDao.getLatestRommStartForDevice(PlaySessionPull.ROMM_STREAMING_DEVICE_ID, 7L)
+        } returns since
+        coEvery { api.getPlaySessions(null, null, since.toString(), null, 200, 0) } returns Response.success(emptyList())
+
+        val summary = pull.run()
+
+        assertNull(summary.stoppedBy)
+        coVerify(exactly = 1) { api.getPlaySessions(null, null, since.toString(), null, 200, 0) }
+        coVerify(exactly = 0) { api.getPlaySessions(null, null, null, any(), any(), any()) }
+    }
+
+    @Test
+    fun `a server without streaming gets no device-less pass`() = runTest {
+        every { connectionManager.getCapabilities() } returns mockk<RomMCapabilities> {
+            every { supportsPlaySessionIngest } returns true
+            every { supportsStreaming } returns false
+        }
+        coEvery { api.getDevices() } returns Response.success(emptyList())
+
+        val summary = pull.run()
+
+        assertNull(summary.stoppedBy)
+        coVerify(exactly = 0) { api.getPlaySessions(any(), null, any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `with no streamed session held the pass starts a day before the previous pull`() = runTest {
+        val lastPull = Instant.parse("2026-11-12T10:00:00Z")
+        val floor = Instant.parse("2026-11-11T10:00:00Z")
+        coEvery { syncPreferencesRepository.getRommPlaySessionLastPull() } returns lastPull
+        coEvery { api.getDevices() } returns Response.success(emptyList())
+        coEvery { api.getPlaySessions(null, null, floor.toString(), null, 200, 0) } returns Response.success(emptyList())
+
+        pull.run()
+
+        coVerify(exactly = 1) { api.getPlaySessions(null, null, floor.toString(), null, 200, 0) }
+        coVerify(exactly = 0) { api.getPlaySessions(null, null, null, any(), any(), any()) }
+    }
+
+    @Test
+    fun `the streaming floor takes the later of the newest stream and a day before the last pull`() {
+        val lastPull = Instant.parse("2026-11-12T10:00:00Z")
+        val dayBefore = Instant.parse("2026-11-11T10:00:00Z")
+        val older = Instant.parse("2026-11-01T00:00:00Z")
+        val newer = Instant.parse("2026-11-12T09:00:00Z")
+
+        assertNull(PlaySessionPull.streamingFloor(null, null))
+        assertEquals(older, PlaySessionPull.streamingFloor(older, null))
+        assertEquals(dayBefore, PlaySessionPull.streamingFloor(null, lastPull))
+        assertEquals(dayBefore, PlaySessionPull.streamingFloor(older, lastPull))
+        assertEquals(newer, PlaySessionPull.streamingFloor(newer, lastPull))
     }
 
     @Test

@@ -1,8 +1,11 @@
 package com.nendo.argosy.ui.input
 
 import android.view.InputDevice
+import android.view.KeyEvent
 import android.view.MotionEvent
+import com.nendo.argosy.core.input.ConnectedControllerTracker
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
+import com.nendo.argosy.hardware.SystemHotkeyDetector
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +33,10 @@ class GamepadInputHandlerTest {
     private val delivered = mutableListOf<Pair<GamepadEvent, Boolean>>()
     private val emitted = mutableListOf<GamepadInput>()
     private val collectorScope = CoroutineScope(testDispatcher)
+    private val removedDevices = mutableSetOf<Int>()
+    private val tracker = mockk<ConnectedControllerTracker>(relaxed = true) {
+        every { wasRemoved(any()) } answers { firstArg<Int>() in removedDevices }
+    }
     private lateinit var handler: GamepadInputHandler
 
     @Before
@@ -37,7 +44,7 @@ class GamepadInputHandlerTest {
         Dispatchers.setMain(testDispatcher)
         val preferences = mockk<UserPreferencesRepository>()
         every { preferences.preferences } returns emptyFlow()
-        handler = GamepadInputHandler(preferences, mockk(relaxed = true))
+        handler = GamepadInputHandler(preferences, tracker)
     }
 
     @After
@@ -235,6 +242,185 @@ class GamepadInputHandlerTest {
         scheduler.advanceTimeBy(401)
 
         assertEquals(listOf(GamepadEvent.Down to false, GamepadEvent.Down to true), delivered)
+    }
+
+    @Test
+    fun `a held direction stops repeating once its pad is removed`() {
+        process(sample(x = 1f, deviceId = PAD_A))
+        scheduler.advanceTimeBy(401)
+        assertEquals(listOf(GamepadEvent.Right to false, GamepadEvent.Right to true), delivered)
+
+        removedDevices += PAD_A
+        scheduler.advanceTimeBy(1000)
+
+        assertEquals(2, delivered.size)
+    }
+
+    @Test
+    fun `another pad's removal leaves a held direction repeating`() {
+        process(sample(x = 1f, deviceId = PAD_A))
+        removedDevices += PAD_B
+        scheduler.advanceTimeBy(401)
+
+        assertEquals(listOf(GamepadEvent.Right to false, GamepadEvent.Right to true), delivered)
+    }
+
+    @Test
+    fun `a late sample from a removed pad is swallowed without a direction`() {
+        removedDevices += PAD_A
+
+        assertTrue(process(sample(x = 1f, deviceId = PAD_A)))
+        scheduler.advanceTimeBy(1000)
+
+        assertTrue(delivered.isEmpty())
+    }
+
+    @Test
+    fun `a key repeat from a removed pad is swallowed`() {
+        collectEmitted()
+        removedDevices += PAD_A
+        val repeat = mockk<KeyEvent> {
+            every { deviceId } returns PAD_A
+        }
+
+        assertTrue(handler.handleKeyEvent(repeat))
+        scheduler.runCurrent()
+
+        assertTrue(emitted.isEmpty())
+    }
+
+    private fun keyDown(code: Int): KeyEvent = mockk(relaxed = true) {
+        every { keyCode } returns code
+        every { action } returns KeyEvent.ACTION_DOWN
+        every { repeatCount } returns 0
+        every { deviceId } returns PAD_A
+        every { device } returns null
+    }
+
+    @Test
+    fun `a d-pad key a raw key filter declines still reaches navigation`() {
+        collectEmitted()
+        handler.setRawKeyEventFilter { it.keyCode == KeyEvent.KEYCODE_BUTTON_A }
+
+        assertTrue(handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_DPAD_RIGHT)))
+        scheduler.runCurrent()
+
+        assertEquals(listOf(GamepadEvent.Right), emitted.map { it.event })
+    }
+
+    @Test
+    fun `a key a raw key filter consumes is never dispatched`() {
+        collectEmitted()
+        handler.setRawKeyEventFilter { it.keyCode == KeyEvent.KEYCODE_BUTTON_B }
+
+        assertTrue(handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_BUTTON_B)))
+        scheduler.advanceTimeBy(1000)
+
+        assertTrue(emitted.isEmpty())
+    }
+
+    @Test
+    fun `a raw key listener's decline still goes back to the platform unmapped`() {
+        collectEmitted()
+        handler.setRawKeyEventListener { false }
+
+        assertFalse(handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_DPAD_RIGHT)))
+        scheduler.runCurrent()
+
+        assertTrue(emitted.isEmpty())
+    }
+
+    private fun keyUp(code: Int): KeyEvent = mockk(relaxed = true) {
+        every { keyCode } returns code
+        every { action } returns KeyEvent.ACTION_UP
+        every { repeatCount } returns 0
+        every { deviceId } returns PAD_A
+        every { device } returns null
+    }
+
+    private fun collectHomePresses(): MutableList<HomePress> {
+        val presses = mutableListOf<HomePress>()
+        collectorScope.launch { handler.homeEventFlow().collect { presses += it } }
+        scheduler.runCurrent()
+        return presses
+    }
+
+    @Test
+    fun `a Home key released before the hold time is a tap`() {
+        val presses = collectHomePresses()
+
+        assertTrue(handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_MOVE_HOME)))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS - 1)
+        assertTrue(handler.handleKeyEvent(keyUp(KeyEvent.KEYCODE_MOVE_HOME)))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS)
+
+        assertEquals(listOf(HomePress.TAP), presses)
+    }
+
+    @Test
+    fun `a Home key still down at the hold time is a hold and its release sends nothing`() {
+        val presses = collectHomePresses()
+
+        handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_MOVE_HOME))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS + 1)
+        handler.handleKeyEvent(keyUp(KeyEvent.KEYCODE_MOVE_HOME))
+        scheduler.runCurrent()
+
+        assertEquals(listOf(HomePress.HOLD), presses)
+    }
+
+    @Test
+    fun `the guide button and the system Home key share the tap and hold rule`() {
+        val presses = collectHomePresses()
+
+        handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_BUTTON_MODE))
+        handler.handleKeyEvent(keyUp(KeyEvent.KEYCODE_BUTTON_MODE))
+        handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_HOME))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS + 1)
+        handler.handleKeyEvent(keyUp(KeyEvent.KEYCODE_HOME))
+        scheduler.runCurrent()
+
+        assertEquals(listOf(HomePress.TAP, HomePress.HOLD), presses)
+    }
+
+    @Test
+    fun `a Home key repeat does not restart the hold`() {
+        val presses = collectHomePresses()
+        val repeat = mockk<KeyEvent>(relaxed = true) {
+            every { keyCode } returns KeyEvent.KEYCODE_MOVE_HOME
+            every { action } returns KeyEvent.ACTION_DOWN
+            every { repeatCount } returns 1
+            every { deviceId } returns PAD_A
+            every { device } returns null
+        }
+
+        handler.handleHomeKey(keyDown(KeyEvent.KEYCODE_MOVE_HOME))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS / 2)
+        handler.handleHomeKey(repeat)
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS / 2 + 1)
+
+        assertEquals(listOf(HomePress.HOLD), presses)
+    }
+
+    @Test
+    fun `a Home release without its press sends nothing`() {
+        val presses = collectHomePresses()
+
+        handler.handleHomeKey(keyUp(KeyEvent.KEYCODE_MOVE_HOME))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS * 2)
+
+        assertTrue(presses.isEmpty())
+    }
+
+    @Test
+    fun `a Home key never reaches the gamepad event flow`() {
+        collectEmitted()
+
+        handler.handleKeyEvent(keyDown(KeyEvent.KEYCODE_HOME))
+        handler.handleKeyEvent(keyUp(KeyEvent.KEYCODE_HOME))
+        scheduler.advanceTimeBy(SystemHotkeyDetector.GUIDE_HOLD_MS * 2)
+
+        assertTrue(emitted.isEmpty())
     }
 
     private companion object {

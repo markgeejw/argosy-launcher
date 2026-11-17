@@ -68,7 +68,7 @@ class InterfaceCompactFooterLayoutTest {
     }
 
     @Test
-    fun `the screen reads general, then screens, then the status bar, then recaps`() {
+    fun `the screen reads general, then screens, then the status bar, then recaps, then notifications`() {
         val order = listOf(
             InterfaceItem.Language,
             InterfaceItem.ControllerGrip,
@@ -77,11 +77,33 @@ class InterfaceCompactFooterLayoutTest {
             InterfaceItem.StatusClock,
             InterfaceItem.StatusNetwork,
             InterfaceItem.PreLaunchRecaps,
-            InterfaceItem.MonthlyRecap
+            InterfaceItem.MonthlyRecap,
+            InterfaceItem.Notifications,
+            InterfaceItem.NotifyDownloadsFinished,
+            InterfaceItem.NotifyBattery,
+            InterfaceItem.NotifyCharging,
+            InterfaceItem.NotifyControllers
         ).map { interfaceFocusIndexOf(it, layoutState) }
 
         assertEquals(order.sorted(), order)
-        assertEquals(4, interfaceSections(layoutState).size)
+        assertEquals(5, interfaceSections(layoutState).size)
+    }
+
+    @Test
+    fun `the downloads, charging and controller rows show only while notifications are on, battery always`() {
+        val off = InterfaceLayoutState(display = DisplayState(notificationsEnabled = false))
+
+        assertTrue(InterfaceItem.NotifyDownloadsFinished.visibleWhen(layoutState))
+        assertFalse(InterfaceItem.NotifyDownloadsFinished.visibleWhen(off))
+        assertTrue(InterfaceItem.NotifyCharging.visibleWhen(layoutState))
+        assertFalse(InterfaceItem.NotifyCharging.visibleWhen(off))
+        assertTrue(InterfaceItem.NotifyControllers.visibleWhen(layoutState))
+        assertFalse(InterfaceItem.NotifyControllers.visibleWhen(off))
+        assertTrue(InterfaceItem.NotifyBattery.visibleWhen(layoutState))
+        assertTrue(InterfaceItem.NotifyBattery.visibleWhen(off))
+        assertEquals(interfaceMaxFocusIndex(layoutState) - 3, interfaceMaxFocusIndex(off))
+        val batteryIndex = interfaceFocusIndexOf(InterfaceItem.NotifyBattery, off)
+        assertEquals(InterfaceItem.NotifyBattery, interfaceItemAtFocusIndex(batteryIndex, off))
     }
 
     @Test
@@ -90,17 +112,14 @@ class InterfaceCompactFooterLayoutTest {
             InterfaceItem.CompactFooter,
             InterfaceItem.HideSystemNavigationBar,
             InterfaceItem.HideSystemStatusBar,
-            InterfaceItem.QuickPanelInEmulators,
             InterfaceItem.ControllerGrip
         ).map { interfaceFocusIndexOf(it, layoutState) }
 
         assertEquals(order.first() + 1, order[1])
         assertEquals(order[1] + 1, order[2])
         assertEquals(order[2] + 1, order[3])
-        assertEquals(order[3] + 1, order[4])
         assertEquals(InterfaceItem.CompactFooter.section, InterfaceItem.HideSystemNavigationBar.section)
         assertEquals(InterfaceItem.CompactFooter.section, InterfaceItem.HideSystemStatusBar.section)
-        assertEquals(InterfaceItem.CompactFooter.section, InterfaceItem.QuickPanelInEmulators.section)
     }
 
     @Test

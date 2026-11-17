@@ -49,6 +49,15 @@
 # zstd-jni - native code accesses Java fields by name via JNI
 -keep class com.github.luben.zstd.** { *; }
 
+# JNA - native code reads Pointer.peer and Structure fields by name; lazysodium binds through JNA proxies
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.Library { *; }
+-keep class * implements com.sun.jna.Callback { *; }
+-dontwarn java.awt.**
+-dontwarn com.sun.jna.**
+-keep class com.goterl.lazysodium.** { *; }
+
 # SpongyCastle - loaded via reflection by JavaSteam's CryptoHelper for AES/ECB depot decryption
 -keep class org.spongycastle.** { *; }
 -dontwarn org.spongycastle.**
@@ -62,6 +71,12 @@
 -keepnames class com.nendo.argosy.data.emulator.SessionSaveOutcome$*
 -keepnames class com.nendo.argosy.data.emulator.LaunchResult$*
 -keepnames class com.nendo.argosy.data.steam.SteamDownloadState$*
+
+# Shizuku instantiates the user service by name in its own process
+-keep class com.nendo.argosy.util.ShizukuShellService { <init>(...); }
+
+# app_process starts the pad driver by class name from the installed APK
+-keep class com.nendo.argosy.hardware.pad.PadDriverMain { public static void main(java.lang.String[]); }
 
 # Discord Social SDK (optional, may not be present)
 -keep class com.discord.socialsdk.** { *; }

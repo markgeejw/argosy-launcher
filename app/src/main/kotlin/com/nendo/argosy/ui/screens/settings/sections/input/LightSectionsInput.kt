@@ -5,8 +5,10 @@ import com.nendo.argosy.data.preferences.ControlsPreferences
 import com.nendo.argosy.data.preferences.GridDensity
 import com.nendo.argosy.data.preferences.GripReserveMode
 import com.nendo.argosy.data.preferences.HomeBackgroundMode
+import com.nendo.argosy.data.preferences.NewBadgePlacement
 import com.nendo.argosy.data.preferences.MediaStreamingQuality
 import com.nendo.argosy.data.preferences.MenuWrapMode
+import com.nendo.argosy.data.preferences.NotOnDeviceAction
 import com.nendo.argosy.data.preferences.SelectSwapMode
 import com.nendo.argosy.ui.screens.settings.delegates.ControlsSettingsDelegate
 import com.nendo.argosy.util.LogLevel
@@ -46,7 +48,7 @@ import com.nendo.argosy.ui.screens.settings.sections.aboutItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.aboutSections
 import com.nendo.argosy.ui.screens.settings.sections.biosItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.biosSections
-import com.nendo.argosy.ui.screens.settings.sections.buildRomMItemsFromState
+import com.nendo.argosy.ui.screens.settings.sections.RomMLayoutState
 import com.nendo.argosy.ui.screens.settings.sections.JellyfinItem
 import com.nendo.argosy.ui.screens.settings.sections.JellyfinLayoutState
 import com.nendo.argosy.ui.screens.settings.sections.jellyfinItemAtFocusIndex
@@ -55,6 +57,8 @@ import com.nendo.argosy.ui.screens.settings.sections.mainSettingsSections
 import com.nendo.argosy.ui.screens.settings.sections.audioSections
 import com.nendo.argosy.ui.screens.settings.sections.navigationItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.navigationSections
+import com.nendo.argosy.ui.screens.settings.sections.RomMItem
+import com.nendo.argosy.ui.screens.settings.sections.rommItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.rommSections
 import com.nendo.argosy.ui.screens.settings.sections.savesItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.savesSections
@@ -98,8 +102,13 @@ internal class LightSectionsInput(
     override fun onSecondaryAction(): InputResult {
         val state = viewModel.uiState.value
         if (state.currentSection != SettingsSection.NAVIGATION) return InputResult.UNHANDLED
-        val shortcut = navigationItemAtFocusIndex(state.focusedIndex, state.controls)?.shortcut
-            ?: return InputResult.UNHANDLED
+        val item = navigationItemAtFocusIndex(state.focusedIndex, state.controls)
+        item?.systemHotkeyAction?.let { action ->
+            if (!state.controls.isSystemComboCustom(action)) return InputResult.UNHANDLED
+            viewModel.resetSystemCombo(action)
+            return InputResult.HANDLED
+        }
+        val shortcut = item?.shortcut ?: return InputResult.UNHANDLED
         viewModel.clearShortcutKey(shortcut)
         return InputResult.HANDLED
     }
@@ -118,6 +127,7 @@ internal class LightSectionsInput(
     private fun handleMainGroupJump(direction: Int): InputResult {
         val state = viewModel.uiState.value
         if (state.currentSection != SettingsSection.MAIN) return InputResult.UNHANDLED
+        if (state.settingsSearch.isActive) return InputResult.HANDLED
         val sections = mainSettingsSections(state.controls)
         if (direction < 0) viewModel.jumpToPrevSection(sections) else viewModel.jumpToNextSection(sections)
         return InputResult.HANDLED
@@ -203,6 +213,16 @@ internal class LightSectionsInput(
                 viewModel.setRommAuthMethod(next)
                 return InputResult.HANDLED
             }
+            return InputResult.UNHANDLED
+        }
+        if (state.server.rommConfiguring) return InputResult.UNHANDLED
+        if (rommItemAtFocusIndex(state.focusedIndex, RomMLayoutState.from(state)) == RomMItem.NotOnDevice) {
+            return stepOption(
+                NotOnDeviceAction.entries,
+                state.server.notOnDeviceAction,
+                direction,
+                viewModel::setNotOnDeviceAction
+            )
         }
         return InputResult.UNHANDLED
     }
@@ -275,6 +295,10 @@ internal class LightSectionsInput(
             HomeScreenItem.InstalledOnly ->
                 return toggleLeftRight(direction, display.installedOnlyHome) { viewModel.setInstalledOnlyHome(it) }
             HomeScreenItem.RecentNewGames -> { viewModel.cycleRecentNewGamesLimit(direction); return InputResult.HANDLED }
+            HomeScreenItem.NewBadge ->
+                return stepOption(NewBadgePlacement.entries, display.newBadgePlacement, direction) {
+                    viewModel.setNewBadgePlacement(it)
+                }
             HomeScreenItem.BoxArt ->
                 return stepOption(listOf(false, true), display.homeLayout.boxArt3d, direction, viewModel::setHomeBoxArt3d)
             HomeScreenItem.LayoutSelector -> return stepOption(
@@ -324,6 +348,18 @@ internal class LightSectionsInput(
                 return toggleLeftRight(direction, controls.quickNavigation) { viewModel.setQuickNavigation(it) }
             NavigationItem.NavBarAutoHide ->
                 return toggleLeftRight(direction, controls.navBarAutoHide) { viewModel.setNavBarAutoHide(it) }
+            NavigationItem.SystemHotkeys ->
+                return toggleLeftRight(direction, controls.systemHotkeysEnabled) {
+                    viewModel.setSystemHotkeysEnabled(it)
+                }
+            NavigationItem.HomeButtonInGames ->
+                return toggleLeftRight(direction, controls.homeButtonInGames) {
+                    viewModel.setHomeButtonInGames(it)
+                }
+            NavigationItem.QuickPanelInEmulators ->
+                return toggleLeftRight(direction, state.display.quickPanelInEmulators) {
+                    viewModel.setQuickPanelInEmulators(it)
+                }
             NavigationItem.SelectLCombo -> return stepOption(
                 ControlsSettingsDelegate.COMBO_OPTIONS,
                 controls.selectLCombo,
@@ -417,6 +453,8 @@ internal class LightSectionsInput(
                 return stepOption(LogLevel.entries, state.fileLogLevel, direction, viewModel::setFileLogLevel)
             AboutItem.BetaUpdates ->
                 return toggleLeftRight(direction, state.betaUpdatesEnabled) { viewModel.setBetaUpdatesEnabled(it) }
+            AboutItem.DebugUpdateChecks ->
+                return toggleLeftRight(direction, state.debugUpdateChecksEnabled) { viewModel.setDebugUpdateChecksEnabled(it) }
             AboutItem.FileLogging -> if (hasLogPath) {
                 return toggleLeftRight(direction, state.fileLoggingEnabled) { viewModel.toggleFileLogging(it) }
             }
@@ -492,7 +530,7 @@ internal class LightSectionsInput(
             SettingsSection.PRESENTATION -> presentationSections(state.display.presentationStyle)
             SettingsSection.LIBRARY_VIEW -> librarySections(LibraryLayoutState.from(state))
             SettingsSection.BIOS -> biosSections(state.bios.platformGroups, state.bios.expandedPlatformIndex)
-            SettingsSection.ROMM -> rommSections(buildRomMItemsFromState(state))
+            SettingsSection.ROMM -> rommSections(RomMLayoutState.from(state))
             SettingsSection.SAVES -> savesSections(SavesLayoutState.from(state))
             SettingsSection.STEAM_SETTINGS -> steamSections(state.steam)
             SettingsSection.JELLYFIN -> if (state.jellyfin.configuring || state.jellyfin.showLoginForm) {

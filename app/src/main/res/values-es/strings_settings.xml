@@ -17,6 +17,8 @@
     <string name="settings_main_section_gameplay">JUGABILIDAD</string>
     <string name="settings_main_section_library">BIBLIOTECA</string>
     <string name="settings_main_section_connections">CONEXIONES</string>
+    <string name="settings_main_network_title">Red y Bluetooth</string>
+    <string name="settings_main_network_subtitle">Redes Wi-Fi y mandos Bluetooth</string>
     <string name="settings_main_section_system">SISTEMA</string>
 
     <string name="settings_main_theme_title">Tema</string>
@@ -123,6 +125,11 @@
     <string name="settings_interface_hide_system_nav_bar_subtitle">Oculta los botones de atrás, inicio y recientes de Android o la barra de gestos. Desliza desde el borde para mostrarlos</string>
     <string name="settings_interface_hide_system_status_bar_title">Ocultar barra de estado del sistema</string>
     <string name="settings_interface_hide_system_status_bar_subtitle">Oculta la barra de estado de Android y los iconos de notificación. Desliza hacia abajo desde arriba para mostrarla</string>
+    <string name="settings_interface_screen_orientation_title">Orientación de pantalla</string>
+    <string name="settings_interface_screen_orientation_subtitle">Mantiene Argosy y los juegos integrados en una orientación, sin importar el bloqueo de rotación del dispositivo</string>
+    <string name="settings_interface_screen_orientation_auto">Automática</string>
+    <string name="settings_interface_screen_orientation_landscape">Horizontal</string>
+    <string name="settings_interface_screen_orientation_portrait">Vertical</string>
     <string name="settings_interface_quick_panel_in_emulators_title">Panel rápido en otros emuladores</string>
     <string name="settings_interface_quick_panel_in_emulators_subtitle">Mantén Atrás en un emulador que Argosy abrió para mostrar el panel rápido. Requiere el servicio de accesibilidad de Argosy</string>
     <string name="settings_interface_quick_panel_in_emulators_service_off">El servicio de accesibilidad está desactivado. Actívalo en Permisos</string>
@@ -244,6 +251,20 @@
     <string name="settings_navigation_shortcut_capture_subtitle">El botón deja de hacer cualquier otra cosa en los menús de Argosy</string>
     <string name="settings_navigation_shortcut_capture_reserved">%1$s sirve para moverse por los menús y no se puede asignar</string>
     <string name="settings_navigation_shortcut_capture_hint_cancel">Cancelar</string>
+    <string name="settings_navigation_section_system_buttons">Atajos globales</string>
+    <string name="settings_navigation_system_hotkeys_title">Combinaciones de Inicio y Atrás</string>
+    <string name="settings_navigation_system_hotkeys_subtitle">Combinaciones del mando que funcionan como Inicio y Atrás mientras otra app está abierta</string>
+    <string name="settings_navigation_home_button_in_games_title">Mantener Inicio para cambiar de juego</string>
+    <string name="settings_navigation_home_button_in_games_subtitle">Mantén el botón Inicio del dispositivo en un juego que Argosy abrió para mostrar el selector de juegos. Desactívalo para dejar Inicio al dispositivo. Requiere root</string>
+    <string name="settings_navigation_system_hotkeys_access_title">Servicio de accesibilidad</string>
+    <string name="settings_navigation_system_hotkeys_access_subtitle">Las combinaciones llegan a otras apps a través del servicio de accesibilidad de Argosy</string>
+    <string name="settings_navigation_system_hotkeys_access_on">Activado</string>
+    <string name="settings_navigation_system_hotkeys_access_needed">Requiere accesibilidad</string>
+    <string name="settings_navigation_system_home_title">Inicio</string>
+    <string name="settings_navigation_system_home_subtitle">Mantenlos juntos 2 segundos. Pulsar el botón guía también va a Inicio</string>
+    <string name="settings_navigation_system_back_title">Atrás</string>
+    <string name="settings_navigation_system_back_subtitle">Mantén los primeros botones y pulsa el último. En un juego, mantener la combinación 3 segundos abre el panel rápido</string>
+    <string name="settings_navigation_system_combo_capture_prompt">Mantén 2 o 3 botones en orden...</string>
 
     <!-- ===== Displays section ===== -->
 
@@ -396,6 +417,17 @@
     <string name="settings_interface_pre_launch_recaps_subtitle">Antes de un juego de RetroAchievements que no has jugado en una semana, muestra dónde lo dejaste</string>
     <string name="settings_interface_monthly_recap_title">Resumen mensual</string>
     <string name="settings_interface_monthly_recap_subtitle">Al empezar cada mes, muestra en Inicio un resumen del mes anterior</string>
+    <string name="settings_interface_section_notifications">Notificaciones</string>
+    <string name="settings_interface_notifications_title">Notificaciones</string>
+    <string name="settings_interface_notifications_subtitle">Muestra avisos de Argosy en el launcher y sobre los juegos. Los avisos de batería se siguen mostrando</string>
+    <string name="settings_interface_notify_downloads_finished_title">Descargas completadas</string>
+    <string name="settings_interface_notify_downloads_finished_subtitle">Muestra un aviso al terminar una descarga</string>
+    <string name="settings_interface_notify_battery_title">Batería</string>
+    <string name="settings_interface_notify_battery_subtitle" formatted="false">Avisa al 15 % y al 5 %. Los juegos integrados guardan igualmente al 5 %</string>
+    <string name="settings_interface_notify_charging_title">Carga</string>
+    <string name="settings_interface_notify_charging_subtitle">Muestra un aviso al conectar o desconectar el cargador durante el juego</string>
+    <string name="settings_interface_notify_controllers_title">Mandos</string>
+    <string name="settings_interface_notify_controllers_subtitle">Muestra un aviso cuando un mando se conecta, se desconecta o tiene poca batería</string>
 
     <string name="settings_home_screen_background_title">Fondo</string>
     <string name="settings_home_screen_background_subtitle">Carátula del juego o patrón de fondo</string>
@@ -439,6 +471,12 @@
         <item quantity="many">Hasta %d</item>
         <item quantity="other">Hasta %d</item>
     </plurals>
+
+    <string name="settings_home_screen_new_badge_title">Insignia NUEVO</string>
+    <string name="settings_home_screen_new_badge_subtitle">Dónde se sitúa la insignia NUEVO en las tarjetas del inicio, o ocultarla</string>
+    <string name="settings_home_screen_new_badge_option_right">Derecha</string>
+    <string name="settings_home_screen_new_badge_option_left">Izquierda</string>
+    <string name="settings_home_screen_new_badge_option_hidden">Oculto</string>
 
     <!-- ===== Saves section ===== -->
 
@@ -507,7 +545,6 @@
     <string name="settings_sync_upload_screenshots_title">Subir capturas de pantalla</string>
     <string name="settings_sync_upload_screenshots_subtitle">Enviar a RomM las capturas tomadas durante el juego</string>
     <string name="settings_sync_upload_screenshots_subtitle_unsupported">Requiere RomM 5.0 o posterior</string>
-    <string name="settings_sync_upload_screenshots_subtitle_needs_usage">Concede el acceso al uso para una coincidencia exacta de juegos</string>
 
     <string name="settings_sync_image_cache_title">Ubicación de la caché de imágenes</string>
     <string name="settings_sync_image_cache_path_internal">Interno (predeterminado)</string>
@@ -623,6 +660,10 @@
         <item quantity="other">%d archivos</item>
     </plurals>
     <string name="settings_bios_distribute_result_dismiss">Aceptar</string>
+    <string name="settings_bios_distribute_failure_files_missing">Claves o firmware sin descargar</string>
+    <string name="settings_bios_distribute_failure_keys_mismatch">Las claves no coinciden con este firmware</string>
+    <string name="settings_bios_distribute_failure_emulator_missing">Emulador no instalado</string>
+    <string name="settings_bios_distribute_failure_install_failed">No se pudo instalar</string>
 
     <string name="settings_bios_download_failed_title">Algunos archivos no se descargaron</string>
     <plurals name="settings_bios_download_failed_message">
@@ -636,7 +677,7 @@
     <string name="settings_bios_gpu_prompt_detected">Detectado: %1$s</string>
     <string name="settings_bios_gpu_prompt_message">Un controlador GPU personalizado puede mejorar el rendimiento de la emulación de Switch en dispositivos Snapdragon 8.</string>
     <string name="settings_bios_gpu_prompt_installing">Instalando controlador...</string>
-    <string name="settings_bios_gpu_prompt_install_versioned">Instalar recomendado (%1$s)</string>
+    <string name="settings_bios_gpu_prompt_recommended">Controlador recomendado: %1$s</string>
     <string name="settings_bios_gpu_prompt_install">Instalar recomendado</string>
     <string name="settings_bios_gpu_prompt_install_from_file">Instalar desde archivo</string>
     <string name="settings_bios_gpu_prompt_skip">Omitir</string>
@@ -656,26 +697,16 @@
 
     <!-- ===== Permissions section ===== -->
 
-    <string name="settings_permissions_intro">Argosy necesita ciertos permisos para funcionar por completo. Toca cada permiso para concederlo.</string>
-    <string name="settings_permissions_storage_title">Acceso al almacenamiento</string>
-    <string name="settings_permissions_storage_description">Necesario para descargar juegos, sincronizar archivos de guardado y acceder a los archivos ROM de tu dispositivo.</string>
-    <string name="settings_permissions_usage_stats_title">Acceso a estadísticas de uso</string>
-    <string name="settings_permissions_usage_stats_description">Permite un seguimiento preciso del tiempo de juego y reanudar la sesión sin interrupciones al cambiar entre aplicaciones.</string>
-    <string name="settings_permissions_notifications_title">Notificaciones</string>
-    <string name="settings_permissions_notifications_description">Muestra el progreso de la descarga al descargar juegos en segundo plano.</string>
-    <string name="settings_permissions_write_settings_title">Acceso a los ajustes del sistema</string>
-    <string name="settings_permissions_write_settings_description">Permite controlar el modo de rendimiento del dispositivo y los ajustes del ventilador desde el panel de Ajustes rápidos.</string>
-    <string name="settings_permissions_screen_capture_title">Captura de pantalla</string>
-    <string name="settings_permissions_screen_capture_description">Permite la iluminación LED ambiental para tomar muestras de los colores de la pantalla mientras juegas.</string>
-    <string name="settings_permissions_display_overlay_title">Mostrar sobre otras aplicaciones</string>
-    <string name="settings_permissions_display_overlay_description">Muestra notificaciones de detección de guardado al jugar con emuladores externos.</string>
-    <string name="settings_permissions_accessibility_title">Servicio de accesibilidad</string>
-    <string name="settings_permissions_accessibility_description">Permite abrir el panel rápido sobre otros emuladores y tomar capturas de guardado en silencio</string>
-    <string name="settings_permissions_live_wallpaper_title">Pantalla de bloqueo animada</string>
-    <string name="settings_permissions_live_wallpaper_description">Permite que Argosy aplique una pantalla de bloqueo animada.</string>
+    <!-- %1$s is a root or system-access app name, such as Magisk or Shizuku -->
+    <string name="settings_permissions_privileged_title">Acceso de %1$s</string>
+    <string name="settings_permissions_privileged_description_off">Permite que Argosy acceda a las carpetas de guardado de los emuladores en Android/data.</string>
+    <string name="settings_permissions_privileged_description_checking">Comprobando acceso...</string>
+    <string name="settings_permissions_privileged_description_root">Las carpetas de guardado y las funciones root están disponibles.</string>
+    <string name="settings_permissions_privileged_description_app_data">Las carpetas de guardado están disponibles. Mantener los juegos en ejecución necesita root.</string>
+    <string name="settings_permissions_privileged_description_unreachable">No se puede acceder a las carpetas de guardado en este dispositivo.</string>
+    <string name="settings_permissions_privileged_description_refused">No se concedió el acceso. Selecciona para volver a pedirlo.</string>
     <string name="settings_lock_screen_wallpaper_label">Biblioteca de Argosy</string>
     <string name="settings_lock_screen_wallpaper_description">Permite que Argosy aplique una pantalla de bloqueo animada.</string>
-    <string name="settings_permissions_status_footer">Estado: %1$d/%2$d permisos concedidos</string>
 
     <!-- ===== About section ===== -->
 
@@ -696,7 +727,7 @@
     <string name="settings_about_update_subtitle_current">Actualizado</string>
     <string name="settings_about_update_subtitle_on_prerelease">Ejecutando una versión preliminar</string>
     <string name="settings_about_update_subtitle_idle">Buscar nuevas versiones</string>
-    <string name="settings_about_update_action_download">Descargar</string>
+    <string name="settings_about_update_action_install">Instalar</string>
     <string name="settings_about_update_action_check">Comprobar</string>
     <string name="settings_about_update_action_changelog">Registro de cambios</string>
     <string name="settings_about_changelog_preview_title">Novedades - %1$s</string>
@@ -982,12 +1013,23 @@
 
     <string name="settings_storage_games_integrity_title">Comprobación semanal de integridad de ROM</string>
     <string name="settings_storage_games_integrity_subtitle">Verifica los archivos de juego descargados al iniciar, una vez por semana</string>
-    <string name="settings_storage_games_not_from_romm_title">No provienen de RomM</string>
-    <plurals name="settings_storage_games_not_from_romm_subtitle">
-        <item quantity="one">%1$d archivo de juego se añadió a mano y se conserva en un restablecimiento completo</item>
-        <item quantity="many">%1$d archivos de juego se añadieron a mano y se conservan en un restablecimiento completo</item>
-        <item quantity="other">%1$d archivos de juego se añadieron a mano y se conservan en un restablecimiento completo</item>
+    <string name="settings_storage_games_local_only_title">Solo local</string>
+    <plurals name="settings_storage_games_local_only_subtitle">
+        <item quantity="one">%1$d juego en este dispositivo que RomM no tiene</item>
+        <item quantity="many">%1$d juegos en este dispositivo que RomM no tiene</item>
+        <item quantity="other">%1$d juegos en este dispositivo que RomM no tiene</item>
     </plurals>
+    <string name="settings_storage_local_only_empty_message">Los juegos de este dispositivo que RomM no tiene aparecen aquí con su tamaño y ubicación.</string>
+    <string name="settings_storage_game_source_local_only">Solo local</string>
+    <string name="settings_storage_location_internal">Interno</string>
+    <string name="settings_storage_location_removable">Tarjeta SD</string>
+    <string name="settings_storage_location_mixed">Interno + tarjeta SD</string>
+    <string name="settings_storage_location_unknown">Ubicación desconocida</string>
+    <string name="settings_storage_local_only_tab_all">Todos</string>
+    <string name="settings_storage_local_only_tab_internal">Interno</string>
+    <string name="settings_storage_local_only_tab_sd_card">Tarjeta SD</string>
+    <string name="settings_storage_local_only_tab_unknown">Desconocida</string>
+    <string name="settings_storage_local_only_tab_empty_message">No hay juegos solo locales guardados aquí.</string>
 
     <plurals name="settings_storage_games_totals_count">
         <item quantity="one">%d descargado</item>
@@ -1071,6 +1113,23 @@
     <string name="settings_storage_platform_games_loading">Cargando...</string>
     <string name="settings_storage_platform_games_empty_title">Ningún juego descargado</string>
     <string name="settings_storage_platform_games_empty_message">Los juegos descargados de %1$s aparecen aquí con un desglose por categoría.</string>
+    <string name="settings_storage_platform_games_tab_empty_message">No hay juegos de %1$s guardados aquí.</string>
+    <plurals name="settings_storage_platform_games_summary">
+        <item quantity="one">%1$d juego, %2$s</item>
+        <item quantity="many">%1$d juegos, %2$s</item>
+        <item quantity="other">%1$d juegos, %2$s</item>
+    </plurals>
+    <string name="settings_storage_platform_games_sort_size">Más grandes primero</string>
+    <string name="settings_storage_platform_games_sort_title">De la A a la Z</string>
+    <string name="settings_storage_platform_games_sort_least_played">Jugados hace más tiempo</string>
+    <string name="settings_storage_platform_games_last_played">Última partida: %1$s</string>
+    <string name="settings_storage_platform_games_never_played">Nunca jugado</string>
+    <string name="settings_storage_platform_games_play_time">%1$s jugado</string>
+    <plurals name="settings_storage_platform_games_unsynced_saves">
+        <item quantity="one">%d partida guardada sin sincronizar</item>
+        <item quantity="many">%d partidas guardadas sin sincronizar</item>
+        <item quantity="other">%d partidas guardadas sin sincronizar</item>
+    </plurals>
 
     <string name="settings_storage_bucket_base">Base</string>
     <string name="settings_storage_bucket_updates">Actualizaciones</string>
@@ -1105,6 +1164,7 @@
     </plurals>
     <string name="settings_caches_pending_uploads_subtitle_online">Sincroniza ahora antes de vaciar las cachés de sincronización</string>
     <string name="settings_caches_pending_uploads_subtitle_offline">Vuelve a conectarte al servidor para sincronizar</string>
+    <string name="settings_caches_pending_uploads_search_label">Guardados pendientes de subir</string>
 
     <string name="settings_caches_save_cache_title">Restablecer caché de guardados</string>
     <string name="settings_caches_save_cache_busy">Restableciendo...</string>
@@ -1571,6 +1631,8 @@
     <string name="settings_builtin_controls_hotkeys_subtitle">Configura los atajos para el menú, avance rápido y rebobinado</string>
     <string name="settings_builtin_controls_limit_hotkeys_title">Limitar atajos al jugador 1</string>
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">Solo el mando del jugador 1 puede activar los atajos</string>
+    <string name="settings_builtin_controls_confirm_return_title">Confirmar volver a Argosy</string>
+    <string name="settings_builtin_controls_confirm_return_subtitle">Preguntar antes de salir del juego con Home</string>
     <string name="settings_builtin_controls_select_as_back_title">Select como Atrás</string>
     <string name="settings_builtin_controls_select_as_back_subtitle">Para mandos cuyo Select envía Atrás. Automático usa Atrás como Select en mandos sin botón Select.</string>
     <string name="settings_builtin_controls_select_as_back_auto">Automático</string>
@@ -1722,9 +1784,10 @@
     <string name="settings_emulators_section_disabled">Plataformas desactivadas</string>
     <string name="settings_emulators_rail_platforms">Plataformas</string>
 
-    <string name="settings_emulators_close_on_session_end_title">Cerrar el emulador al volver a Argosy</string>
-    <string name="settings_emulators_close_on_session_end_subtitle_on">Cierra el emulador cuando su partida guardada se ha sincronizado. Se pierde el progreso sin guardar.</string>
-    <string name="settings_emulators_close_on_session_end_subtitle_off">La app del emulador sigue abierta en segundo plano</string>
+    <string name="settings_emulators_close_on_session_end_title">Cerrar los juegos al volver a Argosy</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_on">Cierra el juego cuando su partida guardada se ha sincronizado. Se pierde el progreso sin guardar.</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_off">Los juegos siguen abiertos en segundo plano</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_built_in_only">Los juegos integrados siguen abiertos. Los demás emuladores solo siguen abiertos en dispositivos con root.</string>
     <string name="settings_emulators_check_updates_title">Buscar actualizaciones</string>
     <string name="settings_emulators_check_updates_subtitle">Buscar actualizaciones de emuladores</string>
     <plurals name="settings_emulators_check_updates_available">
@@ -2106,7 +2169,16 @@
     <!-- ===== RomM config form (Settings > components > RomMConfigForm) ===== -->
 
     <string name="settings_romm_config_server_url_label">URL del servidor</string>
-    <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
+    <string name="settings_romm_config_url_keyboard_submit">Listo</string>
+    <string name="settings_romm_config_pairing_code_keyboard_label">Código de vinculación</string>
+    <string name="settings_romm_config_pairing_code_keyboard_submit">Listo</string>
+    <string name="settings_jellyfin_config_keyboard_submit">Guardar</string>
+    <string name="settings_jellyfin_signin_username_keyboard_submit">Listo</string>
+    <string name="settings_jellyfin_signin_password_keyboard_submit">Iniciar sesión</string>
+    <string name="settings_ra_login_username_keyboard_submit">Listo</string>
+    <string name="settings_ra_login_password_keyboard_submit">Listo</string>
+    <string name="settings_ra_proxy_address_keyboard_submit">Listo</string>
+    <string name="settings_steam_add_game_keyboard_submit">Añadir</string>    <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
     <string name="settings_romm_config_auth_method_title">Método de autenticación</string>
     <string name="settings_romm_config_auth_method_device">Vinculación de dispositivo</string>
     <string name="settings_romm_config_auth_method_pairing_code">Código de vinculación</string>
@@ -2118,8 +2190,6 @@
     <string name="settings_romm_config_connect_title">Conectar</string>
     <string name="settings_romm_config_connect_device_subtitle">Generar un código QR de vinculación</string>
     <string name="settings_romm_config_connect_subtitle">Conectar al servidor RomM</string>
-    <string name="settings_romm_config_scan_title">Escanear código QR</string>
-    <string name="settings_romm_config_scan_subtitle">Escanea el QR de vinculación desde la interfaz web de RomM</string>
     <string name="settings_romm_config_certificate_title">Añadir certificado</string>
     <string name="settings_romm_config_certificate_subtitle">Confiar en un servidor con una autoridad certificadora privada</string>
     <plurals name="settings_romm_config_certificate_subtitle_count">
@@ -2800,4 +2870,65 @@
     <string name="settings_builtin_gpu_driver_reason_core_system_only">%1$s usa el controlador del sistema</string>
     <string name="settings_builtin_gpu_driver_reason_backend">Se aplica cuando el motor de renderizado es Vulkan</string>
     <string name="settings_builtin_gpu_driver_reason_device">Los controladores personalizados requieren una GPU Adreno</string>
+    <string name="settings_client_cert_row_title">Certificado de cliente</string>
+    <string name="settings_client_cert_row_subtitle_none">Para servidores que exigen un certificado de cliente (mTLS)</string>
+    <string name="settings_client_cert_row_subtitle_active">%1$s · válido hasta %2$s</string>
+    <string name="settings_client_cert_modal_header">Certificado de cliente</string>
+    <string name="settings_client_cert_modal_title_none">No se ha importado ningún certificado de cliente</string>
+    <string name="settings_client_cert_modal_title_active">%1$s · válido hasta %2$s</string>
+    <string name="settings_client_cert_use_romm_title">Usar para RomM</string>
+    <string name="settings_client_cert_use_romm_subtitle">Presentar este certificado al conectar con tu servidor RomM</string>
+    <string name="settings_client_cert_use_jellyfin_title">Usar para Jellyfin</string>
+    <string name="settings_client_cert_use_jellyfin_subtitle">Presentar este certificado al conectar con tu servidor Jellyfin</string>
+    <string name="settings_client_cert_import_subtitle">Elige un archivo .p12 o .pfx con el certificado y su clave privada</string>
+    <string name="settings_client_cert_replace_subtitle">Importar otro archivo .p12 o .pfx en lugar de este</string>
+    <string name="settings_client_cert_remove_subtitle">Borrar el certificado y su clave privada de este dispositivo</string>
+    <string name="settings_client_cert_import">Importar certificado…</string>
+    <string name="settings_client_cert_replace">Reemplazar certificado…</string>
+    <string name="settings_client_cert_remove">Eliminar certificado</string>
+    <string name="settings_client_cert_remove_title">¿Eliminar el certificado de cliente?</string>
+    <string name="settings_client_cert_remove_message">El certificado y su clave privada se borran de este dispositivo. Los servidores que lo exigen rechazarán las conexiones hasta que vuelvas a importar el archivo.</string>
+    <string name="settings_client_cert_remove_confirm">Eliminar</string>
+    <string name="settings_client_cert_filebrowser_title">Elegir certificado de cliente</string>
+    <string name="settings_romm_config_error_client_certificate_required">El servidor exige un certificado de cliente. Importa uno en Certificado de cliente o activa allí Usar para RomM.</string>
+    <string name="settings_accounts_pairing_error_client_certificate_required">El servidor exige un certificado de cliente. Importa uno en Certificado de cliente o activa allí Usar para RomM.</string>
+    <string name="settings_jellyfin_error_client_certificate_required">El servidor exige un certificado de cliente. Activa Usar para Jellyfin en Certificado de cliente.</string>
+    <string name="settings_search_row_title">Buscar en los ajustes</string>
+    <string name="settings_search_keyboard_label">Buscar en los ajustes</string>
+    <string name="settings_search_keyboard_submit">Listo</string>
+    <string name="settings_search_no_results">Ningún ajuste coincide con «%1$s»</string>
+    <string name="settings_search_crumb_displays">Pantallas</string>
+    <string name="settings_search_crumb_ambient_led">Control LED</string>
+    <string name="settings_search_crumb_audio">Audio</string>
+    <string name="settings_search_crumb_theme">Tema</string>
+    <string name="settings_search_crumb_platforms">Plataformas</string>
+    <string name="settings_search_crumb_builtin_emulator">Emulador integrado</string>
+    <string name="settings_search_crumb_core_options">Opciones del core</string>
+    <string name="settings_search_crumb_storage">Almacenamiento</string>
+    <string name="settings_search_crumb_storage_caches">Caché y sistema</string>
+    <string name="settings_search_crumb_bios">Archivos BIOS</string>
+    <string name="settings_search_crumb_sounds">Sonidos</string>
+    <string name="settings_search_crumb_music">Música</string>
+    <string name="settings_search_crumb_fonts">Fuentes</string>
+    <string name="settings_search_crumb_backdrop">Fondo</string>
+    <string name="settings_search_crumb_interface">Interfaz</string>
+    <string name="settings_search_crumb_box_art">Carátula</string>
+    <string name="settings_search_crumb_controller_grip">Agarre del mando</string>
+    <string name="settings_search_crumb_saves">Guardados</string>
+    <string name="settings_search_crumb_sync_settings">Ajustes de sincronización</string>
+    <string name="settings_search_crumb_social">Social</string>
+    <string name="settings_search_crumb_permissions">Permisos</string>
+    <string name="settings_search_crumb_about">Acerca de</string>
+    <string name="settings_search_label_jellyfin_account">Cuenta</string>
+    <string name="settings_search_label_social_account">Cuenta</string>
+    <string name="settings_search_label_about_changelog">Registro de cambios</string>
+    <string name="settings_search_crumb_home_screen">Pantalla de inicio</string>
+    <string name="settings_search_crumb_presentation">Presentación</string>
+    <string name="settings_search_crumb_library_view">Biblioteca</string>
+    <string name="settings_search_crumb_navigation">Navegación</string>
+    <string name="settings_search_crumb_builtin_video">A/V y rendimiento</string>
+    <string name="settings_search_crumb_builtin_controls">Controles</string>
+    <string name="settings_search_crumb_builtin_saves">Partidas guardadas</string>
+    <string name="settings_search_label_home_layout_selector">Diseño</string>
+    <string name="settings_search_label_platform_emulator">Emulador</string>
 </resources>

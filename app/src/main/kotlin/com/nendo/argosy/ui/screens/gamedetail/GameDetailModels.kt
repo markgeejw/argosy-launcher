@@ -215,7 +215,8 @@ data class MoreOptionsContext(
     val hasUpdates: Boolean = false,
     val hasManageableFiles: Boolean = false,
     val platformSlug: String? = null,
-    val launchDisplayCount: Int = 0
+    val launchDisplayCount: Int = 0,
+    val offersDownload: Boolean = false
 )
 
 /**
@@ -227,6 +228,7 @@ fun buildMoreOptions(ctx: MoreOptionsContext): List<MoreOptionAction> = buildLis
     val isEmulatedGame = !ctx.isSteamGame && !ctx.isAndroidApp
     val usesTitleId = ctx.platformSlug?.let(com.nendo.argosy.data.platform.PlatformDefinitions::hasTitleId) == true
 
+    if (ctx.offersDownload) add(MoreOptionAction.Download)
     if (ctx.isDownloaded && ctx.launchDisplayCount > 1) add(MoreOptionAction.LaunchOnDisplay)
     if (ctx.canManageSaves || ctx.canManageStates) add(MoreOptionAction.ManageSaves)
     if (canTrackProgress) add(MoreOptionAction.RatingsStatus)
@@ -246,6 +248,7 @@ fun buildMoreOptions(ctx: MoreOptionsContext): List<MoreOptionAction> = buildLis
 }
 
 sealed class MoreOptionAction {
+    data object Download : MoreOptionAction()
     data object LaunchOnDisplay : MoreOptionAction()
     data object ManageSaves : MoreOptionAction()
     data object RatingsStatus : MoreOptionAction()
@@ -299,7 +302,7 @@ data class GameDetailUiState(
     val isRefreshingGameData: Boolean = false,
     val downloadStatus: GameDownloadStatus = GameDownloadStatus.NOT_DOWNLOADED,
     val hasManageableFiles: Boolean = false,
-    val isAwaitingServer: Boolean = false,
+    val downloadWaitStatus: DownloadWaitStatus? = null,
     val downloadSizeBytes: Long? = null,
     val selectedCoreId: String? = null,
     val siblingGameIds: List<Long> = emptyList(),
@@ -320,6 +323,7 @@ data class GameDetailUiState(
     val syncState: SyncState = SyncState.Idle,
     val isSyncing: Boolean = false,
     val syncOverlayState: SyncOverlayState? = null,
+    val sessionEndRunning: Boolean = false,
     val memcardPickerState: com.nendo.argosy.ui.screens.common.MemcardPickerState? = null,
     val memcardPickerFocusIndex: Int = 0,
     val launchVariantPickerState: com.nendo.argosy.ui.screens.common.VariantPickerState? = null,
@@ -356,7 +360,10 @@ data class GameDetailUiState(
     val isPrivate: Boolean = false,
     val streamSettings: StreamSettings = StreamSettings(),
     val perGameSettings: com.nendo.argosy.ui.screens.gamedetail.delegates.PerGameSettingsState =
-        com.nendo.argosy.ui.screens.gamedetail.delegates.PerGameSettingsState()
+        com.nendo.argosy.ui.screens.gamedetail.delegates.PerGameSettingsState(),
+    val running: com.nendo.argosy.ui.common.RunningGameUi? = null,
+    val runningMoveTargets: List<com.nendo.argosy.ui.screens.running.RunningMoveTarget> = emptyList(),
+    val stream: com.nendo.argosy.ui.screens.stream.StreamOffer? = null
 ) {
     val hasPreviousGame: Boolean get() = currentGameIndex > 0
     val hasNextGame: Boolean get() = currentGameIndex >= 0 && currentGameIndex < siblingGameIds.size - 1
@@ -394,7 +401,10 @@ data class GameDetailUiState(
                     game.platformSlug,
                     game.isSteamGame,
                     game.isAndroidApp
-                )
+                ),
+                isRunning = running != null,
+                moveTargetCount = if (running != null) runningMoveTargets.size else 0,
+                stream = stream
             )
         }
 }

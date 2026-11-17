@@ -79,6 +79,7 @@
     <string name="home_quick_actions_play_on_screen">Auf Bildschirm %1$d spielen</string>
     <string name="home_quick_actions_download">Herunterladen</string>
     <string name="home_quick_actions_resume_download">Fortsetzen</string>
+    <string name="home_quick_actions_resume_game">Fortsetzen</string>
     <string name="home_quick_actions_favorite">Favorit</string>
     <string name="home_quick_actions_unfavorite">Favorit entfernen</string>
     <string name="home_quick_actions_details">Details</string>
@@ -90,6 +91,8 @@
     <string name="home_quick_actions_remove_from_home">Von Startseite entfernen</string>
     <string name="home_quick_actions_remove_from_library">Aus Bibliothek entfernen</string>
     <string name="home_quick_actions_hide">Ausblenden</string>
+    <string name="home_quick_actions_move_to_display">Auf Display %1$d verschieben</string>
+    <string name="home_quick_actions_close_game">Spiel schließen</string>
 
     <string name="home_media_empty_next_up_title">Nichts Neues</string>
     <string name="home_media_empty_next_up_message">Beenden Sie eine Episode, und die nächste erscheint hier.</string>
@@ -185,4 +188,24 @@
 
     <string name="home_grid_tile_ra_points_label">Punkte</string>
     <string name="home_grid_tile_ra_unlocks_label">Freischaltungen</string>
+    <string name="home_footer_game_resume_game">Fortsetzen</string>
+    <string name="home_title_running">Läuft</string>
+    <string name="home_title_running_in">Läuft in %1$s</string>
+    <string name="home_title_saving">Speichert</string>
+    <string name="home_title_running_with_time">Läuft seit %1$s</string>
+    <string name="home_grid_picker_folder_title">Ordner</string>
+    <string name="home_grid_picker_folder_subtitle">Kacheln jeder Art unter einer Kachel bündeln</string>
+    <string name="home_grid_picker_auto_folder_title">Automatischer Ordner</string>
+    <string name="home_grid_picker_auto_folder_subtitle">Füllt sich mit den Spielen, die eine Regel trifft</string>
+    <string name="home_grid_picker_image_title">Bild</string>
+    <string name="home_grid_picker_image_subtitle">Ein Bild, das seine Zellen ausfüllt</string>
+    <string name="home_grid_picker_sticker_title">Sticker</string>
+    <string name="home_grid_picker_sticker_subtitle">Ein freigestelltes Bild mit optionalem Umriss</string>
+    <string name="home_grid_tile_image_label">Bild</string>
+    <string name="home_grid_tile_sticker_label">Sticker</string>
+    <plurals name="home_grid_tile_folder_count">
+        <item quantity="one">%d Element</item>
+        <item quantity="other">%d Elemente</item>
+    </plurals>
+    <string name="home_tile_file_browser_decor_title">Bild auswählen</string>
 </resources>

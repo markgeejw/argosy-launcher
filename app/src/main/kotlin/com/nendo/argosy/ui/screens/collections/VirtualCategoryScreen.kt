@@ -23,15 +23,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -55,11 +51,14 @@ import com.nendo.argosy.R
 import com.nendo.argosy.ui.components.AlphabetSidebar
 import com.nendo.argosy.ui.components.FooterHints
 import com.nendo.argosy.ui.components.InputButton
+import com.nendo.argosy.ui.components.keyboard.ControllerKeyboardSession
 import com.nendo.argosy.ui.input.LocalInputDispatcher
 import com.nendo.argosy.ui.navigation.Screen
 import com.nendo.argosy.ui.primitives.ArgosyConfirmModalHost
 import com.nendo.argosy.ui.primitives.ArgosyProgressBar
 import com.nendo.argosy.ui.components.gamelist.GameListRow
+import com.nendo.argosy.ui.screens.collections.dialogs.CollectionOptionsModal
+import com.nendo.argosy.ui.screens.running.RunningGameCloseHost
 import com.nendo.argosy.ui.theme.Dimens
 
 @Composable
@@ -97,8 +96,10 @@ fun VirtualCategoryScreen(
     val downloadAllConfirmVisible by viewModel.downloadAllConfirmVisible.collectAsState()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(uiState.focusedIndex) {
-        if (uiState.games.isNotEmpty() && uiState.focusedIndex in uiState.games.indices) {
+    LaunchedEffect(uiState.focusedIndex, uiState.isSearchStopFocused) {
+        if (uiState.isSearchStopFocused) {
+            listState.animateScrollToItem(0)
+        } else if (uiState.games.isNotEmpty() && uiState.focusedIndex in uiState.games.indices) {
             val visibleItems = listState.layoutInfo.visibleItemsInfo
             val viewportHeight = listState.layoutInfo.viewportEndOffset
             val avgItemHeight = if (visibleItems.isNotEmpty()) {
@@ -109,6 +110,21 @@ fun VirtualCategoryScreen(
         }
     }
 
+    val searchFieldFocus = remember { FocusRequester() }
+    ControllerKeyboardSession(
+        open = uiState.isSearchActive && uiState.isSearchKeyboardOpen,
+        label = stringResource(R.string.collections_category_search_placeholder, uiState.categoryName),
+        text = uiState.searchQuery,
+        onTextChange = { viewModel.setSearchQuery(it) },
+        onSubmit = { viewModel.closeSearchKeyboard() },
+        onClose = { viewModel.closeSearchKeyboard() },
+        submitLabel = stringResource(R.string.collections_category_keyboard_submit),
+        onSystemKeyboard = {
+            viewModel.closeSearchKeyboard()
+            searchFieldFocus.requestFocus()
+        }
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             VirtualCategoryHeader(
@@ -116,9 +132,12 @@ fun VirtualCategoryScreen(
                 gameCount = uiState.games.size,
                 isSearchActive = uiState.isSearchActive,
                 searchQuery = uiState.searchQuery,
+                searchFieldFocus = searchFieldFocus,
+                isSearchStopFocused = uiState.isSearchStopFocused,
                 onBack = { if (uiState.isSearchActive) viewModel.closeSearch() else onBack() },
                 onSearchOpen = { viewModel.openSearch() },
                 onSearchChange = { viewModel.setSearchQuery(it) },
+                onSearchFieldFocused = { viewModel.closeSearchKeyboard() },
                 onSearchClose = { viewModel.closeSearch() }
             )
 
@@ -159,9 +178,10 @@ fun VirtualCategoryScreen(
                                     coverPath = com.nendo.argosy.ui.common.rememberResolvedCoverPath(game.id, null),
                                     details = game.details,
                                     isDownloaded = game.isDownloaded,
-                                    isFocused = uiState.focusedIndex == index,
+                                    isFocused = !uiState.isSearchStopFocused && uiState.focusedIndex == index,
                                     onClick = { onGameClick(game.id) },
-                                    onLongClick = { inputHandler.onLongConfirm() }
+                                    onLongClick = { viewModel.handleGameLongPress(index) },
+                                    running = com.nendo.argosy.ui.common.LocalRunningGames.current.markFor(game.id)
                                 )
                             }
                         }
@@ -185,8 +205,12 @@ fun VirtualCategoryScreen(
 
         val selectSwapMode = com.nendo.argosy.ui.dualscreen.selectSwapModeState()
         val selectSwapsRoles = selectSwapMode == com.nendo.argosy.data.preferences.SelectSwapMode.TAP
+        val focusedRunning = uiState.focusedGame?.let {
+            com.nendo.argosy.ui.common.LocalRunningGames.current.markFor(it.id)
+        }
+        val hasOptions = uiState.optionRowsFor(focusedRunning).isNotEmpty()
         val selectHintSwaps = selectSwapsRoles ||
-            (selectSwapMode == com.nendo.argosy.data.preferences.SelectSwapMode.HOLD && !uiState.canDownloadAll)
+            (selectSwapMode == com.nendo.argosy.data.preferences.SelectSwapMode.HOLD && !hasOptions)
         FooterHints(
             hints = if (uiState.isSearchActive) {
                 listOf(
@@ -197,14 +221,13 @@ fun VirtualCategoryScreen(
                 buildList {
                     add(InputButton.DPAD to stringResource(R.string.collections_category_hint_navigate))
                     add(
-                        InputButton.A to if (selectSwapsRoles && uiState.canDownloadAll) {
-                            stringResource(
-                                R.string.collections_category_hint_open_hold_download_all,
-                                uiState.downloadableGamesCount
-                            )
-                        } else {
-                            stringResource(R.string.collections_category_hint_open)
-                        }
+                        InputButton.A to stringResource(
+                            if (selectSwapsRoles && hasOptions) {
+                                R.string.collections_category_hint_open_hold_options
+                            } else {
+                                R.string.collections_category_hint_open
+                            }
+                        )
                     )
                     add(InputButton.B to stringResource(R.string.collections_category_hint_back))
                     add(InputButton.X to stringResource(R.string.collections_category_hint_search))
@@ -226,17 +249,11 @@ fun VirtualCategoryScreen(
                             add(InputButton.SELECT to stringResource(R.string.collections_category_hint_swap_screens))
                         selectHintSwaps ->
                             add(InputButton.SELECT to stringResource(R.string.collections_category_hint_hold_swap_screens))
-                        selectSwapMode != null && uiState.canDownloadAll -> add(
-                            InputButton.SELECT to stringResource(
-                                R.string.collections_category_hint_download_all_hold_swap_screens,
-                                uiState.downloadableGamesCount
-                            )
+                        selectSwapMode != null && hasOptions -> add(
+                            InputButton.SELECT to stringResource(R.string.collections_category_hint_options_hold_swap_screens)
                         )
-                        uiState.canDownloadAll -> add(
-                            InputButton.SELECT to stringResource(
-                                R.string.collections_category_hint_download_all,
-                                uiState.downloadableGamesCount
-                            )
+                        hasOptions -> add(
+                            InputButton.SELECT to stringResource(R.string.collections_category_hint_options)
                         )
                     }
                 }
@@ -300,6 +317,21 @@ fun VirtualCategoryScreen(
             )
         }
     }
+
+    if (uiState.showOptionsModal) {
+        CollectionOptionsModal(
+            collectionName = uiState.categoryName,
+            focusIndex = uiState.optionsModalFocusIndex,
+            onOptionSelect = { option -> viewModel.selectOption(option) },
+            onDismiss = { viewModel.hideOptionsModal() },
+            rows = uiState.optionRows,
+            downloadableCount = uiState.downloadableGamesCount,
+            gameTitle = uiState.focusedGame?.title,
+            onMoveToDisplay = { target -> viewModel.moveRunningGame(target) }
+        )
+    }
+
+    RunningGameCloseHost(viewModel.runningGameMenu)
 }
 
 @Composable
@@ -368,9 +400,12 @@ private fun VirtualCategoryHeader(
     gameCount: Int,
     isSearchActive: Boolean,
     searchQuery: String,
+    searchFieldFocus: FocusRequester,
+    isSearchStopFocused: Boolean,
     onBack: () -> Unit,
     onSearchOpen: () -> Unit,
     onSearchChange: (String) -> Unit,
+    onSearchFieldFocused: () -> Unit,
     onSearchClose: () -> Unit
 ) {
     Row(
@@ -390,20 +425,15 @@ private fun VirtualCategoryHeader(
         Spacer(modifier = Modifier.width(Dimens.spacingSm))
 
         if (isSearchActive) {
-            val focusRequester = remember { FocusRequester() }
-            LaunchedEffect(Unit) { focusRequester.requestFocus() }
-            TextField(
-                value = searchQuery,
-                onValueChange = onSearchChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focusRequester),
-                placeholder = { Text(stringResource(R.string.collections_category_search_placeholder, categoryName)) },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+            CollectionSearchField(
+                query = searchQuery,
+                placeholder = stringResource(R.string.collections_category_search_placeholder, categoryName),
+                isFocused = isSearchStopFocused,
+                focusRequester = searchFieldFocus,
+                onQueryChange = onSearchChange,
+                onFieldFocused = onSearchFieldFocused,
+                onTap = onSearchOpen,
+                modifier = Modifier.weight(1f)
             )
             IconButton(onClick = onSearchClose) {
                 Icon(
@@ -425,13 +455,11 @@ private fun VirtualCategoryHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onSearchOpen) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = stringResource(R.string.collections_category_search_description),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            CollectionSearchButton(
+                isFocused = isSearchStopFocused,
+                contentDescription = stringResource(R.string.collections_category_search_description),
+                onClick = onSearchOpen
+            )
         }
     }
 }

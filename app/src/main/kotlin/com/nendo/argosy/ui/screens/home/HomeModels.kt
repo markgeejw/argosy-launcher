@@ -81,6 +81,15 @@ data class LibraryLinkTileUi(
     val players: com.nendo.argosy.domain.model.PlayerCountBucket? = null
 )
 
+/**
+ * A folder tile resolved for drawing: how many members it holds and the games among them, in folder
+ * order, which its mosaic and the presentation screen draw from.
+ */
+data class FolderTileUi(
+    val memberCount: Int = 0,
+    val gameIds: List<Long> = emptyList()
+)
+
 data class HomeGameUi(
     val id: Long,
     val title: String,
@@ -115,6 +124,7 @@ data class HomeGameUi(
     val packageName: String? = null,
     val needsInstall: Boolean = false,
     val youtubeVideoId: String? = null,
+    val videoNormalizedPath: String? = null,
     val isNew: Boolean = false,
     val isHidden: Boolean = false,
     val sortTitle: String = "",
@@ -311,6 +321,9 @@ data class HomeUiState(
     val autoGridConfig: com.nendo.argosy.domain.model.AutoGridConfig =
         com.nendo.argosy.domain.model.AutoGridConfig(),
     val boxArt3d: Boolean = false,
+    val installedOnlyHome: Boolean = false,
+    val newBadgePlacement: com.nendo.argosy.data.preferences.NewBadgePlacement =
+        com.nendo.argosy.data.preferences.NewBadgePlacement.RIGHT,
     val layoutKind: com.nendo.argosy.domain.model.HomeLayoutKind =
         com.nendo.argosy.domain.model.HomeLayoutKind.CAROUSEL,
     val customGridConfig: com.nendo.argosy.domain.model.CustomGridConfig =
@@ -321,10 +334,12 @@ data class HomeUiState(
     val tileCollections: Map<Long, com.nendo.argosy.ui.components.TileCollectionUi> = emptyMap(),
     val tileApps: Map<String, String> = emptyMap(),
     val tileLibraryLinks: Map<Long, LibraryLinkTileUi> = emptyMap(),
+    val tileFolders: Map<Long, FolderTileUi> = emptyMap(),
     val tileShowcases: Map<Long, com.nendo.argosy.ui.dualscreen.PresentationSlot.PlatformShowcase> =
         emptyMap(),
     val tileMedia: Map<String, HomeMediaUi> = emptyMap(),
     val continueGameId: Long? = null,
+    val runningOrder: Map<Long, Int> = emptyMap(),
     val raTileSummary: com.nendo.argosy.domain.model.RaTileContent? = null,
     val isLoading: Boolean = true,
     val isRommConfigured: Boolean = false,
@@ -333,6 +348,9 @@ data class HomeUiState(
     val gameMenuDisplays: List<com.nendo.argosy.ui.components.AppLaunchTarget> = emptyList(),
     val gameMenuHasSiblingGroup: Boolean = false,
     val gameMenuCanStream: Boolean = false,
+    val gameMenuStream: com.nendo.argosy.ui.screens.stream.StreamOffer? = null,
+    val gameMenuRunning: com.nendo.argosy.ui.common.RunningGameUi? = null,
+    val gameMenuMoveTargets: List<com.nendo.argosy.ui.screens.running.RunningMoveTarget> = emptyList(),
     val showAddToCollectionModal: Boolean = false,
     val collectionGameId: Long? = null,
     val collections: List<CollectionItemUi> = emptyList(),
@@ -354,7 +372,7 @@ data class HomeUiState(
     val isVideoPreviewActive: Boolean = false,
     val videoPreviewId: String? = null,
     val isVideoPreviewLoading: Boolean = false,
-    val muteVideoPreview: Boolean = false,
+    val muteVideoPreview: Boolean = com.nendo.argosy.ui.theme.generated.ComponentDefaults.Background.videoWallpaperMuted,
     val videoWallpaperEnabled: Boolean = false,
     val videoWallpaperDelayMs: Long = 3000L
 ) {
@@ -463,6 +481,17 @@ data class HomeUiState(
         get() = currentRow is HomeRow.Platform && platformItemsFor != currentPlatform?.id
 
     /**
+     * The Continue row in its shown order: games left running first, in the Resume list's order,
+     * then the rest by last played.
+     */
+    val continueGames: List<HomeGameUi>
+        get() = if (runningOrder.isEmpty()) {
+            recentGames
+        } else {
+            recentGames.sortedBy { runningOrder[it.id] ?: Int.MAX_VALUE }
+        }
+
+    /**
      * What the row under the cursor holds, in the order it is walked.
      *
      * Favorites is the one row carrying both kinds, and they run one after the other -- games, then
@@ -486,9 +515,9 @@ data class HomeUiState(
             HomeRow.Continue -> when {
                 recentGames.isEmpty() -> emptyList()
                 layoutKind == com.nendo.argosy.domain.model.HomeLayoutKind.CAROUSEL ->
-                    recentGames.take(CAROUSEL_RECENT_LIMIT).map { HomeRowItem.Game(it) } +
+                    continueGames.take(CAROUSEL_RECENT_LIMIT).map { HomeRowItem.Game(it) } +
                         HomeRowItem.ViewAll(sourceFilter = "PLAYABLE")
-                else -> recentGames.map { HomeRowItem.Game(it) }
+                else -> continueGames.map { HomeRowItem.Game(it) }
             }
             HomeRow.Recommendations -> {
                 if (recommendedGames.isEmpty()) emptyList()
@@ -585,7 +614,7 @@ data class HomeUiState(
         }
 
     val focusedTile: com.nendo.argosy.domain.model.HomeTile?
-        get() = customGrid.focusedTile
+        get() = customGrid.focusedFolderMember ?: customGrid.focusedTile
 
     val focusedTileGame: HomeGameUi?
         get() = when (val target = focusedTile?.target) {
@@ -773,6 +802,32 @@ data class HomeUiState(
                     strings = HOME_FEATURE_TILE_STRINGS,
                     libraryLink = tileLibraryLinks[tile.id]
                 )
+            is com.nendo.argosy.domain.model.HomeTileTargetRef.Folder -> {
+                val folder = tileFolders[tile.id]
+                val count = folder?.memberCount ?: 0
+                val appearance = target.appearance
+                com.nendo.argosy.ui.components.CustomGridTileContent(
+                    game = null,
+                    label = target.name,
+                    subtitle = context.resources.getQuantityString(
+                        R.plurals.home_grid_tile_folder_count,
+                        count,
+                        count
+                    ),
+                    folder = com.nendo.argosy.ui.components.FolderTileContent(
+                        coverPaths = folderMosaicPaths(tile.id),
+                        memberCount = count,
+                        isAuto = target.rule != null,
+                        coverStyle = appearance.cover,
+                        picturePath = folderCoverPicture(appearance),
+                        outline = appearance.coverOutline.takeIf { it.enabled },
+                        showName = appearance.showName
+                    )
+                )
+            }
+            is com.nendo.argosy.domain.model.HomeTileTargetRef.Image -> decorContent(target.source, null, isSticker = false, context)
+            is com.nendo.argosy.domain.model.HomeTileTargetRef.Sticker ->
+                decorContent(target.source, target.outline.takeIf { it.enabled }, isSticker = true, context)
             com.nendo.argosy.domain.model.HomeTileTargetRef.Unresolvable ->
                 com.nendo.argosy.ui.components.CustomGridTileContent(
                     game = null,
@@ -780,6 +835,58 @@ data class HomeUiState(
                     isMissing = true
                 )
         }
+
+    private fun pictureFor(source: com.nendo.argosy.domain.model.TileImageSource): String? = when (source) {
+        is com.nendo.argosy.domain.model.TileImageSource.File -> source.path
+        is com.nendo.argosy.domain.model.TileImageSource.GameArt -> tileGames[source.gameId]?.let { game ->
+            when (source.slot) {
+                com.nendo.argosy.domain.model.TileArtSlot.COVER -> game.coverPath
+                com.nendo.argosy.domain.model.TileArtSlot.LOGO -> game.logoPath
+                com.nendo.argosy.domain.model.TileArtSlot.BACKGROUND -> game.backgroundPath
+            }
+        }
+    }
+
+    private fun folderMosaicPaths(folderId: Long): List<String> =
+        tileFolders[folderId]?.gameIds.orEmpty()
+            .mapNotNull { tileGames[it]?.coverPath }
+            .take(com.nendo.argosy.ui.theme.generated.ComponentDefaults.CustomGrid.folderMosaicCount)
+
+    private fun folderCoverPicture(appearance: com.nendo.argosy.domain.model.FolderAppearance): String? =
+        appearance.coverSource
+            ?.takeIf { appearance.cover != com.nendo.argosy.domain.model.FolderCoverStyle.MOSAIC }
+            ?.let(::pictureFor)
+
+    /**
+     * The picture an open folder draws behind its members, or null for no backdrop.
+     */
+    fun folderBackdropPath(folder: com.nendo.argosy.domain.model.HomeTile): String? {
+        val appearance = (folder.target as? com.nendo.argosy.domain.model.HomeTileTargetRef.Folder)?.appearance
+            ?: return null
+        return when (appearance.backdrop) {
+            com.nendo.argosy.domain.model.FolderBackdropStyle.NONE -> null
+            com.nendo.argosy.domain.model.FolderBackdropStyle.COVER_BLURRED ->
+                folderCoverPicture(appearance) ?: folderMosaicPaths(folder.id).firstOrNull()
+            com.nendo.argosy.domain.model.FolderBackdropStyle.IMAGE -> appearance.backdropSource?.let(::pictureFor)
+        }
+    }
+
+    private fun decorContent(
+        source: com.nendo.argosy.domain.model.TileImageSource,
+        outline: com.nendo.argosy.domain.model.StickerOutline?,
+        isSticker: Boolean,
+        context: Context
+    ): com.nendo.argosy.ui.components.CustomGridTileContent {
+        val path = pictureFor(source)
+        return com.nendo.argosy.ui.components.CustomGridTileContent(
+            game = null,
+            label = context.getString(
+                if (isSticker) R.string.home_grid_tile_sticker_label else R.string.home_grid_tile_image_label
+            ),
+            isMissing = path == null,
+            decor = com.nendo.argosy.ui.components.DecorTileContent(path = path, isSticker = isSticker, outline = outline)
+        )
+    }
 }
 
 /**

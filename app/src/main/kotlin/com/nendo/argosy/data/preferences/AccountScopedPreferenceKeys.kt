@@ -34,6 +34,10 @@ object AccountScopedPreferenceKeys {
         "region_priority"
     )
 
+    private val PLAY_CHOICES = setOf(
+        "romm_not_on_device_action"
+    )
+
     private val DOWNLOAD_CATEGORIES = setOf(
         "download_category_defaults",
         "download_category_platform_overrides"
@@ -114,6 +118,7 @@ object AccountScopedPreferenceKeys {
         "icon_pack",
         "installed_only_home",
         "recent_new_games_limit",
+        "new_badge_placement",
         "video_wallpaper_enabled",
         "video_wallpaper_muted",
         "video_wallpaper_delay_seconds",
@@ -156,9 +161,17 @@ object AccountScopedPreferenceKeys {
         "pre_launch_recap_baseline"
     )
 
+    private val NOTIFICATIONS = setOf(
+        "notifications_enabled",
+        "notify_downloads_finished",
+        "notify_battery",
+        "notify_charging",
+        "notify_controllers"
+    )
+
     val PER_ACCOUNT: Set<String> =
-        RETROACHIEVEMENTS + SYNC_WATERMARKS_AND_FILTERS + REGION_PRIORITY + DOWNLOAD_CATEGORIES +
-            SOCIAL + QUAYPASS + INTERFACE + RECAPS
+        RETROACHIEVEMENTS + SYNC_WATERMARKS_AND_FILTERS + REGION_PRIORITY + PLAY_CHOICES + DOWNLOAD_CATEGORIES +
+            SOCIAL + QUAYPASS + INTERFACE + RECAPS + NOTIFICATIONS
 
     fun isPerAccount(key: Preferences.Key<*>): Boolean = key.name in PER_ACCOUNT
 }

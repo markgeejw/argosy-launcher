@@ -34,9 +34,10 @@
     <string name="gamedetail_menu_play_button_download">Télécharger</string>
     <string name="gamedetail_menu_play_button_progress_percent">%1$d%%</string>
     <string name="gamedetail_menu_play_button_waiting_for_server">En attente du serveur…</string>
+    <string name="gamedetail_menu_play_button_retrying">Nouvelle tentative…</string>
+    <string name="gamedetail_menu_play_button_waiting_for_network">En attente du réseau…</string>
 
     <string name="gamedetail_menu_saves_syncing">Synchronisation...</string>
-    <string name="gamedetail_menu_saves_default_channel">Sauvegarde auto</string>
 
     <string name="gamedetail_menu_favorite_label">Favori</string>
     <string name="gamedetail_menu_favorite_compact_remove_description">Retirer des favoris</string>
@@ -174,7 +175,6 @@
 
     <!-- ================================ Save status =================================== -->
 
-    <string name="gamedetail_save_status_latest_label">Plus récente</string>
     <string name="gamedetail_save_status_time">· %1$s</string>
     <string name="gamedetail_save_status_synced">Synchronisée</string>
     <string name="gamedetail_save_status_local_newer">Locale plus récente</string>
@@ -419,6 +419,8 @@
     <string name="gamedetail_speedrun_empty_suffix">pour en créer une, ou importez-en une depuis la communauté.</string>
     <string name="gamedetail_speedrun_category_summary">%1$d segments · %2$d tentatives</string>
     <string name="gamedetail_speedrun_import_row">Importer des segments...</string>
+    <string name="gamedetail_speedrun_new_category_row">Nouvelle catégorie</string>
+    <string name="gamedetail_speedrun_add_segment_row">Ajouter un segment</string>
     <string name="gamedetail_speedrun_import_loading_title">Recherche...</string>
     <string name="gamedetail_speedrun_import_loading_message">Recherche de catégories sur therun.gg et speedrun.com</string>
     <string name="gamedetail_speedrun_import_importing_title">Importation...</string>
@@ -437,8 +439,7 @@
     <string name="gamedetail_speedrun_source_speedruncom">speedrun.com · nom uniquement</string>
     <string name="gamedetail_speedrun_prompt_confirm">Confirmer</string>
     <string name="gamedetail_speedrun_prompt_cancel">Annuler</string>
-    <string name="gamedetail_speedrun_prompt_placeholder">Nom</string>
-    <string name="gamedetail_speedrun_confirm_delete_title">Supprimer « %1$s » ?</string>
+    <string name="gamedetail_speedrun_prompt_placeholder">Nom</string>    <string name="gamedetail_speedrun_confirm_delete_title">Supprimer « %1$s » ?</string>
     <string name="gamedetail_speedrun_confirm_delete_footer_delete">Supprimer</string>
     <string name="gamedetail_speedrun_confirm_delete_footer_cancel">Annuler</string>
     <string name="gamedetail_speedrun_confirm_delete_category_message">Ceci supprime la catégorie, ses segments et toutes les tentatives enregistrées.</string>
@@ -583,4 +584,16 @@
     <string name="gamedetail_per_game_gpu_driver_reason_core_unknown">ce cœur</string>
     <string name="gamedetail_per_game_gpu_driver_reason_backend">S\'applique quand le moteur de rendu est Vulkan</string>
     <string name="gamedetail_per_game_gpu_driver_reason_device">Les pilotes personnalisés exigent un GPU Adreno</string>
+    <string name="gamedetail_menu_play_button_resume_game">Reprendre</string>
+    <string name="gamedetail_menu_play_button_saving">Sauvegarde en cours</string>
+    <string name="gamedetail_menu_play_sub_running">En cours</string>
+    <string name="gamedetail_menu_play_sub_running_in">En cours dans %1$s</string>
+    <string name="gamedetail_menu_play_sub_closing">Fermeture du jeu</string>
+    <string name="gamedetail_menu_play_sub_running_with_time">En cours depuis %1$s</string>
+    <string name="gamedetail_menu_close_game">Fermer le jeu</string>
+    <string name="gamedetail_menu_move_to_display">Déplacer vers l\'écran %1$d</string>
+    <string name="gamedetail_running_frame_saved">Sauvegardé %1$s</string>
+    <string name="gamedetail_footer_play_resume_game">Reprendre</string>
+    <string name="gamedetail_footer_play_closing_game">Sauvegarde en cours</string>
+    <string name="gamedetail_footer_close_game">Fermer le jeu</string>
 </resources>

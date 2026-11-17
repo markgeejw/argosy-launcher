@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.luminance
 import com.nendo.argosy.ui.components.volumeMeterCategoryColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +40,18 @@ import com.nendo.argosy.R
 import com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown
 import com.nendo.argosy.domain.usecase.storage.GameStorageBucket
 import com.nendo.argosy.domain.usecase.storage.GameStorageBucketRow
+import com.nendo.argosy.domain.usecase.storage.GameStorageFile
+import com.nendo.argosy.domain.usecase.storage.GameStorageLocation
+import com.nendo.argosy.ui.common.labelRes
 import com.nendo.argosy.ui.common.rememberFileImageModel
+import com.nendo.argosy.ui.common.storageSourceLabelRes
+import com.nendo.argosy.ui.theme.LocalLauncherTheme
 import com.nendo.argosy.ui.primitives.FocusIndicators
 import com.nendo.argosy.ui.primitives.argosyFocusIndicators
+import com.nendo.argosy.ui.primitives.InputGlyph
+import com.nendo.argosy.ui.primitives.SegmentedControl
+import com.nendo.argosy.ui.components.InputButton
+import com.nendo.argosy.ui.screens.settings.StorageLocationFilter
 import com.nendo.argosy.ui.screens.settings.SettingsUiState
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
 import com.nendo.argosy.ui.screens.settings.StoragePlatformGamesState
@@ -52,6 +62,12 @@ import com.nendo.argosy.ui.theme.LocalArgosyTheme
 import com.nendo.argosy.ui.util.clickableNoFocus
 import com.nendo.argosy.ui.util.pressScale
 import com.nendo.argosy.util.formatBytes
+import com.nendo.argosy.util.formatPlayTime
+import com.nendo.argosy.util.formatRelativeTime
+import com.nendo.argosy.ui.screens.settings.StorageGameSort
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.ui.platform.LocalContext
+import java.time.Instant
 
 @StringRes
 internal fun bucketDisplayLabelRes(bucket: GameStorageBucket): Int = when (bucket) {
@@ -65,10 +81,10 @@ internal fun bucketDisplayLabelRes(bucket: GameStorageBucket): Int = when (bucke
 
 internal sealed class StoragePlatformGamesItem(
     val key: String,
-    val section: String,
+    val section: String?,
     open val isFocusable: Boolean = true
 ) {
-    data object EmptyState : StoragePlatformGamesItem("emptyState", "empty") {
+    data object EmptyState : StoragePlatformGamesItem("emptyState", section = null) {
         override val isFocusable = false
     }
 
@@ -103,7 +119,7 @@ internal fun createStoragePlatformGamesLayout(items: List<StoragePlatformGamesIt
 internal fun createStoragePlatformGamesLayoutInfo(state: SettingsUiState): StoragePlatformGamesLayoutInfo =
     StoragePlatformGamesLayoutInfo(
         createStoragePlatformGamesLayout(
-            StoragePlatformGamesItem.buildItems(state.storagePlatformGames.games)
+            StoragePlatformGamesItem.buildItems(state.storagePlatformGames.visibleGames)
         )
     )
 
@@ -119,49 +135,154 @@ internal fun storagePlatformGamesSections(info: StoragePlatformGamesLayoutInfo) 
 @Composable
 fun StoragePlatformGamesSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     val state = uiState.storagePlatformGames
-    val allItems = remember(state.games) {
-        StoragePlatformGamesItem.buildItems(state.games)
+    val visibleGames = remember(state.games, state.locationFilter, state.sort) { state.visibleGames }
+    val showsLocationTabs = remember(state.games, state.localOnly) { state.showsLocationTabs }
+    val allItems = remember(visibleGames) {
+        StoragePlatformGamesItem.buildItems(visibleGames)
     }
     val layout = remember(allItems) { createStoragePlatformGamesLayout(allItems) }
     val visibleItems = remember(layout) { layout.visibleItems(Unit) }
     val sections = remember(layout) { layout.buildSections(Unit) }
 
-    SectionPaneLayout(
-        items = visibleItems,
-        sections = sections,
-        focusedIndex = uiState.focusedIndex,
-        focusToListIndex = { layout.focusToListIndex(it, Unit) },
-        itemKey = { it.key },
-        isNavItem = { false },
-        onSectionTap = { viewModel.setFocusIndex(it.focusStartIndex) },
-        modifier = Modifier.fillMaxSize().padding(Dimens.spacingMd),
-        verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-    ) { item ->
-        when (item) {
-            StoragePlatformGamesItem.EmptyState -> PlatformGamesEmptyState(state)
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (showsLocationTabs) {
+            LocationFilterTabs(
+                selected = state.locationFilter,
+                onSelect = viewModel::setStorageLocationFilter,
+                modifier = Modifier.padding(horizontal = Dimens.spacingMd).padding(top = Dimens.spacingMd)
+            )
+        }
+        if (state.games.isNotEmpty()) {
+            GameListHeader(
+                games = visibleGames,
+                sort = state.sort,
+                onCycleSort = viewModel::cycleStoragePlatformGamesSort,
+                modifier = Modifier.padding(horizontal = Dimens.spacingMd).padding(top = Dimens.spacingMd)
+            )
+        }
+        key(state.sort, state.locationFilter) { SectionPaneLayout(
+            items = visibleItems,
+            sections = sections,
+            focusedIndex = uiState.focusedIndex,
+            focusToListIndex = { layout.focusToListIndex(it, Unit) },
+            itemKey = { it.key },
+            isNavItem = { false },
+            onSectionTap = { viewModel.setFocusIndex(it.focusStartIndex) },
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(Dimens.spacingMd),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+        ) { item ->
+            when (item) {
+                StoragePlatformGamesItem.EmptyState -> PlatformGamesEmptyState(state)
 
-            is StoragePlatformGamesItem.GameCard -> {
-                val game = state.games.firstOrNull { it.gameId == item.gameId }
-                if (game != null) {
-                    val gameIndex = layout.focusIndexOf(item, Unit)
-                    val isActive = uiState.focusedIndex == gameIndex
-                    val highlighted = state.highlightedCategoryIndex
-                        .coerceIn(0, (game.buckets.size - 1).coerceAtLeast(0))
-                    GameStorageCard(
-                        game = game,
-                        coverPath = state.coverPaths[game.gameId],
-                        isActive = isActive,
-                        highlightedCategoryIndex = highlighted,
-                        onCoverClick = { viewModel.onStoragePlatformCoverTap(gameIndex, game.gameId) },
-                        onCategoryClick = { bucketIndex ->
-                            game.buckets.getOrNull(bucketIndex)?.let { row ->
-                                viewModel.onStoragePlatformCategoryTap(gameIndex, bucketIndex, game.gameId, row.bucket)
+                is StoragePlatformGamesItem.GameCard -> {
+                    val game = state.games.firstOrNull { it.gameId == item.gameId }
+                    if (game != null) {
+                        val gameIndex = layout.focusIndexOf(item, Unit)
+                        val isActive = uiState.focusedIndex == gameIndex
+                        val highlighted = state.highlightedCategoryIndex
+                            .coerceIn(0, (game.buckets.size - 1).coerceAtLeast(0))
+                        GameStorageCard(
+                            game = game,
+                            coverPath = state.coverPaths[game.gameId],
+                            isActive = isActive,
+                            highlightedCategoryIndex = highlighted,
+                            onCoverClick = { viewModel.onStoragePlatformCoverTap(gameIndex, game.gameId) },
+                            onCategoryClick = { bucketIndex ->
+                                game.buckets.getOrNull(bucketIndex)?.let { row ->
+                                    viewModel.onStoragePlatformCategoryTap(gameIndex, bucketIndex, game.gameId, row.bucket)
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
+        } }
+    }
+}
+
+@StringRes
+private fun StorageGameSort.labelRes(): Int = when (this) {
+    StorageGameSort.SIZE -> R.string.settings_storage_platform_games_sort_size
+    StorageGameSort.TITLE -> R.string.settings_storage_platform_games_sort_title
+    StorageGameSort.LEAST_RECENTLY_PLAYED -> R.string.settings_storage_platform_games_sort_least_played
+}
+
+@Composable
+private fun GameListHeader(
+    games: List<GameStorageBreakdown>,
+    sort: StorageGameSort,
+    onCycleSort: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val theme = LocalArgosyTheme.current
+    val totalBytes = remember(games) { games.sumOf { it.totalBytes } }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = pluralStringResource(
+                R.plurals.settings_storage_platform_games_summary,
+                games.size,
+                games.size,
+                formatBytes(totalBytes)
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = theme.textDim,
+            modifier = Modifier.weight(1f)
+        )
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(Dimens.radiusSm))
+                .clickableNoFocus(onClick = onCycleSort)
+                .padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+        ) {
+            Icon(
+                imageVector = Icons.Default.SwapVert,
+                contentDescription = stringResource(R.string.settings_storage_games_sort_toggle_description),
+                tint = theme.textDim,
+                modifier = Modifier.size(Dimens.iconXs)
+            )
+            Text(
+                text = stringResource(sort.labelRes()),
+                style = MaterialTheme.typography.labelSmall,
+                color = theme.textDim
+            )
         }
+    }
+}
+
+@StringRes
+private fun StorageLocationFilter.tabLabelRes(): Int = when (this) {
+    StorageLocationFilter.ALL -> R.string.settings_storage_local_only_tab_all
+    StorageLocationFilter.INTERNAL -> R.string.settings_storage_local_only_tab_internal
+    StorageLocationFilter.REMOVABLE -> R.string.settings_storage_local_only_tab_sd_card
+    StorageLocationFilter.UNKNOWN -> R.string.settings_storage_local_only_tab_unknown
+}
+
+@Composable
+private fun LocationFilterTabs(
+    selected: StorageLocationFilter,
+    onSelect: (StorageLocationFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val filters = StorageLocationFilter.entries
+    val labels = filters.map { stringResource(it.tabLabelRes()) }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+    ) {
+        InputGlyph(InputButton.LT)
+        SegmentedControl(
+            options = labels,
+            selectedIndex = filters.indexOf(selected),
+            onSelect = { onSelect(filters[it]) },
+            modifier = Modifier.weight(1f)
+        )
+        InputGlyph(InputButton.RT)
     }
 }
 
@@ -186,10 +307,15 @@ private fun PlatformGamesEmptyState(state: StoragePlatformGamesState) {
             color = theme.textPrimary
         )
         Text(
-            text = stringResource(
-                R.string.settings_storage_platform_games_empty_message,
-                state.platformName
-            ),
+            text = if (state.localOnly && state.locationFilter != StorageLocationFilter.ALL) {
+                stringResource(R.string.settings_storage_local_only_tab_empty_message)
+            } else if (state.showsLocationTabs && state.locationFilter != StorageLocationFilter.ALL) {
+                stringResource(R.string.settings_storage_platform_games_tab_empty_message, state.platformName)
+            } else if (state.localOnly) {
+                stringResource(R.string.settings_storage_local_only_empty_message)
+            } else {
+                stringResource(R.string.settings_storage_platform_games_empty_message, state.platformName)
+            },
             style = MaterialTheme.typography.bodySmall,
             color = theme.textDim
         )
@@ -247,6 +373,14 @@ private fun GameStorageCard(
                     color = theme.textDim
                 )
             }
+            game.platformName?.let { platform ->
+                Text(
+                    text = platform,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textDim
+                )
+            }
+            PlayHistoryLine(lastPlayed = game.lastPlayed, playTimeMinutes = game.playTimeMinutes)
             val bucketColors = rememberBucketColors()
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -261,6 +395,100 @@ private fun GameStorageCard(
                         onClick = { onCategoryClick(index) }
                     )
                 }
+                game.source.storageSourceLabelRes?.let { InfoTag(text = stringResource(it), color = theme.textDim) }
+                InfoTag(
+                    text = stringResource(game.location.labelRes),
+                    color = if (game.location == GameStorageLocation.UNKNOWN) {
+                        LocalLauncherTheme.current.semanticColors.warning
+                    } else {
+                        theme.textDim
+                    }
+                )
+                if (game.unsyncedSaves > 0) {
+                    InfoTag(
+                        text = pluralStringResource(
+                            R.plurals.settings_storage_platform_games_unsynced_saves,
+                            game.unsyncedSaves,
+                            game.unsyncedSaves
+                        ),
+                        color = LocalLauncherTheme.current.semanticColors.warning
+                    )
+                }
+            }
+            if (isActive && game.files.isNotEmpty()) {
+                GameFileList(game.files)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayHistoryLine(lastPlayed: Instant?, playTimeMinutes: Int) {
+    val theme = LocalArgosyTheme.current
+    val context = LocalContext.current
+    val text = if (lastPlayed == null) {
+        stringResource(R.string.settings_storage_platform_games_never_played)
+    } else {
+        val played = stringResource(
+            R.string.settings_storage_platform_games_last_played,
+            formatRelativeTime(context, lastPlayed)
+        )
+        if (playTimeMinutes > 0) {
+            listOf(
+                played,
+                stringResource(R.string.settings_storage_platform_games_play_time, formatPlayTime(context, playTimeMinutes))
+            ).joinToString(PLAY_HISTORY_SEPARATOR)
+        } else {
+            played
+        }
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = theme.textDim
+    )
+}
+
+private const val PLAY_HISTORY_SEPARATOR = " · "
+
+@Composable
+private fun InfoTag(text: String, color: Color) {
+    val shape = RoundedCornerShape(Dimens.radiusControl)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+        modifier = Modifier
+            .clip(shape)
+            .border(width = Dimens.borderThin, color = color.copy(alpha = 0.5f), shape = shape)
+            .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingXs)
+    )
+}
+
+@Composable
+private fun GameFileList(files: List<GameStorageFile>) {
+    val theme = LocalArgosyTheme.current
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
+        files.forEach { file ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+            ) {
+                Text(
+                    text = file.path,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (file.location == GameStorageLocation.UNKNOWN) {
+                        LocalLauncherTheme.current.semanticColors.warning
+                    } else {
+                        theme.textDim
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = formatBytes(file.bytes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textDim
+                )
             }
         }
     }

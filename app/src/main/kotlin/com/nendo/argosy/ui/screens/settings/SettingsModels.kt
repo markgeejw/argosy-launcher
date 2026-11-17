@@ -2,9 +2,12 @@ package com.nendo.argosy.ui.screens.settings
 
 import androidx.annotation.StringRes
 import com.nendo.argosy.R
+import com.nendo.argosy.data.model.PrivilegedReach
+import com.nendo.argosy.data.model.PrivilegedRoute
 import com.nendo.argosy.ui.common.BuiltinCoreSummary
 import com.nendo.argosy.ui.common.DisplayText
 import com.nendo.argosy.ui.components.TextEntryFocus
+import com.nendo.argosy.ui.screens.settings.search.SettingsSearchState
 import com.nendo.argosy.ui.components.TextEntryRow
 import com.nendo.argosy.core.emulator.EmulatorDownloadState
 import com.nendo.argosy.data.cache.GradientExtractionConfig
@@ -24,6 +27,7 @@ import com.nendo.argosy.data.preferences.AppLanguage
 import com.nendo.argosy.data.preferences.RecentNewGamesLimit
 import com.nendo.argosy.data.preferences.ControlsPreferences
 import com.nendo.argosy.data.repository.HardResetPreview
+import com.nendo.argosy.domain.usecase.storage.GameStorageLocation
 import com.nendo.argosy.data.preferences.BoxArtBorderStyle
 import com.nendo.argosy.data.preferences.GripReserveMode
 import com.nendo.argosy.data.preferences.BoxArtBorderThickness
@@ -42,6 +46,7 @@ import com.nendo.argosy.data.preferences.MediaStreamingQuality
 import com.nendo.argosy.data.preferences.MediaAudioLanguage
 import com.nendo.argosy.data.preferences.MediaSubtitleLanguage
 import com.nendo.argosy.data.preferences.MediaSubtitleMode
+import com.nendo.argosy.data.preferences.NewBadgePlacement
 import com.nendo.argosy.data.preferences.HomeBackgroundMode
 import com.nendo.argosy.data.preferences.SyncFilterPreferences
 import com.nendo.argosy.data.preferences.PlatformIndicatorContent
@@ -52,6 +57,9 @@ import com.nendo.argosy.data.preferences.ThemeMode
 import com.nendo.argosy.data.preferences.AmbientLedColorMode
 import com.nendo.argosy.data.preferences.DisplayRoleOverride
 import com.nendo.argosy.domain.model.ScreenRole
+import com.nendo.argosy.domain.model.ArgosyPermission
+import com.nendo.argosy.domain.model.PermissionAvailability
+import com.nendo.argosy.domain.model.PermissionSnapshot
 import com.nendo.argosy.data.preferences.EmulatorDisplayTarget
 import com.nendo.argosy.core.input.SoundConfig
 import com.nendo.argosy.ui.input.SoundPreset
@@ -62,6 +70,7 @@ import com.nendo.argosy.util.LogLevel
 import com.nendo.argosy.util.PlatformFilterLogic
 import com.nendo.argosy.BuildConfig
 import com.nendo.argosy.data.social.discord.DiscordPresenceState
+import com.nendo.argosy.ui.screens.common.ClientCertState
 
 enum class BuiltinPathType { SAVE, STATE }
 
@@ -92,6 +101,7 @@ enum class SettingsSection {
     SYNC_SETTINGS,
     STEAM_SETTINGS,
     JELLYFIN,
+    NETWORK_BLUETOOTH,
     RETRO_ACHIEVEMENTS,
     STORAGE,
     STORAGE_GAMES,
@@ -279,6 +289,8 @@ data class DisplayState(
     val compactFooter: Boolean = false,
     val hideSystemNavigationBar: Boolean = true,
     val hideSystemStatusBar: Boolean = true,
+    val screenOrientation: com.nendo.argosy.data.preferences.ScreenOrientationMode =
+        com.nendo.argosy.data.preferences.ScreenOrientationMode.AUTO,
     val quickPanelInEmulators: Boolean = false,
     val showAccessibilityPrompt: Boolean = false,
     val lockScreenArt: Boolean = true,
@@ -286,6 +298,11 @@ data class DisplayState(
     val isDefaultHome: Boolean = false,
     val preLaunchRecaps: Boolean = true,
     val monthlyRecap: Boolean = true,
+    val notificationsEnabled: Boolean = true,
+    val notifyDownloadsFinished: Boolean = true,
+    val notifyBattery: Boolean = true,
+    val notifyCharging: Boolean = true,
+    val notifyControllers: Boolean = true,
     val iconPack: String? = null,
     val iconPacks: List<com.nendo.argosy.data.model.IconPack> = emptyList(),
     val boxArtShape: BoxArtShape = BoxArtShape.STANDARD,
@@ -316,7 +333,7 @@ data class DisplayState(
     val libraryRegionOptions: List<String> = emptyList(),
     val videoWallpaperEnabled: Boolean = false,
     val videoWallpaperDelaySeconds: Int = 3,
-    val videoWallpaperMuted: Boolean = false,
+    val videoWallpaperMuted: Boolean = com.nendo.argosy.ui.theme.generated.ComponentDefaults.Background.videoWallpaperMuted,
     val uiScale: Int = 100,
     val gripReserveMode: GripReserveMode = GripReserveMode.OFF,
     val gripReservePercent: Int = GRIP_RESERVE_DEFAULT_PERCENT,
@@ -353,6 +370,7 @@ data class DisplayState(
     val screenRoleModalFocus: Int = 0,
     val installedOnlyHome: Boolean = false,
     val recentNewGamesLimit: Int = RecentNewGamesLimit.DEFAULT,
+    val newBadgePlacement: NewBadgePlacement = NewBadgePlacement.RIGHT,
     val showStatusClock: Boolean = true,
     val showStatusBattery: Boolean = true,
     val showStatusNetwork: Boolean = false
@@ -432,12 +450,33 @@ data class ControlsState(
     val quickNavigation: Boolean = true,
     val navBarAutoHide: Boolean = true,
     val ignoreControllerTouchpad: Boolean = true,
+    val systemHotkeysEnabled: Boolean = true,
+    val homeButtonInGames: Boolean = true,
+    val systemHomeCombo: List<Int>? = null,
+    val systemBackCombo: List<Int>? = null,
+    val systemComboCaptureTarget: com.nendo.argosy.hardware.SystemHotkeyAction? = null,
     val showNavRingModal: Boolean = false,
     val navRingFocusIndex: Int = 0,
-    val navRingReorder: com.nendo.argosy.ui.components.ListReorder<String>? = null
+    val navRingReorder: com.nendo.argosy.ui.components.ListReorder<String>? = null,
+    val showButtonCheck: Boolean = false
 ) {
     val navRingHeld: String?
         get() = navRingReorder?.let { navRingRoutes.getOrNull(it.heldIndex) }
+
+    fun systemCombo(action: com.nendo.argosy.hardware.SystemHotkeyAction): List<Int> = when (action) {
+        com.nendo.argosy.hardware.SystemHotkeyAction.HOME ->
+            com.nendo.argosy.hardware.SystemHotkeyCombos.home(systemHomeCombo)
+        com.nendo.argosy.hardware.SystemHotkeyAction.BACK ->
+            com.nendo.argosy.hardware.SystemHotkeyCombos.back(systemBackCombo, swapAB, swapStartSelect)
+    }
+
+    fun isSystemComboCustom(action: com.nendo.argosy.hardware.SystemHotkeyAction): Boolean {
+        val stored = when (action) {
+            com.nendo.argosy.hardware.SystemHotkeyAction.HOME -> systemHomeCombo
+            com.nendo.argosy.hardware.SystemHotkeyAction.BACK -> systemBackCombo
+        }
+        return stored != null && com.nendo.argosy.hardware.SystemHotkeyCombos.isValid(stored)
+    }
 }
 
 fun ControlsState.shortcutKey(shortcut: com.nendo.argosy.ui.input.UiShortcut): Int = when (shortcut) {
@@ -571,6 +610,7 @@ data class EmulatorState(
     val coreUpdatesAvailable: Int = 0,
     val builtinLibretroEnabled: Boolean = true,
     val closeEmulatorOnSessionEnd: Boolean = false,
+    val externalGamesStayOpen: Boolean = false,
     val architectureDisplay: String = "",
     val ingameMenuTwoColumn: Boolean = false,
     val hudEnabled: Boolean = false,
@@ -807,6 +847,7 @@ data class BuiltinControlsState(
     val gyroAimInvertY: Boolean = false,
     val gyroAimSensitivity: Int = com.nendo.argosy.data.preferences.GyroAimSensitivity.DEFAULT,
     val limitHotkeysToPlayer1: Boolean = true,
+    val confirmReturnHome: Boolean = true,
     val speedrunStartOnReset: Boolean = true,
     val speedrunPanelSide: String = "Right",
     val speedrunPanelWidthPercent: Int = 30,
@@ -1014,7 +1055,7 @@ data class StorageState(
     val romStoragePath: String = "",
     val downloadedGamesSize: Long = 0,
     val downloadedGamesCount: Int = 0,
-    val adoptedGamesCount: Int = 0,
+    val localOnlyGamesCount: Int = 0,
     val maxConcurrentDownloads: Int = 1,
     val allowRemoteInstalls: Boolean = true,
     val autoStartDownloads: Boolean = true,
@@ -1070,13 +1111,57 @@ data class GameStorageCategoryDeleteConfirm(
 data class StoragePlatformGamesState(
     val selectedPlatformId: Long = -1L,
     val platformName: String = "",
+    val localOnly: Boolean = false,
     val isLoading: Boolean = false,
     val games: List<com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown> = emptyList(),
     val coverPaths: Map<Long, String?> = emptyMap(),
     val highlightedCategoryIndex: Int = 0,
     val deleteConfirm: com.nendo.argosy.ui.common.GameConfirm.DeleteDownload? = null,
-    val categoryDeleteConfirm: GameStorageCategoryDeleteConfirm? = null
-)
+    val categoryDeleteConfirm: GameStorageCategoryDeleteConfirm? = null,
+    val locationFilter: StorageLocationFilter = StorageLocationFilter.ALL,
+    val sort: StorageGameSort = StorageGameSort.SIZE
+) {
+    val showsLocationTabs: Boolean
+        get() = localOnly || StorageLocationFilter.entries.count { filter ->
+            filter != StorageLocationFilter.ALL && games.any(filter::matches)
+        } > 1
+
+    val visibleGames: List<com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown>
+        get() = sort.order(if (showsLocationTabs) games.filter(locationFilter::matches) else games)
+}
+
+enum class StorageGameSort {
+    SIZE,
+    TITLE,
+    LEAST_RECENTLY_PLAYED;
+
+    fun next(): StorageGameSort = entries[(ordinal + 1).mod(entries.size)]
+
+    fun order(
+        games: List<com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown>
+    ): List<com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown> = when (this) {
+        SIZE -> games.sortedByDescending { it.totalBytes }
+        TITLE -> games
+        LEAST_RECENTLY_PLAYED -> games.sortedWith(
+            compareBy<com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown, java.time.Instant?>(
+                nullsFirst()
+            ) { it.lastPlayed }.thenByDescending { it.totalBytes }
+        )
+    }
+}
+
+enum class StorageLocationFilter(private val location: GameStorageLocation?) {
+    ALL(null),
+    INTERNAL(GameStorageLocation.INTERNAL),
+    REMOVABLE(GameStorageLocation.REMOVABLE),
+    UNKNOWN(GameStorageLocation.UNKNOWN);
+
+    fun matches(game: com.nendo.argosy.domain.usecase.storage.GameStorageBreakdown): Boolean {
+        val target = location ?: return true
+        val held = game.files.map { it.location }.toSet().ifEmpty { setOf(GameStorageLocation.UNKNOWN) }
+        return target in held
+    }
+}
 
 enum class CachesClearTarget {
     IMAGE_CACHE,
@@ -1112,11 +1197,13 @@ enum class PlayTimeListKind { PLATFORMS, DEVICES, GAMES }
 
 /**
  * One row of a Play Time list. [name] is blank when a pulled session's rom could not be
- * named, and the row shows its placeholder label instead.
+ * named, and the row shows its placeholder label instead. A device row that names no real
+ * device carries [nameRes], which the row shows in place of [name].
  */
 data class PlayTimeEntryUi(
     val key: String,
     val name: String,
+    @StringRes val nameRes: Int? = null,
     val platformName: String = "",
     val platformSlug: String = "",
     val coverPath: String? = null,
@@ -1148,6 +1235,7 @@ data class PlayTimeSummaryUi(
     val weekday: java.time.DayOfWeek,
     val hour: Int,
     val deviceName: String,
+    @StringRes val deviceNameRes: Int? = null,
     val isThisDevice: Boolean
 )
 
@@ -1300,8 +1388,6 @@ data class ServerState(
     val rommAddressVerifyPrompt: RomMAddressVerifyPrompt? = null,
     val rommAddressVerifyFocusIndex: Int = 0,
     val rommConfigPairingCode: String = "",
-    val rommShowScanner: Boolean = false,
-    val rommHasCamera: Boolean = false,
     val rommConnecting: Boolean = false,
     val rommConfigError: String? = null,
     val rommFocusField: Int? = null,
@@ -1321,7 +1407,10 @@ data class ServerState(
     val boxArtCacheEnabled: Boolean = true,
     val screenshotUploadSupported: Boolean = false,
     val musicApiSupported: Boolean = false,
-    val deviceInstallSupported: Boolean = false
+    val deviceInstallSupported: Boolean = false,
+    val streamingAvailable: Boolean = false,
+    val notOnDeviceAction: com.nendo.argosy.data.preferences.NotOnDeviceAction =
+        com.nendo.argosy.data.preferences.NotOnDeviceAction.DOWNLOAD
 )
 
 /**
@@ -1438,7 +1527,6 @@ data class SyncSettingsState(
     val saveCacheLimit: Int = 10,
     val pendingUploadsCount: Int = 0,
     val hasStoragePermission: Boolean = false,
-    val hasNotificationPermission: Boolean = false,
     val isSyncing: Boolean = false,
     val imageCachePath: String? = null,
     val defaultImageCachePath: String? = null,
@@ -1575,16 +1663,17 @@ data class JellyfinState(
 data class UpdateCheckState(
     val isChecking: Boolean = false,
     val hasChecked: Boolean = false,
-    val updateAvailable: Boolean = false,
-    val latestVersion: String? = null,
-    val latestName: String? = null,
-    val latestBody: String? = null,
-    val downloadUrl: String? = null,
+    val latest: com.nendo.argosy.data.model.AppUpdateRelease? = null,
+    val isSkipped: Boolean = false,
+    val isStored: Boolean = false,
     val error: String? = null,
     val isDownloading: Boolean = false,
-    val downloadProgress: Int = 0,
-    val readyToInstall: Boolean = false
-)
+    val downloadProgress: Int = 0
+) {
+    val updateAvailable: Boolean get() = latest != null
+}
+
+enum class AboutUpdateAction { PRIMARY, REDOWNLOAD, CHANGELOG }
 
 data class ChangelogRelease(
     val tag: String,
@@ -1603,47 +1692,19 @@ data class ChangelogState(
 )
 
 data class PermissionsState(
-    val hasStorageAccess: Boolean = false,
-    val hasUsageStats: Boolean = false,
-    val hasNotificationPermission: Boolean = false,
-    val hasWriteSettings: Boolean = false,
-    val isWriteSettingsRelevant: Boolean = false,
-    val hasScreenCapture: Boolean = false,
-    val isScreenCaptureRelevant: Boolean = false,
-    val hasDisplayOverlay: Boolean = false,
-    val hasAccessibilityService: Boolean = false,
-    val hasLiveWallpaper: Boolean = false,
-    val isLiveWallpaperRelevant: Boolean = false
+    val snapshot: PermissionSnapshot = PermissionSnapshot(),
+    val privilegedRoute: PrivilegedRoute? = null,
+    val privilegedReach: PrivilegedReach = PrivilegedReach.NONE,
+    val saveSyncWarning: ArgosyPermission? = null
 ) {
-    private val relevantGrants: List<Boolean>
-        get() = listOfNotNull(
-            hasStorageAccess,
-            hasUsageStats,
-            hasNotificationPermission,
-            hasWriteSettings.takeIf { isWriteSettingsRelevant },
-            hasScreenCapture.takeIf { isScreenCaptureRelevant },
-            hasDisplayOverlay,
-            hasLiveWallpaper.takeIf { isLiveWallpaperRelevant }
-        )
-    val allGranted: Boolean get() = relevantGrants.all { it }
-    val grantedCount: Int get() = relevantGrants.count { it }
-    val totalCount: Int get() = relevantGrants.size
+    private val counted: List<ArgosyPermission>
+        get() = ArgosyPermission.entries.filter {
+            it in snapshot.relevant && snapshot.of(it) != PermissionAvailability.UNAVAILABLE
+        }
+    val grantedCount: Int get() = counted.count { snapshot.isGranted(it) }
+    val totalCount: Int get() = counted.size
+    val allGranted: Boolean get() = grantedCount == totalCount
 }
-
-const val RA_PROXY_TOGGLE_INDEX = 1
-const val RA_PROXY_FIELD_INDEX = 2
-
-const val RA_LOGGED_IN_LOGOUT_INDEX = 0
-const val RA_LOGGED_IN_WEB_API_KEY_INDEX = 1
-const val RA_LOGGED_IN_PLAY_MODE_INDEX = 2
-const val RA_LOGGED_IN_PROXY_TOGGLE_INDEX = 3
-const val RA_LOGGED_IN_PROXY_FIELD_INDEX = 4
-
-fun raLoggedInPushIndex(proxyEnabled: Boolean): Int =
-    if (proxyEnabled) RA_LOGGED_IN_PROXY_FIELD_INDEX + 1 else RA_LOGGED_IN_PROXY_TOGGLE_INDEX + 1
-
-fun raLoggedInMaxFocusIndex(proxyEnabled: Boolean, canPushToRetroArch: Boolean): Int =
-    if (canPushToRetroArch) raLoggedInPushIndex(proxyEnabled) else raLoggedInPushIndex(proxyEnabled) - 1
 
 enum class RAWebApiKeyAction { PASTE, CLEAR, CANCEL, SAVE }
 
@@ -1657,7 +1718,8 @@ data class RAWebApiKeyEditor(
     val actions: List<RAWebApiKeyAction>,
     val row: TextEntryRow = TextEntryRow.FIELD,
     val buttonIndex: Int = actions.indexOf(RAWebApiKeyAction.SAVE).coerceAtLeast(0),
-    val status: RAWebApiKeyStatus = RAWebApiKeyStatus.IDLE
+    val status: RAWebApiKeyStatus = RAWebApiKeyStatus.IDLE,
+    val keyboardRequest: Int = 0
 ) {
     val focusedAction: RAWebApiKeyAction?
         get() = if (row == TextEntryRow.BUTTONS) actions.getOrNull(buttonIndex) else null
@@ -1724,7 +1786,8 @@ data class DistributeResultItem(
 data class PlatformDistributeResult(
     val platformSlug: String,
     val platformName: String,
-    val filesCopied: Int
+    val filesCopied: Int,
+    @StringRes val failureRes: Int? = null
 )
 
 data class BiosDownloadFailureItem(
@@ -1734,7 +1797,6 @@ data class BiosDownloadFailureItem(
 
 data class GpuDriverInfo(
     val name: String,
-    val version: String,
     val isInstalling: Boolean = false,
     val installProgress: Float = 0f
 )
@@ -1943,11 +2005,13 @@ data class SettingsUiState(
     val steam: SteamSettingsState = SteamSettingsState(),
     val jellyfin: JellyfinState = JellyfinState(),
     val retroAchievements: RASettingsState = RASettingsState(),
+    val clientCert: ClientCertState = ClientCertState(),
     val accounts: AccountsState = AccountsState(),
     val bios: BiosState = BiosState(),
     val drivers: DriversState = DriversState(),
     val social: SocialState = SocialState(),
     val permissions: PermissionsState = PermissionsState(),
+    val settingsSearch: SettingsSearchState = SettingsSearchState(),
     val launchFolderPicker: Boolean = false,
     val showImportSettingsConfirm: Boolean = false,
     val showMigrationDialog: Boolean = false,
@@ -1960,6 +2024,7 @@ data class SettingsUiState(
     val changelog: ChangelogState = ChangelogState(),
     val aboutUpdateActionIndex: Int = 0,
     val betaUpdatesEnabled: Boolean = false,
+    val debugUpdateChecksEnabled: Boolean = false,
     val appLanguage: AppLanguage = AppLanguage.SYSTEM,
     val fileLoggingEnabled: Boolean = false,
     val fileLoggingPath: String? = null,

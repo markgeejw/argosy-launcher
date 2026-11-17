@@ -34,19 +34,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import com.nendo.argosy.ui.theme.LocalLauncherTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -56,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nendo.argosy.R
+import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.ui.input.ModalPresenceEffect
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.components.FocusedScroll
@@ -63,8 +58,9 @@ import com.nendo.argosy.ui.components.FooterHintsWithState
 import com.nendo.argosy.ui.components.FooterHintItem
 import com.nendo.argosy.ui.components.InputButton
 import com.nendo.argosy.ui.components.NestedModal
+import com.nendo.argosy.ui.components.TextEntryFocus
+import com.nendo.argosy.ui.components.TextEntryModal
 import com.nendo.argosy.ui.primitives.ArgosyProgressBar
-import com.nendo.argosy.ui.primitives.ModalActionButton
 import com.nendo.argosy.ui.theme.LocalArgosyTheme
 import com.nendo.argosy.ui.primitives.ProgressBarStyle
 import com.nendo.argosy.ui.common.StateScreenshotViewer
@@ -226,6 +222,7 @@ fun SaveChannelModal(
             RenameChannelOverlay(
                 mode = state.renameMode,
                 text = state.renameText,
+                focus = state.renameFocus,
                 onTextChange = onRenameTextChange,
                 onConfirm = onRenameConfirm,
                 onCancel = onRenameCancel
@@ -545,9 +542,10 @@ private fun StatesTabContent(
         }
     } else {
         Text(
-            text = state.activeChannel?.let {
-                stringResource(R.string.ui_save_channel_states_heading_named, it)
-            } ?: stringResource(R.string.ui_save_channel_states_heading_default),
+            text = stringResource(
+                R.string.ui_save_channel_states_heading_named,
+                SaveSyncApiClient.syncKeyOf(state.activeChannel)
+            ),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs)
@@ -783,7 +781,7 @@ private fun ActiveSaveIndicator(activeChannel: String?) {
                 .background(accent)
         )
         Text(
-            text = activeChannel ?: stringResource(R.string.ui_save_channel_active_default),
+            text = SaveSyncApiClient.syncKeyOf(activeChannel),
             style = MaterialTheme.typography.labelMedium,
             color = accent,
             maxLines = 1,
@@ -973,6 +971,7 @@ private fun RestoreConfirmationOverlay(onHintClick: (InputButton) -> Unit) {
 internal fun RenameChannelOverlay(
     mode: RenameMode,
     text: String,
+    focus: TextEntryFocus,
     onTextChange: (String) -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit
@@ -992,68 +991,19 @@ internal fun RenameChannelOverlay(
         RenameMode.NEW_SLOT -> stringResource(R.string.ui_save_channel_rename_prompt_new_slot)
         RenameMode.RENAME -> stringResource(R.string.ui_save_channel_rename_prompt_rename)
     }
-    val theme = LocalArgosyTheme.current
-    val focusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
-    NestedModal(
+    TextEntryModal(
         title = title,
-        footerHints = listOf(
-            InputButton.A to stringResource(R.string.ui_save_channel_rename_footer_confirm),
-            InputButton.B to stringResource(R.string.ui_save_channel_rename_footer_cancel)
-        )
-    ) {
-        Text(
-            text = prompt,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        OutlinedTextField(
-            value = text,
-            onValueChange = onTextChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            placeholder = {
-                Text(stringResource(R.string.ui_save_channel_rename_placeholder))
-            },
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-            )
-        )
-
-        Spacer(modifier = Modifier.height(Dimens.spacingMd))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-        ) {
-            ModalActionButton(
-                label = stringResource(R.string.ui_save_channel_rename_cancel_button),
-                tint = theme.textDim,
-                restLabelColor = theme.textPrimary,
-                focused = false,
-                onClick = onCancel,
-                modifier = Modifier.weight(1f)
-            )
-            ModalActionButton(
-                label = confirmLabel,
-                tint = theme.focusAccent,
-                restLabelColor = theme.textPrimary,
-                focused = false,
-                onClick = onConfirm,
-                enabled = text.isNotBlank(),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
+        label = title,
+        confirmLabel = confirmLabel,
+        cancelLabel = stringResource(R.string.ui_save_channel_rename_cancel_button),
+        text = text,
+        onTextChange = onTextChange,
+        onDismiss = onCancel,
+        onSubmit = onConfirm,
+        focus = focus,
+        placeholder = stringResource(R.string.ui_save_channel_rename_placeholder),
+        message = prompt
+    )
 }
 
 @Composable

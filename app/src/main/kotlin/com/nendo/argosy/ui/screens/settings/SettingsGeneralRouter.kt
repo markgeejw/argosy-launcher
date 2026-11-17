@@ -23,11 +23,15 @@ import com.nendo.argosy.core.notification.showError
 import com.nendo.argosy.ui.screens.settings.delegates.VolumeLevels
 import com.nendo.argosy.ui.screens.settings.delegates.levelIndexIn
 import com.nendo.argosy.ui.screens.settings.sections.BiosItem
+import com.nendo.argosy.ui.screens.settings.sections.RAItem
+import com.nendo.argosy.ui.screens.settings.sections.RALayoutState
+import com.nendo.argosy.ui.screens.settings.sections.raFocusIndexOf
 import com.nendo.argosy.ui.screens.settings.sections.biosItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.SteamItem
 import com.nendo.argosy.ui.screens.settings.sections.StorageItem
 import com.nendo.argosy.ui.screens.settings.sections.createStorageGamesLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.createStorageLayoutInfo
+import com.nendo.argosy.ui.screens.settings.sections.storageGamesFocusIndexOfLocalOnly
 import com.nendo.argosy.ui.screens.settings.sections.storageGamesFocusIndexOfPlatform
 import com.nendo.argosy.ui.screens.settings.sections.steamItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.storageFocusIndexOf
@@ -92,10 +96,14 @@ private fun routeReresolveParentFocus(
     }
     state.currentSection == SettingsSection.STORAGE_PLATFORM_GAMES &&
         parent.section == SettingsSection.STORAGE_GAMES ->
-        storageGamesFocusIndexOfPlatform(
-            state.storagePlatformGames.selectedPlatformId,
-            createStorageGamesLayoutInfo(state)
-        ).coerceAtLeast(0)
+        if (state.storagePlatformGames.localOnly) {
+            storageGamesFocusIndexOfLocalOnly(createStorageGamesLayoutInfo(state))
+        } else {
+            storageGamesFocusIndexOfPlatform(
+                state.storagePlatformGames.selectedPlatformId,
+                createStorageGamesLayoutInfo(state)
+            ).coerceAtLeast(0)
+        }
     else -> null
 }
 
@@ -454,14 +462,12 @@ internal fun routeToggleGradientAdvancedMode(vm: SettingsViewModel) {
 
 internal fun routeSetDualScreenEnabled(vm: SettingsViewModel, enabled: Boolean) {
     vm.viewModelScope.launch {
-        vm.preferencesRepository.setDualScreenEnabled(enabled)
-        vm.displayAffinityHelper.dualScreenEnabled = enabled
-        val sessionStore = com.nendo.argosy.data.preferences.SessionStateStore(vm.context)
-        sessionStore.setDualScreenEnabled(enabled)
-        if (enabled) {
-            sessionStore.setSecondaryDisplayUsable(true)
-            vm.displayAffinityHelper.secondaryDisplayUsable = true
-        }
+        com.nendo.argosy.util.applyDualScreenEnabled(
+            vm.context,
+            vm.preferencesRepository,
+            vm.displayAffinityHelper,
+            enabled
+        )
         val hasSecondary = vm.displayAffinityHelper.hasSecondaryDisplay
         vm.displayDelegate.updateState(vm._uiState.value.display.copy(
             dualScreenEnabled = enabled,
@@ -678,9 +684,13 @@ internal fun routeToggleUploadScreenshots(vm: SettingsViewModel) {
     }
 }
 
-internal fun routeOnMediaPermissionResult(vm: SettingsViewModel, granted: Boolean) {
-    vm.syncDelegate.onMediaPermissionResult(vm.viewModelScope, granted) { newValue ->
-        vm.serverDelegate.updateState(vm._uiState.value.server.copy(uploadScreenshotsEnabled = newValue))
+internal fun routeSetNotOnDeviceAction(
+    vm: SettingsViewModel,
+    action: com.nendo.argosy.data.preferences.NotOnDeviceAction
+) {
+    if (!vm._uiState.value.server.streamingAvailable) return
+    vm.syncDelegate.setNotOnDeviceAction(vm.viewModelScope, action) { stored ->
+        vm.serverDelegate.updateState(vm._uiState.value.server.copy(notOnDeviceAction = stored))
     }
 }
 
@@ -909,26 +919,29 @@ private fun routeComputeEvaluatedStatePath(vm: SettingsViewModel, platformId: Lo
 
 // --- Section jump ---
 
-internal fun routeJumpToNextSection(vm: SettingsViewModel, sections: List<com.nendo.argosy.ui.components.ListSection>): Boolean {
-    val currentFocus = vm._uiState.value.focusedIndex
-    val nextSection = sections.firstOrNull { it.focusStartIndex > currentFocus }
-    if (nextSection != null) {
-        vm._uiState.update { it.copy(focusedIndex = nextSection.focusStartIndex) }
-        return true
-    }
-    return false
-}
+internal fun nextSectionFocus(sections: List<com.nendo.argosy.ui.components.ListSection>, currentFocus: Int): Int? =
+    sections.firstOrNull { it.focusStartIndex > currentFocus }?.focusStartIndex
 
-internal fun routeJumpToPrevSection(vm: SettingsViewModel, sections: List<com.nendo.argosy.ui.components.ListSection>): Boolean {
-    val currentFocus = vm._uiState.value.focusedIndex
+internal fun prevSectionFocus(sections: List<com.nendo.argosy.ui.components.ListSection>, currentFocus: Int): Int? {
     val currentSectionIdx = sections.indexOfLast { it.focusStartIndex <= currentFocus }
-    if (currentSectionIdx <= 0) return false
+    if (currentSectionIdx <= 0) return null
     val prevSection = if (currentFocus == sections[currentSectionIdx].focusStartIndex) {
         sections[currentSectionIdx - 1]
     } else {
         sections[currentSectionIdx]
     }
-    vm._uiState.update { it.copy(focusedIndex = prevSection.focusStartIndex) }
+    return prevSection.focusStartIndex
+}
+
+internal fun routeJumpToNextSection(vm: SettingsViewModel, sections: List<com.nendo.argosy.ui.components.ListSection>): Boolean {
+    val target = nextSectionFocus(sections, vm._uiState.value.focusedIndex) ?: return false
+    vm._uiState.update { it.copy(focusedIndex = target) }
+    return true
+}
+
+internal fun routeJumpToPrevSection(vm: SettingsViewModel, sections: List<com.nendo.argosy.ui.components.ListSection>): Boolean {
+    val target = prevSectionFocus(sections, vm._uiState.value.focusedIndex) ?: return false
+    vm._uiState.update { it.copy(focusedIndex = target) }
     return true
 }
 
@@ -1034,8 +1047,7 @@ internal fun routeSyncRomm(vm: SettingsViewModel) {
 // --- Server / RA connection ---
 
 internal fun routeStartRommConfig(vm: SettingsViewModel) {
-    val hasCamera = com.nendo.argosy.ui.components.deviceHasCamera(vm.context)
-    vm.serverDelegate.startRommConfig(vm.viewModelScope, hasCamera) { vm._uiState.update { it.copy(focusedIndex = 0) } }
+    vm.serverDelegate.startRommConfig(vm.viewModelScope) { vm._uiState.update { it.copy(focusedIndex = 0) } }
 }
 
 internal fun routeCancelRommConfig(vm: SettingsViewModel) {
@@ -1066,7 +1078,7 @@ internal fun routeSetRAProxyEnabled(vm: SettingsViewModel, enabled: Boolean) {
     vm.raDelegate.setProxyEnabled(vm.viewModelScope, enabled)
     if (!enabled) {
         vm._uiState.update {
-            val proxyToggleIndex = if (it.retroAchievements.isLoggedIn) RA_LOGGED_IN_PROXY_TOGGLE_INDEX else RA_PROXY_TOGGLE_INDEX
+            val proxyToggleIndex = raFocusIndexOf(RAItem.ProxyToggle, RALayoutState.from(it))
             if (it.focusedIndex > proxyToggleIndex) it.copy(focusedIndex = proxyToggleIndex) else it
         }
     }

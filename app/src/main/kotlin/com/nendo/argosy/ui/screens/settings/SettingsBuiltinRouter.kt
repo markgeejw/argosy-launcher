@@ -441,6 +441,13 @@ internal fun routeSetBuiltinLimitHotkeysToPlayer1(vm: SettingsViewModel, enabled
     }
 }
 
+internal fun routeSetBuiltinConfirmReturnHome(vm: SettingsViewModel, enabled: Boolean) {
+    vm._uiState.update { it.copy(builtinControls = it.builtinControls.copy(confirmReturnHome = enabled)) }
+    vm.viewModelScope.launch {
+        vm.libretroSettingsRepo.setBuiltinConfirmReturnHome(enabled)
+    }
+}
+
 internal fun routeSetSpeedrunStartOnReset(vm: SettingsViewModel, enabled: Boolean) {
     vm._uiState.update { it.copy(builtinControls = it.builtinControls.copy(speedrunStartOnReset = enabled)) }
     vm.viewModelScope.launch {
@@ -1209,19 +1216,24 @@ internal fun routeCyclePlatformContext(vm: SettingsViewModel, direction: Int) {
         } == true
         it.copy(
             builtinVideo = it.builtinVideo.copy(platformContextIndex = newIndex),
-            builtinControls = it.builtinControls.copy(
-                showStickMappings = !isGlobal,
-                showDpadAsAnalog = !isGlobal && platformSlug != null && PlatformWeightRegistry.hasAnalogStick(platformSlug),
-                showRumble = isGlobal || (platformSlug != null && PlatformWeightRegistry.hasRumble(platformSlug)),
-                showMotion = isGlobal || (platformSlug != null && PlatformWeightRegistry.hasMotion(platformSlug)),
-                showResetAll = !isGlobal && hasControlOverrides
-            ),
+            builtinControls = it.builtinControls.inPlatformContext(platformSlug, hasControlOverrides),
             focusedIndex = 0
         )
     }
     routeLoadControllerPorts(vm)
     routeRefreshBuiltinGraphics(vm)
 }
+
+internal fun BuiltinControlsState.inPlatformContext(
+    platformSlug: String?,
+    hasControlOverrides: Boolean
+): BuiltinControlsState = copy(
+    showStickMappings = platformSlug != null,
+    showDpadAsAnalog = platformSlug != null && PlatformWeightRegistry.hasAnalogStick(platformSlug),
+    showRumble = platformSlug == null || PlatformWeightRegistry.hasRumble(platformSlug),
+    showMotion = platformSlug == null || PlatformWeightRegistry.hasMotion(platformSlug),
+    showResetAll = platformSlug != null && hasControlOverrides
+)
 
 internal fun routeLoadControllerPorts(vm: SettingsViewModel) {
     val platform = vm._uiState.value.builtinVideo.currentPlatformContext

@@ -33,9 +33,10 @@
     <string name="gamedetail_menu_play_button_download">डाउनलोड</string>
     <string name="gamedetail_menu_play_button_progress_percent">%1$d%%</string>
     <string name="gamedetail_menu_play_button_waiting_for_server">सर्वर की प्रतीक्षा है…</string>
+    <string name="gamedetail_menu_play_button_retrying">फिर से प्रयास जारी है…</string>
+    <string name="gamedetail_menu_play_button_waiting_for_network">नेटवर्क की प्रतीक्षा है…</string>
 
     <string name="gamedetail_menu_saves_syncing">सिंक हो रहा है...</string>
-    <string name="gamedetail_menu_saves_default_channel">ऑटो-सेव</string>
 
     <string name="gamedetail_menu_favorite_label">पसंदीदा</string>
     <string name="gamedetail_menu_favorite_compact_remove_description">पसंदीदा से हटाएं</string>
@@ -170,7 +171,6 @@
 
     <!-- ================================ Save status =================================== -->
 
-    <string name="gamedetail_save_status_latest_label">नवीनतम</string>
     <string name="gamedetail_save_status_time">· %1$s</string>
     <string name="gamedetail_save_status_synced">सिंक हुआ</string>
     <string name="gamedetail_save_status_local_newer">लोकल नया है</string>
@@ -414,6 +414,8 @@
     <string name="gamedetail_speedrun_empty_suffix">एक बनाने के लिए, या कम्युनिटी से इंपोर्ट करें।</string>
     <string name="gamedetail_speedrun_category_summary">%1$d सेगमेंट · %2$d प्रयास</string>
     <string name="gamedetail_speedrun_import_row">स्प्लिट्स इंपोर्ट करें...</string>
+    <string name="gamedetail_speedrun_new_category_row">नई श्रेणी</string>
+    <string name="gamedetail_speedrun_add_segment_row">सेगमेंट जोड़ें</string>
     <string name="gamedetail_speedrun_import_loading_title">खोजा जा रहा है...</string>
     <string name="gamedetail_speedrun_import_loading_message">therun.gg और speedrun.com पर श्रेणियां खोजी जा रही हैं</string>
     <string name="gamedetail_speedrun_import_importing_title">इंपोर्ट हो रहा है...</string>
@@ -432,8 +434,7 @@
     <string name="gamedetail_speedrun_source_speedruncom">speedrun.com · केवल नाम</string>
     <string name="gamedetail_speedrun_prompt_confirm">पुष्टि करें</string>
     <string name="gamedetail_speedrun_prompt_cancel">रद्द करें</string>
-    <string name="gamedetail_speedrun_prompt_placeholder">नाम</string>
-    <string name="gamedetail_speedrun_confirm_delete_title">\"%1$s\" हटाएं?</string>
+    <string name="gamedetail_speedrun_prompt_placeholder">नाम</string>    <string name="gamedetail_speedrun_confirm_delete_title">\"%1$s\" हटाएं?</string>
     <string name="gamedetail_speedrun_confirm_delete_footer_delete">हटाएं</string>
     <string name="gamedetail_speedrun_confirm_delete_footer_cancel">रद्द करें</string>
     <string name="gamedetail_speedrun_confirm_delete_category_message">इससे श्रेणी, उसके सेगमेंट और सभी दर्ज प्रयास हट जाएंगे।</string>
@@ -569,4 +570,16 @@
     <string name="gamedetail_per_game_gpu_driver_reason_core_unknown">इस कोर</string>
     <string name="gamedetail_per_game_gpu_driver_reason_backend">बैकएंड Vulkan होने पर लागू होता है</string>
     <string name="gamedetail_per_game_gpu_driver_reason_device">कस्टम ड्राइवर के लिए Adreno GPU चाहिए</string>
+    <string name="gamedetail_menu_play_button_resume_game">फिर से खेलें</string>
+    <string name="gamedetail_menu_play_button_saving">सेव हो रहा है</string>
+    <string name="gamedetail_menu_play_sub_running">चल रहा है</string>
+    <string name="gamedetail_menu_play_sub_running_in">%1$s में चल रहा है</string>
+    <string name="gamedetail_menu_play_sub_closing">गेम बंद हो रहा है</string>
+    <string name="gamedetail_menu_play_sub_running_with_time">%1$s से चल रहा है</string>
+    <string name="gamedetail_menu_close_game">गेम बंद करें</string>
+    <string name="gamedetail_menu_move_to_display">डिस्प्ले %1$d पर ले जाएँ</string>
+    <string name="gamedetail_running_frame_saved">%1$s सेव किया गया</string>
+    <string name="gamedetail_footer_play_resume_game">फिर से खेलें</string>
+    <string name="gamedetail_footer_play_closing_game">सेव हो रहा है</string>
+    <string name="gamedetail_footer_close_game">गेम बंद करें</string>
 </resources>

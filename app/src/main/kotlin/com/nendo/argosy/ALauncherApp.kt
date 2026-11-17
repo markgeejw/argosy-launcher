@@ -38,7 +38,9 @@ import com.nendo.argosy.util.AppPaths
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -61,7 +63,16 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     lateinit var backgroundGames: com.nendo.argosy.data.emulator.background.BackgroundGames
 
     @Inject
+    lateinit var runningGames: dagger.Lazy<com.nendo.argosy.data.emulator.background.RunningGames>
+
+    @Inject
     lateinit var userCertStore: com.nendo.argosy.data.remote.ssl.UserCertStore
+
+    @Inject
+    lateinit var clientCertStore: com.nendo.argosy.data.remote.ssl.ClientCertStore
+
+    @Inject
+    lateinit var clientCertCoordinator: com.nendo.argosy.data.remote.ssl.ClientCertCoordinator
 
     @Inject
     lateinit var rommConnectionManager: com.nendo.argosy.data.remote.romm.RomMConnectionManager
@@ -101,6 +112,9 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     lateinit var apkInstallManager: ApkInstallManager
 
     @Inject
+    lateinit var appUpdateManager: com.nendo.argosy.data.update.AppUpdateManager
+
+    @Inject
     lateinit var downloadServiceController: DownloadServiceController
 
     @Inject
@@ -114,6 +128,9 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var playSessionTracker: PlaySessionTracker
+
+    @Inject
+    lateinit var imageCacheManager: com.nendo.argosy.data.cache.ImageCacheManager
 
     @Inject
     lateinit var coreCrashController: CoreCrashController
@@ -154,6 +171,18 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     lateinit var pushInstallCoordinator: com.nendo.argosy.data.install.PushInstallCoordinator
 
     @Inject
+    lateinit var overAppNoticeWindow: dagger.Lazy<com.nendo.argosy.ui.notification.OverAppNoticeWindow>
+
+    @Inject
+    lateinit var batteryNoticePoster: dagger.Lazy<com.nendo.argosy.ui.notification.BatteryNoticePoster>
+
+    @Inject
+    lateinit var controllerNoticePoster: dagger.Lazy<com.nendo.argosy.ui.notification.ControllerNoticePoster>
+
+    @Inject
+    lateinit var savedPadSeatsPublisher: dagger.Lazy<com.nendo.argosy.hardware.pad.SavedPadSeatsPublisher>
+
+    @Inject
     lateinit var siblingGroupRepository: com.nendo.argosy.data.repository.SiblingGroupRepository
 
     @Inject
@@ -183,6 +212,18 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     @Inject
     lateinit var gameNativeStoreSync: GameNativeStoreSync
 
+    @Inject
+    lateinit var performanceModeStore: com.nendo.argosy.hardware.PerformanceModeStore
+
+    @Inject
+    lateinit var privilegedAccess: com.nendo.argosy.data.access.PrivilegedAccess
+
+    @Inject
+    lateinit var setupStateRepository: com.nendo.argosy.data.setup.SetupStateRepository
+
+    @Inject
+    lateinit var permissionWatch: com.nendo.argosy.data.permissions.PermissionWatch
+
     private val lastForegroundSteamRefreshAt = AtomicLong(NEVER_REFRESHED)
 
     private val foregroundObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
@@ -195,16 +236,36 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         appScope.launch { userCertStore.initialize() }
+        appScope.launch { clientCertStore.initialize() }
+        appScope.launch { com.nendo.argosy.hardware.pad.MutedPadDevices.watch(filesDir) }
+        if (com.nendo.argosy.libretro.slot.GameSlots.isSlotProcess) {
+            appScope.launch { applyStoredAbiOverride() }
+            return
+        }
         appScope.launch { com.nendo.argosy.util.RootShell.isAvailable }
         appScope.launch { socialSyncCoordinator.discardQueueWithoutSocialAccount() }
         appScope.launch { variantFileCleanup.runOnce() }
         appScope.launch { homeAppAvailability.applyAtStartup() }
+        appScope.launch {
+            privilegedAccess.start(appScope)
+            performanceModeStore.restoreSavedMode()
+        }
+        appScope.launch {
+            com.nendo.argosy.hardware.pad.PadDriverLauncher.ensureRunning(this@ArgosyApp)
+            privilegedAccess.state
+                .map { it.reach == com.nendo.argosy.data.model.PrivilegedReach.ROOT }
+                .distinctUntilChanged()
+                .collect { rooted -> if (rooted) com.nendo.argosy.hardware.pad.PadDriverLauncher.ensureRunning(this@ArgosyApp) }
+        }
         UpdateCheckWorker.schedule(this)
+        appUpdateManager.startupPass()
         SaveSyncWorker.schedule(this)
         SocialSyncWorker.schedule(this)
         CoreUpdateCheckWorker.schedule(this)
         com.nendo.argosy.data.quaypass.QuayPassCredentialRefreshWorker.schedule(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(foregroundObserver)
+        setupStateRepository.start()
+        permissionWatch.start()
         appScope.launch { observeSteamPackageChanges() }
         saveSyncDownloadObserver.start()
         cheatsDownloadObserver.start()
@@ -212,9 +273,15 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
         downloadServiceController.start()
         syncServiceController.start()
         pushInstallCoordinator.start()
+        overAppNoticeWindow.get().start()
+        batteryNoticePoster.get().start()
+        controllerNoticePoster.get().start()
+        savedPadSeatsPublisher.get().start()
+        clientCertCoordinator.start()
         siblingGroupRepository.start()
         lidSleepGuard.start()
         backgroundGames.start()
+        runningGames.get().start()
         siblingGroupDownloadObserver.start()
         raPatchDownloadObserver.start()
         appScope.launch {
@@ -224,15 +291,7 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
         }
         lockScreenArtManager.start()
         appScope.launch {
-            val storedOverride = builtinPrefs.getArchitectureOverride().first()
-            if (storedOverride != null) {
-                if (LibretroBuildbot.isAbiCompatibleWithProcess(storedOverride)) {
-                    LibretroBuildbot.abiOverride = storedOverride
-                } else {
-                    android.util.Log.w("ALauncherApp", "Stored ABI override '$storedOverride' is incompatible with process bitness; clearing")
-                    builtinPrefs.setArchitectureOverride(null)
-                }
-            }
+            applyStoredAbiOverride()
             coreManager.migrateAbiIfNeeded()
             compatCoreCache.evictStale()
         }
@@ -240,12 +299,28 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
             coreCrashController.runBootDetection()
             playSessionTracker.checkOrphanedSession()
         }
+        appScope.launch {
+            playSessionTracker.activeSession
+                .map { it != null }
+                .distinctUntilChanged()
+                .collect(imageCacheManager::holdForPlay)
+        }
         appScope.launch { accountSwitchCoordinator.resumeIfInterrupted() }
         appScope.launch { activeSaveRepository.resetAllActiveSaveApplied() }
         appScope.launch { libraryDefaultPlatformMigration.run() }
         appScope.launch { deleteRetiredSteamDownloadDirs() }
         appScope.launch { biosRepository.purgeRetiredFirmware() }
         syncPlatformSortOrders()
+    }
+
+    private suspend fun applyStoredAbiOverride() {
+        val storedOverride = builtinPrefs.getArchitectureOverride().first() ?: return
+        if (LibretroBuildbot.isAbiCompatibleWithProcess(storedOverride)) {
+            LibretroBuildbot.abiOverride = storedOverride
+        } else {
+            android.util.Log.w("ALauncherApp", "Stored ABI override '$storedOverride' is incompatible with process bitness; clearing")
+            builtinPrefs.setArchitectureOverride(null)
+        }
     }
 
     private fun deleteRetiredSteamDownloadDirs() {
@@ -304,6 +379,7 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
+            .setDefaultProcessName(packageName)
             .build()
 
     override fun newImageLoader(): ImageLoader {
@@ -311,7 +387,7 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
             .addInterceptor(
                 com.nendo.argosy.data.remote.romm.RomMImageAuthInterceptor(rommConnectionManager)
             )
-            .withUserCertTrust(userCertStore)
+            .withUserCertTrust(userCertStore, clientCertStore)
             .build()
 
         return ImageLoader.Builder(this)

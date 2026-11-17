@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.nendo.argosy.hardware.pad.PadDriverLauncher
 import com.nendo.argosy.util.PServerExecutor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +62,12 @@ class RootFileHarnessReceiver : BroadcastReceiver() {
                             "*) echo refused; exit 1 ;; esac"
                     )
                     "stacks" -> runRoot(work, "debuggerd -b ${android.os.Process.myPid()}", echoOutput = false)
+                    "paddriver" -> {
+                        val started = PadDriverLauncher.restart(context)
+                        Thread.sleep(PAD_DRIVER_SETTLE_MS)
+                        Log.i(TAG, "paddriver started=$started running=${PadDriverLauncher.running(context)}")
+                    }
+                    "paddriverstop" -> Log.i(TAG, "paddriverstop stopped=${PadDriverLauncher.stop(context)}")
                     else -> Log.w(TAG, "unknown op $op")
                 }
             } catch (e: Exception) {
@@ -150,6 +157,7 @@ class RootFileHarnessReceiver : BroadcastReceiver() {
         const val SCRIPT_NAME = "harness-op.sh"
         const val WRAPPER_NAME = "harness-run.sh"
         const val OUTPUT_NAME = "harness-result.txt"
+        const val PAD_DRIVER_SETTLE_MS = 1_000L
         val OCTAL_MODE_PATTERN = Regex("^[0-7]{3,4}$")
         val SYMBOLIC_MODE_PATTERN = Regex("^[ugoa]*[-+=][rwxX]+$")
         val GROUP_PATTERN = Regex("^[0-9]+$")

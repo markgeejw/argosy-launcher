@@ -56,6 +56,7 @@
     <string name="library_filter_title">FILTRER LES JEUX</string>
     <string name="library_filter_active_summary">Actifs : %1$s</string>
     <string name="library_filter_search_placeholder">Tapez pour rechercher...</string>
+    <string name="library_filter_keyboard_submit">Rechercher</string>
     <string name="library_filter_recent_searches">Recherches récentes</string>
 
     <string name="library_filter_category_sort">Trier</string>
@@ -72,7 +73,6 @@
     <string name="library_filter_category_series">Séries</string>
 
     <string name="library_filter_hint_clear">Effacer</string>
-    <string name="library_filter_hint_type">Saisir</string>
     <string name="library_filter_hint_close_search">Fermer</string>
     <string name="library_filter_hint_reset">Réinitialiser</string>
     <string name="library_filter_hint_toggle">Basculer</string>
@@ -164,6 +164,7 @@
 
     <string name="library_search_placeholder_games_and_media">Rechercher des jeux et des médias...</string>
     <string name="library_search_placeholder_games">Rechercher des jeux...</string>
+    <string name="library_search_keyboard_submit">Rechercher</string>
     <plurals name="library_search_min_query_hint">
         <item quantity="one">Tapez au moins %d caractère pour rechercher</item>
         <item quantity="many">Tapez au moins %d caractères pour rechercher</item>
@@ -172,7 +173,16 @@
     <string name="library_search_no_results">Aucun résultat pour \"%1$s\"</string>
     <string name="library_search_heading_games">Jeux</string>
     <string name="library_search_heading_media">Médias</string>
-    <string name="library_search_result_platform_unknown">Inconnue</string>
+    <string name="library_search_heading_recent_searches">Recherches récentes</string>
+    <string name="library_search_heading_recently_played">Joués récemment</string>
+    <plurals name="library_search_presentation_min_query_hint">
+        <item quantity="one">Tapez au moins %d caractère pour rechercher</item>
+        <item quantity="many">Tapez au moins %d caractères pour rechercher</item>
+        <item quantity="other">Tapez au moins %d caractères pour rechercher</item>
+    </plurals>
+    <string name="library_search_presentation_no_results">Aucun résultat pour \"%1$s\"</string>
+    <string name="library_search_presentation_heading_recently_played">Joués récemment</string>
+    <string name="library_search_history_heading">Recherches récentes</string>
     <string name="library_search_result_kind_series">Série</string>
     <string name="library_search_result_kind_movie">Film</string>
     <string name="library_search_hint_group_jump">Jeux / Médias</string>
@@ -196,4 +206,7 @@
     <string name="library_showcase_play_time_hours">%1$d h</string>
     <string name="library_showcase_play_time_minutes">%1$d min</string>
     <string name="library_apps_launch_failed">Impossible d’ouvrir l’application</string>
+    <string name="library_quickmenu_resume_game">Reprendre</string>
+    <string name="library_quickmenu_close_game">Fermer le jeu</string>
+    <string name="library_quickmenu_move_to_display">Déplacer vers l\'écran %1$d</string>
 </resources>

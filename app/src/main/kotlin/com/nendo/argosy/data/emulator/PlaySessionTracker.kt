@@ -10,10 +10,8 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import com.nendo.argosy.R
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.PlaySessionDao
-import com.nendo.argosy.data.local.dao.resolved
 import com.nendo.argosy.data.local.entity.PlaySessionEntity
 import com.nendo.argosy.data.storage.FileAccessLayer
 import com.nendo.argosy.util.Logger
@@ -24,13 +22,12 @@ import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.repository.SaveCacheManager
 import com.nendo.argosy.data.repository.SaveSyncRepository
 import com.nendo.argosy.data.social.SocialRepository
+import com.nendo.argosy.data.streaming.StreamClaim
+import com.nendo.argosy.data.streaming.StreamClaimReleaser
+import com.nendo.argosy.data.streaming.StreamSessionManager
 import com.nendo.argosy.domain.usecase.save.SyncSaveOnSessionEndUseCase
 import com.nendo.argosy.domain.usecase.state.StateSyncResult
 import com.nendo.argosy.domain.usecase.state.SyncStatesOnSessionEndUseCase
-import com.nendo.argosy.core.notification.NotificationDuration
-import com.nendo.argosy.core.notification.NotificationManager
-import com.nendo.argosy.core.notification.NotificationText
-import com.nendo.argosy.core.notification.NotificationType
 import com.nendo.argosy.DualScreenManagerHolder
 import com.nendo.argosy.core.event.GameUpdateBus
 import com.nendo.argosy.util.PermissionHelper
@@ -53,6 +50,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
@@ -69,8 +67,11 @@ data class ActiveSession(
     val channelName: String? = null,
     val isNetplayGuest: Boolean = false,
     val variantFileId: Long? = null,
-    val origin: LaunchOrigin = LaunchOrigin.INTERNAL
-)
+    val origin: LaunchOrigin = LaunchOrigin.INTERNAL,
+    val streamClaim: StreamClaim? = null
+) {
+    val isStream: Boolean get() = emulatorPackage == StreamSessionManager.STREAM_PACKAGE
+}
 
 sealed class SessionEndResult {
     data object Success : SessionEndResult()
@@ -106,21 +107,23 @@ class PlaySessionTracker @Inject constructor(
     private val permissionHelper: PermissionHelper,
     private val gameUpdateBus: GameUpdateBus,
     private val emulatorResolver: EmulatorResolver,
-    private val notificationManager: NotificationManager,
     private val fileAccessLayer: FileAccessLayer,
     private val socialRepository: dagger.Lazy<SocialRepository>,
     private val saveRecoveryGate: com.nendo.argosy.data.sync.SaveRecoveryGate,
     private val reconcileAchievementsOnSessionEndUseCase: dagger.Lazy<com.nendo.argosy.domain.usecase.achievement.ReconcileAchievementsOnSessionEndUseCase>,
     private val savePathAuthority: com.nendo.argosy.data.emulator.savepath.SavePathAuthority,
     private val sessionSaveFinalizer: SessionSaveFinalizer,
-    private val gameArtDao: com.nendo.argosy.data.local.dao.GameArtDao,
+    private val sessionEndNotices: SessionEndNotices,
     private val snapshotRouter: dagger.Lazy<com.nendo.argosy.data.sync.snapshot.SnapshotSyncRouter>,
-    private val sessionRecapFactsRecorder: SessionRecapFactsRecorder
+    private val sessionRecapFactsRecorder: SessionRecapFactsRecorder,
+    private val sessionScreenshotScanner: SessionScreenshotScanner,
+    private val streamClaimReleaser: dagger.Lazy<StreamClaimReleaser>
 ) {
     companion object {
         private const val TAG = "PlaySessionTracker"
         private const val MIN_PLAY_SECONDS_FOR_COMPLETION = 20
         private const val MAX_SESSION_RECOVERY_ATTEMPTS = 3
+        private const val RESUME_RECENCY_MS = 300_000L
     }
     private val scope = SafeCoroutineScope(Dispatchers.IO, "PlaySessionTracker")
     private val sessionStateStore by lazy { SessionStateStore(application) }
@@ -174,6 +177,12 @@ class PlaySessionTracker @Inject constructor(
         .map { it != null }
         .stateIn(scope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
 
+    /**
+     * True while a session end, live or recovered, holds the save recovery claim, whichever caller
+     * started it. Its conflict, if any, is already in [pendingSessionConflict] when this turns false.
+     */
+    val sessionEnding: StateFlow<Boolean> = saveRecoveryGate.sessionEnding
+
     private val _pendingSessionConflict = MutableStateFlow<SaveConflictEvent?>(null)
 
     /**
@@ -186,20 +195,18 @@ class PlaySessionTracker @Inject constructor(
         _pendingSessionConflict.value = null
     }
 
-    private val _externalSessionClosed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _externalSessionClosed = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
     /**
-     * Fires once a session with [LaunchOrigin.EXTERNAL] has closed and its session-end save work
-     * has returned. No replay: a close nobody is listening to at that moment is not owed later,
-     * so a launcher opened by hand afterwards never reacts to it. A save conflict raised by that
-     * close may still be waiting in [pendingSessionConflict] when this fires.
+     * Emits the emulator package once a session with [LaunchOrigin.EXTERNAL] has closed and its
+     * save work has returned. No replay.
      */
-    val externalSessionClosed: SharedFlow<Unit> = _externalSessionClosed.asSharedFlow()
+    val externalSessionClosed: SharedFlow<String> = _externalSessionClosed.asSharedFlow()
 
     private fun signalSessionClosed(session: ActiveSession) {
         if (session.origin != LaunchOrigin.EXTERNAL) return
         Logger.debug(TAG, "[SaveSync] SESSION gameId=${session.gameId} | External session closed, releasing the launcher")
-        _externalSessionClosed.tryEmit(Unit)
+        _externalSessionClosed.tryEmit(session.emulatorPackage)
     }
 
     private var wasInBackground = false
@@ -210,6 +217,12 @@ class PlaySessionTracker @Inject constructor(
     private var lastScreenOffTime: Instant? = null
     private var marathonSegmentDuration: Duration = Duration.ZERO
     private var longestMarathonSegment: Duration = Duration.ZERO
+
+    private val builtInClock = ForegroundClock()
+
+    fun onBuiltInGameResumed() = builtInClock.resume()
+
+    fun onBuiltInGamePaused() = builtInClock.pause()
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -222,8 +235,10 @@ class PlaySessionTracker @Inject constructor(
     }
 
     init {
-        registerLifecycleCallbacks()
-        registerScreenReceiver()
+        if (!com.nendo.argosy.libretro.slot.GameSlots.isSlotProcess) {
+            registerLifecycleCallbacks()
+            registerScreenReceiver()
+        }
     }
 
     private suspend fun insertPlaySessionIfAbsent(entity: PlaySessionEntity): Long? {
@@ -298,19 +313,7 @@ class PlaySessionTracker @Inject constructor(
             return SessionSaveOutcome.CacheFailed
         }
         Logger.info(TAG, "[SaveSync] ORPHAN gameId=${orphaned.gameId} | Recovery outcome=${outcome::class.simpleName} settled=${outcome.isSettled}")
-        val sync = (outcome as? SessionSaveOutcome.Synced)?.sync
-        if (sync is SyncSaveOnSessionEndUseCase.Result.Uploaded) {
-            val game = gameDao.getById(orphaned.gameId)
-            notificationManager.show(
-                title = NotificationText.Res(R.string.sync_session_save_uploaded_orphan),
-                subtitle = game?.title?.let { NotificationText.Raw(it) },
-                type = NotificationType.SUCCESS,
-                imagePath = coverPathFor(orphaned.gameId),
-                duration = NotificationDuration.MEDIUM,
-                key = "sync-${orphaned.gameId}",
-                immediate = true
-            )
-        }
+        sessionEndNotices.orphanSaveRecovered(orphaned.gameId, outcome)
         return outcome
     }
 
@@ -331,7 +334,7 @@ class PlaySessionTracker @Inject constructor(
                 GameSessionService.stop(application)
                 return
             }
-            if (isSessionStillOnScreen(orphaned)) {
+            if (!orphaned.isStream && isSessionStillOnScreen(orphaned)) {
                 resumePersistedSession(orphaned)
                 return
             }
@@ -343,17 +346,16 @@ class PlaySessionTracker @Inject constructor(
         }
     }
 
-    /**
-     * Whether the session written to disk still has its emulator on a screen.
-     *
-     * This is the one question that separates a launcher process that died under a running game
-     * from a player who put the game down: both come back with every in-memory signal cleared and
-     * the same record on disk, and only the emulator's own windows say which happened. Silence -
-     * no usage access, no events - answers false, so a session that cannot be observed is still
-     * treated as ended and its save is still recovered.
-     */
-    private fun isSessionStillOnScreen(persisted: PersistedSession): Boolean =
-        permissionHelper.isPackageOnScreenOrRecent(application, persisted.emulatorPackage)
+    private fun isSessionStillOnScreen(persisted: PersistedSession): Boolean {
+        val onScreen = permissionHelper.isPackageOnScreenOrRecent(application, persisted.emulatorPackage)
+        if (onScreen == null) {
+            Logger.info(
+                TAG,
+                "[SaveSync] ORPHAN gameId=${persisted.gameId} | Usage stats unavailable, keeping the session open until the launcher takes focus"
+            )
+        }
+        return onScreen ?: true
+    }
 
     /**
      * Adopts a persisted session back into memory rather than closing it out.
@@ -399,6 +401,22 @@ class PlaySessionTracker @Inject constructor(
         }
     }
 
+    private suspend fun queueSessionScreenshots(
+        gameId: Long,
+        emulatorPackage: String,
+        startTime: Instant,
+        endTime: Instant,
+        phase: String
+    ) {
+        try {
+            sessionScreenshotScanner.queueSessionScreenshots(gameId, emulatorPackage, startTime, endTime)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.error(TAG, "[Screenshots] $phase gameId=$gameId | Session screenshot scan failed", e)
+        }
+    }
+
     private suspend fun recoverOrphanedStates(orphaned: PersistedSession) {
         if (orphaned.variantFileId != null || orphaned.isNetplayGuest) return
         syncStateDataLogged(orphaned.gameId, orphaned.emulatorPackage, "ORPHAN")
@@ -406,6 +424,10 @@ class PlaySessionTracker @Inject constructor(
 
     private suspend fun recoverOrphanedPlaySession(stopService: Boolean): Boolean? {
         val orphaned = preferencesRepository.getPersistedSession() ?: return null
+        if (orphaned.isStream) {
+            releaseOrphanedStream(orphaned)
+            return false
+        }
         val endTime = Instant.now()
         val longEnough = Duration.between(orphaned.startTime, endTime).seconds >= MIN_PLAY_SECONDS_FOR_COMPLETION
 
@@ -422,11 +444,18 @@ class PlaySessionTracker @Inject constructor(
         return longEnough
     }
 
+    private suspend fun releaseOrphanedStream(orphaned: PersistedSession) {
+        val outcome = orphaned.streamClaim?.let { streamClaimReleaser.get().release(it) }
+        Logger.info(TAG, "[Stream] ORPHAN gameId=${orphaned.gameId} | Stream claim release outcome=$outcome, clearing the session")
+        preferencesRepository.clearActiveSession(orphaned.startTime)
+    }
+
     private fun resolveActivePlayTime(
         emulatorPackage: String,
         startTime: Instant,
         endTime: Instant,
-        totalMs: Long
+        totalMs: Long,
+        builtInForegroundMs: Long? = null
     ): Pair<Long, Long> {
         val statsPackage = if (emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE) {
             application.packageName
@@ -439,11 +468,7 @@ class PlaySessionTracker @Inject constructor(
             startTime.toEpochMilli(),
             endTime.toEpochMilli()
         )
-        val foregroundMs = if (durations.foregroundMs >= 0) durations.foregroundMs else totalMs
-        val screenOnMs = if (durations.screenOnMs >= 0) durations.screenOnMs else totalMs
-        val active = minOf(foregroundMs, screenOnMs).coerceAtMost(totalMs)
-        val standby = (totalMs - active).coerceAtLeast(0)
-        return active to standby
+        return splitActivePlayTime(totalMs, builtInForegroundMs ?: durations.foregroundMs, durations.screenOnMs)
     }
 
     private fun registerScreenReceiver() {
@@ -517,6 +542,7 @@ class PlaySessionTracker @Inject constructor(
         lastScreenOffTime = null
         marathonSegmentDuration = Duration.ZERO
         longestMarathonSegment = Duration.ZERO
+        builtInClock.reset(running = emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE)
 
         val startTime = Instant.now()
         sessionRecapFactsRecorder.onSessionStarted(scope, gameId, emulatorPackage, startTime)
@@ -578,6 +604,60 @@ class PlaySessionTracker @Inject constructor(
     }
 
     /**
+     * Opens the session of a RomM stream holding [claim] and persists the claim beside it. A stream
+     * session records no play time, runs no save or state sync and starts no watcher service.
+     * Refused, returning false, while another session is live.
+     */
+    fun startStreamSession(gameId: Long, claim: StreamClaim): Boolean {
+        val running = _activeSession.value
+        if (running != null) {
+            Logger.warn(
+                TAG,
+                "[Stream] gameId=$gameId | Stream session refused, session for gameId=${running.gameId} " +
+                    "(emulator=${running.emulatorPackage}) is still active"
+            )
+            return false
+        }
+        val startTime = Instant.now()
+        _activeSession.value = ActiveSession(
+            gameId = gameId,
+            startTime = startTime,
+            emulatorPackage = StreamSessionManager.STREAM_PACKAGE,
+            streamClaim = claim
+        )
+        Logger.debug(TAG, "[Stream] gameId=$gameId | Stream session started | platform=${claim.platform}, container=${claim.containerKey}")
+        scope.launch {
+            sessionServiceMutex.withLock {
+                if (_activeSession.value?.startTime != startTime) return@withLock
+                preferencesRepository.persistActiveSession(
+                    gameId = gameId,
+                    emulatorPackage = StreamSessionManager.STREAM_PACKAGE,
+                    startTime = startTime,
+                    coreName = null,
+                    isHardcore = false,
+                    streamClaim = claim
+                )
+            }
+        }
+        return true
+    }
+
+    fun endStreamSession(claim: StreamClaim) {
+        val session = _activeSession.value?.takeIf { it.streamClaim == claim } ?: return
+        dropStreamSession(session)
+    }
+
+    private fun dropStreamSession(session: ActiveSession) {
+        if (!_activeSession.compareAndSet(session, null)) return
+        Logger.debug(TAG, "[Stream] gameId=${session.gameId} | Stream session ended")
+        scope.launch { clearStreamRecord(session.startTime) }
+    }
+
+    private suspend fun clearStreamRecord(startedAt: Instant) {
+        sessionServiceMutex.withLock { preferencesRepository.clearActiveSession(startedAt) }
+    }
+
+    /**
      * Re-tags the running session once RetroAchievements has answered the hardcore request.
      * Every consumer of the flag (session store, companion, watcher service, orphan record) is
      * refreshed here so the save trailer and the upload flag follow the confirmed mode rather
@@ -588,7 +668,7 @@ class PlaySessionTracker @Inject constructor(
         scope.launch {
             sessionServiceMutex.withLock {
                 val session = _activeSession.value ?: return@withLock
-                if (session.gameId != gameId || session.isHardcore == isHardcore) return@withLock
+                if (session.isStream || session.gameId != gameId || session.isHardcore == isHardcore) return@withLock
                 val activeSave = activeSaveRepository.getActiveRow(gameId)
                 val channelName = if (session.variantFileId != null) null
                 else snapshotRouter.get().sessionChannel(gameId, isHardcore, activeSave?.channelName)
@@ -703,7 +783,10 @@ class PlaySessionTracker @Inject constructor(
         sessionServiceStarted.set(true)
     }
 
-    suspend fun endSession(stopService: Boolean = true, skipSaveSync: Boolean = false): SessionEndResult {
+    suspend fun endSession(stopService: Boolean = true, skipSaveSync: Boolean = false): SessionEndResult =
+        withContext(Dispatchers.IO) { endSessionOffMain(stopService, skipSaveSync) }
+
+    private suspend fun endSessionOffMain(stopService: Boolean, skipSaveSync: Boolean): SessionEndResult {
         if (!saveRecoveryGate.tryClaimSessionEnd()) {
             Logger.debug(TAG, "[SaveSync] SESSION | endSession already in progress, skipping")
             return SessionEndResult.Skipped
@@ -719,14 +802,22 @@ class PlaySessionTracker @Inject constructor(
                 }
                 return if (recovered == true) SessionEndResult.Success else SessionEndResult.Skipped
             }
+            if (session.isStream) {
+                _activeSession.value = null
+                clearStreamRecord(session.startTime)
+                Logger.debug(TAG, "[Stream] gameId=${session.gameId} | Stream session ended by a session end")
+                return SessionEndResult.Skipped
+            }
             _activeSession.value = null
             if (stopService) GameSessionService.stop(application)
 
             val endTime = Instant.now()
             val sessionDuration = Duration.between(session.startTime, endTime)
             val totalMs = sessionDuration.toMillis()
+            val builtInForeground = builtInClock.elapsedMs()
+                .takeIf { session.emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE }
             val (activePlayMs, standbyMs) = resolveActivePlayTime(
-                session.emulatorPackage, session.startTime, endTime, totalMs
+                session.emulatorPackage, session.startTime, endTime, totalMs, builtInForeground
             )
             Logger.debug(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Session ended | duration=${sessionDuration.seconds}s, activePlayMs=$activePlayMs, standbyMs=$standbyMs, emulator=${session.emulatorPackage}")
             try {
@@ -766,6 +857,7 @@ class PlaySessionTracker @Inject constructor(
                 Logger.error(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Failed to create play session entity", e)
             }
             reconcileAchievementsInBackground(session.gameId)
+            queueSessionScreenshots(session.gameId, session.emulatorPackage, session.startTime, endTime, "SESSION")
 
             if (isScreenOn) {
                 marathonSegmentDuration = marathonSegmentDuration.plus(
@@ -807,8 +899,10 @@ class PlaySessionTracker @Inject constructor(
                     }.await()
                 }
 
-                if (saveOutcome is SessionSaveOutcome.Synced) {
-                    handleSaveSyncResult(session, gameDao.getById(session.gameId), saveOutcome.sync)
+                when (saveOutcome) {
+                    is SessionSaveOutcome.Synced -> sessionEndNotices.sessionSaveSynced(session.gameId, saveOutcome.sync)
+                    SessionSaveOutcome.CacheFailed -> sessionEndNotices.sessionSaveNotKept(session.gameId)
+                    else -> Unit
                 }
                 releaseSession(keepRecord = !saveOutcome.isSettled, startedAt = session.startTime)
 
@@ -891,70 +985,6 @@ class PlaySessionTracker @Inject constructor(
         )
     }
 
-    private suspend fun handleSaveSyncResult(
-        session: ActiveSession,
-        game: com.nendo.argosy.data.local.entity.GameEntity?,
-        result: SyncSaveOnSessionEndUseCase.Result
-    ) {
-        when (result) {
-            is SyncSaveOnSessionEndUseCase.Result.Conflict -> Unit
-            is SyncSaveOnSessionEndUseCase.Result.Uploaded -> {
-                Logger.debug(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Sync result: UPLOADED")
-                notificationManager.show(
-                    title = NotificationText.Res(R.string.sync_session_save_uploaded),
-                    subtitle = game?.title?.let { NotificationText.Raw(it) },
-                    type = NotificationType.SUCCESS,
-                    imagePath = coverPathFor(session.gameId),
-                    duration = NotificationDuration.MEDIUM,
-                    key = "sync-${session.gameId}",
-                    immediate = true
-                )
-            }
-            is SyncSaveOnSessionEndUseCase.Result.NoChange -> {
-                Logger.debug(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Sync result: NO_CHANGE")
-                notificationManager.show(
-                    title = NotificationText.Res(R.string.sync_session_save_unchanged),
-                    subtitle = game?.title?.let { NotificationText.Raw(it) },
-                    type = NotificationType.INFO,
-                    imagePath = coverPathFor(session.gameId),
-                    duration = NotificationDuration.SHORT,
-                    key = "sync-${session.gameId}",
-                    immediate = true
-                )
-            }
-            is SyncSaveOnSessionEndUseCase.Result.Queued -> {
-                Logger.info(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Sync result: QUEUED")
-            }
-            is SyncSaveOnSessionEndUseCase.Result.NoSaveFound -> {
-                Logger.info(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Sync result: NO_SAVE_FOUND")
-            }
-            is SyncSaveOnSessionEndUseCase.Result.NotConfigured -> {
-                Logger.info(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Sync result: NOT_CONFIGURED")
-            }
-            is SyncSaveOnSessionEndUseCase.Result.Error -> {
-                Logger.error(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Sync result: ERROR | ${result.message}")
-                notificationManager.show(
-                    title = NotificationText.Res(R.string.sync_session_save_upload_failed),
-                    subtitle = NotificationText.Res(
-                        R.string.sync_session_save_upload_failed_subtitle,
-                        listOf(
-                            game?.title
-                                ?: application.getString(R.string.sync_session_save_upload_failed_name_fallback),
-                            result.message
-                        )
-                    ),
-                    type = NotificationType.ERROR,
-                    imagePath = coverPathFor(session.gameId),
-                    duration = NotificationDuration.MEDIUM,
-                    key = "sync-${session.gameId}",
-                    immediate = true
-                )
-            }
-        }
-    }
-
-    private suspend fun coverPathFor(gameId: Long): String? = gameArtDao.resolved(gameId).coverPath
-
     private suspend fun syncStateData(gameId: Long, emulatorPackage: String) {
         val result = syncStatesOnSessionEndUseCase.get()(gameId, emulatorPackage)
         when (result) {
@@ -1029,6 +1059,10 @@ class PlaySessionTracker @Inject constructor(
      */
     fun cancelSession() {
         val session = _activeSession.value ?: return
+        if (session.isStream) {
+            dropStreamSession(session)
+            return
+        }
         if (!saveRecoveryGate.tryClaimSessionEnd()) {
             Logger.debug(TAG, "[SaveSync] SESSION | cancelSession skipped: endSession already in progress")
             return
@@ -1036,8 +1070,10 @@ class PlaySessionTracker @Inject constructor(
         _activeSession.value = null
         GameSessionService.stop(application)
         Logger.debug(TAG, "[SaveSync] SESSION gameId=${session.gameId} | Cancelled (no save backup)")
+        val endTime = Instant.now()
         scope.launch {
             try {
+                queueSessionScreenshots(session.gameId, session.emulatorPackage, session.startTime, endTime, "CANCEL")
                 if (session.variantFileId == null && !session.isNetplayGuest) {
                     syncStateDataLogged(session.gameId, session.emulatorPackage, "CANCEL")
                 }
@@ -1069,7 +1105,7 @@ class PlaySessionTracker @Inject constructor(
     /** Cache the current session's save to local Room with needsRemoteSync=true, synchronously. Called from the in-game Quit handler so the save is persisted before libretro core teardown begins -- teardown can be slow enough on some cores (PSP shader cache, etc.) to trigger an OS-imposed process kill, taking endSession's coroutine with it. The upload itself is handled later by the sync coordinator draining the dirty cache row. */
     suspend fun cacheCurrentSessionForQuit(): SaveCacheManager.CacheResult? {
         val session = _activeSession.value ?: return null
-        if (session.variantFileId != null) return null
+        if (session.variantFileId != null || session.isStream) return null
         val game = gameDao.getById(session.gameId) ?: return null
         val emulatorId = emulatorResolver.resolveSessionEmulator(
             game.id, game.platformId, game.platformSlug, session.emulatorPackage
@@ -1118,7 +1154,7 @@ class PlaySessionTracker @Inject constructor(
      * so states survive an OS process kill during teardown instead of dying with endSession's coroutine. */
     suspend fun cacheCurrentSessionStatesForQuit() {
         val session = _activeSession.value ?: return
-        if (session.variantFileId != null) return
+        if (session.variantFileId != null || session.isStream) return
         val result = syncStatesOnSessionEndUseCase.get()(
             session.gameId,
             session.emulatorPackage,
@@ -1139,6 +1175,10 @@ class PlaySessionTracker @Inject constructor(
             Logger.debug(TAG, "canResumeSession($gameId): no active session")
             return false
         }
+        if (session.isStream) {
+            Logger.debug(TAG, "canResumeSession($gameId): active session is a stream")
+            return false
+        }
         if (session.gameId != gameId) {
             Logger.debug(TAG, "canResumeSession($gameId): gameId mismatch (active=${session.gameId})")
             return false
@@ -1147,10 +1187,13 @@ class PlaySessionTracker @Inject constructor(
             Logger.debug(TAG, "canResumeSession($gameId): variant mismatch (active=${session.variantFileId}, requested=$variantFileId)")
             return false
         }
-        val inForeground = permissionHelper.isPackageOnScreen(application, session.emulatorPackage)
-            ?: permissionHelper.isPackageInForeground(application, session.emulatorPackage, withinMs = 300_000)
-        Logger.debug(TAG, "canResumeSession($gameId): emulator=${session.emulatorPackage}, inForeground=$inForeground")
-        return inForeground
+        val onScreen = permissionHelper.isPackageOnScreenOrRecent(
+            application,
+            session.emulatorPackage,
+            recencyMs = RESUME_RECENCY_MS
+        )
+        Logger.debug(TAG, "canResumeSession($gameId): emulator=${session.emulatorPackage}, onScreen=$onScreen")
+        return onScreen ?: true
     }
 
 }

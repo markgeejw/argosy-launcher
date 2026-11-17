@@ -34,9 +34,10 @@
     <string name="gamedetail_menu_play_button_download">Descargar</string>
     <string name="gamedetail_menu_play_button_progress_percent">%1$d%%</string>
     <string name="gamedetail_menu_play_button_waiting_for_server">Esperando al servidor&#8230;</string>
+    <string name="gamedetail_menu_play_button_retrying">Reintentando&#8230;</string>
+    <string name="gamedetail_menu_play_button_waiting_for_network">Esperando red&#8230;</string>
 
     <string name="gamedetail_menu_saves_syncing">Sincronizando...</string>
-    <string name="gamedetail_menu_saves_default_channel">Guardado automático</string>
 
     <string name="gamedetail_menu_favorite_label">Favorito</string>
     <string name="gamedetail_menu_favorite_compact_remove_description">Quitar de favoritos</string>
@@ -174,7 +175,6 @@
 
     <!-- ================================ Save status =================================== -->
 
-    <string name="gamedetail_save_status_latest_label">Más reciente</string>
     <string name="gamedetail_save_status_time">· %1$s</string>
     <string name="gamedetail_save_status_synced">Sincronizada</string>
     <string name="gamedetail_save_status_local_newer">Local más reciente</string>
@@ -419,6 +419,8 @@
     <string name="gamedetail_speedrun_empty_suffix">para crear una, o impórtala desde la comunidad.</string>
     <string name="gamedetail_speedrun_category_summary">%1$d segmentos · %2$d intentos</string>
     <string name="gamedetail_speedrun_import_row">Importar segmentos...</string>
+    <string name="gamedetail_speedrun_new_category_row">Nueva categoría</string>
+    <string name="gamedetail_speedrun_add_segment_row">Agregar segmento</string>
     <string name="gamedetail_speedrun_import_loading_title">Buscando...</string>
     <string name="gamedetail_speedrun_import_loading_message">Buscando categorías en therun.gg y speedrun.com</string>
     <string name="gamedetail_speedrun_import_importing_title">Importando...</string>
@@ -437,8 +439,7 @@
     <string name="gamedetail_speedrun_source_speedruncom">speedrun.com · solo nombre</string>
     <string name="gamedetail_speedrun_prompt_confirm">Confirmar</string>
     <string name="gamedetail_speedrun_prompt_cancel">Cancelar</string>
-    <string name="gamedetail_speedrun_prompt_placeholder">Nombre</string>
-    <string name="gamedetail_speedrun_confirm_delete_title">¿Eliminar \"%1$s\"?</string>
+    <string name="gamedetail_speedrun_prompt_placeholder">Nombre</string>    <string name="gamedetail_speedrun_confirm_delete_title">¿Eliminar \"%1$s\"?</string>
     <string name="gamedetail_speedrun_confirm_delete_footer_delete">Eliminar</string>
     <string name="gamedetail_speedrun_confirm_delete_footer_cancel">Cancelar</string>
     <string name="gamedetail_speedrun_confirm_delete_category_message">Esto elimina la categoría, sus segmentos y todos los intentos registrados.</string>
@@ -583,4 +584,16 @@
     <string name="gamedetail_per_game_gpu_driver_reason_core_unknown">este núcleo</string>
     <string name="gamedetail_per_game_gpu_driver_reason_backend">Se aplica cuando el motor de renderizado es Vulkan</string>
     <string name="gamedetail_per_game_gpu_driver_reason_device">Los controladores personalizados requieren una GPU Adreno</string>
+    <string name="gamedetail_menu_play_button_resume_game">Reanudar</string>
+    <string name="gamedetail_menu_play_button_saving">Guardando</string>
+    <string name="gamedetail_menu_play_sub_running">En ejecución</string>
+    <string name="gamedetail_menu_play_sub_running_in">En ejecución en %1$s</string>
+    <string name="gamedetail_menu_play_sub_closing">Cerrando el juego</string>
+    <string name="gamedetail_menu_play_sub_running_with_time">En ejecución desde hace %1$s</string>
+    <string name="gamedetail_menu_close_game">Cerrar juego</string>
+    <string name="gamedetail_menu_move_to_display">Mover a la pantalla %1$d</string>
+    <string name="gamedetail_running_frame_saved">Guardado %1$s</string>
+    <string name="gamedetail_footer_play_resume_game">Reanudar</string>
+    <string name="gamedetail_footer_play_closing_game">Guardando</string>
+    <string name="gamedetail_footer_close_game">Cerrar juego</string>
 </resources>

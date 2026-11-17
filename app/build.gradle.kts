@@ -70,6 +70,7 @@ android {
         buildConfigField("int", "DOLPHIN_SYS_VERSION", "2")
         buildConfigField("int", "PPSSPP_SYS_VERSION", "1")
         buildConfigField("int", "ARMSX2_SYS_VERSION", "2")
+        buildConfigField("int", "SCUMMVM_SYS_VERSION", "1")
     }
 
     signingConfigs {
@@ -236,6 +237,8 @@ tasks.withType<Test> {
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
     implementation(libs.bundles.lifecycle)
     implementation(libs.kotlinx.coroutines.android)
 
@@ -287,9 +290,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
 
-    // QR code generation + scanning
+    // QR code generation
     implementation("com.google.zxing:core:3.5.4")
-    implementation(libs.bundles.camerax)
 
     // Discord Social SDK (optional AAR -- place in app/libs/)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
@@ -326,6 +328,7 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
     // The zstd aar ships Android natives only; unit tests need the JVM jar.
     testImplementation(libs.zstd.jni)
     testImplementation(libs.mockk)

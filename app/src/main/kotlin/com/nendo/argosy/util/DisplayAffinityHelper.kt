@@ -6,7 +6,6 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
 import android.view.Display
-import com.nendo.argosy.data.emulator.BothScreensHost
 import com.nendo.argosy.data.preferences.EmulatorDisplayTarget
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -138,14 +137,13 @@ class DisplayAffinityHelper @Inject constructor(
         )?.displayId
 
     /**
-     * Where a game opens when its emulator draws both screens from [host], or null when the device
-     * shows one screen and the game is placed as any other.
+     * Where a game that draws both screens opens: the default display, which hosts DS mode. Null
+     * when the device shows one screen or the default display is dark, and the game is placed as
+     * any other.
      */
-    fun bothScreensDisplayId(host: BothScreensHost): Int? =
+    fun bothScreensDisplayId(): Int? =
         if (!hasSecondaryDisplay) null
         else resolveBothScreensDisplayId(
-            host = host,
-            largestDisplayId = largestDisplayId(),
             defaultDisplayLit = !isDockedDark && Display.DEFAULT_DISPLAY !in offDisplayIds
         )
 
@@ -252,8 +250,9 @@ class DisplayAffinityHelper @Inject constructor(
 
     /**
      * Which physical display holds each role: the one the viewer is driving, then the one
-     * describing what that screen has focused. Null on a single-screen device, where there are no
-     * roles to hold.
+     * describing what that screen has focused. Null whenever the launcher runs on one screen: a
+     * single-screen device, dual screen switched off, or a secondary display the companion cannot
+     * use. There are no roles to hold then, whatever the stored layout names.
      *
      * The interactive display carries Home, Library and Media. A role swap is the only thing that
      * moves them, so a caller asks which display holds its role instead of naming a display id,
@@ -261,7 +260,13 @@ class DisplayAffinityHelper @Inject constructor(
      */
     fun getRoleDisplayIds(rolesSwapped: Boolean): Pair<Int, Int>? =
         singleSurfaceDisplayId?.let { it to it }
-            ?: resolveRoleDisplayIds(roleDisplayIds, attachedIds, secondaryDisplayId, rolesSwapped)
+            ?: resolveRoleDisplayIds(
+                roleDisplayIds,
+                attachedIds,
+                secondaryDisplayId,
+                rolesSwapped,
+                dualScreenActive = hasSecondaryDisplay
+            )
 
     /**
      * Where the video player belongs once a game has claimed [emulatorDisplayId]: the other physical
@@ -389,6 +394,18 @@ class DisplayAffinityHelper @Inject constructor(
         }
 
         /**
+         * The requested orientation for an activity on [display] while the device is docked dark,
+         * or null when [display] is not the docked external display.
+         */
+        fun dockedOrientationFor(context: Context, display: Display?): Int? {
+            display ?: return null
+            if (dockedExternalDisplayId(context) != display.displayId) return null
+            val mode = display.mode
+            if (mode.physicalWidth < mode.physicalHeight) return null
+            return android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+
+        /**
          * The system setting a handheld's firmware reads to blank its own panels while video
          * output is connected, as the AYN Thor's "Turn off handheld console's screen" does.
          */
@@ -452,14 +469,8 @@ class DisplayAffinityHelper @Inject constructor(
             }
         }
 
-        internal fun resolveBothScreensDisplayId(
-            host: BothScreensHost,
-            largestDisplayId: Int?,
-            defaultDisplayLit: Boolean
-        ): Int? = when (host) {
-            BothScreensHost.LARGEST_DISPLAY -> largestDisplayId
-            BothScreensHost.DEFAULT_DISPLAY -> Display.DEFAULT_DISPLAY.takeIf { defaultDisplayLit }
-        }
+        internal fun resolveBothScreensDisplayId(defaultDisplayLit: Boolean): Int? =
+            Display.DEFAULT_DISPLAY.takeIf { defaultDisplayLit }
 
         internal fun resolveAppDefaultDisplayId(
             target: EmulatorDisplayTarget,
@@ -506,8 +517,10 @@ class DisplayAffinityHelper @Inject constructor(
             roleDisplayIds: Pair<Int, Int>?,
             attachedIds: Set<Int>,
             secondaryDisplayId: Int?,
-            rolesSwapped: Boolean
+            rolesSwapped: Boolean,
+            dualScreenActive: Boolean
         ): Pair<Int, Int>? {
+            if (!dualScreenActive) return null
             roleDisplayIds
                 ?.takeIf { it.first in attachedIds && it.second in attachedIds }
                 ?.let { (first, second) ->

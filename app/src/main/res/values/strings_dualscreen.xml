@@ -85,6 +85,8 @@
     <string name="dual_dashboard_state_latest">Latest</string>
     <!-- Total play time beside the save status. %1$s is a duration such as "12h 4m". -->
     <string name="dual_dashboard_total_play">%1$s total</string>
+    <!-- Time played this sitting, below the total. %1$s is a duration such as "1h 12m" or "12m 30s". -->
+    <string name="dual_dashboard_session_play">%1$s this session</string>
     <!-- Detail on the manual card: reopening resumes at this page. %1$d is the page number. -->
     <string name="dual_dashboard_manual_resume">Continue at page %1$d</string>
     <!-- Detail on the walkthrough card. %1$d is a percentage of the text read. -->
@@ -351,6 +353,8 @@
     <!-- Heading above the row of people who appear in the open film or episode. Noun, the whole
          group taken together. -->
     <string name="dual_media_cast_header">Cast</string>
+    <!-- Heading above titles similar to the open film on the media panel. -->
+    <string name="dual_media_related_header">More Like This</string>
     <!-- Spoken description of the arrow that leaves a browsed series on the media panel. Verb. -->
     <string name="dual_media_browse_back_description">Back</string>
     <!-- How many episodes the selected season lists, beside the series name. -->
@@ -991,6 +995,15 @@
     <string name="dual_showcase_progress_main">%1$s of %2$s main story</string>
     <!-- On the presentation screen, how long the player has played. %1$s is a duration such as "27h". -->
     <string name="dual_showcase_played">%1$s played</string>
+    <!-- On the presentation screen, under the title of a game still running in the background.
+         Adjective: the game is running. -->
+    <string name="dual_showcase_running">Running</string>
+    <!-- Same line for a game an external emulator holds. %1$s is the emulator's name. -->
+    <string name="dual_showcase_running_in">Running in %1$s</string>
+    <!-- Same line while the running game saves before it closes. Verb in progress. -->
+    <string name="dual_showcase_saving">Saving</string>
+    <!-- Same line with this run's play time. %1$s is a duration such as "1h 12m". -->
+    <string name="dual_showcase_running_with_time">Running %1$s</string>
     <!-- Header of the progress card on the presentation screen's journal layout. -->
     <string name="dual_showcase_journey_header">Your journey</string>
     <!-- Right side of that card: how long the main story takes, e.g. "Main story 13h". -->

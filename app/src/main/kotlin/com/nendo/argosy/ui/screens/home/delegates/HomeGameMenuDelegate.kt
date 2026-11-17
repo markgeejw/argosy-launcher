@@ -16,6 +16,7 @@ import com.nendo.argosy.core.notification.showSuccess
 import com.nendo.argosy.ui.screens.common.GameActionsDelegate
 import com.nendo.argosy.ui.screens.common.RefreshAndroidResult
 import com.nendo.argosy.ui.screens.home.HomeGameUi
+import com.nendo.argosy.ui.screens.running.RunningMoveTarget
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,8 +34,9 @@ private const val MENU_INDEX_MAX_REMOTE = 4
 
 sealed class GameMenuAction {
     data class Play(val gameId: Long, val needsInstall: Boolean, val isDownloaded: Boolean) : GameMenuAction()
-    data class PlayOnDisplay(val gameId: Long, val displayId: Int) : GameMenuAction()
     data class Stream(val gameId: Long) : GameMenuAction()
+    data class Download(val gameId: Long) : GameMenuAction()
+    data class PlayOnDisplay(val gameId: Long, val displayId: Int) : GameMenuAction()
     data class ToggleFavorite(val gameId: Long) : GameMenuAction()
     data class ViewDetails(val gameId: Long) : GameMenuAction()
     data class AddToCollection(val gameId: Long) : GameMenuAction()
@@ -45,7 +47,20 @@ sealed class GameMenuAction {
     data class RemoveFromHome(val gameId: Long) : GameMenuAction()
     data class RemoveFromLibrary(val gameId: Long) : GameMenuAction()
     data class Hide(val gameId: Long) : GameMenuAction()
+    data class MoveToDisplay(val target: RunningMoveTarget) : GameMenuAction()
+    data object CloseGame : GameMenuAction()
 }
+
+/**
+ * The menu rows that depend on the screens and on the game running: one Play on Screen row per
+ * entry of [playDisplays] when there are two or more, one Move to Display row per [moveTargets]
+ * entry, and Close last when [closesGame].
+ */
+data class GameMenuRunningRows(
+    val playDisplays: List<Int> = emptyList(),
+    val moveTargets: List<RunningMoveTarget> = emptyList(),
+    val closesGame: Boolean = false
+)
 
 data class GameMenuState(
     val showGameMenu: Boolean = false,
@@ -85,9 +100,9 @@ class HomeGameMenuDelegate @Inject constructor(
         delta: Int,
         focusedGame: HomeGameUi?,
         isPlatformRow: Boolean,
-        extraRows: Int = 0,
+        runningRows: GameMenuRunningRows = GameMenuRunningRows(),
         hasSiblingGroup: Boolean = false,
-        hasStream: Boolean = false
+        streamable: Boolean = false
     ) {
         _state.update {
             val isDownloaded = focusedGame?.isDownloaded == true
@@ -96,9 +111,11 @@ class HomeGameMenuDelegate @Inject constructor(
             val isAndroidApp = focusedGame?.isAndroidApp == true
             val isSyncable = isPlatformRow && focusedGame != null && focusedGame.platformId > 0
             var maxIndex = if (isDownloaded || needsInstall) MENU_INDEX_MAX_DOWNLOADED else MENU_INDEX_MAX_REMOTE
-            maxIndex += extraRows
+            if (runningRows.playDisplays.size > 1 && isDownloaded) maxIndex += runningRows.playDisplays.size
+            maxIndex += runningRows.moveTargets.size
+            if (runningRows.closesGame) maxIndex++
             if (hasSiblingGroup) maxIndex++
-            if (hasStream) maxIndex++
+            if (streamable) maxIndex++
             if (isRommGame || isAndroidApp) maxIndex++
             if (isAndroidApp) maxIndex++
             if (isSyncable) maxIndex++
@@ -112,12 +129,19 @@ class HomeGameMenuDelegate @Inject constructor(
         focusIndex: Int,
         game: HomeGameUi,
         isPlatformRow: Boolean,
-        playDisplays: List<Int> = emptyList(),
+        runningRows: GameMenuRunningRows = GameMenuRunningRows(),
         hasSiblingGroup: Boolean = false,
-        hasStream: Boolean = false
+        streamable: Boolean = false,
+        streamLeads: Boolean = false
     ): GameMenuAction {
+        val playDisplays = runningRows.playDisplays
         var currentIdx = 0
+        val leads = streamable && streamLeads
+        val streamFirstIdx = if (leads) currentIdx++ else -1
         val playIdx = currentIdx++
+        val streamIdx = if (streamable && !leads) currentIdx++ else -1
+        if (focusIndex == streamFirstIdx) return GameMenuAction.Stream(game.id)
+        if (leads && focusIndex == playIdx) return GameMenuAction.Download(game.id)
         val playOnDisplayRange = if (playDisplays.size > 1 && game.isDownloaded) {
             val start = currentIdx
             currentIdx += playDisplays.size
@@ -131,7 +155,11 @@ class HomeGameMenuDelegate @Inject constructor(
                 playDisplays[focusIndex - playOnDisplayRange.first]
             )
         }
-        val streamIdx = if (hasStream) currentIdx++ else -1
+        val moveStart = currentIdx
+        currentIdx += runningRows.moveTargets.size
+        if (focusIndex in moveStart until currentIdx) {
+            return GameMenuAction.MoveToDisplay(runningRows.moveTargets[focusIndex - moveStart])
+        }
         val favoriteIdx = currentIdx++
         val detailsIdx = currentIdx++
         val addToCollectionIdx = currentIdx++
@@ -141,9 +169,11 @@ class HomeGameMenuDelegate @Inject constructor(
         val deleteIdx = if (game.isDownloaded || game.needsInstall) currentIdx++ else -1
         val removeFromHomeIdx = if (game.isAndroidApp) currentIdx++ else -1
         val removeFromLibraryIdx = if (game.canRemoveFromLibrary) currentIdx++ else -1
-        val hideIdx = currentIdx
+        val hideIdx = currentIdx++
+        val closeIdx = if (runningRows.closesGame) currentIdx else -1
 
         return when (focusIndex) {
+            closeIdx -> GameMenuAction.CloseGame
             playIdx -> GameMenuAction.Play(game.id, game.needsInstall, game.isDownloaded)
             streamIdx -> GameMenuAction.Stream(game.id)
             favoriteIdx -> GameMenuAction.ToggleFavorite(game.id)

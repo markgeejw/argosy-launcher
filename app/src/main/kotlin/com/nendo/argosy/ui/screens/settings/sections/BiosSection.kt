@@ -1,5 +1,6 @@
 package com.nendo.argosy.ui.screens.settings.sections
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import com.nendo.argosy.ui.util.clickableNoFocus
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -66,18 +67,20 @@ import com.nendo.argosy.ui.primitives.ModalScaffold
 import com.nendo.argosy.ui.screens.settings.components.LocalSettingsTouchFocus
 import com.nendo.argosy.ui.screens.settings.components.settingsRowItems
 import com.nendo.argosy.ui.screens.settings.menu.SettingsLayout
+import com.nendo.argosy.ui.screens.settings.search.SearchableSetting
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalArgosyTheme
 import com.nendo.argosy.ui.theme.LocalLauncherTheme
 import kotlinx.coroutines.launch
 
-// --- Item definitions ---
-
 internal sealed class BiosItem(val key: String, val section: String) {
-    val isFocusable: Boolean get() = this !is PlatformsHeader && this !is EmptyNotice && this !is FooterNote
+    val isFocusable: Boolean get() = this is SearchableSetting || this is Platform || this is FirmwareFile
 
-    data object Summary : BiosItem("summary", "actions")
-    data object BiosPath : BiosItem("biosPath", "actions")
+    sealed class Row(key: String, section: String, @StringRes override val labelRes: Int) :
+        BiosItem(key, section), SearchableSetting
+
+    data object Summary : Row("summary", "actions", R.string.settings_bios_summary_title)
+    data object BiosPath : Row("biosPath", "actions", R.string.settings_bios_path_title)
     data object PlatformsHeader : BiosItem("platformsHeader", "platforms")
     data object EmptyNotice : BiosItem("emptyNotice", "platforms")
     data class Platform(val group: BiosPlatformGroup, val index: Int) : BiosItem("platform_${group.platformSlug}", "platforms")
@@ -117,6 +120,8 @@ internal fun createBiosLayout(items: List<BiosItem>) =
         visibleWhen = { _, _ -> true },
         sectionOf = { it.section }
     )
+
+internal val biosSettingsLayout = createBiosLayout(buildBiosItems(emptyList(), -1))
 
 internal data class BiosLayoutInfo(
     val layout: SettingsLayout<BiosItem, Unit>,
@@ -190,7 +195,7 @@ fun BiosSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             focusIndexOf = { layout.focusIndexOf(it, Unit) }
         ) { item ->
             when (item) {
-                BiosItem.Summary -> BiosSummaryCard(
+                is BiosItem.Summary -> BiosSummaryCard(
                     totalFiles = bios.totalFiles,
                     downloadedFiles = bios.downloadedFiles,
                     isDownloading = bios.isDownloading,
@@ -207,7 +212,7 @@ fun BiosSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     onDistributeAll = { viewModel.distributeAllBios() }
                 )
 
-                BiosItem.BiosPath -> {
+                is BiosItem.BiosPath -> {
                     val pathDisplay = bios.customBiosPath?.let { path ->
                         val folderName = path.substringAfterLast("/")
                         if (folderName.equals("bios", ignoreCase = true)) {
@@ -218,7 +223,7 @@ fun BiosSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     } ?: stringResource(R.string.settings_bios_path_internal)
 
                     ImageCachePreference(
-                        title = stringResource(R.string.settings_bios_path_title),
+                        title = stringResource(item.labelRes),
                         displayPath = pathDisplay,
                         hasCustomPath = bios.customBiosPath != null,
                         isFocused = isFocused(item),
@@ -305,7 +310,6 @@ fun BiosSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
         GpuDriverPromptModal(
             gpuName = bios.deviceGpuName,
             driverName = bios.gpuDriverInfo?.name,
-            driverVersion = bios.gpuDriverInfo?.version,
             isInstalling = bios.gpuDriverInfo?.isInstalling == true,
             installProgress = bios.gpuDriverInfo?.installProgress ?: 0f,
             focusIndex = bios.gpuDriverPromptFocusIndex,
@@ -396,7 +400,7 @@ internal fun DistributeResultModal(
                 text = stringResource(
                     R.string.settings_bios_distribute_result_message,
                     totalFiles,
-                    results.size
+                    results.count { emulator -> emulator.platformResults.any { it.filesCopied > 0 } }
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = theme.textDim
@@ -436,14 +440,19 @@ internal fun DistributeResultModal(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = theme.textDim
                                 )
+                                val failureRes = platform.failureRes
                                 Text(
-                                    text = pluralStringResource(
-                                        R.plurals.settings_bios_distribute_result_files,
-                                        platform.filesCopied,
-                                        platform.filesCopied
-                                    ),
+                                    text = if (failureRes != null) {
+                                        stringResource(failureRes)
+                                    } else {
+                                        pluralStringResource(
+                                            R.plurals.settings_bios_distribute_result_files,
+                                            platform.filesCopied,
+                                            platform.filesCopied
+                                        )
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = theme.textMute
+                                    color = if (failureRes != null) MaterialTheme.colorScheme.error else theme.textMute
                                 )
                             }
                         }
@@ -595,7 +604,6 @@ internal fun BiosDownloadFailureModal(
 private fun GpuDriverPromptModal(
     gpuName: String?,
     driverName: String?,
-    driverVersion: String?,
     isInstalling: Boolean,
     installProgress: Float,
     focusIndex: Int,
@@ -645,6 +653,15 @@ private fun GpuDriverPromptModal(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            if (driverName != null) {
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                Text(
+                    text = stringResource(R.string.settings_bios_gpu_prompt_recommended, driverName),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
             Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
             if (isInstalling) {
@@ -661,12 +678,9 @@ private fun GpuDriverPromptModal(
                     verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                 ) {
                     ActionButton(
-                        label = if (driverName != null && driverVersion != null) {
-                            stringResource(R.string.settings_bios_gpu_prompt_install_versioned, driverVersion)
-                        } else {
-                            stringResource(R.string.settings_bios_gpu_prompt_install)
-                        },
+                        label = stringResource(R.string.settings_bios_gpu_prompt_install),
                         onClick = onInstallRecommended,
+                        enabled = driverName != null,
                         focused = focusIndex == 0,
                         primary = true,
                         modifier = Modifier.fillMaxWidth()

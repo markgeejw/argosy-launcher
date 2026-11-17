@@ -22,6 +22,7 @@ import com.nendo.argosy.data.preferences.BoxArtBorderThickness
 import com.nendo.argosy.data.preferences.BoxArtCornerRadius
 import com.nendo.argosy.data.preferences.BoxArtGlowStrength
 import com.nendo.argosy.data.preferences.BoxArtShape
+import com.nendo.argosy.data.preferences.NewBadgePlacement
 import com.nendo.argosy.data.preferences.BoxArtInnerEffect
 import com.nendo.argosy.data.preferences.GlassBorderTint
 import com.nendo.argosy.data.preferences.BoxArtInnerEffectThickness
@@ -35,6 +36,7 @@ import com.nendo.argosy.data.preferences.PlatformIndicatorContent
 import com.nendo.argosy.data.preferences.PlatformIndicatorStyle
 import com.nendo.argosy.data.preferences.SystemIconPadding
 import com.nendo.argosy.data.preferences.SystemIconPosition
+import com.nendo.argosy.data.preferences.ScreenOrientationMode
 import com.nendo.argosy.data.preferences.ThemeMode
 import com.nendo.argosy.data.preferences.AmbientLedColorMode
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
@@ -88,7 +90,7 @@ class DisplaySettingsDelegate @Inject constructor(
     private val _previewGame = MutableStateFlow<SettingsPreviewGame?>(null)
     val previewGame: StateFlow<SettingsPreviewGame?> = _previewGame.asStateFlow()
 
-    private val colorCount = 7
+    private val colorCount = AccentHue.SWATCHES.size
     private var _colorFocusIndex = 0
     val colorFocusIndex: Int get() = _colorFocusIndex
 
@@ -159,16 +161,7 @@ class DisplaySettingsDelegate @Inject constructor(
     }
 
     fun selectFocusedColor(scope: CoroutineScope) {
-        val colors = listOf<Int?>(
-            null,
-            0xFF9575CD.toInt(),
-            0xFF4DB6AC.toInt(),
-            0xFFFFB74D.toInt(),
-            0xFF81C784.toInt(),
-            0xFFF06292.toInt(),
-            0xFF64B5F6.toInt()
-        )
-        val color = colors.getOrNull(_colorFocusIndex)
+        val color = AccentHue.SWATCHES.getOrNull(_colorFocusIndex)
         setPrimaryColor(scope, color)
     }
 
@@ -586,6 +579,17 @@ class DisplaySettingsDelegate @Inject constructor(
         }
     }
 
+    fun setScreenOrientation(scope: CoroutineScope, mode: ScreenOrientationMode) {
+        _state.update { it.copy(screenOrientation = mode) }
+        scope.launch { preferencesRepository.setScreenOrientation(mode) }
+    }
+
+    fun cycleScreenOrientation(scope: CoroutineScope, direction: Int) {
+        val modes = ScreenOrientationMode.entries
+        val next = modes[(modes.indexOf(_state.value.screenOrientation) + direction).mod(modes.size)]
+        setScreenOrientation(scope, next)
+    }
+
     fun setQuickPanelInEmulators(scope: CoroutineScope, enabled: Boolean, serviceEnabled: Boolean) {
         scope.launch {
             preferencesRepository.setQuickPanelInEmulators(enabled)
@@ -627,6 +631,41 @@ class DisplaySettingsDelegate @Inject constructor(
         scope.launch {
             preferencesRepository.setMonthlyRecapEnabled(enabled)
             _state.update { it.copy(monthlyRecap = enabled) }
+        }
+    }
+
+    fun setNotificationsEnabled(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setNotificationsEnabled(enabled)
+            _state.update { it.copy(notificationsEnabled = enabled) }
+        }
+    }
+
+    fun setNotifyDownloadsFinished(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setNotifyDownloadsFinished(enabled)
+            _state.update { it.copy(notifyDownloadsFinished = enabled) }
+        }
+    }
+
+    fun setNotifyBattery(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setNotifyBattery(enabled)
+            _state.update { it.copy(notifyBattery = enabled) }
+        }
+    }
+
+    fun setNotifyCharging(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setNotifyCharging(enabled)
+            _state.update { it.copy(notifyCharging = enabled) }
+        }
+    }
+
+    fun setNotifyControllers(scope: CoroutineScope, enabled: Boolean) {
+        scope.launch {
+            preferencesRepository.setNotifyControllers(enabled)
+            _state.update { it.copy(notifyControllers = enabled) }
         }
     }
 
@@ -1065,6 +1104,13 @@ class DisplaySettingsDelegate @Inject constructor(
         scope.launch {
             preferencesRepository.setRecentNewGamesLimit(next)
             _state.update { it.copy(recentNewGamesLimit = next) }
+        }
+    }
+
+    fun setNewBadgePlacement(scope: CoroutineScope, placement: NewBadgePlacement) {
+        scope.launch {
+            preferencesRepository.setNewBadgePlacement(placement)
+            _state.update { it.copy(newBadgePlacement = placement) }
         }
     }
 

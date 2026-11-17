@@ -5,6 +5,7 @@ import android.content.Context
 import com.nendo.argosy.data.emulator.ArchiveRomNaming
 import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.EmulatorResolver
+import com.nendo.argosy.libretro.LibretroStateFormat
 import com.nendo.argosy.libretro.LibretroStateSlots
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.SaveCacheDao
@@ -171,19 +172,6 @@ class SnapshotSyncEngine @Inject constructor(
                 is SnapshotAction.Download -> apply(ctx, action.snapshotId, emulatorId, channelName)
                 is SnapshotAction.Conflict -> SnapshotSyncResult.Conflict(ctx.current, action.currentId, local.path)
             }
-        }
-
-    /**
-     * The action [sync] would take for the save on disk, with nothing pushed, applied or
-     * recorded. Null when the game is not eligible, the server is unreachable, or the save
-     * cannot be read.
-     */
-    suspend fun peek(gameId: Long, emulatorId: String, channelName: String?): SnapshotAction? =
-        locked(gameId) {
-            val ctx = load(gameId, channelName) ?: return@locked null
-            val local = localSave(ctx.game, emulatorId)
-            if (local is LocalSave.Unreadable) return@locked null
-            SnapshotDecision.decide(held(ctx), currentPoint(ctx.current), local.hashes)
         }
 
     /**
@@ -617,7 +605,7 @@ class SnapshotSyncEngine @Inject constructor(
         val kept = liveSlots(dir, romBaseName).filter { (slot, file) ->
             val banked = bank[slot]?.contentHash
             banked != null && saveArchiver.calculateContentHash(file) == banked
-        }.keys
+        }.keys.toMutableSet()
         val staging = File(dir, "$STAGING_PREFIX${System.nanoTime()}")
         val placements = mutableListOf<Pair<File, File>>()
         var written = 0
@@ -629,14 +617,22 @@ class SnapshotSyncEngine @Inject constructor(
                 path to target,
                 banked.screenshot?.downloadPath?.let { it to File(dir, "${target.name}$STATE_SCREENSHOT_EXTENSION") }
             )
+            val fetched = mutableListOf<Pair<File, File>>()
             for ((download, destination) in wanted) {
                 val temp = File(staging, destination.name)
                 if (!fetchTo(ctx.api, download, temp)) {
                     staging.deleteRecursively()
                     return BankStage.Failed("could not fetch $download for slot $slot of snapshot #${snapshot.id} ($core)")
                 }
-                placements += temp to destination
+                fetched += temp to destination
             }
+            if (!LibretroStateFormat.readableBy(core, fetched.first().first)) {
+                Logger.warn(TAG, "Snapshot #${snapshot.id} slot $slot was saved by another core; $core keeps its live state")
+                fetched.forEach { (temp, _) -> temp.delete() }
+                kept += slot
+                continue
+            }
+            placements += fetched
             written++
         }
         return BankStage.Staged(StagedBank(dir, romBaseName, kept, staging, placements, written, bank.size))
@@ -712,8 +708,11 @@ class SnapshotSyncEngine @Inject constructor(
     }
 
     private suspend fun report(ctx: ChannelView, snapshotId: Long) {
-        runCatching { ctx.api.reportSnapshotHeld(snapshotId, ctx.deviceId) }
-            .onFailure { Logger.warn(TAG, "[SaveSync] SNAPSHOT gameId=${ctx.game.id} | report of #$snapshotId failed: ${it.message}") }
+        val failure = runCatching { ctx.api.getSnapshot(snapshotId, ctx.deviceId, hold = true) }.fold(
+            onSuccess = { response -> "HTTP ${response.code()}".takeUnless { response.isSuccessful } },
+            onFailure = { it.message }
+        ) ?: return
+        Logger.warn(TAG, "[SaveSync] SNAPSHOT gameId=${ctx.game.id} | report of #$snapshotId failed: $failure")
     }
 
     companion object {

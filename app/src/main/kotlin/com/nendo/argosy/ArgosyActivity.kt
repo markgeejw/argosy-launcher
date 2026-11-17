@@ -30,6 +30,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.nendo.argosy.core.input.ControllerPointerGuard
+import com.nendo.argosy.core.input.HomeKeys
 import com.nendo.argosy.core.input.controllerTouchpadGuarding
 import com.nendo.argosy.data.cache.ImageCacheManager
 import com.nendo.argosy.data.local.dao.DownloadQueueDao
@@ -57,6 +58,7 @@ import com.nendo.argosy.util.DesktopMode
 import com.nendo.argosy.util.DisplayAffinityHelper
 import com.nendo.argosy.util.Logger
 import com.nendo.argosy.util.LauncherSystemBars
+import com.nendo.argosy.util.followScreenOrientation
 import com.nendo.argosy.util.installImmersiveMode
 import dagger.hilt.android.AndroidEntryPoint
 import com.nendo.argosy.util.SafeCoroutineScope
@@ -78,10 +80,12 @@ internal enum class NonDefaultDisplayLaunch { RUN_HERE, YIELD, HAND_TO_COMPANION
 internal fun nonDefaultDisplayLaunch(
     desktopMode: Boolean,
     dualScreenEnabled: Boolean,
-    docked: Boolean
+    docked: Boolean,
+    launchedAsHome: Boolean
 ): NonDefaultDisplayLaunch = when {
     desktopMode -> NonDefaultDisplayLaunch.RUN_HERE
-    !docked && !dualScreenEnabled -> NonDefaultDisplayLaunch.YIELD
+    !docked && !dualScreenEnabled ->
+        if (launchedAsHome) NonDefaultDisplayLaunch.YIELD else NonDefaultDisplayLaunch.RUN_HERE
     else -> NonDefaultDisplayLaunch.HAND_TO_COMPANION
 }
 
@@ -117,6 +121,7 @@ class ArgosyActivity : ComponentActivity() {
     @Inject lateinit var downloadQueueRepository: com.nendo.argosy.data.repository.DownloadQueueRepository
     @Inject lateinit var gamepadInputHandler: GamepadInputHandler
     @Inject lateinit var connectedControllerTracker: com.nendo.argosy.core.input.ConnectedControllerTracker
+    @Inject lateinit var savedPadSeatsPublisher: com.nendo.argosy.hardware.pad.SavedPadSeatsPublisher
     @Inject lateinit var triggerAxisKeyEmitter: com.nendo.argosy.ui.input.TriggerAxisKeyEmitter
     @Inject lateinit var imageCacheManager: ImageCacheManager
     @Inject lateinit var resolveGameEmulatorContext:
@@ -168,6 +173,7 @@ class ArgosyActivity : ComponentActivity() {
     @Inject lateinit var saveHandlerRegistry: com.nendo.argosy.data.sync.platform.PlatformSaveHandlerRegistry
     @Inject lateinit var steamRepository: com.nendo.argosy.data.repository.SteamRepository
     @Inject lateinit var playSessionTracker: com.nendo.argosy.data.emulator.PlaySessionTracker
+    @Inject lateinit var keepAlivePolicy: com.nendo.argosy.data.emulator.background.KeepAlivePolicy
     @Inject lateinit var repairImageCacheUseCase: com.nendo.argosy.domain.usecase.cache.RepairImageCacheUseCase
     @Inject lateinit var downloadFileStatusRepository: com.nendo.argosy.data.repository.DownloadFileStatusRepository
     @Inject lateinit var presenceManager: com.nendo.argosy.data.social.PresenceManager
@@ -188,6 +194,8 @@ class ArgosyActivity : ComponentActivity() {
         com.nendo.argosy.ui.screens.media.delegates.MediaSeriesDelegate
     @Inject lateinit var mediaSiblingsDelegate:
         com.nendo.argosy.ui.screens.media.delegates.MediaSiblingsDelegate
+    @Inject lateinit var runningGames: com.nendo.argosy.data.emulator.background.RunningGames
+    @Inject lateinit var setupStateRepository: com.nendo.argosy.data.setup.SetupStateRepository
 
     private val sessionStateStore by lazy {
         com.nendo.argosy.data.preferences.SessionStateStore(this)
@@ -202,6 +210,8 @@ class ArgosyActivity : ComponentActivity() {
         private set
 
     var isOnHomeScreen = false
+
+    fun holdStatusBarHidden(hold: Boolean) = systemBars.holdStatusBarHidden(hold)
 
     var isOverlayFocused: Boolean
         get() = dualScreenManager.isOverlayFocused
@@ -242,7 +252,8 @@ class ArgosyActivity : ComponentActivity() {
             val launch = nonDefaultDisplayLaunch(
                 desktopMode = desktopMode,
                 dualScreenEnabled = sessionStateStore.isDualScreenEnabled(),
-                docked = !desktopMode && DisplayAffinityHelper.dockedExternalDisplayId(this) != null
+                docked = !desktopMode && DisplayAffinityHelper.dockedExternalDisplayId(this) != null,
+                launchedAsHome = intent?.hasCategory(Intent.CATEGORY_HOME) == true
             )
             if (launch != NonDefaultDisplayLaunch.RUN_HERE) forwardDeepLinkToDefaultDisplay()
             if (launch == NonDefaultDisplayLaunch.YIELD) {
@@ -259,6 +270,7 @@ class ArgosyActivity : ComponentActivity() {
 
         installImmersiveMode { systemBars.visibility }
         systemBars.follow(activityScope, preferencesRepository.userPreferences)
+        followScreenOrientation(activityScope, preferencesRepository.userPreferences)
         keepAwakeWhileUserActive()
         dimWhileMediaIdle()
 
@@ -332,6 +344,8 @@ class ArgosyActivity : ComponentActivity() {
                 mediaDownloadDelegate = mediaDownloadDelegate,
                 mediaSeriesDelegate = mediaSeriesDelegate,
                 mediaSiblingsDelegate = mediaSiblingsDelegate,
+                runningGames = runningGames,
+                setupStateRepository = setupStateRepository,
                 imageCacheManager = imageCacheManager,
                 romMRepository = romMRepository,
                 gameDocumentLoader = gameDocumentLoader,
@@ -413,8 +427,9 @@ class ArgosyActivity : ComponentActivity() {
                             ) {
                                 com.nendo.argosy.ui.components.ProvideStatusBarItems(preferences) {
                                     val ownDisplay = androidx.compose.ui.platform.LocalView.current.display?.displayId
+                                    val playerDisplay by dualScreenManager.mediaPlayerDisplay.collectAsState()
                                     com.nendo.argosy.ui.dualscreen.PresentationSlotContent(
-                                        slot.onDisplay(ownDisplay, gameDisplay.value),
+                                        slot.onDisplay(ownDisplay, gameDisplay.value, playerDisplay),
                                         showsNotifications = true
                                     )
                                 }
@@ -445,6 +460,7 @@ class ArgosyActivity : ComponentActivity() {
     @SuppressLint("NewApi")
     override fun onResume() {
         super.onResume()
+        savedPadSeatsPublisher.onLauncherResumed()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) pointerGuard.onInFrontChanged(true)
         systemBars.apply()
         if (::dualScreenManager.isInitialized) {
@@ -517,6 +533,7 @@ class ArgosyActivity : ComponentActivity() {
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!dualScreenManager.claimInput(event)) return true
+        if (gamepadInputHandler.releaseIfRemoved(event.deviceId)) return true
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             Logger.verbose(TAG) { "dispatchKeyEvent: key=${event.keyCode} isHome=$isOnHomeScreen swapped=${dualScreenManager.isRolesSwapped.value} gameOnSecondary=${dualScreenManager.swappedIsGameActive.value} companion=${dualScreenManager.isCompanionActive.value} overlay=$isOverlayFocused" }
         }
@@ -570,10 +587,7 @@ class ArgosyActivity : ComponentActivity() {
         if (gamepadInputHandler.handleKeyEvent(event)) {
             return true
         }
-        if (event.keyCode == KeyEvent.KEYCODE_HOME || event.keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
-            if (event.action == KeyEvent.ACTION_DOWN) gamepadInputHandler.emitHomeEvent()
-            return true
-        }
+        if (HomeKeys.isHome(event)) return gamepadInputHandler.handleHomeKey(event)
         return super.dispatchKeyEvent(event)
     }
 
@@ -708,7 +722,7 @@ class ArgosyActivity : ComponentActivity() {
     }
 
     private fun forwardDeepLinkToDefaultDisplay() {
-        if (intent?.data?.scheme != "argosy") return
+        if (deepLinkOf(intent) == null) return
         val forwarded = Intent(intent).setClass(this, ArgosyActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val options = android.app.ActivityOptions.makeBasic()
@@ -789,9 +803,10 @@ class ArgosyActivity : ComponentActivity() {
     private fun revealCallerWhenExternalSessionCloses() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                playSessionTracker.externalSessionClosed.collect {
+                playSessionTracker.externalSessionClosed.collect { emulatorPackage ->
                     playSessionTracker.pendingSessionConflict.first { it == null }
                     if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@collect
+                    if (keepAlivePolicy.keepsAlive(emulatorPackage)) return@collect
                     Log.d(TAG, "External session closed, moving task to back")
                     moveTaskToBack(true)
                 }
@@ -870,14 +885,17 @@ class ArgosyActivity : ComponentActivity() {
 
 
     private fun handleDeepLink(intent: Intent): Boolean {
-        val uri = intent.data ?: return false
-        if (uri.scheme == "argosy") {
-            val resolved = mergeLaunchExtras(uri, intent)
-            Log.d(TAG, "Received deep link: $resolved")
-            dualScreenManager.publishDeepLink(resolved)
-            return true
-        }
-        return false
+        val resolved = deepLinkOf(intent) ?: return false
+        Log.d(TAG, "Received deep link: $resolved")
+        dualScreenManager.publishDeepLink(resolved)
+        return true
+    }
+
+    private fun deepLinkOf(intent: Intent?): android.net.Uri? {
+        if (intent == null) return null
+        ArgosyHomeIntent.runningDeepLinkOf(intent)?.let { return it }
+        val uri = intent.data?.takeIf { it.scheme == "argosy" } ?: return null
+        return mergeLaunchExtras(uri, intent)
     }
 
     private fun mergeLaunchExtras(uri: android.net.Uri, intent: Intent): android.net.Uri {

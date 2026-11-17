@@ -107,6 +107,7 @@
     <string name="settings_shell_header_storage_games">ALMACENAMIENTO DE JUEGOS</string>
     <string name="settings_shell_header_storage_media">ALMACENAMIENTO MULTIMEDIA</string>
     <string name="settings_shell_header_storage_platform_games_fallback">JUEGOS DE LA PLATAFORMA</string>
+    <string name="settings_shell_header_storage_local_only">JUEGOS SOLO LOCALES</string>
     <string name="settings_shell_header_storage_caches">CACHÉ Y SISTEMA</string>
     <string name="settings_shell_header_theme">TEMA</string>
     <string name="settings_shell_header_audio">AUDIO</string>
@@ -139,6 +140,7 @@
     <string name="settings_shell_header_drivers">CONTROLADORES GPU</string>
     <string name="settings_shell_header_about">ACERCA DE</string>
     <string name="settings_shell_header_social">SOCIAL</string>
+    <string name="settings_shell_header_network">RED Y BLUETOOTH</string>
     <string name="settings_shell_header_context_global">Global</string>
 
     <string name="settings_shell_context_previous_desc">Contexto anterior</string>
@@ -353,6 +355,8 @@
     <string name="settings_shell_footer_reset_platformdetail">Restablecer</string>
     <string name="settings_shell_footer_launch_targets_screen">Pantalla</string>
     <string name="settings_shell_footer_launch_targets_reset">Restablecer</string>
+    <string name="settings_shell_footer_network_forget">Mantén para olvidar</string>
+    <string name="settings_shell_footer_network_group">Sección</string>
     <string name="settings_shell_footer_toggle_label">Alternar</string>
     <string name="settings_shell_footer_open_label">Abrir</string>
     <string name="settings_shell_footer_select_label">Seleccionar</string>
@@ -367,7 +371,9 @@
     <string name="settings_shell_footer_reset_builtincontrols_override">Restablecer</string>
     <string name="settings_shell_footer_reset_builtinsaves_override">Restablecer</string>
     <string name="settings_shell_footer_back">Atrás</string>
+    <string name="settings_shell_footer_local_only_location">Ubicación</string>
     <string name="settings_shell_footer_unassign_shortcut">Quitar</string>
+    <string name="settings_shell_footer_reset_system_combo">Restablecer</string>
 
     <!-- ===== SettingsScreen: cache clear confirm modals ===== -->
 

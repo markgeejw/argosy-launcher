@@ -4,6 +4,8 @@
     <string name="settings_main_section_gameplay">遊戲進行</string>
     <string name="settings_main_section_library">收藏庫</string>
     <string name="settings_main_section_connections">連線</string>
+    <string name="settings_main_network_title">網路和藍牙</string>
+    <string name="settings_main_network_subtitle">Wi-Fi 網路和藍牙控制器</string>
     <string name="settings_main_section_system">系統</string>
 
     <string name="settings_main_theme_title">主題</string>
@@ -100,6 +102,11 @@
     <string name="settings_interface_hide_system_nav_bar_subtitle">隱藏 Android 的返回、主畫面和最近使用按鈕或手勢列。從邊緣滑動即可顯示</string>
     <string name="settings_interface_hide_system_status_bar_title">隱藏系統狀態列</string>
     <string name="settings_interface_hide_system_status_bar_subtitle">隱藏 Android 狀態列和通知圖示。從頂部向下滑動即可顯示</string>
+    <string name="settings_interface_screen_orientation_title">螢幕方向</string>
+    <string name="settings_interface_screen_orientation_subtitle">無論裝置是否鎖定旋轉，都讓 Argosy 和內建遊戲保持同一方向</string>
+    <string name="settings_interface_screen_orientation_auto">自動</string>
+    <string name="settings_interface_screen_orientation_landscape">橫向</string>
+    <string name="settings_interface_screen_orientation_portrait">直向</string>
     <string name="settings_interface_quick_panel_in_emulators_title">在其他模擬器中使用快速面板</string>
     <string name="settings_interface_quick_panel_in_emulators_subtitle">在 Argosy 啟動的模擬器中長按返回即可開啟快速面板。需要 Argosy 的無障礙服務</string>
     <string name="settings_interface_quick_panel_in_emulators_service_off">無障礙服務已關閉。請在權限中開啟</string>
@@ -219,6 +226,20 @@
     <string name="settings_navigation_shortcut_capture_subtitle">此按鍵在 Argosy 選單中將不再執行其他動作</string>
     <string name="settings_navigation_shortcut_capture_reserved">%1$s 用於選單導覽，無法指派</string>
     <string name="settings_navigation_shortcut_capture_hint_cancel">取消</string>
+    <string name="settings_navigation_section_system_buttons">全域快速鍵</string>
+    <string name="settings_navigation_system_hotkeys_title">主畫面與返回組合鍵</string>
+    <string name="settings_navigation_system_hotkeys_subtitle">在其他應用程式開啟時用作主畫面和返回的控制器組合鍵</string>
+    <string name="settings_navigation_home_button_in_games_title">長按主畫面鍵開啟遊戲切換器</string>
+    <string name="settings_navigation_home_button_in_games_subtitle">在 Argosy 啟動的遊戲中長按裝置的主畫面鍵可開啟遊戲切換器。關閉後主畫面鍵交還給裝置。需要 root</string>
+    <string name="settings_navigation_system_hotkeys_access_title">無障礙服務</string>
+    <string name="settings_navigation_system_hotkeys_access_subtitle">組合鍵透過 Argosy 的無障礙服務作用於其他應用程式</string>
+    <string name="settings_navigation_system_hotkeys_access_on">已開啟</string>
+    <string name="settings_navigation_system_hotkeys_access_needed">需要無障礙權限</string>
+    <string name="settings_navigation_system_home_title">主畫面</string>
+    <string name="settings_navigation_system_home_subtitle">同時按住 2 秒。按一下 Guide 鍵也會回到主畫面</string>
+    <string name="settings_navigation_system_back_title">返回</string>
+    <string name="settings_navigation_system_back_subtitle">先按住前面的按鍵，再按最後一個。遊戲中按住組合鍵 3 秒會改為開啟快速面板</string>
+    <string name="settings_navigation_system_combo_capture_prompt">依序按住 2 或 3 個按鍵...</string>
 
     <string name="settings_displays_section_screen_safety">螢幕保護</string>
     <string name="settings_displays_section_displays">顯示器</string>
@@ -357,6 +378,17 @@
     <string name="settings_interface_pre_launch_recaps_subtitle">啟動一週未玩的 RetroAchievements 遊戲前，顯示上次停在哪裡</string>
     <string name="settings_interface_monthly_recap_title">每月回顧</string>
     <string name="settings_interface_monthly_recap_subtitle">每月初在主頁顯示上個月的遊玩總結</string>
+    <string name="settings_interface_section_notifications">通知</string>
+    <string name="settings_interface_notifications_title">通知</string>
+    <string name="settings_interface_notifications_subtitle">在啟動器中和遊戲上方顯示 Argosy 通知。電量通知仍會顯示</string>
+    <string name="settings_interface_notify_downloads_finished_title">下載完成</string>
+    <string name="settings_interface_notify_downloads_finished_subtitle">下載完成時顯示通知</string>
+    <string name="settings_interface_notify_battery_title">電量</string>
+    <string name="settings_interface_notify_battery_subtitle" formatted="false">在 15% 和 5% 時提醒。內建遊戲在 5% 時仍會存檔</string>
+    <string name="settings_interface_notify_charging_title">充電</string>
+    <string name="settings_interface_notify_charging_subtitle">遊戲中插上或拔下充電器時顯示通知</string>
+    <string name="settings_interface_notify_controllers_title">控制器</string>
+    <string name="settings_interface_notify_controllers_subtitle">控制器連接、中斷或電量不足時顯示通知</string>
 
     <string name="settings_home_screen_background_title">背景</string>
     <string name="settings_home_screen_background_subtitle">遊戲美術圖或背景圖案</string>
@@ -396,6 +428,12 @@
     <plurals name="settings_home_screen_recent_new_games_up_to">
         <item quantity="other">最多 %d 個</item>
     </plurals>
+
+    <string name="settings_home_screen_new_badge_title">「新」徽章</string>
+    <string name="settings_home_screen_new_badge_subtitle">主頁卡片上「新」徽章的位置，或將其隱藏</string>
+    <string name="settings_home_screen_new_badge_option_right">右側</string>
+    <string name="settings_home_screen_new_badge_option_left">左側</string>
+    <string name="settings_home_screen_new_badge_option_hidden">隱藏</string>
 
     <string name="settings_saves_section_sync">同步</string>
     <string name="settings_saves_section_manage">管理</string>
@@ -454,7 +492,6 @@
     <string name="settings_sync_upload_screenshots_title">上傳螢幕截圖</string>
     <string name="settings_sync_upload_screenshots_subtitle">將遊玩時拍攝的螢幕截圖傳送至RomM</string>
     <string name="settings_sync_upload_screenshots_subtitle_unsupported">需要RomM 5.0以上版本</string>
-    <string name="settings_sync_upload_screenshots_subtitle_needs_usage">授予使用狀況存取權限以精確比對遊戲</string>
 
     <string name="settings_sync_image_cache_title">圖片快取位置</string>
     <string name="settings_sync_image_cache_path_internal">內部儲存空間（預設）</string>
@@ -562,6 +599,10 @@
         <item quantity="other">%d個檔案</item>
     </plurals>
     <string name="settings_bios_distribute_result_dismiss">確定</string>
+    <string name="settings_bios_distribute_failure_files_missing">金鑰或韌體尚未下載</string>
+    <string name="settings_bios_distribute_failure_keys_mismatch">金鑰與此韌體不相符</string>
+    <string name="settings_bios_distribute_failure_emulator_missing">模擬器未安裝</string>
+    <string name="settings_bios_distribute_failure_install_failed">無法安裝</string>
 
     <string name="settings_bios_download_failed_title">部分檔案未下載</string>
     <plurals name="settings_bios_download_failed_message">
@@ -573,7 +614,7 @@
     <string name="settings_bios_gpu_prompt_detected">已偵測：%1$s</string>
     <string name="settings_bios_gpu_prompt_message">在Snapdragon 8裝置上，自訂GPU驅動程式可以提升Switch模擬效能。</string>
     <string name="settings_bios_gpu_prompt_installing">正在安裝驅動程式&#8230;</string>
-    <string name="settings_bios_gpu_prompt_install_versioned">安裝建議版本（%1$s）</string>
+    <string name="settings_bios_gpu_prompt_recommended">建議驅動程式：%1$s</string>
     <string name="settings_bios_gpu_prompt_install">安裝建議版本</string>
     <string name="settings_bios_gpu_prompt_install_from_file">從檔案安裝</string>
     <string name="settings_bios_gpu_prompt_skip">略過</string>
@@ -587,26 +628,16 @@
         <item quantity="other">%1$d個版本，最新為%2$s</item>
     </plurals>
 
-    <string name="settings_permissions_intro">Argosy需要特定權限才能提供完整功能，點選各項權限即可授予存取權。</string>
-    <string name="settings_permissions_storage_title">儲存空間存取權</string>
-    <string name="settings_permissions_storage_description">下載遊戲、同步存檔，以及存取裝置上的ROM檔案都需要此權限。</string>
-    <string name="settings_permissions_usage_stats_title">使用狀況存取權</string>
-    <string name="settings_permissions_usage_stats_description">可精確追蹤遊玩時間，並在切換應用程式時順暢地繼續遊戲工作階段。</string>
-    <string name="settings_permissions_notifications_title">通知</string>
-    <string name="settings_permissions_notifications_description">在背景下載遊戲時顯示下載進度。</string>
-    <string name="settings_permissions_write_settings_title">系統設定存取權</string>
-    <string name="settings_permissions_write_settings_description">允許從快速設定面板控制裝置效能模式與風扇設定。</string>
-    <string name="settings_permissions_screen_capture_title">螢幕擷取</string>
-    <string name="settings_permissions_screen_capture_description">讓環境LED燈光能在遊玩時擷取螢幕色彩。</string>
-    <string name="settings_permissions_display_overlay_title">顯示在其他應用程式上層</string>
-    <string name="settings_permissions_display_overlay_description">在外部模擬器中遊玩時顯示存檔偵測通知。</string>
-    <string name="settings_permissions_accessibility_title">無障礙服務</string>
-    <string name="settings_permissions_accessibility_description">讓快速面板可在其他模擬器上層開啟，並可靜默擷取存檔截圖</string>
-    <string name="settings_permissions_live_wallpaper_title">動態鎖定畫面</string>
-    <string name="settings_permissions_live_wallpaper_description">允許 Argosy 套用動態鎖定畫面。</string>
+    <!-- %1$s is a root or system-access app name, such as Magisk or Shizuku -->
+    <string name="settings_permissions_privileged_title">%1$s 存取權</string>
+    <string name="settings_permissions_privileged_description_off">允許 Argosy 存取 Android/data 中的模擬器存檔資料夾。</string>
+    <string name="settings_permissions_privileged_description_checking">正在檢查存取權...</string>
+    <string name="settings_permissions_privileged_description_root">存檔資料夾和 root 功能可供使用。</string>
+    <string name="settings_permissions_privileged_description_app_data">存檔資料夾可供使用。讓遊戲在背景持續執行需要 root。</string>
+    <string name="settings_permissions_privileged_description_unreachable">無法存取此裝置上的存檔資料夾。</string>
+    <string name="settings_permissions_privileged_description_refused">未取得存取權。選取以再次要求。</string>
     <string name="settings_lock_screen_wallpaper_label">Argosy 遊戲庫</string>
     <string name="settings_lock_screen_wallpaper_description">允許 Argosy 套用動態鎖定畫面。</string>
-    <string name="settings_permissions_status_footer">狀態：已授予%1$d／%2$d項權限</string>
 
     <string name="settings_about_section_version">版本</string>
     <string name="settings_about_section_backup">備份</string>
@@ -625,7 +656,7 @@
     <string name="settings_about_update_subtitle_current">已是最新版本</string>
     <string name="settings_about_update_subtitle_on_prerelease">目前執行搶先版</string>
     <string name="settings_about_update_subtitle_idle">檢查是否有新版本</string>
-    <string name="settings_about_update_action_download">下載</string>
+    <string name="settings_about_update_action_install">安裝</string>
     <string name="settings_about_update_action_check">檢查</string>
     <string name="settings_about_update_action_changelog">更新日誌</string>
     <string name="settings_about_changelog_preview_title">新功能 - %1$s</string>
@@ -888,10 +919,21 @@
 
     <string name="settings_storage_games_integrity_title">每週ROM完整性檢查</string>
     <string name="settings_storage_games_integrity_subtitle">每週啟動時驗證已下載的遊戲檔案</string>
-    <string name="settings_storage_games_not_from_romm_title">非來自RomM</string>
-    <plurals name="settings_storage_games_not_from_romm_subtitle">
-        <item quantity="other">%1$d個遊戲檔案為手動加入，重設時會保留</item>
+    <string name="settings_storage_games_local_only_title">僅本機</string>
+    <plurals name="settings_storage_games_local_only_subtitle">
+        <item quantity="other">本裝置上有%1$d個遊戲RomM中沒有</item>
     </plurals>
+    <string name="settings_storage_local_only_empty_message">本裝置上RomM中沒有的遊戲會在此顯示大小與位置。</string>
+    <string name="settings_storage_game_source_local_only">僅本機</string>
+    <string name="settings_storage_location_internal">內部儲存空間</string>
+    <string name="settings_storage_location_removable">SD卡</string>
+    <string name="settings_storage_location_mixed">內部儲存空間 + SD卡</string>
+    <string name="settings_storage_location_unknown">位置不明</string>
+    <string name="settings_storage_local_only_tab_all">全部</string>
+    <string name="settings_storage_local_only_tab_internal">內部</string>
+    <string name="settings_storage_local_only_tab_sd_card">SD卡</string>
+    <string name="settings_storage_local_only_tab_unknown">不明</string>
+    <string name="settings_storage_local_only_tab_empty_message">這裡沒有僅存於本機的遊戲。</string>
 
     <plurals name="settings_storage_games_totals_count">
         <item quantity="other">已下載%d個</item>
@@ -953,6 +995,19 @@
     <string name="settings_storage_platform_games_loading">載入中&#8230;</string>
     <string name="settings_storage_platform_games_empty_title">沒有已下載的遊戲</string>
     <string name="settings_storage_platform_games_empty_message">%1$s已下載的遊戲會依類別顯示於此。</string>
+    <string name="settings_storage_platform_games_tab_empty_message">此處沒有儲存%1$s遊戲。</string>
+    <plurals name="settings_storage_platform_games_summary">
+        <item quantity="other">%1$d 款遊戲，%2$s</item>
+    </plurals>
+    <string name="settings_storage_platform_games_sort_size">由大到小</string>
+    <string name="settings_storage_platform_games_sort_title">依名稱 A-Z</string>
+    <string name="settings_storage_platform_games_sort_least_played">最久未玩</string>
+    <string name="settings_storage_platform_games_last_played">上次遊玩：%1$s</string>
+    <string name="settings_storage_platform_games_never_played">從未遊玩</string>
+    <string name="settings_storage_platform_games_play_time">已玩 %1$s</string>
+    <plurals name="settings_storage_platform_games_unsynced_saves">
+        <item quantity="other">%d 個存檔未同步</item>
+    </plurals>
 
     <string name="settings_storage_bucket_base">本體</string>
     <string name="settings_storage_bucket_updates">更新</string>
@@ -979,6 +1034,7 @@
     </plurals>
     <string name="settings_caches_pending_uploads_subtitle_online">清除同步快取前請先立即同步</string>
     <string name="settings_caches_pending_uploads_subtitle_offline">請重新連線至伺服器以進行同步</string>
+    <string name="settings_caches_pending_uploads_search_label">等待上傳的存檔</string>
 
     <string name="settings_caches_save_cache_title">重設存檔快取</string>
     <string name="settings_caches_save_cache_busy">重設中&#8230;</string>
@@ -1405,6 +1461,8 @@
     <string name="settings_builtin_controls_hotkeys_subtitle">設定選單、快轉、倒轉的快捷鍵</string>
     <string name="settings_builtin_controls_limit_hotkeys_title">僅限玩家1使用快捷鍵</string>
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">只有玩家1的控制器可以觸發快捷鍵</string>
+    <string name="settings_builtin_controls_confirm_return_title">返回 Argosy 前確認</string>
+    <string name="settings_builtin_controls_confirm_return_subtitle">按 Home 離開遊戲前先詢問</string>
     <string name="settings_builtin_controls_select_as_back_title">Select 視為返回</string>
     <string name="settings_builtin_controls_select_as_back_subtitle">適用於按 Select 會送出返回鍵的控制器。自動模式會在沒有 Select 鍵的控制器上把返回鍵當作 Select。</string>
     <string name="settings_builtin_controls_select_as_back_auto">自動</string>
@@ -1552,9 +1610,10 @@
     <string name="settings_emulators_section_disabled">已停用的平台</string>
     <string name="settings_emulators_rail_platforms">平台</string>
 
-    <string name="settings_emulators_close_on_session_end_title">返回 Argosy 時關閉模擬器</string>
-    <string name="settings_emulators_close_on_session_end_subtitle_on">存檔同步完成後關閉模擬器。未儲存的進度會遺失。</string>
-    <string name="settings_emulators_close_on_session_end_subtitle_off">模擬器應用程式將繼續在背景執行</string>
+    <string name="settings_emulators_close_on_session_end_title">返回 Argosy 時關閉遊戲</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_on">存檔同步完成後關閉遊戲。未儲存的進度會遺失。</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_off">遊戲將繼續在背景執行</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_built_in_only">內建遊戲保持開啟。其他模擬器僅在已 root 的裝置上保持開啟。</string>
     <string name="settings_emulators_check_updates_title">檢查更新</string>
     <string name="settings_emulators_check_updates_subtitle">檢查模擬器更新</string>
     <plurals name="settings_emulators_check_updates_available">
@@ -1898,7 +1957,16 @@
     </plurals>
 
     <string name="settings_romm_config_server_url_label">伺服器網址</string>
-    <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
+    <string name="settings_romm_config_url_keyboard_submit">完成</string>
+    <string name="settings_romm_config_pairing_code_keyboard_label">配對碼</string>
+    <string name="settings_romm_config_pairing_code_keyboard_submit">完成</string>
+    <string name="settings_jellyfin_config_keyboard_submit">儲存</string>
+    <string name="settings_jellyfin_signin_username_keyboard_submit">完成</string>
+    <string name="settings_jellyfin_signin_password_keyboard_submit">登入</string>
+    <string name="settings_ra_login_username_keyboard_submit">完成</string>
+    <string name="settings_ra_login_password_keyboard_submit">完成</string>
+    <string name="settings_ra_proxy_address_keyboard_submit">完成</string>
+    <string name="settings_steam_add_game_keyboard_submit">新增</string>    <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
     <string name="settings_romm_config_auth_method_title">驗證方式</string>
     <string name="settings_romm_config_auth_method_device">裝置配對</string>
     <string name="settings_romm_config_auth_method_pairing_code">配對代碼</string>
@@ -1910,8 +1978,6 @@
     <string name="settings_romm_config_connect_title">連線</string>
     <string name="settings_romm_config_connect_device_subtitle">產生配對用QR Code</string>
     <string name="settings_romm_config_connect_subtitle">連線至RomM伺服器</string>
-    <string name="settings_romm_config_scan_title">掃描QR Code</string>
-    <string name="settings_romm_config_scan_subtitle">掃描RomM網頁介面上的配對QR Code</string>
     <string name="settings_romm_config_certificate_title">新增憑證</string>
     <string name="settings_romm_config_certificate_subtitle">信任使用私有憑證授權單位的伺服器</string>
     <plurals name="settings_romm_config_certificate_subtitle_count">
@@ -2479,4 +2545,65 @@
     <string name="settings_builtin_gpu_driver_reason_core_system_only">%1$s 使用系統驅動程式</string>
     <string name="settings_builtin_gpu_driver_reason_backend">渲染後端為 Vulkan 時生效</string>
     <string name="settings_builtin_gpu_driver_reason_device">自訂驅動程式需要 Adreno GPU</string>
+    <string name="settings_client_cert_row_title">用戶端憑證</string>
+    <string name="settings_client_cert_row_subtitle_none">用於需要用戶端憑證的伺服器 (mTLS)</string>
+    <string name="settings_client_cert_row_subtitle_active">%1$s · 有效期限至 %2$s</string>
+    <string name="settings_client_cert_modal_header">用戶端憑證</string>
+    <string name="settings_client_cert_modal_title_none">尚未匯入用戶端憑證</string>
+    <string name="settings_client_cert_modal_title_active">%1$s · 有效期限至 %2$s</string>
+    <string name="settings_client_cert_use_romm_title">用於 RomM</string>
+    <string name="settings_client_cert_use_romm_subtitle">連線至你的 RomM 伺服器時出示此憑證</string>
+    <string name="settings_client_cert_use_jellyfin_title">用於 Jellyfin</string>
+    <string name="settings_client_cert_use_jellyfin_subtitle">連線至你的 Jellyfin 伺服器時出示此憑證</string>
+    <string name="settings_client_cert_import_subtitle">選擇包含憑證及其私密金鑰的 .p12 或 .pfx 檔案</string>
+    <string name="settings_client_cert_replace_subtitle">匯入另一個 .p12 或 .pfx 檔案取代目前憑證</string>
+    <string name="settings_client_cert_remove_subtitle">從此裝置刪除憑證及其私密金鑰</string>
+    <string name="settings_client_cert_import">匯入憑證…</string>
+    <string name="settings_client_cert_replace">替換憑證…</string>
+    <string name="settings_client_cert_remove">移除憑證</string>
+    <string name="settings_client_cert_remove_title">移除用戶端憑證？</string>
+    <string name="settings_client_cert_remove_message">憑證及其私密金鑰將從此裝置刪除。需要該憑證的伺服器將拒絕連線，直到你再次匯入該檔案。</string>
+    <string name="settings_client_cert_remove_confirm">移除</string>
+    <string name="settings_client_cert_filebrowser_title">選擇用戶端憑證</string>
+    <string name="settings_romm_config_error_client_certificate_required">伺服器需要用戶端憑證。請在「用戶端憑證」中匯入，或在其中開啟「用於 RomM」。</string>
+    <string name="settings_accounts_pairing_error_client_certificate_required">伺服器需要用戶端憑證。請在「用戶端憑證」中匯入，或在其中開啟「用於 RomM」。</string>
+    <string name="settings_jellyfin_error_client_certificate_required">伺服器需要用戶端憑證。請在「用戶端憑證」中開啟「用於 Jellyfin」。</string>
+    <string name="settings_search_row_title">搜尋設定</string>
+    <string name="settings_search_keyboard_label">搜尋設定</string>
+    <string name="settings_search_keyboard_submit">完成</string>
+    <string name="settings_search_no_results">沒有符合「%1$s」的設定</string>
+    <string name="settings_search_crumb_displays">顯示器</string>
+    <string name="settings_search_crumb_ambient_led">LED控制</string>
+    <string name="settings_search_crumb_audio">音訊</string>
+    <string name="settings_search_crumb_theme">主題</string>
+    <string name="settings_search_crumb_platforms">平台</string>
+    <string name="settings_search_crumb_builtin_emulator">內建模擬器</string>
+    <string name="settings_search_crumb_core_options">核心選項</string>
+    <string name="settings_search_crumb_storage">儲存空間</string>
+    <string name="settings_search_crumb_storage_caches">快取與系統</string>
+    <string name="settings_search_crumb_bios">BIOS檔案</string>
+    <string name="settings_search_crumb_sounds">音效</string>
+    <string name="settings_search_crumb_music">音樂</string>
+    <string name="settings_search_crumb_fonts">字型</string>
+    <string name="settings_search_crumb_backdrop">介面背景</string>
+    <string name="settings_search_crumb_interface">介面</string>
+    <string name="settings_search_crumb_box_art">封面圖</string>
+    <string name="settings_search_crumb_controller_grip">控制器握把</string>
+    <string name="settings_search_crumb_saves">存檔</string>
+    <string name="settings_search_crumb_sync_settings">同步設定</string>
+    <string name="settings_search_crumb_social">社群</string>
+    <string name="settings_search_crumb_permissions">權限</string>
+    <string name="settings_search_crumb_about">關於</string>
+    <string name="settings_search_label_jellyfin_account">帳號</string>
+    <string name="settings_search_label_social_account">帳號</string>
+    <string name="settings_search_label_about_changelog">更新日誌</string>
+    <string name="settings_search_crumb_home_screen">主畫面</string>
+    <string name="settings_search_crumb_presentation">展示</string>
+    <string name="settings_search_crumb_library_view">收藏庫</string>
+    <string name="settings_search_crumb_navigation">導覽</string>
+    <string name="settings_search_crumb_builtin_video">影音與效能</string>
+    <string name="settings_search_crumb_builtin_controls">控制</string>
+    <string name="settings_search_crumb_builtin_saves">存檔</string>
+    <string name="settings_search_label_home_layout_selector">版面配置</string>
+    <string name="settings_search_label_platform_emulator">模擬器</string>
 </resources>

@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.nendo.argosy.core.input.AppEventFeedback
 import com.nendo.argosy.core.media.SfxCacheCleaner
+import com.nendo.argosy.data.emulator.SessionEndNoticeCopy
+import com.nendo.argosy.data.emulator.background.RunningGameNoticeCopy
 import com.nendo.argosy.data.preferences.AccountPreferenceStoreRegistry
 import com.nendo.argosy.data.preferences.AccountScopedDataStore
 import com.nendo.argosy.data.preferences.dataStore
@@ -18,6 +20,8 @@ import com.nendo.argosy.domain.usecase.sync.SyncNotificationCopy
 import com.nendo.argosy.hardware.AyaneoLEDController
 import com.nendo.argosy.hardware.LEDController
 import com.nendo.argosy.hardware.OdinLEDController
+import com.nendo.argosy.ui.common.RunningGameNoticeCopyResources
+import com.nendo.argosy.ui.common.SessionEndNoticeCopyResources
 import com.nendo.argosy.ui.input.SoundFeedbackManager
 import com.nendo.argosy.ui.screens.common.LibrarySyncBus
 import com.squareup.moshi.Moshi
@@ -28,10 +32,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.Multibinds
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import javax.inject.Singleton
+import com.nendo.argosy.data.remote.ssl.AndroidKeyStoreVault
+import com.nendo.argosy.data.remote.ssl.ClientKeyVault
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -43,7 +49,19 @@ abstract class AppModule {
 
     @Binds
     @Singleton
+    abstract fun bindClientKeyVault(impl: AndroidKeyStoreVault): ClientKeyVault
+
+    @Binds
+    @Singleton
     abstract fun bindSyncNotificationCopy(impl: SyncNotificationCopyResources): SyncNotificationCopy
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionEndNoticeCopy(impl: SessionEndNoticeCopyResources): SessionEndNoticeCopy
+
+    @Binds
+    @Singleton
+    abstract fun bindRunningGameNoticeCopy(impl: RunningGameNoticeCopyResources): RunningGameNoticeCopy
 
     @Binds
     @Singleton

@@ -29,10 +29,12 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -56,6 +58,9 @@ import androidx.compose.foundation.layout.height
 import com.nendo.argosy.ui.screens.settings.components.LocalSettingsTouchFocus
 import com.nendo.argosy.ui.screens.settings.components.SectionHeader
 import com.nendo.argosy.ui.screens.settings.menu.SettingsLayout
+import com.nendo.argosy.ui.screens.settings.search.SettingsSearchResultsList
+import com.nendo.argosy.ui.screens.settings.search.SettingsSearchRow
+import com.nendo.argosy.ui.components.keyboard.ControllerKeyboardSession
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.util.formatClockDateTime
 
@@ -70,6 +75,9 @@ internal sealed class MainSettingsItem(
 
     class Header(key: String, section: String, @StringRes titleRes: Int) :
         MainSettingsItem(key, Icons.Default.Info, titleRes, section)
+
+    data object Search :
+        MainSettingsItem("search", Icons.Default.Search, R.string.settings_search_row_title, "search")
 
     data object ManagedInstallers : MainSettingsItem(
         "managedInstallers",
@@ -139,6 +147,12 @@ internal sealed class MainSettingsItem(
         "library"
     )
 
+    data object NetworkBluetooth : MainSettingsItem(
+        "networkBluetooth",
+        Icons.Default.Wifi,
+        R.string.settings_main_network_title,
+        "connections"
+    )
     data object RomM :
         MainSettingsItem("romm", Icons.Default.Dns, R.string.settings_main_romm_title, "connections")
     data object Steam : MainSettingsItem(
@@ -180,6 +194,7 @@ internal sealed class MainSettingsItem(
     companion object {
         val ALL: List<MainSettingsItem>
             get() = listOf(
+                Search,
                 Header("launcherHeader", "launcher", R.string.settings_main_section_launcher),
                 Theme, Interface, Navigation, Audio, Displays,
                 Header("gameplayHeader", "gameplay", R.string.settings_main_section_gameplay),
@@ -187,7 +202,7 @@ internal sealed class MainSettingsItem(
                 Header("libraryHeader", "library", R.string.settings_main_section_library),
                 Platforms, Storage, PlayTime,
                 Header("connectionsHeader", "connections", R.string.settings_main_section_connections),
-                RomM, Steam, Jellyfin, Streaming, Social,
+                NetworkBluetooth, RomM, Steam, Jellyfin, Streaming, Social,
                 Header("systemHeader", "system", R.string.settings_main_section_system),
                 Permissions, ManagedInstallers, DeviceSettings, About
             )
@@ -223,10 +238,11 @@ fun MainSettingsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
         uiState.focusedIndex == mainSettingsLayout.focusIndexOf(item, controls)
 
     fun getSubtitle(item: MainSettingsItem): String = when (item) {
-        is MainSettingsItem.Header -> ""
+        is MainSettingsItem.Header, MainSettingsItem.Search -> ""
         MainSettingsItem.ManagedInstallers ->
             context.getString(R.string.settings_main_installers_subtitle)
         MainSettingsItem.DeviceSettings -> context.getString(R.string.settings_main_device_subtitle)
+        MainSettingsItem.NetworkBluetooth -> context.getString(R.string.settings_main_network_subtitle)
         MainSettingsItem.RomM -> when (uiState.server.connectionStatus) {
             ConnectionStatus.NOT_CONFIGURED ->
                 context.getString(R.string.settings_main_romm_subtitle_unconfigured)
@@ -325,9 +341,11 @@ fun MainSettingsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
         }
         when (item) {
             is MainSettingsItem.Header -> Unit
+            MainSettingsItem.Search -> viewModel.openSettingsSearch()
             MainSettingsItem.ManagedInstallers ->
                 viewModel.navigateToSection(SettingsSection.MANAGED_INSTALLERS)
             MainSettingsItem.DeviceSettings -> context.startActivity(Intent(Settings.ACTION_SETTINGS))
+            MainSettingsItem.NetworkBluetooth -> viewModel.navigateToSection(SettingsSection.NETWORK_BLUETOOTH)
             MainSettingsItem.RomM -> viewModel.navigateToSection(SettingsSection.ROMM)
             MainSettingsItem.Saves -> viewModel.navigateToSection(SettingsSection.SAVES)
             MainSettingsItem.RetroAchievements -> viewModel.navigateToSection(SettingsSection.RETRO_ACHIEVEMENTS)
@@ -351,8 +369,27 @@ fun MainSettingsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
         }
     }
 
-    fun pickerToken(item: MainSettingsItem): Int =
-        if (uiState.enumPickerKey == item.key) uiState.enumPickerToken else 0
+    val search = uiState.settingsSearch
+    ControllerKeyboardSession(
+        open = search.keyboardOpen,
+        label = stringResource(R.string.settings_search_keyboard_label),
+        text = search.query,
+        onTextChange = { viewModel.updateSettingsSearchQuery(it) },
+        onSubmit = { viewModel.closeSettingsSearchKeyboard() },
+        onClose = { viewModel.closeSettingsSearchKeyboard() },
+        submitLabel = stringResource(R.string.settings_search_keyboard_submit)
+    )
+
+    if (search.isActive) {
+        SettingsSearchResultsList(
+            search = search,
+            focusedIndex = uiState.focusedIndex,
+            listState = listState,
+            onSearchTap = { viewModel.openSettingsSearch() },
+            onResultTap = { viewModel.openSettingsSearchResult(it) }
+        )
+        return
+    }
 
     FocusedScroll(
         listState = listState,
@@ -375,6 +412,11 @@ fun MainSettingsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
                     }
                     SectionHeader(stringResource(item.titleRes))
                 }
+                MainSettingsItem.Search -> SettingsSearchRow(
+                    query = search.query,
+                    isFocused = isFocused(item),
+                    onClick = { handleClick(item) }
+                )
                 else -> NavigationPreference(
                     icon = item.icon,
                     title = stringResource(item.titleRes),

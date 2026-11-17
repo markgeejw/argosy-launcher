@@ -1,5 +1,6 @@
 package com.nendo.argosy.ui.screens.settings.sections
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.nendo.argosy.R
 import com.nendo.argosy.data.preferences.AppLanguage
+import com.nendo.argosy.data.preferences.ScreenOrientationMode
 import com.nendo.argosy.ui.components.CyclePreference
 import com.nendo.argosy.ui.components.InfoPreference
 import androidx.lifecycle.Lifecycle
@@ -32,8 +34,8 @@ import com.nendo.argosy.ui.screens.settings.DisplayState
 import com.nendo.argosy.ui.screens.settings.SettingsUiState
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
 import com.nendo.argosy.ui.screens.settings.menu.SettingsLayout
+import com.nendo.argosy.ui.screens.settings.search.SearchableSetting
 import com.nendo.argosy.ui.theme.Dimens
-import com.nendo.argosy.ui.theme.LocalLauncherTheme
 
 internal data class InterfaceLayoutState(
     val display: DisplayState
@@ -48,35 +50,47 @@ internal sealed class InterfaceItem(
     val section: String,
     val visibleWhen: (InterfaceLayoutState) -> Boolean = { true }
 ) {
-    val isFocusable: Boolean get() = when (this) {
-        is Header, HomeAppLocked -> false
-        else -> true
-    }
+    val isFocusable: Boolean get() = this is SearchableSetting
 
     class Header(key: String, section: String, val titleRes: Int) : InterfaceItem(key, section)
 
-    data object Language : InterfaceItem("language", SECTION_GENERAL)
-    data object UiScale : InterfaceItem("uiScale", SECTION_GENERAL)
-    data object CompactFooter : InterfaceItem("compactFooter", SECTION_GENERAL)
-    data object HideSystemNavigationBar : InterfaceItem("hideSystemNavigationBar", SECTION_GENERAL)
-    data object HideSystemStatusBar : InterfaceItem("hideSystemStatusBar", SECTION_GENERAL)
-    data object QuickPanelInEmulators : InterfaceItem("quickPanelInEmulators", SECTION_GENERAL)
-    data object ControllerGrip : InterfaceItem("controllerGrip", SECTION_GENERAL)
-    data object HomeScreen : InterfaceItem("homeScreen", SECTION_SCREENS)
-    data object LibraryView : InterfaceItem("libraryView", SECTION_SCREENS)
-    data object BoxArt : InterfaceItem("boxArt", SECTION_SCREENS)
-    data object Presentation : InterfaceItem(
+    sealed class Row(
+        key: String,
+        section: String,
+        @StringRes override val labelRes: Int,
+        visibleWhen: (InterfaceLayoutState) -> Boolean = { true }
+    ) : InterfaceItem(key, section, visibleWhen), SearchableSetting
+
+    data object Language : Row("language", SECTION_GENERAL, R.string.settings_main_language_title)
+    data object UiScale : Row("uiScale", SECTION_GENERAL, R.string.settings_interface_ui_scale_title)
+    data object ScreenOrientation :
+        Row("screenOrientation", SECTION_GENERAL, R.string.settings_interface_screen_orientation_title)
+    data object CompactFooter :
+        Row("compactFooter", SECTION_GENERAL, R.string.settings_interface_compact_footer_title)
+    data object HideSystemNavigationBar :
+        Row("hideSystemNavigationBar", SECTION_GENERAL, R.string.settings_interface_hide_system_nav_bar_title)
+    data object HideSystemStatusBar :
+        Row("hideSystemStatusBar", SECTION_GENERAL, R.string.settings_interface_hide_system_status_bar_title)
+    data object ControllerGrip :
+        Row("controllerGrip", SECTION_GENERAL, R.string.settings_interface_controller_grip_title)
+    data object HomeScreen : Row("homeScreen", SECTION_SCREENS, R.string.settings_interface_home_screen_title)
+    data object LibraryView : Row("libraryView", SECTION_SCREENS, R.string.settings_interface_library_view_title)
+    data object BoxArt : Row("boxArt", SECTION_SCREENS, R.string.settings_interface_box_art_title)
+    data object Presentation : Row(
         key = "presentation",
         section = SECTION_SCREENS,
+        labelRes = R.string.settings_interface_presentation_title,
         visibleWhen = {
             it.display.dualScreenEnabled && it.display.hasSecondaryDisplay &&
                 !it.display.secondaryDisplayUnsupported
         }
     )
-    data object LockScreenArt : InterfaceItem("lockScreenArt", SECTION_SCREENS)
-    data object HomeApp : InterfaceItem(
+    data object LockScreenArt :
+        Row("lockScreenArt", SECTION_SCREENS, R.string.settings_interface_lock_screen_art_title)
+    data object HomeApp : Row(
         key = "homeApp",
         section = SECTION_SCREENS,
+        labelRes = R.string.settings_interface_home_app_title,
         visibleWhen = { !it.display.isDefaultHome }
     )
     data object HomeAppLocked : InterfaceItem(
@@ -84,11 +98,38 @@ internal sealed class InterfaceItem(
         section = SECTION_SCREENS,
         visibleWhen = { it.display.isDefaultHome }
     )
-    data object StatusClock : InterfaceItem("statusClock", SECTION_STATUS_BAR)
-    data object StatusBattery : InterfaceItem("statusBattery", SECTION_STATUS_BAR)
-    data object StatusNetwork : InterfaceItem("statusNetwork", SECTION_STATUS_BAR)
-    data object PreLaunchRecaps : InterfaceItem("preLaunchRecaps", SECTION_RECAPS)
-    data object MonthlyRecap : InterfaceItem("monthlyRecap", SECTION_RECAPS)
+    data object StatusClock :
+        Row("statusClock", SECTION_STATUS_BAR, R.string.settings_interface_status_clock_title)
+    data object StatusBattery :
+        Row("statusBattery", SECTION_STATUS_BAR, R.string.settings_interface_status_battery_title)
+    data object StatusNetwork :
+        Row("statusNetwork", SECTION_STATUS_BAR, R.string.settings_interface_status_network_title)
+    data object PreLaunchRecaps :
+        Row("preLaunchRecaps", SECTION_RECAPS, R.string.settings_interface_pre_launch_recaps_title)
+    data object MonthlyRecap :
+        Row("monthlyRecap", SECTION_RECAPS, R.string.settings_interface_monthly_recap_title)
+    data object Notifications :
+        Row("notifications", SECTION_NOTIFICATIONS, R.string.settings_interface_notifications_title)
+    data object NotifyDownloadsFinished : Row(
+        key = "notifyDownloadsFinished",
+        section = SECTION_NOTIFICATIONS,
+        labelRes = R.string.settings_interface_notify_downloads_finished_title,
+        visibleWhen = { it.display.notificationsEnabled }
+    )
+    data object NotifyBattery :
+        Row("notifyBattery", SECTION_NOTIFICATIONS, R.string.settings_interface_notify_battery_title)
+    data object NotifyCharging : Row(
+        key = "notifyCharging",
+        section = SECTION_NOTIFICATIONS,
+        labelRes = R.string.settings_interface_notify_charging_title,
+        visibleWhen = { it.display.notificationsEnabled }
+    )
+    data object NotifyControllers : Row(
+        key = "notifyControllers",
+        section = SECTION_NOTIFICATIONS,
+        labelRes = R.string.settings_interface_notify_controllers_title,
+        visibleWhen = { it.display.notificationsEnabled }
+    )
 
     companion object {
         /**
@@ -101,14 +142,16 @@ internal sealed class InterfaceItem(
             get() = listOf(
                 Header("generalHeader", SECTION_GENERAL, R.string.settings_interface_section_general),
                 Language, UiScale, CompactFooter, HideSystemNavigationBar, HideSystemStatusBar,
-                QuickPanelInEmulators, ControllerGrip,
+                ControllerGrip, ScreenOrientation,
                 Header("screensHeader", SECTION_SCREENS, R.string.settings_interface_section_screens),
                 HomeScreen, LibraryView, BoxArt, Presentation, LockScreenArt,
                 HomeApp, HomeAppLocked,
                 Header("statusBarHeader", SECTION_STATUS_BAR, R.string.settings_interface_section_status_bar),
                 StatusClock, StatusBattery, StatusNetwork,
                 Header("recapsHeader", SECTION_RECAPS, R.string.settings_interface_section_recaps),
-                PreLaunchRecaps, MonthlyRecap
+                PreLaunchRecaps, MonthlyRecap,
+                Header("notificationsHeader", SECTION_NOTIFICATIONS, R.string.settings_interface_section_notifications),
+                Notifications, NotifyDownloadsFinished, NotifyBattery, NotifyCharging, NotifyControllers
             )
     }
 }
@@ -117,12 +160,14 @@ private const val SECTION_GENERAL = "general"
 private const val SECTION_SCREENS = "screens"
 private const val SECTION_STATUS_BAR = "statusBar"
 private const val SECTION_RECAPS = "recaps"
+private const val SECTION_NOTIFICATIONS = "notifications"
 
 private fun interfaceSectionTitleRes(section: String): Int? = when (section) {
     SECTION_GENERAL -> R.string.settings_interface_section_general
     SECTION_SCREENS -> R.string.settings_interface_section_screens
     SECTION_STATUS_BAR -> R.string.settings_interface_section_status_bar
     SECTION_RECAPS -> R.string.settings_interface_section_recaps
+    SECTION_NOTIFICATIONS -> R.string.settings_interface_section_notifications
     else -> null
 }
 
@@ -136,9 +181,16 @@ internal fun languageLabelRes(language: AppLanguage): Int = when (language) {
     AppLanguage.CHINESE_TRADITIONAL -> R.string.settings_main_language_name_zh_hant
     AppLanguage.RUSSIAN -> R.string.settings_main_language_name_ru
     AppLanguage.HINDI -> R.string.settings_main_language_name_hi
+    AppLanguage.PORTUGUESE_BRAZIL -> R.string.settings_main_language_name_pt_br
 }
 
-private val interfaceLayout = SettingsLayout<InterfaceItem, InterfaceLayoutState>(
+internal fun screenOrientationLabelRes(mode: ScreenOrientationMode): Int = when (mode) {
+    ScreenOrientationMode.AUTO -> R.string.settings_interface_screen_orientation_auto
+    ScreenOrientationMode.LANDSCAPE -> R.string.settings_interface_screen_orientation_landscape
+    ScreenOrientationMode.PORTRAIT -> R.string.settings_interface_screen_orientation_portrait
+}
+
+internal val interfaceLayout = SettingsLayout<InterfaceItem, InterfaceLayoutState>(
     allItems = InterfaceItem.ALL,
     isFocusable = { it.isFocusable },
     visibleWhen = { item, state -> item.visibleWhen(state) },
@@ -204,8 +256,8 @@ fun InterfaceSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             when (item) {
                 is InterfaceItem.Header -> InterfaceSectionHeader(stringResource(item.titleRes))
 
-                InterfaceItem.Language -> CyclePreference(
-                    title = stringResource(R.string.settings_main_language_title),
+                is InterfaceItem.Language -> CyclePreference(
+                    title = stringResource(item.labelRes),
                     value = stringResource(languageLabelRes(uiState.appLanguage)),
                     subtitle = stringResource(R.string.settings_main_language_subtitle),
                     isFocused = isFocused(item),
@@ -218,8 +270,8 @@ fun InterfaceSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     pickerRequestToken = pickerToken(item)
                 )
 
-                InterfaceItem.UiScale -> SliderPreference(
-                    title = stringResource(R.string.settings_interface_ui_scale_title),
+                is InterfaceItem.UiScale -> SliderPreference(
+                    title = stringResource(item.labelRes),
                     value = display.uiScale,
                     minValue = 50,
                     maxValue = 150,
@@ -229,57 +281,54 @@ fun InterfaceSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     onAdjust = { viewModel.adjustUiScale(it) }
                 )
 
-                InterfaceItem.CompactFooter -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_compact_footer_title),
+                is InterfaceItem.ScreenOrientation -> CyclePreference(
+                    title = stringResource(item.labelRes),
+                    value = stringResource(screenOrientationLabelRes(display.screenOrientation)),
+                    subtitle = stringResource(R.string.settings_interface_screen_orientation_subtitle),
+                    isFocused = isFocused(item),
+                    onClick = { viewModel.cycleScreenOrientation() },
+                    onPrev = { viewModel.cycleScreenOrientation(-1) },
+                    options = remember(context) {
+                        ScreenOrientationMode.entries.map { context.getString(screenOrientationLabelRes(it)) }
+                    },
+                    onSelect = { index -> viewModel.setScreenOrientation(ScreenOrientationMode.entries[index]) },
+                    pickerRequestToken = pickerToken(item)
+                )
+
+                is InterfaceItem.CompactFooter -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_compact_footer_subtitle),
                     isEnabled = display.compactFooter,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setCompactFooter(it) }
                 )
 
-                InterfaceItem.HideSystemNavigationBar -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_hide_system_nav_bar_title),
+                is InterfaceItem.HideSystemNavigationBar -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_hide_system_nav_bar_subtitle),
                     isEnabled = display.hideSystemNavigationBar,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setHideSystemNavigationBar(it) }
                 )
 
-                InterfaceItem.HideSystemStatusBar -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_hide_system_status_bar_title),
+                is InterfaceItem.HideSystemStatusBar -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_hide_system_status_bar_subtitle),
                     isEnabled = display.hideSystemStatusBar,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setHideSystemStatusBar(it) }
                 )
 
-                InterfaceItem.QuickPanelInEmulators -> {
-                    val serviceOff = display.quickPanelInEmulators &&
-                        !uiState.permissions.hasAccessibilityService
-                    SwitchPreference(
-                        title = stringResource(R.string.settings_interface_quick_panel_in_emulators_title),
-                        subtitle = if (serviceOff) {
-                            stringResource(R.string.settings_interface_quick_panel_in_emulators_service_off)
-                        } else {
-                            stringResource(R.string.settings_interface_quick_panel_in_emulators_subtitle)
-                        },
-                        subtitleColor = if (serviceOff) LocalLauncherTheme.current.semanticColors.warning else null,
-                        isEnabled = display.quickPanelInEmulators,
-                        isFocused = isFocused(item),
-                        onToggle = { viewModel.setQuickPanelInEmulators(it) }
-                    )
-                }
-
-                InterfaceItem.LockScreenArt -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_lock_screen_art_title),
+                is InterfaceItem.LockScreenArt -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_lock_screen_art_subtitle),
                     isEnabled = display.lockScreenArt,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setLockScreenArt(it) }
                 )
 
-                InterfaceItem.HomeApp -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_home_app_title),
+                is InterfaceItem.HomeApp -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_home_app_subtitle),
                     isEnabled = display.homeAppAvailable,
                     isFocused = isFocused(item),
@@ -293,81 +342,121 @@ fun InterfaceSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
                     isFocused = false
                 )
 
-                InterfaceItem.StatusClock -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_status_clock_title),
+                is InterfaceItem.StatusClock -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_status_clock_subtitle),
                     isEnabled = display.showStatusClock,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setShowStatusClock(it) }
                 )
 
-                InterfaceItem.StatusBattery -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_status_battery_title),
+                is InterfaceItem.StatusBattery -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_status_battery_subtitle),
                     isEnabled = display.showStatusBattery,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setShowStatusBattery(it) }
                 )
 
-                InterfaceItem.StatusNetwork -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_status_network_title),
+                is InterfaceItem.StatusNetwork -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_status_network_subtitle),
                     isEnabled = display.showStatusNetwork,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setShowStatusNetwork(it) }
                 )
 
-                InterfaceItem.PreLaunchRecaps -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_pre_launch_recaps_title),
+                is InterfaceItem.PreLaunchRecaps -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_pre_launch_recaps_subtitle),
                     isEnabled = display.preLaunchRecaps,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setPreLaunchRecaps(it) }
                 )
 
-                InterfaceItem.MonthlyRecap -> SwitchPreference(
-                    title = stringResource(R.string.settings_interface_monthly_recap_title),
+                is InterfaceItem.MonthlyRecap -> SwitchPreference(
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_monthly_recap_subtitle),
                     isEnabled = display.monthlyRecap,
                     isFocused = isFocused(item),
                     onToggle = { viewModel.setMonthlyRecap(it) }
                 )
 
-                InterfaceItem.ControllerGrip -> NavigationPreference(
+                is InterfaceItem.Notifications -> SwitchPreference(
+                    title = stringResource(item.labelRes),
+                    subtitle = stringResource(R.string.settings_interface_notifications_subtitle),
+                    isEnabled = display.notificationsEnabled,
+                    isFocused = isFocused(item),
+                    onToggle = { viewModel.setNotificationsEnabled(it) }
+                )
+
+                is InterfaceItem.NotifyDownloadsFinished -> SwitchPreference(
+                    title = stringResource(item.labelRes),
+                    subtitle = stringResource(R.string.settings_interface_notify_downloads_finished_subtitle),
+                    isEnabled = display.notifyDownloadsFinished,
+                    isFocused = isFocused(item),
+                    onToggle = { viewModel.setNotifyDownloadsFinished(it) }
+                )
+
+                is InterfaceItem.NotifyBattery -> SwitchPreference(
+                    title = stringResource(item.labelRes),
+                    subtitle = stringResource(R.string.settings_interface_notify_battery_subtitle),
+                    isEnabled = display.notifyBattery,
+                    isFocused = isFocused(item),
+                    onToggle = { viewModel.setNotifyBattery(it) }
+                )
+
+                is InterfaceItem.NotifyCharging -> SwitchPreference(
+                    title = stringResource(item.labelRes),
+                    subtitle = stringResource(R.string.settings_interface_notify_charging_subtitle),
+                    isEnabled = display.notifyCharging,
+                    isFocused = isFocused(item),
+                    onToggle = { viewModel.setNotifyCharging(it) }
+                )
+
+                is InterfaceItem.NotifyControllers -> SwitchPreference(
+                    title = stringResource(item.labelRes),
+                    subtitle = stringResource(R.string.settings_interface_notify_controllers_subtitle),
+                    isEnabled = display.notifyControllers,
+                    isFocused = isFocused(item),
+                    onToggle = { viewModel.setNotifyControllers(it) }
+                )
+
+                is InterfaceItem.ControllerGrip -> NavigationPreference(
                     icon = Icons.Outlined.Gamepad,
-                    title = stringResource(R.string.settings_interface_controller_grip_title),
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_controller_grip_subtitle),
                     isFocused = isFocused(item),
                     onClick = { openFrom(item) { viewModel.navigateToControllerGrip() } }
                 )
 
-                InterfaceItem.HomeScreen -> NavigationPreference(
+                is InterfaceItem.HomeScreen -> NavigationPreference(
                     icon = Icons.Outlined.Home,
-                    title = stringResource(R.string.settings_interface_home_screen_title),
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_home_screen_subtitle),
                     isFocused = isFocused(item),
                     onClick = { openFrom(item) { viewModel.navigateToHomeScreen() } }
                 )
 
-                InterfaceItem.LibraryView -> NavigationPreference(
+                is InterfaceItem.LibraryView -> NavigationPreference(
                     icon = Icons.Outlined.GridView,
-                    title = stringResource(R.string.settings_interface_library_view_title),
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_library_view_subtitle),
                     isFocused = isFocused(item),
                     onClick = { openFrom(item) { viewModel.navigateToLibraryView() } }
                 )
 
-                InterfaceItem.BoxArt -> NavigationPreference(
+                is InterfaceItem.BoxArt -> NavigationPreference(
                     icon = Icons.Outlined.Image,
-                    title = stringResource(R.string.settings_interface_box_art_title),
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_box_art_subtitle),
                     isFocused = isFocused(item),
                     onClick = { openFrom(item) { viewModel.navigateToBoxArt() } }
                 )
 
-                InterfaceItem.Presentation -> NavigationPreference(
+                is InterfaceItem.Presentation -> NavigationPreference(
                     icon = Icons.Outlined.Slideshow,
-                    title = stringResource(R.string.settings_interface_presentation_title),
+                    title = stringResource(item.labelRes),
                     subtitle = stringResource(R.string.settings_interface_presentation_subtitle),
                     isFocused = isFocused(item),
                     onClick = { openFrom(item) { viewModel.navigateToPresentation() } }

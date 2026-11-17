@@ -24,6 +24,7 @@ import com.nendo.argosy.data.local.dao.SaveCacheDao
 import com.nendo.argosy.data.preferences.FontSlot
 import com.nendo.argosy.data.preferences.GridDensity
 import com.nendo.argosy.data.preferences.HomeBackgroundMode
+import com.nendo.argosy.data.preferences.NewBadgePlacement
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.remote.github.UpdateRepository
 import com.nendo.argosy.data.remote.jellyfin.JellyfinConnectionManager
@@ -31,11 +32,12 @@ import com.nendo.argosy.data.remote.jellyfin.JellyfinSignInCallbacks
 import com.nendo.argosy.data.remote.romm.RomMRepository
 import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.domain.model.CustomGridShape
+import com.nendo.argosy.domain.model.ArgosyPermission
+import com.nendo.argosy.data.permissions.PermissionGrant
 import com.nendo.argosy.data.social.SocialAuthManager
 import com.nendo.argosy.data.social.SocialConnectionState
 import com.nendo.argosy.data.social.SocialRepository
 import com.nendo.argosy.data.social.discord.DiscordPresenceManager
-import com.nendo.argosy.data.update.AppInstaller
 import com.nendo.argosy.domain.usecase.game.ConfigureEmulatorUseCase
 import com.nendo.argosy.domain.usecase.sync.SyncLibraryUseCase
 import com.nendo.argosy.libretro.LibretroCoreManager
@@ -68,7 +70,10 @@ import com.nendo.argosy.ui.screens.settings.delegates.SyncSettingsDelegate
 import com.nendo.argosy.ui.screens.settings.sections.EmulatorsItem
 import com.nendo.argosy.ui.screens.settings.sections.createEmulatorsLayoutInfo
 import com.nendo.argosy.ui.screens.settings.sections.emulatorsItemAtFocusIndex
+import com.nendo.argosy.ui.screens.settings.sections.platformDetailFocusIndexOf
 import com.nendo.argosy.ui.components.TextEntryRow
+import com.nendo.argosy.ui.components.connections.QuickConnectionsController
+import com.nendo.argosy.ui.components.connections.QuickConnectionsInputHandler
 import com.nendo.argosy.core.emulator.LibretroSettingDef
 import com.nendo.argosy.util.LogLevel
 import com.nendo.argosy.util.PlatformFilterLogic
@@ -91,6 +96,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.nendo.argosy.ui.screens.common.ClientCertDelegate
+import com.nendo.argosy.data.remote.ssl.ClientCertTarget
 
 private const val AMBIENT_LIBRARY_WIDE = -1L
 
@@ -122,7 +129,7 @@ class SettingsViewModel @Inject constructor(
     internal val platformSyncQueue: com.nendo.argosy.data.sync.PlatformSyncQueue,
     internal val configureEmulatorUseCase: ConfigureEmulatorUseCase,
     internal val updateRepository: UpdateRepository,
-    internal val appInstaller: AppInstaller,
+    internal val appUpdateManager: com.nendo.argosy.data.update.AppUpdateManager,
     internal val soundManager: SoundFeedbackManager,
     internal val saveCacheDao: SaveCacheDao,
     internal val retroArchConfigParser: RetroArchConfigParser,
@@ -146,9 +153,11 @@ class SettingsViewModel @Inject constructor(
     val steamDelegate: SteamSettingsDelegate,
     val jellyfinDelegate: com.nendo.argosy.ui.screens.settings.delegates.JellyfinSettingsDelegate,
     val raDelegate: RASettingsDelegate,
+    val clientCertDelegate: ClientCertDelegate,
     val permissionsDelegate: PermissionsSettingsDelegate,
     val biosDelegate: BiosSettingsDelegate,
     val driversDelegate: com.nendo.argosy.ui.screens.settings.delegates.DriversSettingsDelegate,
+    val aboutTools: com.nendo.argosy.ui.screens.settings.delegates.AboutToolsDelegate,
     internal val modalResetSignal: ModalResetSignal,
     internal val gradientColorExtractor: GradientColorExtractor,
     internal val coreManager: LibretroCoreManager,
@@ -167,7 +176,9 @@ class SettingsViewModel @Inject constructor(
     private val biosRepository: com.nendo.argosy.data.repository.BiosRepository,
     private val savePathValidator: com.nendo.argosy.data.emulator.SavePathValidator,
     internal val jellyfinConnectionManager: JellyfinConnectionManager,
-    private val downloadFileStatusRepository: com.nendo.argosy.data.repository.DownloadFileStatusRepository
+    internal val streamingConfigStore: com.nendo.argosy.data.streaming.StreamingConfigStore,
+    private val downloadFileStatusRepository: com.nendo.argosy.data.repository.DownloadFileStatusRepository,
+    radioController: com.nendo.argosy.hardware.RadioController
 ) : ViewModel() {
 
     private var jellyfinSignInJob: Job? = null
@@ -203,26 +214,35 @@ class SettingsViewModel @Inject constructor(
         scope = viewModelScope
     )
 
+    val buttonCheck = com.nendo.argosy.ui.screens.setup.components.ButtonCheckController(
+        preferences = preferencesRepository,
+        scope = viewModelScope,
+        showsBack = false
+    )
+
+    val networkConnections = QuickConnectionsController(
+        radioController = radioController,
+        scope = viewModelScope
+    )
+
+    val networkConnectionsInput = QuickConnectionsInputHandler(networkConnections) {
+        _uiState.value.controls.menuWrapMode
+    }
+
     internal val _openUrlEvent = MutableSharedFlow<String>()
     val openUrlEvent: SharedFlow<String> = _openUrlEvent.asSharedFlow()
-
-    internal val _downloadUpdateEvent = MutableSharedFlow<Unit>()
-    val downloadUpdateEvent: SharedFlow<Unit> = _downloadUpdateEvent.asSharedFlow()
 
     internal val _requestStoragePermissionEvent = MutableSharedFlow<Unit>()
     val requestStoragePermissionEvent: SharedFlow<Unit> = _requestStoragePermissionEvent.asSharedFlow()
 
-    internal val _requestNotificationPermissionEvent = MutableSharedFlow<Unit>()
-    val requestNotificationPermissionEvent: SharedFlow<Unit> = _requestNotificationPermissionEvent.asSharedFlow()
+    internal val _grantPermissionEvent = MutableSharedFlow<ArgosyPermission>()
+    val grantPermissionEvent: SharedFlow<ArgosyPermission> = _grantPermissionEvent.asSharedFlow()
 
     internal val _requestBlePermissionEvent = MutableSharedFlow<Unit>()
     val requestBlePermissionEvent: SharedFlow<Unit> = _requestBlePermissionEvent.asSharedFlow()
 
     internal val _requestScreenCapturePermissionEvent = MutableSharedFlow<Unit>()
     val requestScreenCapturePermissionEvent: SharedFlow<Unit> = _requestScreenCapturePermissionEvent.asSharedFlow()
-
-    internal val _requestMediaPermissionEvent = MutableSharedFlow<Unit>()
-    val requestMediaPermissionEvent: SharedFlow<Unit> = _requestMediaPermissionEvent.asSharedFlow()
 
     internal val _navigationEvents = MutableSharedFlow<NavigationEvent>(extraBufferCapacity = 4)
     val navigationEvents: SharedFlow<NavigationEvent> = _navigationEvents.asSharedFlow()
@@ -292,6 +312,7 @@ class SettingsViewModel @Inject constructor(
     val openDeviceSettingsEvent: SharedFlow<Unit> = _openDeviceSettingsEvent.asSharedFlow()
 
     init {
+        aboutTools.bind(viewModelScope)
         routeObserveDelegateStates(this)
         routeObserveDelegateEvents(this)
         routeObserveModalResetSignal(this)
@@ -301,13 +322,16 @@ class SettingsViewModel @Inject constructor(
         observeAvatarPreferences()
         routeObservePlatformLibretroSettings(this)
         routeObservePlatforms(this)
+        syncDelegate.observeSaveSync(viewModelScope)
         routeObserveControllerOrder(this)
+        routeObserveAppUpdate(this)
         loadSettings()
         driversDelegate.loadGpuInfo()
         raDelegate.initialize(viewModelScope)
         displayDelegate.loadPreviewGame(viewModelScope)
         displayDelegate.observeScreenCapturePermission(viewModelScope)
         permissionsDelegate.observeLockScreenArt(viewModelScope)
+        permissionsDelegate.observePrivilegedAccess(viewModelScope)
         routeStartControllerDetectionPolling(this)
         installerDelegate.observeJobs(viewModelScope)
         viewModelScope.launch {
@@ -425,12 +449,21 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun navigateToPlatformDetail(platformIndex: Int) {
+    fun navigateToPlatformDetail(platformIndex: Int, focusRowKey: String? = null) {
         _uiState.update {
             it.copy(platformDetail = it.platformDetail.copy(platformIndex = platformIndex))
         }
         routePushSection(this, SettingsSection.PLATFORM_DETAIL)
-        loadPlatformDetailStats(platformIndex)
+        val stats = loadPlatformDetailStats(platformIndex) ?: return
+        if (focusRowKey == null) return
+        viewModelScope.launch {
+            stats.join()
+            val state = _uiState.value
+            if (state.currentSection != SettingsSection.PLATFORM_DETAIL) return@launch
+            if (state.platformDetail.platformIndex != platformIndex) return@launch
+            val index = platformDetailFocusIndexOf(focusRowKey, state)
+            if (index >= 0) setFocusIndex(index)
+        }
     }
 
     fun cyclePlatformDetail(direction: Int) {
@@ -446,9 +479,9 @@ class SettingsViewModel @Inject constructor(
         loadPlatformDetailStats(newIndex)
     }
 
-    internal fun loadPlatformDetailStats(platformIndex: Int) {
-        val config = _uiState.value.emulators.platforms.getOrNull(platformIndex) ?: return
-        viewModelScope.launch {
+    internal fun loadPlatformDetailStats(platformIndex: Int): Job? {
+        val config = _uiState.value.emulators.platforms.getOrNull(platformIndex) ?: return null
+        return viewModelScope.launch {
             val platformId = config.platform.id
             val platformSlug = config.platform.slug
             val downloaded = gameRepository.countDownloadedByPlatform(platformId)
@@ -745,6 +778,7 @@ class SettingsViewModel @Inject constructor(
     fun setBuiltinGyroAimInvertY(enabled: Boolean) = routeSetBuiltinGyroAimInvertY(this, enabled)
     fun stepBuiltinGyroAimSensitivity(direction: Int) = routeStepBuiltinGyroAimSensitivity(this, direction)
     fun setBuiltinLimitHotkeysToPlayer1(enabled: Boolean) = routeSetBuiltinLimitHotkeysToPlayer1(this, enabled)
+    fun setBuiltinConfirmReturnHome(enabled: Boolean) = routeSetBuiltinConfirmReturnHome(this, enabled)
     fun setSpeedrunStartOnReset(enabled: Boolean) = routeSetSpeedrunStartOnReset(this, enabled)
     fun setSpeedrunPanelSide(side: String) = routeSetSpeedrunPanelSide(this, side)
     fun adjustSpeedrunPanelWidth(delta: Int) = routeAdjustSpeedrunPanelWidth(this, delta)
@@ -1032,6 +1066,11 @@ class SettingsViewModel @Inject constructor(
     fun cycleStreamClient(delta: Int) = streamingDelegate.cycleClient(viewModelScope, delta)
     fun setStreamClient(packageName: String) = streamingDelegate.setClient(viewModelScope, packageName)
     fun toggleStreamPlatform(slug: String) = streamingDelegate.togglePlatform(viewModelScope, slug)
+    fun openSettingsSearch() = routeOpenSettingsSearch(this)
+    fun updateSettingsSearchQuery(query: String) = routeUpdateSettingsSearchQuery(this, query)
+    fun closeSettingsSearchKeyboard() = routeCloseSettingsSearchKeyboard(this)
+    fun clearSettingsSearch() = routeClearSettingsSearch(this)
+    fun openSettingsSearchResult(index: Int) = routeOpenSettingsSearchResult(this, index)
 
     fun setFocusIndex(index: Int) { _uiState.update { it.copy(focusedIndex = index) } }
 
@@ -1200,12 +1239,16 @@ class SettingsViewModel @Inject constructor(
     fun setHideSystemNavigationBar(hide: Boolean) =
         displayDelegate.setHideSystemNavigationBar(viewModelScope, hide)
     fun setHideSystemStatusBar(hide: Boolean) = displayDelegate.setHideSystemStatusBar(viewModelScope, hide)
+    fun setScreenOrientation(mode: com.nendo.argosy.data.preferences.ScreenOrientationMode) =
+        displayDelegate.setScreenOrientation(viewModelScope, mode)
+    fun cycleScreenOrientation(direction: Int = 1) =
+        displayDelegate.cycleScreenOrientation(viewModelScope, direction)
     fun setQuickPanelInEmulators(enabled: Boolean) {
         permissionsDelegate.refreshPermissions()
         displayDelegate.setQuickPanelInEmulators(
             viewModelScope,
             enabled,
-            permissionsDelegate.state.value.hasAccessibilityService
+            permissionsDelegate.isAccessibilityEnabled()
         )
     }
     fun dismissAccessibilityPrompt() = displayDelegate.dismissAccessibilityPrompt()
@@ -1216,6 +1259,16 @@ class SettingsViewModel @Inject constructor(
     fun setLockScreenArt(enabled: Boolean) = displayDelegate.setLockScreenArt(viewModelScope, enabled)
     fun setPreLaunchRecaps(enabled: Boolean) = displayDelegate.setPreLaunchRecaps(viewModelScope, enabled)
     fun setMonthlyRecap(enabled: Boolean) = displayDelegate.setMonthlyRecap(viewModelScope, enabled)
+    fun setNotificationsEnabled(enabled: Boolean) =
+        displayDelegate.setNotificationsEnabled(viewModelScope, enabled)
+    fun setNotifyDownloadsFinished(enabled: Boolean) =
+        displayDelegate.setNotifyDownloadsFinished(viewModelScope, enabled)
+    fun setNotifyBattery(enabled: Boolean) =
+        displayDelegate.setNotifyBattery(viewModelScope, enabled)
+    fun setNotifyCharging(enabled: Boolean) =
+        displayDelegate.setNotifyCharging(viewModelScope, enabled)
+    fun setNotifyControllers(enabled: Boolean) =
+        displayDelegate.setNotifyControllers(viewModelScope, enabled)
     fun setHomeAppAvailable(available: Boolean) =
         displayDelegate.setHomeAppAvailable(viewModelScope, available)
     fun refreshDefaultHome() = displayDelegate.refreshDefaultHome(viewModelScope)
@@ -1346,6 +1399,26 @@ class SettingsViewModel @Inject constructor(
             ?.firstOrNull { it.platformId == platformId }?.name ?: ""
         routePushSection(this, SettingsSection.STORAGE_PLATFORM_GAMES)
         storagePlatformGamesDelegate.open(platformId, name, viewModelScope)
+    }
+
+    fun openStorageLocalOnlyGames() {
+        routePushSection(this, SettingsSection.STORAGE_PLATFORM_GAMES)
+        storagePlatformGamesDelegate.openLocalOnly(viewModelScope)
+    }
+
+    fun setStorageLocationFilter(filter: StorageLocationFilter) {
+        storagePlatformGamesDelegate.setLocationFilter(filter)
+        setFocusIndex(0)
+    }
+
+    fun cycleStorageLocationFilter(delta: Int) {
+        storagePlatformGamesDelegate.cycleLocationFilter(delta)
+        setFocusIndex(0)
+    }
+
+    fun cycleStoragePlatformGamesSort() {
+        storagePlatformGamesDelegate.cycleSort()
+        setFocusIndex(0)
     }
 
     fun resetStoragePlatformHighlightedCategory() =
@@ -1487,6 +1560,7 @@ class SettingsViewModel @Inject constructor(
     fun setAmbientLedAchievementFlash(enabled: Boolean) = displayDelegate.setAmbientLedAchievementFlash(viewModelScope, enabled)
     fun setInstalledOnlyHome(enabled: Boolean) = displayDelegate.setInstalledOnlyHome(viewModelScope, enabled)
     fun cycleRecentNewGamesLimit(direction: Int = 1) = displayDelegate.cycleRecentNewGamesLimit(viewModelScope, direction)
+    fun setNewBadgePlacement(placement: NewBadgePlacement) = displayDelegate.setNewBadgePlacement(viewModelScope, placement)
 
     fun setShowStatusClock(show: Boolean) = displayDelegate.setShowStatusClock(viewModelScope, show)
 
@@ -1517,6 +1591,7 @@ class SettingsViewModel @Inject constructor(
     fun setSoundEnabled(enabled: Boolean) = soundsDelegate.setSoundEnabled(viewModelScope, enabled)
 
     fun setBetaUpdatesEnabled(enabled: Boolean) = routeSetBetaUpdatesEnabled(this, enabled)
+    fun setDebugUpdateChecksEnabled(enabled: Boolean) = routeSetDebugUpdateChecksEnabled(this, enabled)
     fun setAppLanguage(tag: String) = routeSetAppLanguage(this, tag)
     fun cycleAppLanguage(direction: Int = 1) = routeCycleAppLanguage(this, direction)
 
@@ -1602,6 +1677,13 @@ class SettingsViewModel @Inject constructor(
     fun setSelectSwapMode(mode: com.nendo.argosy.data.preferences.SelectSwapMode) = controlsDelegate.setSelectSwapMode(viewModelScope, mode)
     fun startShortcutCapture(shortcut: com.nendo.argosy.ui.input.UiShortcut) = controlsDelegate.startShortcutCapture(shortcut)
     fun cancelShortcutCapture() = controlsDelegate.cancelShortcutCapture()
+    fun openButtonCheck() {
+        buttonCheck.reset()
+        controlsDelegate.setButtonCheckOpen(true)
+    }
+
+    fun closeButtonCheck() = controlsDelegate.setButtonCheckOpen(false)
+
     fun showNavRingModal() = controlsDelegate.showNavRingModal()
     fun backNavRing() = controlsDelegate.backNavRing()
     fun focusNavRing(index: Int) = controlsDelegate.focusNavRing(index)
@@ -1617,6 +1699,17 @@ class SettingsViewModel @Inject constructor(
         controlsDelegate.assignShortcutKey(viewModelScope, shortcut, keyCode)
     fun clearShortcutKey(shortcut: com.nendo.argosy.ui.input.UiShortcut) =
         controlsDelegate.clearShortcutKey(viewModelScope, shortcut)
+    fun setSystemHotkeysEnabled(enabled: Boolean) =
+        controlsDelegate.setSystemHotkeysEnabled(viewModelScope, enabled)
+    fun setHomeButtonInGames(enabled: Boolean) =
+        controlsDelegate.setHomeButtonInGames(viewModelScope, enabled)
+    fun startSystemComboCapture(action: com.nendo.argosy.hardware.SystemHotkeyAction) =
+        controlsDelegate.startSystemComboCapture(action)
+    fun cancelSystemComboCapture() = controlsDelegate.cancelSystemComboCapture()
+    fun assignSystemCombo(action: com.nendo.argosy.hardware.SystemHotkeyAction, keyCodes: List<Int>) =
+        controlsDelegate.assignSystemCombo(viewModelScope, action, keyCodes)
+    fun resetSystemCombo(action: com.nendo.argosy.hardware.SystemHotkeyAction) =
+        controlsDelegate.resetSystemCombo(viewModelScope, action)
     fun refreshUsageStatsPermission() = controlsDelegate.refreshUsageStatsPermission()
     fun openUsageStatsSettings() = controlsDelegate.openUsageStatsSettings()
     fun openManagedInstallers() = installerDelegate.openScreen(viewModelScope)
@@ -1640,12 +1733,23 @@ class SettingsViewModel @Inject constructor(
         installerDelegate.selectVariantAt(viewModelScope, index)
     fun openInstallerImeSettings() = installerDelegate.openImeSettings()
     fun showInstallerImePicker() = installerDelegate.showImePicker()
-    fun openNotificationSettings() = permissionsDelegate.openNotificationSettings()
-    fun openWriteSettings() = permissionsDelegate.openWriteSettings()
-    fun openDisplayOverlaySettings() = permissionsDelegate.openDisplayOverlaySettings()
     fun openAccessibilitySettings() = permissionsDelegate.openAccessibilitySettings()
 
-    fun openLiveWallpaperPicker() = permissionsDelegate.openLiveWallpaperPicker()
+    fun actOnPermission(permission: ArgosyPermission) = permissionsDelegate.act(permission)
+
+    fun dismissPermissionSyncWarning() = permissionsDelegate.dismissSaveSyncWarning()
+
+    fun confirmPermissionSyncWarning() {
+        val permission = permissionsDelegate.takeSaveSyncWarning() ?: return
+        syncDelegate.turnSaveSyncOff(viewModelScope)
+        permissionsDelegate.grant(permission)
+    }
+
+    fun permissionGrantFor(permission: ArgosyPermission): PermissionGrant = permissionsDelegate.grantFor(permission)
+
+    fun grantPermissionOnRoot(permission: ArgosyPermission) = permissionsDelegate.grantOnRoot(permission)
+
+    fun enablePrivilegedAccess() = permissionsDelegate.enablePrivilegedAccess()
 
     fun requestScreenCapturePermission() = routeRequestScreenCapturePermission(this)
     fun refreshPermissions() = permissionsDelegate.refreshPermissions()
@@ -1702,6 +1806,8 @@ class SettingsViewModel @Inject constructor(
 
     fun toggleSyncScreenshots() = routeToggleSyncScreenshots(this)
     fun toggleUploadScreenshots() = routeToggleUploadScreenshots(this)
+    fun setNotOnDeviceAction(action: com.nendo.argosy.data.preferences.NotOnDeviceAction) =
+        routeSetNotOnDeviceAction(this, action)
     fun toggleBoxArtCache() = routeToggleBoxArtCache(this)
     fun setDownloadCategoryDefault(categoryKey: String, include: Boolean) =
         syncDelegate.setDownloadCategoryDefault(viewModelScope, categoryKey, include)
@@ -1786,8 +1892,6 @@ class SettingsViewModel @Inject constructor(
 
     fun onStoragePermissionResult(granted: Boolean) = routeOnStoragePermissionResult(this, granted)
 
-    fun onNotificationPermissionResult(granted: Boolean) = syncDelegate.onNotificationPermissionResult(viewModelScope, granted)
-    fun onMediaPermissionResult(granted: Boolean) = routeOnMediaPermissionResult(this, granted)
     fun runSaveSyncNow() = syncDelegate.runSaveSyncNow(viewModelScope)
 
     fun requestResetSaveCache() = syncDelegate.requestResetSaveCache(viewModelScope)
@@ -1932,7 +2036,7 @@ class SettingsViewModel @Inject constructor(
      */
     private fun offerCombineRestore(platformId: Long) {
         viewModelScope.launch {
-            val platformDir = gameRepository.getDownloadDirForPlatformId(platformId)
+            val platformDir = gameRepository.getDownloadDirForPlatformId(platformId) ?: return@launch
             val holding = extContentOrganizer.gamesHoldingCombinedLayout(platformId, platformDir)
             if (holding.isEmpty()) return@launch
             _uiState.update {
@@ -1948,7 +2052,7 @@ class SettingsViewModel @Inject constructor(
     fun confirmCombineRestore(platformId: Long) {
         _uiState.update { it.copy(platformDetail = it.platformDetail.copy(combineRestoreCount = 0)) }
         viewModelScope.launch {
-            val platformDir = gameRepository.getDownloadDirForPlatformId(platformId)
+            val platformDir = gameRepository.getDownloadDirForPlatformId(platformId) ?: return@launch
             val holding = extContentOrganizer.gamesHoldingCombinedLayout(platformId, platformDir)
             val restored = holding.count { extContentOrganizer.restoreFromCombinedLayout(it, platformDir) > 0 }
             notificationManager.show(
@@ -2054,7 +2158,12 @@ class SettingsViewModel @Inject constructor(
     fun syncRomm() = routeSyncRomm(this)
 
     fun checkForUpdates() = routeCheckForUpdates(this)
-    fun downloadAndInstallUpdate(context: android.content.Context) = routeDownloadAndInstallUpdate(this, context)
+
+    fun runSetupAgain() {
+        aboutTools.prepareSetupRerun()
+        _navigationEvents.tryEmit(NavigationEvent(com.nendo.argosy.ui.navigation.Screen.FirstRun.route))
+    }
+    fun runUpdateAction(action: AboutUpdateAction) = routeUpdateAction(this, action)
     fun moveUpdateActionFocus(delta: Int) = routeMoveUpdateActionFocus(this, delta)
     fun openChangelog() = routeOpenChangelog(this)
     fun closeChangelog() = routeCloseChangelog(this)
@@ -2137,9 +2246,24 @@ class SettingsViewModel @Inject constructor(
 
     fun importCertificate(path: String) = serverDelegate.importCertificate(viewModelScope, path)
 
-    fun showRommScanner() = serverDelegate.showScanner()
-    fun dismissRommScanner() = serverDelegate.dismissScanner()
-    fun handleRommScanResult(origin: String, code: String) = serverDelegate.handleScanResult(origin, code, viewModelScope) { loadSettings() }
+    val openClientCertPickerEvent: SharedFlow<Unit> = clientCertDelegate.openFilePickerEvent
+    fun openClientCertManager(target: ClientCertTarget) =
+        clientCertDelegate.openManager(target)
+    fun closeClientCertManager() = clientCertDelegate.closeManager()
+    fun moveClientCertManagerFocus(delta: Int) = clientCertDelegate.moveManagerFocus(delta)
+    fun selectClientCertAction(index: Int? = null) = clientCertDelegate.selectManagerAction(viewModelScope, index)
+    fun onClientCertFilePicked(path: String) = clientCertDelegate.onFilePicked(path)
+    fun setClientCertPassword(draft: String) = clientCertDelegate.setPasswordDraft(draft)
+    fun moveClientCertPasswordRow(row: TextEntryRow) = clientCertDelegate.movePasswordRow(row)
+    fun moveClientCertPasswordButton(delta: Int) = clientCertDelegate.movePasswordButton(delta)
+    fun confirmClientCertPassword() = clientCertDelegate.confirmPasswordEntry(viewModelScope)
+    fun submitClientCertPassword() = clientCertDelegate.submitPassword(viewModelScope)
+    fun closeClientCertPassword() = clientCertDelegate.closePasswordEntry()
+    fun setFocusedClientCertToggle(enabled: Boolean) =
+        clientCertDelegate.setFocusedToggle(viewModelScope, enabled)
+    fun confirmClientCertRemoval() = clientCertDelegate.confirmRemoval(viewModelScope)
+    fun cancelClientCertRemoval() = clientCertDelegate.cancelRemoval()
+
     fun clearRommFocusField() = serverDelegate.clearRommFocusField()
 
     fun requestRommSignOut() =

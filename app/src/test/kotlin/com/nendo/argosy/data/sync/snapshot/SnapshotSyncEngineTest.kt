@@ -494,7 +494,6 @@ class SnapshotSyncEngineTest {
         coEvery { api.listChannels(listOf(FILE_ID)) } returns channelsOf(listOf(snapshot(41, "remote")))
         assertTrue(engine.sync(GAME_ID, EMULATOR, null) is SnapshotSyncResult.Failed)
         coVerify(exactly = 0) { api.pushSnapshot(any(), any()) }
-        coVerify(exactly = 0) { api.reportSnapshotHeld(any(), any()) }
         coVerify(exactly = 0) { channelDao.upsert(any()) }
     }
 
@@ -524,12 +523,13 @@ class SnapshotSyncEngineTest {
             save = RomMSnapshotSave(410, contentHash = "disk-hash", identityHash = "single-entry-hash", format = "native")
         )
         coEvery { api.listChannels(listOf(FILE_ID)) } returns channelsOf(listOf(current))
-        coEvery { api.reportSnapshotHeld(41, DEVICE) } returns Response.success(Unit)
+        coEvery { api.getSnapshot(41, DEVICE, true) } returns Response.success(current)
 
         val result = engine.sync(GAME_ID, EMULATOR, null)
 
         assertTrue("adopted, not a conflict: $result", result !is SnapshotSyncResult.Conflict)
         assertEquals("disk-hash", stored.captured.heldSaveIdentityHash)
+        coVerify(exactly = 1) { api.getSnapshot(41, DEVICE, true) }
     }
 
     @Test
@@ -577,8 +577,7 @@ class SnapshotSyncEngineTest {
 
         assertEquals(SnapshotSyncResult.Applied(42), engine.sync(GAME_ID, EMULATOR, null))
         assertEquals(42L, stored.captured.heldSnapshotId)
-        coVerify { api.getSnapshot(42, DEVICE, true) }
-        coVerify(exactly = 0) { api.reportSnapshotHeld(any(), any()) }
+        coVerify(exactly = 1) { api.getSnapshot(42, DEVICE, true) }
     }
 
     @Test
@@ -662,8 +661,7 @@ class SnapshotSyncEngineTest {
         coEvery {
             downloader.downloadSave(GAME_ID, EMULATOR, null, false, 420L, true)
         } returns com.nendo.argosy.data.repository.SaveSyncResult.Success()
-        coEvery { api.reportSnapshotHeld(42, DEVICE) } returns Response.success(Unit)
-        val older = mockk<SaveCacheEntity>(relaxed = true) { every { id } returns 326L; every { rommSaveId } returns null }
+        val older =mockk<SaveCacheEntity>(relaxed = true) { every { id } returns 326L; every { rommSaveId } returns null }
         val placed = mockk<SaveCacheEntity>(relaxed = true) { every { id } returns 328L; every { rommSaveId } returns 420L }
         coEvery { saveCacheDao.getByGameAndOwner(GAME_ID, 3L) } returns listOf(older, placed)
 
@@ -701,7 +699,6 @@ class SnapshotSyncEngineTest {
         coEvery {
             downloader.downloadSave(GAME_ID, EMULATOR, null, false, 420L, true)
         } returns com.nendo.argosy.data.repository.SaveSyncResult.Success()
-        coEvery { api.reportSnapshotHeld(42, DEVICE) } returns Response.success(Unit)
         coEvery { api.downloadRaw("api/states/7/content") } returns Response.success(byteArrayOf(5, 5, 5).toResponseBody())
         coEvery { api.downloadRaw("api/screenshots/9/content") } returns Response.success(byteArrayOf(8).toResponseBody())
 
@@ -744,7 +741,6 @@ class SnapshotSyncEngineTest {
         coEvery {
             downloader.downloadSave(GAME_ID, EMULATOR, null, false, 420L, true)
         } returns com.nendo.argosy.data.repository.SaveSyncResult.Success()
-        coEvery { api.reportSnapshotHeld(42, DEVICE) } returns Response.success(Unit)
         coEvery { api.downloadRaw("api/screenshots/9/content") } returns Response.success(byteArrayOf(8).toResponseBody())
         return live
     }

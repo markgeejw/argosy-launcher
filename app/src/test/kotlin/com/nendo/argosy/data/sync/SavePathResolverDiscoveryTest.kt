@@ -54,6 +54,7 @@ class SavePathResolverDiscoveryTest {
     private val gciSaveHandler = mockk<GciSaveHandler>(relaxed = true)
     private val saveHandlerRegistry = mockk<PlatformSaveHandlerRegistry>(relaxed = true)
     private val saveUnitResolver = mockk<SaveUnitResolver>(relaxed = true)
+    private val duckStationCardFinder = mockk<DuckStationCardFinder>(relaxed = true)
     private val builtinPreferences =
         mockk<com.nendo.argosy.data.preferences.BuiltinEmulatorPreferencesRepository>(relaxed = true)
     private val platformLibretroSettingsDao =
@@ -100,6 +101,7 @@ class SavePathResolverDiscoveryTest {
             libretroSavePaths,
             saveUnitResolver,
             com.nendo.argosy.data.emulator.BuiltinSaveBase(libretroSavePaths, saveConfigRepository, emulatorConfigDao),
+            duckStationCardFinder,
         )
     }
 
@@ -129,7 +131,7 @@ class SavePathResolverDiscoveryTest {
         val registry = PlatformSaveHandlerRegistry(
             context, fal, SaveArchiver(mockk(relaxed = true), fal), switchSaveHandler,
             gciSaveHandler, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
-            mockk(relaxed = true), mockk(relaxed = true)
+            mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true)
         )
         val handler = registry.getFolderHandler("3ds")!!
         every { saveHandlerRegistry.getFolderHandler("3ds") } returns handler
@@ -161,6 +163,44 @@ class SavePathResolverDiscoveryTest {
         )
 
         assertEquals(expected, path)
+    }
+
+    private val duckStation = "com.github.stenzek.duckstation"
+
+    private fun duckStationCards(): File = File(tempDir, "Android/data/$duckStation/files/memcards").apply { mkdirs() }
+
+    private fun psxRom(name: String): File =
+        File(tempDir, "roms/$name.chd").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(0)) }
+
+    private suspend fun discoverWithRoot(gameTitle: String, gameId: Long): String? {
+        io.mockk.mockkObject(com.nendo.argosy.util.RootShell)
+        try {
+            every { com.nendo.argosy.util.RootShell.isAvailable } returns true
+            return resolver.discoverSavePath(
+                emulatorId = "duckstation", gameTitle = gameTitle, platformSlug = "psx",
+                romPath = psxRom(gameTitle).absolutePath, gameId = gameId, emulatorPackage = duckStation
+            )
+        } finally {
+            io.mockk.unmockkObject(com.nendo.argosy.util.RootShell)
+        }
+    }
+
+    @Test
+    fun `a DuckStation card named after the database title is found by the serial its saves carry`() = runTest {
+        stubBuiltinSettings()
+        val card = File(duckStationCards(), "Crash Team Racing (USA)_1.mcd").apply { writeBytes(ByteArray(16)) }
+        coEvery { duckStationCardFinder.ownedCard(9L, any()) } returns card.absolutePath
+
+        assertEquals(card.absolutePath, discoverWithRoot("CTR - Crash Team Racing", 9L))
+    }
+
+    @Test
+    fun `a DuckStation game never takes another game's card by a title substring`() = runTest {
+        stubBuiltinSettings()
+        File(duckStationCards(), "Digimon World 2 (USA)_1.mcd").writeBytes(ByteArray(16))
+        coEvery { duckStationCardFinder.ownedCard(any(), any()) } returns null
+
+        assertEquals(null, discoverWithRoot("Digimon World", 10L))
     }
 
     @Test
@@ -986,6 +1026,54 @@ class SavePathResolverDiscoveryTest {
 
         coVerify(exactly = 0) { titleIdExtractor.extractTitleIdWithSource(any(), any(), any()) }
         coVerify(exactly = 0) { gameDao.setSaveId(any(), any()) }
+    }
+
+    private val wiiSaveId = "00010000/534f4d45"
+    private val retroArch64 = "com.retroarch.aarch64"
+
+    private fun retroArchWiiTitles(): File {
+        val sortedSaves = File(tempDir, "Cocoon/Emulation/saves/retroarch/saves/wii").apply { mkdirs() }
+        coEvery {
+            retroArchPathResolver.resolveSaveDirectoriesForPlatform(
+                match { it.emulatorId == "retroarch_64" }, "wii"
+            )
+        } returns listOf(sortedSaves.absolutePath)
+        every { saveHandlerRegistry.getFolderHandler("wii") } returns
+            com.nendo.argosy.data.sync.platform.CategorySplitFolderHandler(
+                context, realFsFal(), saveArchiver, platformSlug = "wii",
+                categoryDir = Regex("0001[0-9a-fA-F]{4}"),
+                categoryParents = listOf("", "title", "Wii/title", "User/Wii/title", "dolphin-emu/User/Wii/title")
+            )
+        return File(sortedSaves, "User/Wii/title/00010000").apply { mkdirs() }
+    }
+
+    @Test
+    fun `a RetroArch Wii save is found under the save directory retroarch cfg sorts it into`() = runTest {
+        stubBuiltinSettings()
+        val titleFolder = File(retroArchWiiTitles(), "534f4d45").apply { mkdirs() }
+        File(titleFolder, "data.bin").writeBytes(byteArrayOf(1))
+
+        val result = resolver.discoverSavePath(
+            emulatorId = "retroarch_64", gameTitle = "Rhythm Heaven Fever", platformSlug = "wii",
+            romPath = "/roms/wii/Rhythm Heaven Fever (USA).rvz", cachedSaveId = wiiSaveId,
+            emulatorPackage = retroArch64, gameId = 1L,
+        )
+
+        assertEquals(titleFolder.absolutePath, result)
+    }
+
+    @Test
+    fun `a RetroArch Wii download lands under the save directory retroarch cfg sorts it into`() = runTest {
+        stubBuiltinSettings()
+        val titles = retroArchWiiTitles()
+
+        val target = resolver.constructFolderSavePathWithOverride(
+            emulatorId = "retroarch_64", platformSlug = "wii",
+            romPath = "/roms/wii/Rhythm Heaven Fever (USA).rvz", gameId = 1L,
+            gameTitle = "Rhythm Heaven Fever", cachedSaveId = wiiSaveId, emulatorPackage = retroArch64,
+        )
+
+        assertEquals(File(titles, "534f4d45").absolutePath, target)
     }
 
     private fun rommGame(): GameEntity = GameEntity(

@@ -79,6 +79,7 @@
     <string name="home_quick_actions_play_on_screen">स्क्रीन %1$d पर खेलें</string>
     <string name="home_quick_actions_download">डाउनलोड</string>
     <string name="home_quick_actions_resume_download">फिर से शुरू करें</string>
+    <string name="home_quick_actions_resume_game">फिर से खेलें</string>
     <string name="home_quick_actions_favorite">पसंदीदा</string>
     <string name="home_quick_actions_unfavorite">पसंदीदा हटाएं</string>
     <string name="home_quick_actions_details">विवरण</string>
@@ -90,6 +91,8 @@
     <string name="home_quick_actions_remove_from_home">होम से हटाएं</string>
     <string name="home_quick_actions_remove_from_library">लाइब्रेरी से हटाएं</string>
     <string name="home_quick_actions_hide">छिपाएं</string>
+    <string name="home_quick_actions_move_to_display">डिस्प्ले %1$d पर ले जाएँ</string>
+    <string name="home_quick_actions_close_game">गेम बंद करें</string>
 
     <string name="home_media_empty_next_up_title">आगे कुछ नहीं</string>
     <string name="home_media_empty_next_up_message">एक एपिसोड पूरा करें और अगला यहां दिखेगा।</string>
@@ -185,4 +188,24 @@
 
     <string name="home_grid_tile_ra_points_label">अंक</string>
     <string name="home_grid_tile_ra_unlocks_label">उपलब्धियाँ</string>
+    <string name="home_footer_game_resume_game">फिर से खेलें</string>
+    <string name="home_title_running">चल रहा है</string>
+    <string name="home_title_running_in">%1$s में चल रहा है</string>
+    <string name="home_title_saving">सेव हो रहा है</string>
+    <string name="home_title_running_with_time">%1$s से चल रहा है</string>
+    <string name="home_grid_picker_folder_title">फ़ोल्डर</string>
+    <string name="home_grid_picker_folder_subtitle">किसी भी तरह की टाइलों को एक टाइल में रखें</string>
+    <string name="home_grid_picker_auto_folder_title">ऑटो फ़ोल्डर</string>
+    <string name="home_grid_picker_auto_folder_subtitle">नियम से मेल खाने वाले गेम अपने आप भरता है</string>
+    <string name="home_grid_picker_image_title">इमेज</string>
+    <string name="home_grid_picker_image_subtitle">एक चित्र जो अपने सेल भर देता है</string>
+    <string name="home_grid_picker_sticker_title">स्टिकर</string>
+    <string name="home_grid_picker_sticker_subtitle">कटा हुआ चित्र, चाहें तो आउटलाइन के साथ</string>
+    <string name="home_grid_tile_image_label">इमेज</string>
+    <string name="home_grid_tile_sticker_label">स्टिकर</string>
+    <plurals name="home_grid_tile_folder_count">
+        <item quantity="one">%d आइटम</item>
+        <item quantity="other">%d आइटम</item>
+    </plurals>
+    <string name="home_tile_file_browser_decor_title">चित्र चुनें</string>
 </resources>

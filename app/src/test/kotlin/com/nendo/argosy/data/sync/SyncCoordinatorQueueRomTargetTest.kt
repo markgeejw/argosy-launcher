@@ -110,6 +110,18 @@ class SyncCoordinatorQueueRomTargetTest {
     }
 
     @Test
+    fun `a state row whose state was detached from the game is not uploaded`() = runTest {
+        coEvery { stateManager.getStateById(STATE_ID) } returns state.copy(gameId = -GAME_ID)
+        queue(SyncPriority.SAVE_STATE, stateRow(rommId = CURRENT_ROM))
+
+        coordinator().processQueue()
+
+        coVerify(exactly = 0) { stateManager.uploadStateToRomM(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { stateManager.deleteState(any()) }
+        coVerify { pendingSyncQueueDao.deleteById(ROW_ID) }
+    }
+
+    @Test
     fun `a state row whose game has no rom any more is not uploaded`() = runTest {
         coEvery { gameDao.getById(GAME_ID) } returns game.copy(rommId = null)
         queue(SyncPriority.SAVE_STATE, stateRow(rommId = CURRENT_ROM))
@@ -224,7 +236,6 @@ class SyncCoordinatorQueueRomTargetTest {
     )
 
     private fun coordinator() = SyncCoordinator(
-        context = mockk(relaxed = true) { every { filesDir } returns File(System.getProperty("java.io.tmpdir")) },
         pendingSyncQueueDao = pendingSyncQueueDao,
         saveCacheDao = saveCacheDao,
         saveSyncDao = mockk(relaxed = true),
@@ -245,7 +256,14 @@ class SyncCoordinatorQueueRomTargetTest {
         pendingConflictDao = mockk(relaxed = true),
         reconcileEffectApplier = mockk(relaxed = true),
         saveRecoveryGate = mockk(relaxed = true),
-        screenshotUploader = screenshotUploader,
+        screenshotUploads = ScreenshotUploadQueue(
+            context = mockk(relaxed = true) { every { filesDir } returns File(System.getProperty("java.io.tmpdir")) },
+            pendingSyncQueueDao = pendingSyncQueueDao,
+            payloadCodec = codec,
+            uploader = screenshotUploader,
+            ledger = mockk(relaxed = true),
+            notices = mockk(relaxed = true)
+        ),
         rommApiProvider = mockk(relaxed = true),
         accountSwitchMarkerStore = mockk(relaxed = true),
         syncStatesOnSessionEndUseCase = mockk(relaxed = true),

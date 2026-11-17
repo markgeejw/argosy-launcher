@@ -182,6 +182,42 @@ because a wrong region prefix still leaves the disc identifiable.
 Nothing fabricates an entry name. If a game has no folder on the card yet, a
 restore lands in the card and the archive's own entry names create it.
 
+#### Which card, for the folder archives a server without Sigil units holds
+
+For the standalone PCSX2 family (`pcsx2`, `nethersx2`, `aethersx2`,
+`armsx2_refresh`, `armsx2`), upload discovery and every restore target resolve
+the same cards through `Pcsx2LegacyCards`:
+
+- Cards folder. A save path the user set for the emulator is the cards folder as
+  given. Otherwise `EmulatorSaveRoots.rootFor` finds the data folder: the
+  packaged path is placed on every storage volume, and the data folder whose
+  `PCSX2-Android.ini` (in `inis/` or at its top) is newest wins over the
+  evaluated default. The cards folder is that ini's `[Folders] MemoryCards`,
+  relative to the data folder unless absolute, `memcards` when unset.
+- Card, in order: the per-game or per-emulator selected card when it is on disk;
+  the ini's `[MemoryCards] Slot1_Filename` (ignored when `Slot1_Enable` is
+  false); the one card in the cards folder, or the most recently written of
+  several. An absent slot 1 card whose name does not end `.ps2` is created as a
+  formatted folder card under that name.
+- No card: slot 1 is a file card, slot 1 names a missing `.ps2` file card, or the
+  cards folder holds no card. Nothing is written and the save resolves to no
+  target. No card named `Shared.ps2` or any other is invented.
+- Discovery searches the selected card, then slot 1's card, then the cards
+  folder. A save path stored on a sync row that lies outside those cards is
+  dropped and re-resolved; the card it pointed at stays on disk.
+
+Sigil routing roots at the same `EmulatorSaveRoots.rootFor`, so on a server with
+Sigil units the `pcsx2_standalone` root is the same live data folder: the user's
+save path when set, else the volume whose `PCSX2-Android.ini` is newest, else
+the evaluated default. The volume search applies to the `pcsx2_standalone`
+layout only; every other Sigil layout roots at its packaged and evaluated
+folders. Sigil state is keyed by root, so a root on a different volume starts
+with no anchor, and the folder it replaced stays on disk untouched.
+
+The memory card picker, the launch-time card gate and the per-game save path
+row read `PlatformSaveHandlerRegistry.ps2CardBaseForEmulator`, which resolves
+through `Pcsx2LegacyCards`, so they list and show the cards folder sync uses.
+
 Because the save unit is the card, an upload is rooted at the card's own name,
 which identifies nothing - the game's folder is one level below it. Archives
 written before the save unit became the card are rooted at that folder
@@ -239,8 +275,12 @@ the PARAM.SFO test that keeps installed game data out of the bundle.
 
 `save_id` is `FOLDER_SPLIT`, the ticket's category and code, `00010000/524d4745`. The base is
 the NAND's category directory `Wii/title/00010000`: under the standalone app's files for
-`dolphin_wii`, and `<builtin saves>/User/Wii/title/00010000` for the built-in Dolphin core
-(`argosy_wii`). The folder is the low id under it, `<base>/524d4745`, with the same id rules
+`dolphin_wii`, `<builtin saves>/User/Wii/title/00010000` for the built-in Dolphin core
+(`argosy_wii`), and `<RetroArch saves>/dolphin-emu/User/Wii/title/00010000` for RetroArch's
+Dolphin core (`retroarch_wii`, `retroarch_64_wii`; `saves/User/...` when RetroArch does not sort
+saves by core). The libretro core puts its User folder at `<save directory>/User` (libretro/dolphin
+`Source/Core/DolphinLibretro/Boot.cpp`); the RetroArch entries have not been checked against a
+device yet. The folder is the low id under it, `<base>/524d4745`, with the same id rules
 as Wii U below: split, flat and bare low ids address one folder, and another `0001xxxx`
 category resolves beside the base. Uploads and restores go through Sigil
 (`dolphin_standalone` and the libretro `dolphin` layout); pre-launch discovery and active-cache
@@ -547,6 +587,54 @@ their id by case alone are deliberately absent from that map; `matchExistingFold
 only rescues a folder that already exists, so the first write into a fresh tree
 uses the raw id and is harmless solely because Android's storage is
 case-insensitive. Do not "complete" that map.
+
+### DuckStation and PPSSPP name states after the disc
+
+Both keep one state folder for every game, so a state belongs to a game only
+through the serial in its name. `StateSlotPattern.SerialKeyed` matches on that
+serial; the rom file name plays no part. Verified against upstream source
+2026-11-12:
+
+| Emulator | Game state | Never a game's state |
+|----------|-----------|----------------------|
+| DuckStation (`src/core/system.cpp` `GetGameSaveStatePath` 6175, `GetGlobalSaveStatePath` 6183; `PER_GAME_SAVE_STATE_SLOTS = 10` in `system.h`) | `<serial>_<slot>.sav` (slots 1..10), `<serial>_resume.sav` (the auto slot) | `savestate_<n>.sav`, `resume.sav` |
+| PPSSPP (`Core/SaveState.cpp` 80-87 and 688-710, `SaveState.h:46`) | `<DISC_ID>_<DISC_VERSION>_<slot>.ppst`, screenshot `<same stem>.jpg` | `<...>_<slot>.undo.ppst`, `<...>_<slot>.undo.jpg`, `<...>_<slot>.name.txt`, `load_undo.ppst` |
+
+DuckStation's serial is its GameDatabase entry serial when it knows the disc,
+else the boot id (`SLUS-12345`); EXE paths get a hash id. 867 database entries
+map several disc codes to one serial (Sigil `docs/platforms/psx.md:80`), so a
+game whose database serial differs from its disc code matches nothing and is
+left alone. PPSSPP's slot count is the `iSaveStateSlotCount` setting, so no
+maximum is assumed, and its `DISC_VERSION` is only ever taken from a name PPSSPP
+already wrote: a cached copy without one is not placed.
+
+The serial set comes from `StateSerialResolver.serialsFor`, and only from Sigil
+reading the local disc on every call:
+
+1. `TitleIdExtractor.extractTitleIdWithSource` on the rom, used only when
+   `fromBinary`; the result is stored with the lock when it differs from the
+   stored value (an existing `saveId` is kept);
+2. for a game with `game_discs` rows, one binary read per downloaded disc;
+3. anything else (filename fallback, unreadable, no rom) is the empty set, which
+   matches no file, so nothing is cached, displaced, restored or repaired.
+
+No stored `titleId` stands in for the read, locked or not: `titleIdLocked` only
+means RomM may not overwrite the value, and `PspSavePrefixLearner` sets it on a
+title id that never came from the disc.
+
+Sigil's psx `title_id` is the normalised boot serial and its psp `title_id` is the
+disc id without a dash (`ULUS10064`), never `save_id`. RomM's `title_id` is never
+used.
+
+A cached state whose name carries another serial is detached from the game
+(`StateCacheDao.detachFromGame` negates its `gameId`; row and file are kept) and
+its server copy is tombstoned for the game. A cached copy whose name carries no
+serial, which is every copy downloaded from RomM, is placed by `provenStateKey`
+only when the serial in its own DuckStation header (`src/core/save_state_version.h`
+`SAVE_STATE_HEADER`: magic `0x43435544` at 0, `serial[32]` at 136) is one of the
+game's, and then under `<that serial>_<slot>.sav`; a foreign or unreadable header
+is not placed. PPSSPP copies without a `DISC_VERSION` in their name are not
+placed.
 
 ## Which config answers, and under which key
 

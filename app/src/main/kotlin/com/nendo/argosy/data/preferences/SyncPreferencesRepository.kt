@@ -24,6 +24,7 @@ data class SyncPreferences(
     val rommUsername: String? = null,
     val rommUserId: Long? = null,
     val rommAvatarPath: String? = null,
+    val rommProfileUpdatedAt: String? = null,
     val rommToken: String? = null,
     val rommDeviceId: String? = null,
     val rommDeviceClientVersion: String? = null,
@@ -42,6 +43,9 @@ data class SyncPreferences(
     val uploadScreenshotsEnabled: Boolean = true,
     val boxArtCacheEnabled: Boolean = true,
     val saveSyncEnabled: Boolean = false,
+    val saveSyncAnswered: Boolean = false,
+    val librarySourceConfirmed: Boolean = false,
+    val notOnDeviceAction: NotOnDeviceAction = NotOnDeviceAction.DOWNLOAD,
     val secureSaves: Boolean = true,
     val stateCacheEnabled: Boolean = true,
     val saveCacheLimit: Int = 10,
@@ -82,6 +86,7 @@ class SyncPreferencesRepository @Inject constructor(
         val ROMM_USERNAME = stringPreferencesKey("romm_username")
         val ROMM_USER_ID = longPreferencesKey("romm_user_id")
         val ROMM_AVATAR_PATH = stringPreferencesKey("romm_avatar_path")
+        val ROMM_PROFILE_UPDATED_AT = stringPreferencesKey("romm_profile_updated_at")
         val ROMM_TOKEN = stringPreferencesKey("romm_token")
         val ROMM_DEVICE_ID = stringPreferencesKey("romm_device_id")
         val ROMM_DEVICE_CLIENT_VERSION = stringPreferencesKey("romm_device_client_version")
@@ -112,6 +117,9 @@ class SyncPreferencesRepository @Inject constructor(
         val UPLOAD_SCREENSHOTS_ENABLED = booleanPreferencesKey("upload_screenshots_enabled")
         val BOX_ART_CACHE_ENABLED = booleanPreferencesKey("box_art_cache_enabled")
         val SAVE_SYNC_ENABLED = booleanPreferencesKey("save_sync_enabled")
+        val SAVE_SYNC_ANSWERED = booleanPreferencesKey("save_sync_answered")
+        val ROMM_LIBRARY_CONFIRMED = booleanPreferencesKey("romm_library_confirmed")
+        val ROMM_NOT_ON_DEVICE_ACTION = stringPreferencesKey("romm_not_on_device_action")
         val SECURE_SAVES = booleanPreferencesKey("secure_saves")
         val STATE_CACHE_ENABLED = booleanPreferencesKey("state_cache_enabled")
         val SAVE_CACHE_LIMIT = intPreferencesKey("save_cache_limit")
@@ -138,6 +146,7 @@ class SyncPreferencesRepository @Inject constructor(
         val SOCIAL_HIDDEN_GAME_IDS = stringPreferencesKey("social_hidden_game_ids")
         val SAVE_SYNC_LOCAL_REKEY_DONE = booleanPreferencesKey("save_sync_local_rekey_done")
         val SAVE_PATH_CACHE_PURGED = booleanPreferencesKey("save_path_cache_purged")
+        val RA_SIGN_IN_NOTICE_SHOWN = booleanPreferencesKey("ra_sign_in_notice_shown")
         val SAVE_MIGRATION_NOTICES_SHOWN = stringPreferencesKey("save_migration_notices_shown")
         val SIBLING_SPLIT_REPAIR_DONE = booleanPreferencesKey("sibling_split_repair_finished")
         val SIBLING_CONFIG_CARRY_OVER_DONE = booleanPreferencesKey("sibling_config_carry_over_done")
@@ -228,6 +237,17 @@ class SyncPreferencesRepository @Inject constructor(
         dataStore.edit { it[Keys.SAVE_PATH_CACHE_PURGED] = true }
     }
 
+    suspend fun claimRaSignInNotice(): Boolean {
+        var claimed = false
+        dataStore.edit { prefs ->
+            if (prefs[Keys.RA_SIGN_IN_NOTICE_SHOWN] != true) {
+                prefs[Keys.RA_SIGN_IN_NOTICE_SHOWN] = true
+                claimed = true
+            }
+        }
+        return claimed
+    }
+
     suspend fun isSaveMigrationNoticeShown(cacheId: Long): Boolean =
         dataStore.data.map { cacheId in shownMigrationNotices(it[Keys.SAVE_MIGRATION_NOTICES_SHOWN]) }.first()
 
@@ -235,6 +255,17 @@ class SyncPreferencesRepository @Inject constructor(
         dataStore.edit { prefs ->
             val shown = shownMigrationNotices(prefs[Keys.SAVE_MIGRATION_NOTICES_SHOWN]) - cacheId
             prefs[Keys.SAVE_MIGRATION_NOTICES_SHOWN] = (shown + cacheId).takeLast(MIGRATION_NOTICES_KEPT).joinToString(",")
+        }
+    }
+
+    /**
+     * Forgets that the RetroAchievements sign-in notice and the save migration notices were shown,
+     * so each shows again the next time its condition holds. No other value changes.
+     */
+    suspend fun resetOneTimeNotices() {
+        dataStore.edit { prefs ->
+            prefs.remove(Keys.RA_SIGN_IN_NOTICE_SHOWN)
+            prefs.remove(Keys.SAVE_MIGRATION_NOTICES_SHOWN)
         }
     }
 
@@ -321,6 +352,7 @@ class SyncPreferencesRepository @Inject constructor(
             rommUsername = prefs[Keys.ROMM_USERNAME],
             rommUserId = prefs[Keys.ROMM_USER_ID],
             rommAvatarPath = prefs[Keys.ROMM_AVATAR_PATH],
+            rommProfileUpdatedAt = prefs[Keys.ROMM_PROFILE_UPDATED_AT],
             rommToken = prefs[Keys.ROMM_TOKEN],
             rommDeviceId = prefs[Keys.ROMM_DEVICE_ID],
             rommDeviceClientVersion = prefs[Keys.ROMM_DEVICE_CLIENT_VERSION],
@@ -339,6 +371,9 @@ class SyncPreferencesRepository @Inject constructor(
             boxArtCacheEnabled = prefs[Keys.BOX_ART_CACHE_ENABLED] ?: true,
             uploadScreenshotsEnabled = prefs[Keys.UPLOAD_SCREENSHOTS_ENABLED] ?: true,
             saveSyncEnabled = prefs[Keys.SAVE_SYNC_ENABLED] ?: false,
+            saveSyncAnswered = prefs[Keys.SAVE_SYNC_ANSWERED] ?: false,
+            librarySourceConfirmed = prefs[Keys.ROMM_LIBRARY_CONFIRMED] ?: false,
+            notOnDeviceAction = NotOnDeviceAction.fromToken(prefs[Keys.ROMM_NOT_ON_DEVICE_ACTION]),
             secureSaves = prefs[Keys.SECURE_SAVES] ?: true,
             stateCacheEnabled = prefs[Keys.STATE_CACHE_ENABLED] ?: true,
             saveCacheLimit = prefs[Keys.SAVE_CACHE_LIMIT] ?: 10,
@@ -393,6 +428,8 @@ class SyncPreferencesRepository @Inject constructor(
             if (userId != null) prefs[Keys.ROMM_USER_ID] = userId
             val userChanged = previousUserId != null && userId != null && previousUserId != userId
             if (userChanged) {
+                prefs.remove(Keys.ROMM_AVATAR_PATH)
+                prefs.remove(Keys.ROMM_PROFILE_UPDATED_AT)
                 prefs.remove(Keys.ROMM_DEVICE_ID)
                 prefs.remove(Keys.ROMM_DEVICE_CLIENT_VERSION)
                 prefs.remove(Keys.ROMM_PLAY_SESSION_LAST_PULL)
@@ -407,6 +444,7 @@ class SyncPreferencesRepository @Inject constructor(
             prefs.remove(Keys.ROMM_USERNAME)
             prefs.remove(Keys.ROMM_USER_ID)
             prefs.remove(Keys.ROMM_AVATAR_PATH)
+            prefs.remove(Keys.ROMM_PROFILE_UPDATED_AT)
             prefs.remove(Keys.ROMM_DEVICE_ID)
             prefs.remove(Keys.ROMM_DEVICE_CLIENT_VERSION)
             prefs.remove(Keys.ROMM_PLAY_SESSION_BACKFILL_DONE)
@@ -415,10 +453,17 @@ class SyncPreferencesRepository @Inject constructor(
         }
     }
 
-    suspend fun setRomMAvatarPath(path: String?) {
+    /**
+     * Mirrors the signed-in user's profile as the server last reported it. A response for any
+     * user other than the stored one is ignored, and an unchanged profile writes nothing.
+     */
+    suspend fun refreshRomMProfile(userId: Long, username: String, avatarPath: String?, updatedAt: String?) {
         dataStore.edit { prefs ->
-            val trimmed = path?.trim().orEmpty()
+            if (prefs[Keys.ROMM_USER_ID] != userId) return@edit
+            prefs[Keys.ROMM_USERNAME] = username
+            val trimmed = avatarPath?.trim().orEmpty()
             if (trimmed.isEmpty()) prefs.remove(Keys.ROMM_AVATAR_PATH) else prefs[Keys.ROMM_AVATAR_PATH] = trimmed
+            if (updatedAt.isNullOrBlank()) prefs.remove(Keys.ROMM_PROFILE_UPDATED_AT) else prefs[Keys.ROMM_PROFILE_UPDATED_AT] = updatedAt
         }
     }
 
@@ -655,6 +700,39 @@ class SyncPreferencesRepository @Inject constructor(
 
     suspend fun setSaveSyncEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.SAVE_SYNC_ENABLED] = enabled }
+    }
+
+    suspend fun answerSaveSync(enabled: Boolean) {
+        dataStore.edit {
+            it[Keys.SAVE_SYNC_ENABLED] = enabled
+            it[Keys.SAVE_SYNC_ANSWERED] = true
+        }
+    }
+
+    suspend fun confirmRommLibrary() {
+        dataStore.edit { it[Keys.ROMM_LIBRARY_CONFIRMED] = true }
+    }
+
+    suspend fun setNotOnDeviceAction(action: NotOnDeviceAction) {
+        dataStore.edit { it[Keys.ROMM_NOT_ON_DEVICE_ACTION] = action.token }
+    }
+
+    /**
+     * Marks the values an install finished setup with as confirmed: the save sync answer always,
+     * the RomM library only while credentials are stored.
+     */
+    suspend fun hasRomMCredentials(): Boolean {
+        val prefs = dataStore.data.first()
+        return !prefs[Keys.ROMM_URL].isNullOrBlank() && !prefs[Keys.ROMM_TOKEN].isNullOrBlank()
+    }
+
+    suspend fun confirmExistingSetupValues() {
+        dataStore.edit { prefs ->
+            prefs[Keys.SAVE_SYNC_ANSWERED] = true
+            if (!prefs[Keys.ROMM_URL].isNullOrBlank() && !prefs[Keys.ROMM_TOKEN].isNullOrBlank()) {
+                prefs[Keys.ROMM_LIBRARY_CONFIRMED] = true
+            }
+        }
     }
 
     suspend fun isSecureSaves(): Boolean =

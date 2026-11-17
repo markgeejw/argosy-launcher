@@ -33,8 +33,8 @@
     <string name="notif_storage_hardreset_failed">Zurücksetzen fehlgeschlagen - %1$s</string>
     <string name="notif_storage_hardreset_failed_default_detail">erneut versuchen</string>
 
-    <string name="notif_social_friend_started_playing">Hat begonnen, %1$s zu spielen</string>
-    <string name="notif_social_friend_online">Ist jetzt online</string>
+    <string name="notif_social_presence_playing_title">Spielt</string>
+    <string name="notif_social_presence_online_title">Online</string>
 
     <string name="notif_settings_cache_validate_title">Bild-Cache wird überprüft</string>
     <string name="notif_settings_cache_validate_starting">Wird gestartet…</string>
@@ -135,7 +135,8 @@
     <string name="notif_gamelaunch_no_core_base">Kein Core für %1$s verfügbar</string>
     <string name="notif_gamelaunch_no_core_with_reason">Kein Core für %1$s verfügbar: %2$s</string>
     <string name="notif_gamelaunch_missing_discs">Fehlende Discs: %1$s. Öffnen Sie die Spieldetails zur Reparatur.</string>
-    <string name="notif_gamelaunch_missing_bios">Fehlendes BIOS für %1$s. Installieren Sie es vor dem Start in den Einstellungen.</string>
+    <string name="notif_gamelaunch_missing_bios_files">%1$s kann ohne BIOS nicht starten: %2$s. Argosy hat keine dieser Dateien in seinem BIOS-Ordner gefunden. Lade die Firmware für %1$s unter Einstellungen > BIOS-Dateien von deinem RomM-Server herunter und starte erneut.</string>
+    <string name="notif_gamelaunch_missing_bios_folder">%1$s kann ohne BIOS-Dump nicht starten. Argosy hat im BIOS-Ordner %2$s keine Datei gefunden. Lade die Firmware für %1$s unter Einstellungen > BIOS-Dateien von deinem RomM-Server herunter und starte erneut.</string>
     <string name="notif_gamelaunch_no_scummvm_id">Fehlende .scummvm-Datei für %1$s</string>
     <string name="notif_gamelaunch_no_android_app">Android-App nicht installiert: %1$s</string>
     <string name="notif_gamelaunch_disc_launch_failed">Disc-Start fehlgeschlagen</string>
@@ -198,4 +199,24 @@
 
     <string name="notif_new_display_title">Neues Display erkannt</string>
     <string name="notif_new_display_action">Displays einrichten</string>
+    <string name="notif_battery_low_title">Akku %1$d %%</string>
+    <string name="notif_battery_critical_title">Akku %1$d %%</string>
+    <string name="notif_battery_critical_saved">Spiel gespeichert</string>
+    <string name="notif_battery_charging_title">Lädt, %1$d %%</string>
+    <string name="notif_battery_charging_full_in_hours_minutes">Voll in %1$dh %2$dm</string>
+    <string name="notif_battery_charging_full_in_minutes">Voll in %1$dm</string>
+    <string name="notif_battery_unplugged_title">Entlädt, %1$d %%</string>
+    <string name="notif_battery_unplugged_left_hours_minutes">Noch %1$dh %2$dm</string>
+    <string name="notif_battery_unplugged_left_minutes">Noch %1$dm</string>
+    <string name="notif_controller_connected_title">Verbunden</string>
+    <string name="notif_controller_disconnected_title">Getrennt</string>
+    <plurals name="notif_controller_burst_connected_title">
+        <item quantity="one">%1$d verbunden</item>
+        <item quantity="other">%1$d verbunden</item>
+    </plurals>
+    <plurals name="notif_controller_burst_disconnected_title">
+        <item quantity="one">%1$d getrennt</item>
+        <item quantity="other">%1$d getrennt</item>
+    </plurals>
+    <string name="notif_controller_battery_low_title">Pad-Akku schwach</string>
 </resources>

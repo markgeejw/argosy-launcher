@@ -52,13 +52,23 @@ import com.nendo.argosy.domain.usecase.music.SearchSoundtrackGamesUseCase
 import com.nendo.argosy.hardware.AmbientLedManager
 import com.nendo.argosy.hardware.BrightnessController
 import com.nendo.argosy.hardware.DevicePerformanceResolver
+import com.nendo.argosy.hardware.PerformanceModeStore
 import com.nendo.argosy.hardware.DisplayRefreshController
+import com.nendo.argosy.hardware.HardwareStatsReader
 import com.nendo.argosy.hardware.RadioController
 import com.nendo.argosy.hardware.VolumeController
 import com.nendo.argosy.ui.audio.AmbientAudioManager
+import com.nendo.argosy.core.notification.ActivityHistory
+import com.nendo.argosy.data.download.DownloadManager
+import com.nendo.argosy.data.sync.SyncQueueManager
+import com.nendo.argosy.hardware.PowerActions
 import com.nendo.argosy.ui.components.FooterHost
 import com.nendo.argosy.ui.components.FooterHostController
+import com.nendo.argosy.ui.components.LocalActivityUnseen
 import com.nendo.argosy.ui.components.LocalFooterHost
+import com.nendo.argosy.ui.components.activity.QuickActivityController
+import com.nendo.argosy.ui.components.power.QuickPowerController
+import com.nendo.argosy.ui.components.power.QuickPowerModals
 import com.nendo.argosy.ui.components.QuickSettingsController
 import com.nendo.argosy.ui.components.QuickSettingsInputRouter
 import com.nendo.argosy.ui.components.QuickSettingsPage
@@ -131,7 +141,9 @@ class QuickPanelOverlay @Inject constructor(
     private val brightnessController: BrightnessController,
     private val volumeController: VolumeController,
     private val performanceResolver: DevicePerformanceResolver,
+    private val performanceStore: PerformanceModeStore,
     private val refreshController: DisplayRefreshController,
+    private val hardwareStatsReader: HardwareStatsReader,
     private val socialRepository: SocialRepository,
     private val radioController: RadioController,
     private val hapticManager: HapticFeedbackManager,
@@ -142,7 +154,11 @@ class QuickPanelOverlay @Inject constructor(
     private val controlsPreferences: ControlsPreferencesRepository,
     private val getMusicPlaylists: GetMusicPlaylistsUseCase,
     private val searchSoundtrackGames: SearchSoundtrackGamesUseCase,
-    private val resolveMusicQueue: ResolveMusicQueueUseCase
+    private val resolveMusicQueue: ResolveMusicQueueUseCase,
+    private val powerActions: PowerActions,
+    private val downloadManager: DownloadManager,
+    private val syncQueueManager: SyncQueueManager,
+    private val activityHistory: ActivityHistory
 ) {
     private val _isOpen = MutableStateFlow(false)
     val isOpen: StateFlow<Boolean> = _isOpen.asStateFlow()
@@ -221,11 +237,15 @@ class QuickPanelOverlay @Inject constructor(
             brightnessController = brightnessController,
             volumeController = volumeController,
             performanceResolver = performanceResolver,
+            performanceStore = performanceStore,
             refreshController = refreshController,
+            hardwareStatsReader = hardwareStatsReader,
             socialRepository = socialRepository,
             hapticManager = hapticManager,
             soundManager = soundManager,
             quickFriends = friends,
+            power = QuickPowerController(powerActions, scope),
+            activity = QuickActivityController(downloadManager, syncQueueManager, activityHistory, scope),
             wrapMode = { prefs.value.menuWrapMode },
             scope = scope
         )
@@ -246,7 +266,7 @@ class QuickPanelOverlay @Inject constructor(
             wrapMode = { prefs.value.menuWrapMode }
         )
         private val router = QuickSettingsInputRouter(
-            panelHandler = settings.createInputHandler(onDismiss = ::hide, onOpenDeviceAccess = null),
+            panelHandler = settings.createInputHandler(onDismiss = ::hide, onOpenDeviceAccess = null, onOpenRoute = null),
             pageHandlers = mapOf(
                 QuickSettingsPage.FRIENDS to friendsHandler,
                 QuickSettingsPage.CONNECTIONS to connectionsHandler,
@@ -322,6 +342,7 @@ class QuickPanelOverlay @Inject constructor(
             val friendsState by friends.state.collectAsState()
             val connectionsState by connections.state.collectAsState()
             val isShown by shown.collectAsState()
+            val activityUnseen by settings.activity.hasUnseen.collectAsState()
             val musicVisible = page == QuickSettingsPage.MUSIC
             LaunchedEffect(musicVisible) { if (!musicVisible) music.onPageHidden() }
             var warmed by remember { mutableStateOf(false) }
@@ -341,11 +362,13 @@ class QuickPanelOverlay @Inject constructor(
                     LocalXYIconsSwapped provides swaps.xy,
                     LocalSwapStartSelect provides swaps.startSelect,
                     LocalFooterHost provides footerHost,
-                    LocalActivityResultRegistryOwner provides resultOwner
+                    LocalActivityResultRegistryOwner provides resultOwner,
+                    LocalActivityUnseen provides activityUnseen
                 ) {
                     QuickConnectionsEffects(
                         controller = connections,
-                        pageVisible = page == QuickSettingsPage.CONNECTIONS
+                        pageVisible = page == QuickSettingsPage.CONNECTIONS,
+                        onLeave = ::hide
                     )
                     Box(modifier = Modifier.fillMaxSize()) {
                         key(warmed) {
@@ -357,6 +380,7 @@ class QuickPanelOverlay @Inject constructor(
                                 focusedIndex = focusIndex,
                                 controller = settings,
                                 onOpenDeviceAccess = null,
+                                onOpenRoute = null,
                                 onDismiss = ::hide,
                                 friendsPage = {
                                     QuickSettingsFriendsPage(
@@ -371,9 +395,11 @@ class QuickPanelOverlay @Inject constructor(
                                 connectionsPage = {
                                     QuickSettingsConnectionsPage(
                                         state = connectionsState,
+                                        forgetHold = connections.forgetHold,
                                         onRowClick = connectionsHandler::tapRow,
                                         onShowList = connectionsHandler::tapList,
-                                        onForget = connectionsHandler::tapForget
+                                        onFocusRow = connectionsHandler::focusRow,
+                                        onForget = connectionsHandler::forget
                                     )
                                 },
                                 musicPage = { QuickSettingsMusicPage(viewModel = music, onOpenRommSignIn = null) }
@@ -386,6 +412,7 @@ class QuickPanelOverlay @Inject constructor(
                             onEditAvatar = null
                         )
                         QuickConnectionsModals(state = connectionsState, controller = connections)
+                        QuickPowerModals(controller = settings.power)
                         if (isShown) {
                             FooterHost(controller = footerHost, modifier = Modifier.align(Alignment.BottomCenter))
                         }

@@ -21,6 +21,8 @@
     <string name="completion_status_retired">已擱置</string>
     <string name="completion_status_never_playing">不會玩</string>
 
+    <string name="play_session_device_romm_streaming">RomM 串流</string>
+
     <!-- Save manager (ui/common/savechannel) -->
 
     <string name="ui_save_channel_title">存檔管理</string>
@@ -32,15 +34,12 @@
     <string name="ui_save_channel_tab_states">即時存檔</string>
     <string name="ui_save_channel_states_empty">沒有可用的即時存檔位</string>
     <string name="ui_save_channel_states_heading_named">%1$s中的即時存檔</string>
-    <string name="ui_save_channel_states_heading_default">預設存檔槽中的即時存檔</string>
     <string name="ui_save_channel_slot_new">新增存檔槽</string>
     <string name="ui_save_channel_slot_legacy_tag">[舊版]</string>
     <string name="ui_save_channel_history_active_point">目前使用的還原點</string>
     <string name="ui_save_channel_history_latest">最新</string>
     <string name="ui_save_channel_history_tag_synced">[已同步]</string>
     <string name="ui_save_channel_history_tag_local">[本機]</string>
-    <string name="ui_save_channel_active_default">最新</string>
-    <string name="ui_save_channel_slot_autosave">自動存檔</string>
     <string name="ui_save_channel_slot_archived">已封存</string>
 
     <string name="ui_save_channel_footer_migrate">轉換</string>
@@ -78,8 +77,6 @@
     <string name="ui_save_channel_rename_prompt_save_as">請輸入此存檔槽的名稱</string>
     <string name="ui_save_channel_rename_prompt_new_slot">請輸入此存檔槽的名稱</string>
     <string name="ui_save_channel_rename_prompt_rename">請輸入新名稱</string>
-    <string name="ui_save_channel_rename_footer_confirm">確認</string>
-    <string name="ui_save_channel_rename_footer_cancel">取消</string>
     <string name="ui_save_channel_rename_placeholder">存檔槽名稱</string>
     <string name="ui_save_channel_rename_cancel_button">取消</string>
 
@@ -148,6 +145,7 @@
     <string name="ui_save_channel_notice_restored_state">已還原%1$s</string>
     <string name="ui_save_channel_notice_state_not_cached">快取中找不到該即時存檔</string>
     <string name="ui_save_channel_notice_state_no_config">此模擬器沒有即時存檔設定</string>
+    <string name="ui_save_channel_notice_state_other_core">此即時存檔由其他核心儲存，無法在此讀取</string>
     <string name="ui_save_channel_notice_delete_target_auto">自動即時存檔</string>
     <string name="ui_save_channel_notice_delete_target_slot">第%1$d格的即時存檔</string>
     <string name="ui_save_channel_notice_deleted_state">已刪除%1$s</string>
@@ -198,6 +196,20 @@
     <string name="ui_pushed_apk_not_now">暫不</string>
 
     <string name="ui_modal_search_placeholder">搜尋...</string>
+    <string name="ui_modal_search_keyboard_submit">搜尋</string>
+
+    <string name="ui_keyboard_key_shift">Shift 鍵</string>
+    <string name="ui_keyboard_key_caps_lock">大寫鎖定</string>
+    <string name="ui_keyboard_key_backspace">退格</string>
+    <string name="ui_keyboard_key_space">空白</string>
+    <string name="ui_keyboard_key_symbols">符號</string>
+    <string name="ui_keyboard_key_letters">字母</string>
+    <string name="ui_keyboard_key_layout">切換配置</string>
+    <string name="ui_keyboard_paste">貼上</string>
+    <string name="ui_keyboard_key_enter_default">完成</string>
+    <plurals name="ui_keyboard_password_announce">
+        <item quantity="other">%d 個字元</item>
+    </plurals>
 
     <string name="ui_disc_picker_title">選擇光碟</string>
     <string name="ui_disc_picker_subtitle">選擇要啟動的光碟</string>
@@ -281,7 +293,6 @@
     <string name="ui_expandable_preference_collapse">收合</string>
     <string name="ui_expandable_preference_expand">展開</string>
 
-    <string name="ui_permission_card_granted">已授權</string>
 
     <string name="ui_game_card_favorite">最愛</string>
     <string name="ui_game_card_downloaded">已下載</string>
@@ -293,7 +304,6 @@
     <string name="ui_section_breadcrumb_next">下一個區段</string>
 
     <string name="ui_qr_code_description">%1$s的QR Code</string>
-    <string name="ui_qr_scanner_hint">將鏡頭對準RomM的配對QR Code</string>
 
     <string name="ui_custom_tile_menu_header">圖塊</string>
 
@@ -344,7 +354,6 @@
 
     <string name="ui_tile_picker_title">加入網格</string>
     <string name="ui_tile_picker_title_track_game">追蹤一款遊戲</string>
-    <string name="ui_tile_picker_subtitle_matching">符合「%1$s」</string>
     <string name="ui_tile_picker_empty_games">沒有已安裝的遊戲可以加入</string>
     <string name="ui_tile_picker_empty_collections">尚無合輯</string>
     <string name="ui_tile_picker_empty_apps">找不到應用程式</string>
@@ -463,6 +472,7 @@
     <string name="ui_platform_filter_sort_most_games">遊戲數最多</string>
     <string name="ui_platform_filter_sort_least_games">遊戲數最少</string>
     <string name="ui_platform_filter_search_placeholder">搜尋平台...</string>
+    <string name="ui_platform_filter_keyboard_submit">完成</string>
     <string name="ui_platform_filter_search_clear">清除</string>
     <plurals name="ui_platform_filter_count">
         <item quantity="other">%d個平台</item>
@@ -488,6 +498,7 @@
     <!-- Storage meter, preference rows, home layout rows (ui/components) -->
 
     <string name="ui_volume_meter_other">其他應用程式與檔案</string>
+    <string name="ui_volume_meter_unknown_location">%1$s 的遊戲位於未知位置</string>
     <string name="ui_volume_meter_free">剩餘%1$s</string>
 
     <string name="ui_cycle_preference_reset_to_global">重設為全域設定</string>
@@ -565,12 +576,18 @@
     <string name="ui_quick_settings_hud_description">於內建模擬器遊戲中</string>
     <string name="ui_quick_settings_device_access_notice">Argosy 需要權限才能變更這些設定。</string>
     <string name="ui_quick_settings_device_access_allow">允許</string>
+    <string name="ui_quick_settings_root_access_notice">Argosy 需要 root 權限才能變更這些設定。出現提示時，請在 root 管理器中允許。</string>
+    <string name="ui_quick_settings_root_access_request">請求</string>
     <string name="ui_quick_settings_theme">主題</string>
     <string name="ui_quick_settings_accent">強調色</string>
     <string name="ui_quick_settings_accent_default">預設</string>
     <string name="ui_quick_settings_theme_light">淺色</string>
     <string name="ui_quick_settings_theme_dark">深色</string>
     <string name="ui_quick_settings_theme_system">自動</string>
+    <string name="ui_quick_settings_orientation">方向</string>
+    <string name="ui_quick_settings_orientation_auto">自動</string>
+    <string name="ui_quick_settings_orientation_landscape">橫向</string>
+    <string name="ui_quick_settings_orientation_portrait">直向</string>
     <string name="ui_quick_settings_haptics">震動回饋</string>
     <string name="ui_quick_settings_ui_sounds">介面音效</string>
     <string name="ui_quick_settings_swap_ab">交換 A/B</string>
@@ -592,6 +609,8 @@
     <string name="ui_quick_settings_group_performance">效能</string>
     <string name="ui_quick_settings_group_fan">風扇</string>
     <string name="ui_quick_settings_group_overlay">疊加層</string>
+    <string name="ui_quick_settings_stats_fan">風扇</string>
+    <string name="ui_quick_settings_stats_battery">電池</string>
     <string name="ui_quick_settings_music_nothing_playing">未在播放</string>
     <string name="ui_quick_settings_music_source_launcher">啟動器音樂</string>
     <string name="ui_quick_settings_music_track_position">第 %1$d 首，共 %2$d 首</string>
@@ -664,7 +683,6 @@
 
     <string name="ui_sync_overlay_unknown_game">遊戲</string>
     <string name="ui_sync_overlay_slot_prefix">存檔槽：</string>
-    <string name="ui_sync_overlay_slot_default">最新</string>
     <string name="ui_sync_overlay_blocked_grant">授予權限</string>
     <string name="ui_sync_overlay_blocked_configure_path">設定存檔路徑</string>
     <string name="ui_sync_overlay_blocked_disable">停用同步</string>
@@ -765,17 +783,6 @@
     <string name="ui_sync_overlay_snapshot_conflict_branch_subtitle">將本裝置的存檔移到新頻道</string>
     <string name="ui_sync_overlay_snapshot_conflict_revert">還原</string>
     <string name="ui_sync_overlay_snapshot_conflict_revert_subtitle">回到本裝置上次同步的存檔（會建立備份）</string>
-    <string name="ui_sync_overlay_post_session_title">存檔衝突</string>
-    <string name="ui_sync_overlay_post_session_subject">「%1$s」—%2$s</string>
-    <string name="ui_sync_overlay_post_session_default_slot">預設存檔</string>
-    <string name="ui_sync_overlay_post_session_message">伺服器上有較新的存檔，上傳後，本機存檔將成為最新存檔，伺服器上的副本會保留。</string>
-    <string name="ui_sync_overlay_post_session_local">本機</string>
-    <string name="ui_sync_overlay_post_session_server">伺服器</string>
-    <string name="ui_sync_overlay_post_session_server_named">伺服器（%1$s）</string>
-    <string name="ui_sync_overlay_post_session_skip">略過同步</string>
-    <string name="ui_sync_overlay_post_session_skip_subtitle">保留本機存檔，不上傳</string>
-    <string name="ui_sync_overlay_post_session_overwrite">上傳本機存檔</string>
-    <string name="ui_sync_overlay_post_session_overwrite_subtitle">本機存檔將成為最新存檔，伺服器上的副本會保留。</string>
     <string name="ui_sync_overlay_legacy_status">同步中...</string>
 
     <!-- Quick menu (ui/quickmenu) -->
@@ -786,27 +793,95 @@
     <string name="ui_quick_menu_orb_top_unplayed">精選新作</string>
     <string name="ui_quick_menu_orb_recent">最近</string>
     <string name="ui_quick_menu_orb_favorites">最愛</string>
-    <string name="ui_quick_menu_empty_most_played">尚未遊玩任何遊戲</string>
-    <string name="ui_quick_menu_empty_top_unplayed">找不到已評分的遊戲</string>
-    <string name="ui_quick_menu_empty_recent">沒有最近遊玩的遊戲</string>
-    <string name="ui_quick_menu_empty_favorites">尚無最愛</string>
-    <string name="ui_quick_menu_empty_random">沒有可用的遊戲</string>
-    <string name="ui_quick_menu_search_placeholder">搜尋遊戲...</string>
-    <string name="ui_quick_menu_search_prompt">請輸入至少2個字元進行搜尋</string>
-    <string name="ui_quick_menu_search_no_results">找不到符合「%1$s」的遊戲</string>
-    <string name="ui_quick_menu_recent_searches_heading">最近搜尋</string>
-    <string name="ui_quick_menu_row_platform_unknown">未知</string>
-    <string name="ui_quick_menu_row_downloaded">已下載</string>
+    <string name="ui_quick_menu_empty_most_played">你玩過的遊戲會依遊玩時間顯示在這裡。</string>
+    <string name="ui_quick_menu_empty_top_unplayed">你已經開始玩過遊戲庫中的所有遊戲。</string>
+    <string name="ui_quick_menu_empty_recent">你啟動的遊戲會顯示在這裡。</string>
+    <string name="ui_quick_menu_empty_favorites">將遊戲加入最愛，它們就會顯示在這裡。</string>
+    <string name="ui_quick_menu_empty_random">還沒有可選的遊戲。同步一個平台來充實你的遊戲庫。</string>    <string name="ui_quick_menu_row_platform_unknown">未知</string>
     <string name="ui_quick_menu_random_platform_unknown">未知</string>
     <string name="ui_quick_menu_random_downloaded">已下載</string>
-    <string name="ui_quick_menu_random_action_reroll">重新隨機</string>
+    <string name="ui_quick_menu_random_action_reroll">再抽一次</string>
     <string name="ui_quick_menu_random_action_play">遊玩</string>
     <string name="ui_quick_menu_random_action_download">下載</string>
     <string name="ui_quick_menu_random_action_install">安裝</string>
     <string name="ui_quick_menu_random_action_details">詳情</string>
     <string name="ui_quick_menu_random_action_favorite">最愛</string>
-    <string name="ui_quick_menu_random_action_unfavorite">取消最愛</string>
-    <string name="ui_quick_menu_random_loading">正在挑選遊戲...</string>
+    <string name="ui_quick_menu_random_action_favorited">已加入最愛</string>
+    <string name="ui_quick_menu_random_eyebrow">隨機推薦</string>
+    <string name="ui_quick_menu_random_roll">第 %1$d 次</string>
+    <string name="ui_quick_menu_random_history">本次抽取紀錄</string>
+    <string name="ui_quick_menu_most_played_rank_short">%1$d</string>
+    <string name="ui_quick_menu_most_played_eyebrow">最常玩，第 %1$d 名</string>    <string name="ui_quick_menu_preview_total">總計</string>
+    <string name="ui_quick_menu_preview_sessions">次數</string>
+    <string name="ui_quick_menu_preview_last_played">上次遊玩</string>
+    <string name="ui_quick_menu_preview_busiest_week">最活躍的一週 %1$s，%2$s</string>
+    <string name="ui_quick_menu_preview_installed">已安裝</string>
+    <string name="ui_quick_menu_preview_not_downloaded">未下載</string>
+    <string name="ui_quick_menu_preview_rating">%1$d%%</string>
+    <string name="ui_quick_menu_top_new_eyebrow">從未玩過</string>
+    <string name="ui_quick_menu_top_new_reason_both">因為你常在 %2$s 上玩%1$s遊戲</string>
+    <string name="ui_quick_menu_top_new_reason_genre">因為你常玩%1$s遊戲</string>
+    <string name="ui_quick_menu_top_new_reason_platform">因為你常玩 %1$s 遊戲</string>
+    <string name="ui_quick_menu_top_new_hint_not_interested">不感興趣</string>
+    <string name="ui_quick_menu_top_new_hint_restore">恢復</string>
+    <string name="ui_quick_menu_top_new_dismissed">不感興趣</string>
+    <string name="ui_quick_menu_recent_group_today">今天</string>
+    <string name="ui_quick_menu_recent_group_yesterday">昨天</string>
+    <string name="ui_quick_menu_recent_group_this_week">本週</string>
+    <string name="ui_quick_menu_recent_group_earlier">更早</string>
+    <string name="ui_quick_menu_recent_running_chip">執行中</string>
+    <string name="ui_quick_menu_recent_eyebrow">上次停下的地方</string>
+    <string name="ui_quick_menu_recent_last_played">上次遊玩：%1$s</string>
+    <string name="ui_quick_menu_recent_saved_synced">%1$s 已存檔，已同步</string>
+    <string name="ui_quick_menu_recent_saved_pending">%1$s 已存檔，等待同步</string>
+    <string name="ui_quick_menu_recent_saved_local">%1$s 已存檔在此裝置</string>
+    <string name="ui_quick_menu_recent_action_resume">繼續</string>
+    <string name="ui_quick_menu_recent_action_play">開始遊戲</string>
+    <string name="ui_quick_menu_recent_hint_details">詳細資料</string>
+    <string name="ui_quick_menu_favorites_sort_recently_added">最近新增</string>
+    <string name="ui_quick_menu_favorites_sort_title">A 到 Z</string>
+    <string name="ui_quick_menu_favorites_sort_platform">平台</string>
+    <string name="ui_quick_menu_favorites_sort_last_played">最近遊玩</string>    <plurals name="ui_quick_menu_favorites_header_count">
+        <item quantity="other">%1$d 個最愛</item>
+    </plurals>    <string name="ui_quick_menu_favorites_removed">已移除</string>
+    <string name="ui_quick_menu_favorites_played">已玩</string>
+    <string name="ui_quick_menu_favorites_last_played">上次遊玩</string>
+    <string name="ui_quick_menu_row_not_downloaded_cd">未下載</string>
+    <string name="ui_quick_menu_recent_row_meta">%1$s · %2$s</string>
+    <string name="ui_quick_menu_recent_hero_saved_synced">已存檔，已同步</string>
+    <string name="ui_quick_menu_recent_hero_saved_pending">已存檔，等待同步</string>
+    <string name="ui_quick_menu_recent_hero_saved_local">已存檔到此裝置</string>
+    <string name="ui_quick_menu_random_roll_meta">%1$s · %2$s</string>
+    <plurals name="ui_quick_menu_random_pool_count">
+        <item quantity="other">池中共 %1$s 款遊戲</item>
+    </plurals>
+    <string name="ui_quick_menu_random_platform_label">平台</string>
+    <string name="ui_quick_menu_random_platform_all">全部平台</string>
+    <string name="ui_quick_menu_random_platform_picker_title">平台</string>
+    <string name="ui_quick_menu_random_installed_only">僅已安裝</string>
+    <string name="ui_quick_menu_empty_random_pool">沒有符合條件的遊戲。請關閉「僅已安裝」或選擇其他平台。</string>
+    <string name="ui_quick_menu_most_played_header">排序依據</string>
+    <string name="ui_quick_menu_most_played_range_all_time">全部時間</string>
+    <string name="ui_quick_menu_most_played_range_last_30">最近 30 天</string>
+    <string name="ui_quick_menu_most_played_picker_title">排序依據</string>
+    <string name="ui_quick_menu_empty_most_played_last_30">最近 30 天沒有玩過遊戲。</string>
+    <string name="ui_quick_menu_favorites_picker_title">最愛排序</string>
+    <string name="ui_quick_menu_favorites_hint_remove">移除</string>
+    <string name="ui_quick_menu_favorites_hint_restore">還原</string>
+    <string name="ui_quick_menu_hint_favorite">加入最愛</string>
+    <string name="ui_quick_menu_hint_unfavorite">取消最愛</string>
+    <string name="ui_quick_menu_preview_never_played">從未玩過</string>
+    <string name="ui_quick_menu_search_field">搜尋遊戲庫</string>
+    <string name="ui_quick_menu_search_recent_heading">最近搜尋</string>
+    <string name="ui_quick_menu_search_recently_added_heading">最近新增</string>
+    <plurals name="ui_quick_menu_search_result_count">
+        <item quantity="other">%1$d 款遊戲</item>
+    </plurals>
+    <plurals name="ui_quick_menu_search_results_heading">
+        <item quantity="other">「%2$s」的 %1$d 個結果</item>
+    </plurals>
+    <string name="ui_quick_menu_top_new_reason_top_rated">遊戲庫中評分最高</string>
+    <string name="ui_quick_menu_actions_not_interested">不感興趣</string>
 
     <!-- File browser (ui/filebrowser) -->
 
@@ -828,6 +903,7 @@
     <string name="ui_file_browser_new_folder_field_label">資料夾名稱</string>
     <string name="ui_file_browser_new_folder_cancel">取消</string>
     <string name="ui_file_browser_new_folder_confirm">建立</string>
+    <string name="ui_file_browser_new_folder_keyboard_submit">建立</string>
     <string name="ui_file_browser_new_folder_error_empty">資料夾名稱不可為空</string>
     <string name="ui_file_browser_new_folder_error_invalid">資料夾名稱無效</string>
     <string name="ui_file_browser_new_folder_error_exists">資料夾已存在</string>
@@ -961,13 +1037,14 @@
     <string name="media_library_viewmodel_refresh_label">重新整理中</string>
 
     <string name="gamedetail_action_buttons_play">開始遊戲</string>
-    <string name="gamedetail_action_buttons_autosave">自動存檔</string>
     <string name="gamedetail_action_buttons_download">下載</string>
     <string name="gamedetail_action_buttons_install">安裝</string>
     <string name="gamedetail_action_buttons_queued">排隊中...</string>
     <string name="gamedetail_action_buttons_no_space">空間不足</string>
     <string name="gamedetail_action_buttons_downloading_percent">%1$d%%</string>
     <string name="gamedetail_action_buttons_waiting_for_server">等待伺服器&#8230;</string>
+    <string name="gamedetail_action_buttons_retrying">正在重試&#8230;</string>
+    <string name="gamedetail_action_buttons_waiting_for_network">正在等待網路&#8230;</string>
     <string name="gamedetail_action_buttons_extracting">解壓縮中...</string>
     <string name="gamedetail_action_buttons_resume_percent">繼續%1$d%%</string>
     <string name="gamedetail_action_buttons_retry">重試</string>
@@ -979,7 +1056,6 @@
     <string name="home_grid_local_video_row_subtitle">直接從您的儲存空間播放</string>
     <string name="ui_quick_settings_swap_displays">交換顯示器</string>
     <string name="ui_quick_settings_page_connections">連線</string>
-    <string name="ui_quick_connections_unsupported">此裝置不允許直接控制 Wi-Fi 和藍牙</string>
     <string name="ui_quick_connections_tab_wifi">Wi-Fi</string>
     <string name="ui_quick_connections_tab_bluetooth">藍牙</string>
     <string name="ui_quick_connections_wifi_off">Wi-Fi 已關閉</string>
@@ -987,13 +1063,20 @@
     <string name="ui_quick_connections_nearby">附近的網路</string>
     <string name="ui_quick_connections_saved">已儲存的網路</string>
     <string name="ui_quick_connections_paired">已配對的裝置</string>
-    <string name="ui_quick_connections_scanning">正在搜尋網路</string>
     <string name="ui_quick_connections_no_networks">找不到網路</string>
     <string name="ui_quick_connections_no_paired">沒有已配對的裝置</string>
     <string name="ui_quick_connections_row_joining">正在連線</string>
     <string name="ui_quick_connections_row_failed">連線失敗</string>
     <string name="ui_quick_connections_secured">已加密</string>
     <string name="ui_quick_connections_forget">忘記</string>
+    <string name="ui_quick_connections_forget_device">忘記</string>
+    <string name="ui_quick_connections_pair_controller">配對控制器</string>
+    <string name="ui_quick_connections_pair_stop">停止</string>
+    <string name="ui_quick_connections_nearby_controllers">在附近找到</string>
+    <string name="ui_quick_connections_controllers_searching">按住控制器的配對按鈕</string>
+    <string name="ui_quick_connections_no_controllers">找不到控制器</string>
+    <string name="ui_quick_connections_row_pairing">配對中</string>
+    <string name="ui_quick_connections_row_pair_failed">無法配對</string>
     <string name="ui_quick_connections_bluetooth_permission">Argosy 需要權限才能顯示已配對的裝置。</string>
     <string name="ui_quick_connections_bluetooth_permission_allow">允許</string>
     <string name="ui_quick_connections_device_connected">已連線</string>
@@ -1008,10 +1091,36 @@
     <string name="ui_quick_connections_join_busy">正在加入</string>
     <string name="ui_quick_connections_join_cancel">取消</string>
     <string name="ui_quick_connections_join_failed">裝置無法加入此網路。</string>
+    <string name="ui_quick_connections_bluetooth_status_one">已連線 %1$s</string>
+    <plurals name="ui_quick_connections_bluetooth_status_many">
+        <item quantity="other">已連線 %1$d 台裝置</item>
+    </plurals>
+    <string name="ui_quick_connections_bluetooth_status_none">未連線任何裝置</string>
+    <string name="ui_quick_connections_wifi_status_network">%1$s · %2$s</string>
+    <string name="ui_quick_connections_searching_controllers">正在搜尋</string>
+    <string name="ui_quick_connections_found_pair">配對</string>
+    <string name="ui_quick_connections_retry_pair">重試</string>
+    <string name="ui_quick_connections_retry_join">重試</string>
+    <string name="ui_quick_connections_scan_running">正在掃描網路</string>
+    <string name="ui_quick_connections_scan_again">重新掃描</string>
+    <string name="ui_quick_connections_saved_out_of_range">不在範圍內</string>
+    <string name="ui_quick_connections_saved_connected">已連線</string>
+    <string name="ui_quick_connections_nearby_join">加入</string>
+    <string name="ui_quick_connections_nearby_join_outside">在 Wi-Fi 設定中加入</string>
+    <string name="ui_quick_connections_bluetooth_off_hint">開啟後即可配對控制器</string>
+    <string name="ui_quick_connections_wifi_off_hint">開啟後即可查看附近的網路</string>
+    <string name="ui_quick_connections_bluetooth_toggle_standard">請在藍牙設定中關閉</string>
+    <string name="ui_quick_connections_forget_device_hint">請在 Android 藍牙設定中忘記裝置</string>
+    <string name="ui_quick_connections_wifi_toggle_standard">在 Wi-Fi 面板中開啟或關閉 Wi-Fi</string>
+    <string name="ui_quick_connections_wifi_permission">允許位置資訊權限以查看網路名稱和附近的網路</string>
+    <string name="ui_quick_connections_wifi_permission_allow">允許</string>
+    <string name="ui_quick_connections_wifi_permission_denied">Argosy 的位置資訊權限已關閉</string>
+    <string name="ui_quick_connections_wifi_permission_settings">開啟應用程式權限</string>
+    <string name="ui_quick_connections_bluetooth_permission_denied">Argosy 的鄰近裝置權限已關閉</string>
+    <string name="ui_quick_connections_bluetooth_permission_settings">開啟應用程式權限</string>
     <string name="ui_quick_settings_wifi">Wi-Fi</string>
     <string name="ui_quick_settings_bluetooth">藍牙</string>
     <string name="ui_quick_settings_radio_on">開啟</string>
-    <string name="ui_quick_settings_radio_off">關閉</string>
     <string name="ui_quick_settings_wifi_connected">已連線</string>
     <string name="ui_quick_settings_wifi_not_connected">未連線</string>
     <string name="ui_sibling_choice_title_download">選擇要下載的版本</string>
@@ -1050,15 +1159,161 @@
     <string name="common_game_confirm_hide_title">隱藏%1$s？</string>
     <string name="common_game_confirm_hide_message">在遊戲庫中將來源篩選為隱藏，即可再次顯示隱藏的遊戲。</string>
     <string name="common_game_confirm_hide_confirm">隱藏</string>
-    <string name="ui_launch_overlay_running_newer_save_title">伺服器上有較新的存檔</string>
-    <string name="ui_launch_overlay_running_newer_save_message">%1$s仍在執行，但另一部裝置儲存了較新的副本。可以載入它，或從上次離開的地方繼續遊玩。</string>
-    <string name="ui_launch_overlay_running_load_newer_label">載入較新的存檔</string>
-    <string name="ui_launch_overlay_running_load_newer_subtitle">將關閉執行中的遊戲。未儲存的進度將會遺失。</string>
-    <string name="ui_launch_overlay_running_keep_playing_label">繼續遊玩</string>
-    <string name="ui_launch_overlay_running_keep_playing_subtitle">下次存檔將與伺服器副本衝突</string>
     <string name="ui_launch_overlay_running_busy_title">%1$s正在執行</string>
     <string name="ui_launch_overlay_running_busy_message_game">%1$s仍在背景執行%2$s。</string>
     <string name="ui_launch_overlay_running_busy_message">%1$s仍在背景開啟。</string>
+    <string name="ui_launch_overlay_makeroom_title">為%1$s騰出空間</string>
+    <string name="ui_launch_overlay_makeroom_subtitle">選擇一個要關閉的遊戲。它會先儲存。</string>
+    <string name="ui_launch_overlay_makeroom_saved">%1$s儲存</string>
+    <string name="ui_launch_overlay_makeroom_close">關閉</string>
+    <string name="ui_launch_overlay_makeroom_saving">正在儲存</string>
+    <string name="ui_launch_overlay_makeroom_closed">已關閉</string>
     <string name="ui_launch_overlay_running_close_label">關閉並啟動</string>
     <string name="ui_launch_overlay_running_close_subtitle">執行中遊戲未儲存的進度將會遺失</string>
+    <string name="ui_game_card_running">執行中</string>
+    <string name="ui_game_card_saving">正在儲存</string>
+    <string name="ui_running_duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="ui_running_duration_minutes">%1$dm</string>
+    <string name="ui_status_bar_running_desc">執行中的遊戲</string>    <string name="ui_quick_menu_random_action_resume_game">繼續遊戲</string>
+    <string name="gamelist_row_running">執行中</string>
+    <string name="gamelist_row_running_in">正在 %1$s 中執行</string>
+    <string name="gamelist_row_saving">正在儲存</string>
+    <string name="ui_client_cert_password_title">憑證密碼</string>
+    <string name="ui_client_cert_password_label">密碼</string>
+    <string name="ui_client_cert_password_message">請輸入 %1$s 的密碼。若檔案沒有密碼，請留空。</string>
+    <string name="ui_client_cert_password_import">匯入</string>
+    <string name="ui_client_cert_password_import_busy">正在匯入…</string>
+    <string name="ui_client_cert_password_cancel">取消</string>
+    <string name="ui_client_cert_password_status_importing">正在匯入憑證…</string>
+    <string name="ui_client_cert_password_error_not_a_file">無法開啟該檔案。</string>
+    <string name="ui_client_cert_password_error_wrong_password">此憑證檔案的密碼錯誤。</string>
+    <string name="ui_client_cert_password_error_no_private_key">此檔案不含私密金鑰。請將憑證連同金鑰一起匯出。</string>
+    <string name="ui_client_cert_password_error_unreadable">該檔案不是可讀取的 .p12 或 .pfx 憑證。</string>
+    <string name="ui_client_cert_password_error_expired">此憑證已過期。</string>
+    <string name="ui_client_cert_password_error_unsupported_key">此裝置無法儲存此類型的金鑰。請使用 RSA 或 EC 金鑰。</string>
+
+    <!-- Quick panel Power page (ui/components/QuickPowerRows.kt) -->
+    <string name="ui_quick_settings_page_power">電源</string>
+    <string name="ui_quick_settings_group_power_actions">電源</string>
+    <string name="ui_quick_settings_group_open_games">開啟中的遊戲</string>
+    <string name="ui_quick_settings_power_sleep">睡眠</string>
+    <string name="ui_quick_settings_power_restart">重新啟動</string>
+    <string name="ui_quick_settings_power_off">關機</string>
+    <string name="ui_quick_settings_power_menu">重新啟動或關機</string>
+    <string name="ui_quick_settings_power_menu_open">電源選單</string>
+    <string name="ui_quick_settings_power_access_notice">Argosy 需要其無障礙服務才能讓此裝置睡眠、重新啟動或關機。</string>
+    <string name="ui_quick_settings_power_access_allow">開啟</string>
+    <string name="ui_quick_settings_power_open_games_empty">沒有開啟中的遊戲</string>
+    <string name="ui_quick_settings_power_open_game_builtin">內建</string>
+    <string name="ui_quick_settings_power_restart_title">要重新啟動此裝置嗎？</string>
+    <string name="ui_quick_settings_power_restart_message">開啟中的遊戲不會先儲存或關閉。開啟中的遊戲裡未儲存的進度將會遺失。</string>
+    <string name="ui_quick_settings_power_restart_confirm">重新啟動</string>
+    <string name="ui_quick_settings_power_off_title">要關閉此裝置嗎？</string>
+    <string name="ui_quick_settings_power_off_message">開啟中的遊戲不會先儲存或關閉。開啟中的遊戲裡未儲存的進度將會遺失。</string>
+    <string name="ui_quick_settings_power_restart_message_idle">裝置會關機後重新啟動。</string>
+    <string name="ui_quick_settings_power_off_message_idle">裝置會關機。</string>
+    <string name="ui_quick_settings_power_off_confirm">關機</string>
+    <string name="ui_quick_settings_power_working_restart">正在上傳存檔，然後重新啟動</string>
+    <string name="ui_quick_settings_power_working_off">正在上傳存檔，然後關機</string>
+    <string name="ui_quick_settings_power_failed_sleep">裝置未能進入睡眠</string>
+    <string name="ui_quick_settings_power_failed_restart">裝置未能重新啟動</string>
+    <string name="ui_quick_settings_power_failed_off">裝置未能關機</string>
+    <string name="ui_quick_settings_power_failed_menu">電源選單未能開啟</string>
+
+    <!-- Quick panel Activity page (ui/components/QuickActivityRows.kt) -->
+    <string name="ui_quick_settings_page_activity">活動</string>
+    <string name="ui_quick_settings_group_activity_now">目前</string>
+    <string name="ui_quick_settings_group_activity_recent">最近</string>
+    <string name="ui_quick_settings_activity_idle">沒有進行中的工作</string>
+    <string name="ui_quick_settings_activity_syncing">正在同步存檔</string>
+    <string name="ui_quick_settings_activity_recent_empty">沒有最近的活動</string>
+    <plurals name="ui_quick_settings_activity_downloads_queued">
+        <item quantity="other">另有 %d 個在排隊</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_sync_remaining">
+        <item quantity="other">剩餘 %d 個</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_saves_synced">
+        <item quantity="other">已同步 %d 個存檔</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_saves_synced_latest">
+        <item quantity="other">已同步 %1$d 個存檔，最近：%2$s</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_downloads_finished">
+        <item quantity="other">已完成 %d 個下載</item>
+    </plurals>
+    <string name="ui_status_bar_activity_unseen_desc">新活動</string>
+    <string name="ui_folder_default_name">資料夾</string>
+    <string name="ui_folder_overlay_hint_remove">移出資料夾</string>
+    <string name="ui_folder_appearance_title">資料夾外觀</string>
+    <string name="ui_folder_appearance_cover">封面</string>
+    <string name="ui_folder_appearance_cover_mosaic">拼貼</string>
+    <string name="ui_folder_appearance_cover_image">圖片</string>
+    <string name="ui_folder_appearance_cover_sticker">貼紙</string>
+    <string name="ui_folder_appearance_cover_picture">封面圖片</string>
+    <string name="ui_folder_appearance_picture_none">未選擇</string>
+    <string name="ui_folder_appearance_picture_chosen">已選擇圖片</string>
+    <string name="ui_folder_appearance_outline">描邊</string>
+    <string name="ui_folder_appearance_outline_off">關</string>
+    <string name="ui_folder_appearance_outline_white">白色</string>
+    <string name="ui_folder_appearance_outline_black">黑色</string>
+    <string name="ui_folder_appearance_outline_accent">強調色</string>
+    <string name="ui_folder_appearance_show_name">顯示名稱</string>
+    <string name="ui_folder_appearance_backdrop">背景</string>
+    <string name="ui_folder_appearance_backdrop_none">無</string>
+    <string name="ui_folder_appearance_backdrop_cover">模糊封面</string>
+    <string name="ui_folder_appearance_backdrop_image">圖片</string>
+    <string name="ui_folder_appearance_backdrop_picture">背景圖片</string>
+    <string name="ui_folder_appearance_accent">強調顏色</string>
+    <string name="ui_folder_appearance_accent_theme">主題</string>
+    <string name="ui_folder_appearance_accent_rose">玫瑰</string>
+    <string name="ui_folder_appearance_accent_amber">琥珀</string>
+    <string name="ui_folder_appearance_accent_lime">萊姆</string>
+    <string name="ui_folder_appearance_accent_sky">天藍</string>
+    <string name="ui_folder_appearance_accent_violet">紫羅蘭</string>
+    <string name="ui_folder_appearance_member_size">圖塊大小</string>
+    <string name="ui_folder_appearance_size_small">小</string>
+    <string name="ui_folder_appearance_size_medium">中</string>
+    <string name="ui_folder_appearance_size_large">大</string>
+    <string name="ui_folder_overlay_loading">正在尋找遊戲</string>
+    <string name="ui_folder_overlay_empty">此資料夾是空的</string>
+    <string name="ui_folder_overlay_empty_auto">沒有符合此資料夾的遊戲</string>
+    <string name="ui_folder_chooser_title">移到資料夾</string>
+    <string name="ui_folder_chooser_new">新增資料夾</string>
+    <string name="ui_folder_name_title_new">新增資料夾</string>
+    <string name="ui_folder_name_title_rename">重新命名資料夾</string>
+    <string name="ui_folder_name_label">資料夾名稱</string>
+    <string name="ui_folder_name_confirm">儲存</string>
+    <string name="ui_folder_name_cancel">取消</string>
+    <string name="ui_feature_setup_title_auto_folder">自動資料夾</string>
+    <string name="ui_feature_setup_step_auto_folder">此資料夾收錄哪些遊戲</string>
+    <string name="ui_feature_setup_step_developers">開發商</string>
+    <string name="ui_feature_setup_step_release_year">發行年份</string>
+    <string name="ui_feature_setup_step_play_status">遊玩狀態</string>
+    <string name="ui_feature_setup_developers">開發商</string>
+    <string name="ui_feature_setup_release_year">發行年份</string>
+    <string name="ui_feature_setup_play_status">遊玩狀態</string>
+    <string name="ui_feature_setup_recently_added">最近新增</string>
+    <string name="ui_feature_setup_ra_progress">成就進度</string>
+    <plurals name="ui_feature_setup_recently_added_days">
+        <item quantity="other">最近 %d 天</item>
+    </plurals>
+    <string name="ui_feature_setup_year_any">任何年份</string>
+    <string name="ui_feature_setup_year_before_1990">1990 年以前</string>
+    <string name="ui_feature_setup_year_1990s">1990 年代</string>
+    <string name="ui_feature_setup_year_2000s">2000 年代</string>
+    <string name="ui_feature_setup_year_2010s">2010 年代</string>
+    <string name="ui_feature_setup_year_since_2020">2020 年及以後</string>
+    <string name="ui_feature_setup_ra_progress_not_started">尚未開始</string>
+    <string name="ui_feature_setup_ra_progress_in_progress">進行中</string>
+    <string name="ui_feature_setup_ra_progress_mastered">已精通</string>
+    <string name="ui_page_chooser_title_decor">圖片</string>
+    <string name="ui_page_chooser_subtitle_decor">圖片來源</string>
+    <string name="ui_page_chooser_decor_source_game_art">遊戲圖片</string>
+    <string name="ui_page_chooser_decor_source_game_art_subtitle">Argosy 已有的標誌、封面或背景</string>
+    <string name="ui_page_chooser_decor_source_file">圖片檔案</string>
+    <string name="ui_page_chooser_decor_source_file_subtitle">此裝置上的 PNG 或 WebP，保留透明度</string>
+    <string name="ui_page_chooser_art_logo">標誌</string>
+    <string name="ui_page_chooser_decor_art_cover">封面</string>
+    <string name="ui_page_chooser_decor_art_background">背景</string>
 </resources>

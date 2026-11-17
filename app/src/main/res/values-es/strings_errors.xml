@@ -36,6 +36,7 @@
     <string name="error_download_no_discs_queued">No se pudo encolar la descarga de ningún disco</string>
     <string name="error_download_game_not_found_for_repair">Juego no encontrado</string>
     <string name="error_download_not_multi_disc">No es un juego multidisco</string>
+    <string name="error_download_game_no_rom_folder">Elige una carpeta de juegos antes de descargar</string>
 
     <string name="error_download_invalid_content_type">Tipo de archivo no válido: %1$s</string>
     <string name="error_download_file_too_small">El archivo es demasiado pequeño para ser una ROM</string>
@@ -50,7 +51,16 @@
     <string name="error_download_downloaded_file_missing">Archivo descargado no encontrado</string>
     <string name="error_download_no_download_entry">No se encontró ninguna entrada de descarga</string>
     <string name="error_download_no_longer_exists">El archivo descargado ya no existe</string>
+    <string name="error_download_no_rom_folder">Elige una carpeta de juegos antes de descargar</string>
     <string name="error_download_extraction_failed">Error al extraer</string>
 
     <string name="error_filepicker_already_downloaded">Juego ya descargado</string>
+    <string name="error_download_http">Error de descarga (HTTP %1$d)</string>
+    <string name="error_download_http_unauthorized">La sesión de RomM ha caducado o es necesario iniciar sesión (HTTP %1$d)</string>
+    <string name="error_download_http_forbidden">RomM denegó el acceso a esta descarga (HTTP %1$d)</string>
+    <string name="error_download_http_not_found">Descarga no encontrada en RomM (HTTP %1$d)</string>
+    <string name="error_download_integrity_check_failed">La comprobación de integridad de la descarga falló. Vuelve a descargar.</string>
+    <string name="error_download_invalid_response">RomM devolvió una respuesta de descarga no válida.</string>
+    <string name="error_download_storage_access_failed">No se pudo acceder al almacenamiento de descargas. Comprueba el espacio libre y los permisos.</string>
+    <string name="error_download_tls_verification_failed">No se pudo verificar el certificado del servidor. Comprueba la configuración del servidor y del certificado.</string>
 </resources>

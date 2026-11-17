@@ -21,6 +21,8 @@
     <string name="completion_status_retired">Заброшено</string>
     <string name="completion_status_never_playing">Не буду играть</string>
 
+    <string name="play_session_device_romm_streaming">Стриминг RomM</string>
+
     <string name="ui_save_channel_title">Управление сохранениями</string>
     <string name="ui_save_channel_slots_heading">Слоты сохранений</string>
     <string name="ui_save_channel_history_heading_named">История (%1$s)</string>
@@ -30,15 +32,12 @@
     <string name="ui_save_channel_tab_states">Состояния</string>
     <string name="ui_save_channel_states_empty">Нет доступных слотов состояний</string>
     <string name="ui_save_channel_states_heading_named">Состояния в %1$s</string>
-    <string name="ui_save_channel_states_heading_default">Состояния в слоте по умолчанию</string>
     <string name="ui_save_channel_slot_new">Новый слот</string>
     <string name="ui_save_channel_slot_legacy_tag">[Устаревший]</string>
     <string name="ui_save_channel_history_active_point">Активная точка восстановления</string>
     <string name="ui_save_channel_history_latest">Последнее</string>
     <string name="ui_save_channel_history_tag_synced">[Синхронизировано]</string>
     <string name="ui_save_channel_history_tag_local">[Локально]</string>
-    <string name="ui_save_channel_active_default">Последнее</string>
-    <string name="ui_save_channel_slot_autosave">Автосохранение</string>
     <string name="ui_save_channel_slot_archived">В архиве</string>
 
     <string name="ui_save_channel_footer_migrate">Перенести</string>
@@ -76,8 +75,6 @@
     <string name="ui_save_channel_rename_prompt_save_as">Введите имя для этого слота сохранения</string>
     <string name="ui_save_channel_rename_prompt_new_slot">Введите имя для этого слота сохранения</string>
     <string name="ui_save_channel_rename_prompt_rename">Введите новое имя</string>
-    <string name="ui_save_channel_rename_footer_confirm">Подтвердить</string>
-    <string name="ui_save_channel_rename_footer_cancel">Отмена</string>
     <string name="ui_save_channel_rename_placeholder">Имя слота</string>
     <string name="ui_save_channel_rename_cancel_button">Отмена</string>
 
@@ -155,6 +152,7 @@
     <string name="ui_save_channel_notice_restored_state">Восстановлено: %1$s</string>
     <string name="ui_save_channel_notice_state_not_cached">Состояние не найдено в кэше</string>
     <string name="ui_save_channel_notice_state_no_config">Нет конфигурации состояний для этого эмулятора</string>
+    <string name="ui_save_channel_notice_state_other_core">Это состояние сохранено другим ядром и не может быть загружено здесь</string>
     <string name="ui_save_channel_notice_delete_target_auto">авто-состояние</string>
     <string name="ui_save_channel_notice_delete_target_slot">слот состояния %1$d</string>
     <string name="ui_save_channel_notice_deleted_state">Удалено: %1$s</string>
@@ -203,6 +201,23 @@
     <string name="ui_pushed_apk_not_now">Не сейчас</string>
 
     <string name="ui_modal_search_placeholder">Поиск...</string>
+    <string name="ui_modal_search_keyboard_submit">Найти</string>
+
+    <string name="ui_keyboard_key_shift">Shift</string>
+    <string name="ui_keyboard_key_caps_lock">Caps Lock</string>
+    <string name="ui_keyboard_key_backspace">Удалить</string>
+    <string name="ui_keyboard_key_space">Пробел</string>
+    <string name="ui_keyboard_key_symbols">Символы</string>
+    <string name="ui_keyboard_key_letters">Буквы</string>
+    <string name="ui_keyboard_key_layout">Сменить раскладку</string>
+    <string name="ui_keyboard_paste">Вставить</string>
+    <string name="ui_keyboard_key_enter_default">Готово</string>
+    <plurals name="ui_keyboard_password_announce">
+        <item quantity="one">%d символ</item>
+        <item quantity="few">%d символа</item>
+        <item quantity="many">%d символов</item>
+        <item quantity="other">%d символа</item>
+    </plurals>
 
     <string name="ui_disc_picker_title">ВЫБОР ДИСКА</string>
     <string name="ui_disc_picker_subtitle">Выберите диск для запуска</string>
@@ -313,7 +328,6 @@
     <string name="ui_expandable_preference_collapse">Свернуть</string>
     <string name="ui_expandable_preference_expand">Развернуть</string>
 
-    <string name="ui_permission_card_granted">Разрешено</string>
 
     <string name="ui_game_card_favorite">Избранное</string>
     <string name="ui_game_card_downloaded">Загружено</string>
@@ -325,7 +339,6 @@
     <string name="ui_section_breadcrumb_next">Следующий раздел</string>
 
     <string name="ui_qr_code_description">QR-код для %1$s</string>
-    <string name="ui_qr_scanner_hint">Наведите на QR-код сопряжения RomM</string>
 
     <string name="ui_custom_tile_menu_header">ПЛИТКА</string>
 
@@ -379,7 +392,6 @@
 
     <string name="ui_tile_picker_title">ДОБАВИТЬ НА СЕТКУ</string>
     <string name="ui_tile_picker_title_track_game">ОТСЛЕЖИВАТЬ ИГРУ</string>
-    <string name="ui_tile_picker_subtitle_matching">Совпадения с \"%1$s\"</string>
     <string name="ui_tile_picker_empty_games">Нет установленных игр для добавления</string>
     <string name="ui_tile_picker_empty_collections">Пока нет коллекций</string>
     <string name="ui_tile_picker_empty_apps">Приложения не найдены</string>
@@ -499,6 +511,7 @@
     <string name="ui_platform_filter_sort_most_games">Больше всего игр</string>
     <string name="ui_platform_filter_sort_least_games">Меньше всего игр</string>
     <string name="ui_platform_filter_search_placeholder">Поиск платформ...</string>
+    <string name="ui_platform_filter_keyboard_submit">Готово</string>
     <string name="ui_platform_filter_search_clear">Очистить</string>
     <plurals name="ui_platform_filter_count">
         <item quantity="one">%d платформа</item>
@@ -525,6 +538,7 @@
     <string name="ui_platform_filter_hint_list_close">Закрыть</string>
 
     <string name="ui_volume_meter_other">Другие приложения и файлы</string>
+    <string name="ui_volume_meter_unknown_location">%1$s игр находятся в неизвестном месте</string>
     <string name="ui_volume_meter_free">%1$s свободно</string>
 
     <string name="ui_cycle_preference_reset_to_global">Сбросить к общему</string>
@@ -600,12 +614,18 @@
     <string name="ui_quick_settings_hud_description">Во встроенных играх</string>
     <string name="ui_quick_settings_device_access_notice">Argosy нужно разрешение, чтобы менять эти настройки.</string>
     <string name="ui_quick_settings_device_access_allow">Разрешить</string>
+    <string name="ui_quick_settings_root_access_notice">Argosy нужен root-доступ, чтобы менять эти настройки. Разрешите его в root-менеджере, когда появится запрос.</string>
+    <string name="ui_quick_settings_root_access_request">Запросить</string>
     <string name="ui_quick_settings_theme">Тема</string>
     <string name="ui_quick_settings_accent">Цвет акцента</string>
     <string name="ui_quick_settings_accent_default">По умолчанию</string>
     <string name="ui_quick_settings_theme_light">Светлая</string>
     <string name="ui_quick_settings_theme_dark">Тёмная</string>
     <string name="ui_quick_settings_theme_system">Авто</string>
+    <string name="ui_quick_settings_orientation">Ориентация</string>
+    <string name="ui_quick_settings_orientation_auto">Авто</string>
+    <string name="ui_quick_settings_orientation_landscape">Альбомная</string>
+    <string name="ui_quick_settings_orientation_portrait">Книжная</string>
     <string name="ui_quick_settings_haptics">Вибрация</string>
     <string name="ui_quick_settings_ui_sounds">Звуки интерфейса</string>
     <string name="ui_quick_settings_swap_ab">Поменять A/B</string>
@@ -627,6 +647,8 @@
     <string name="ui_quick_settings_group_performance">Производительность</string>
     <string name="ui_quick_settings_group_fan">Вентилятор</string>
     <string name="ui_quick_settings_group_overlay">Оверлей</string>
+    <string name="ui_quick_settings_stats_fan">Вентилятор</string>
+    <string name="ui_quick_settings_stats_battery">Батарея</string>
     <string name="ui_quick_settings_music_nothing_playing">Ничего не играет</string>
     <string name="ui_quick_settings_music_source_launcher">Музыка лаунчера</string>
     <string name="ui_quick_settings_music_track_position">%1$d из %2$d</string>
@@ -698,7 +720,6 @@
 
     <string name="ui_sync_overlay_unknown_game">Игра</string>
     <string name="ui_sync_overlay_slot_prefix">"Слот: "</string>
-    <string name="ui_sync_overlay_slot_default">Последнее</string>
     <string name="ui_sync_overlay_blocked_grant">Предоставить доступ</string>
     <string name="ui_sync_overlay_blocked_configure_path">Настроить путь сохранения</string>
     <string name="ui_sync_overlay_blocked_disable">Отключить синхронизацию</string>
@@ -814,17 +835,6 @@
     <string name="ui_sync_overlay_snapshot_conflict_branch_subtitle">Перенести сохранение этого устройства в новый канал</string>
     <string name="ui_sync_overlay_snapshot_conflict_revert">Откатить</string>
     <string name="ui_sync_overlay_snapshot_conflict_revert_subtitle">Вернуться к сохранению, которое это устройство синхронизировало последним (будет создана резервная копия)</string>
-    <string name="ui_sync_overlay_post_session_title">Конфликт сохранений</string>
-    <string name="ui_sync_overlay_post_session_subject">\"%1$s\" -- %2$s</string>
-    <string name="ui_sync_overlay_post_session_default_slot">Сохранение по умолчанию</string>
-    <string name="ui_sync_overlay_post_session_message">На сервере есть более новое сохранение. При отправке на сервер ваше локальное сохранение станет самым новым, а копия на сервере сохранится.</string>
-    <string name="ui_sync_overlay_post_session_local">Локальное</string>
-    <string name="ui_sync_overlay_post_session_server">Сервер</string>
-    <string name="ui_sync_overlay_post_session_server_named">Сервер (%1$s)</string>
-    <string name="ui_sync_overlay_post_session_skip">Пропустить синхронизацию</string>
-    <string name="ui_sync_overlay_post_session_skip_subtitle">Оставить локальное сохранение, не отправлять</string>
-    <string name="ui_sync_overlay_post_session_overwrite">Отправить локальное сохранение</string>
-    <string name="ui_sync_overlay_post_session_overwrite_subtitle">Ваше локальное сохранение станет самым новым. Копия на сервере сохранится.</string>
     <string name="ui_sync_overlay_legacy_status">Синхронизация...</string>
 
     <string name="ui_quick_menu_orb_search">Поиск</string>
@@ -833,27 +843,107 @@
     <string name="ui_quick_menu_orb_top_unplayed">Рекомендуем</string>
     <string name="ui_quick_menu_orb_recent">Недавние</string>
     <string name="ui_quick_menu_orb_favorites">Избранное</string>
-    <string name="ui_quick_menu_empty_most_played">Пока нет сыгранных игр</string>
-    <string name="ui_quick_menu_empty_top_unplayed">Оценённые игры не найдены</string>
-    <string name="ui_quick_menu_empty_recent">Нет недавних игр</string>
-    <string name="ui_quick_menu_empty_favorites">Пока нет избранного</string>
-    <string name="ui_quick_menu_empty_random">Нет доступных игр</string>
-    <string name="ui_quick_menu_search_placeholder">Поиск игр...</string>
-    <string name="ui_quick_menu_search_prompt">Введите не менее 2 символов для поиска</string>
-    <string name="ui_quick_menu_search_no_results">По запросу \"%1$s\" игр не найдено</string>
-    <string name="ui_quick_menu_recent_searches_heading">Недавние запросы</string>
-    <string name="ui_quick_menu_row_platform_unknown">Неизвестно</string>
-    <string name="ui_quick_menu_row_downloaded">Загружено</string>
+    <string name="ui_quick_menu_empty_most_played">Здесь появятся игры, в которые вы играете, по времени игры.</string>
+    <string name="ui_quick_menu_empty_top_unplayed">Вы уже запускали все игры в своей библиотеке.</string>
+    <string name="ui_quick_menu_empty_recent">Здесь появятся запущенные вами игры.</string>
+    <string name="ui_quick_menu_empty_favorites">Добавляйте игры в избранное, чтобы они были здесь.</string>
+    <string name="ui_quick_menu_empty_random">Пока не из чего выбирать. Синхронизируйте платформу, чтобы заполнить библиотеку.</string>    <string name="ui_quick_menu_row_platform_unknown">Неизвестно</string>
     <string name="ui_quick_menu_random_platform_unknown">Неизвестно</string>
     <string name="ui_quick_menu_random_downloaded">Загружено</string>
-    <string name="ui_quick_menu_random_action_reroll">Перевыбрать</string>
+    <string name="ui_quick_menu_random_action_reroll">Бросить ещё раз</string>
     <string name="ui_quick_menu_random_action_play">Играть</string>
     <string name="ui_quick_menu_random_action_download">Скачать</string>
     <string name="ui_quick_menu_random_action_install">Установить</string>
     <string name="ui_quick_menu_random_action_details">Детали</string>
     <string name="ui_quick_menu_random_action_favorite">В избранное</string>
-    <string name="ui_quick_menu_random_action_unfavorite">Убрать из избранного</string>
-    <string name="ui_quick_menu_random_loading">Выбираем игру...</string>
+    <string name="ui_quick_menu_random_action_favorited">В избранном</string>
+    <string name="ui_quick_menu_random_eyebrow">Случайный выбор</string>
+    <string name="ui_quick_menu_random_roll">Бросок %1$d</string>
+    <string name="ui_quick_menu_random_history">Броски за сессию</string>
+    <string name="ui_quick_menu_most_played_rank_short">%1$d</string>
+    <string name="ui_quick_menu_most_played_eyebrow">Самые популярные, № %1$d</string>    <string name="ui_quick_menu_preview_total">Всего</string>
+    <string name="ui_quick_menu_preview_sessions">Сеансы</string>
+    <string name="ui_quick_menu_preview_last_played">Последняя игра</string>
+    <string name="ui_quick_menu_preview_busiest_week">Самая активная неделя %1$s, %2$s</string>
+    <string name="ui_quick_menu_preview_installed">Установлена</string>
+    <string name="ui_quick_menu_preview_not_downloaded">Не загружена</string>
+    <string name="ui_quick_menu_preview_rating">%1$d%%</string>
+    <string name="ui_quick_menu_top_new_eyebrow">Ещё не запускалась</string>
+    <string name="ui_quick_menu_top_new_reason_both">Потому что вы играете в %1$s на %2$s</string>
+    <string name="ui_quick_menu_top_new_reason_genre">Потому что вы играете в %1$s</string>
+    <string name="ui_quick_menu_top_new_reason_platform">Потому что вы играете на %1$s</string>
+    <string name="ui_quick_menu_top_new_hint_not_interested">Не интересно</string>
+    <string name="ui_quick_menu_top_new_hint_restore">Вернуть</string>
+    <string name="ui_quick_menu_top_new_dismissed">Не интересно</string>
+    <string name="ui_quick_menu_recent_group_today">Сегодня</string>
+    <string name="ui_quick_menu_recent_group_yesterday">Вчера</string>
+    <string name="ui_quick_menu_recent_group_this_week">На этой неделе</string>
+    <string name="ui_quick_menu_recent_group_earlier">Ранее</string>
+    <string name="ui_quick_menu_recent_running_chip">Запущена</string>
+    <string name="ui_quick_menu_recent_eyebrow">Где вы остановились</string>
+    <string name="ui_quick_menu_recent_last_played">Последняя игра %1$s</string>
+    <string name="ui_quick_menu_recent_saved_synced">Сохранено %1$s, синхронизировано</string>
+    <string name="ui_quick_menu_recent_saved_pending">Сохранено %1$s, ожидает синхронизации</string>
+    <string name="ui_quick_menu_recent_saved_local">Сохранено %1$s на этом устройстве</string>
+    <string name="ui_quick_menu_recent_action_resume">Продолжить</string>
+    <string name="ui_quick_menu_recent_action_play">Играть</string>
+    <string name="ui_quick_menu_recent_hint_details">Подробности</string>
+    <string name="ui_quick_menu_favorites_sort_recently_added">Недавно добавленные</string>
+    <string name="ui_quick_menu_favorites_sort_title">От А до Я</string>
+    <string name="ui_quick_menu_favorites_sort_platform">Платформа</string>
+    <string name="ui_quick_menu_favorites_sort_last_played">Недавно сыгранные</string>    <plurals name="ui_quick_menu_favorites_header_count">
+        <item quantity="one">%1$d игра в избранном</item>
+        <item quantity="few">%1$d игры в избранном</item>
+        <item quantity="many">%1$d игр в избранном</item>
+        <item quantity="other">%1$d игры в избранном</item>
+    </plurals>    <string name="ui_quick_menu_favorites_removed">Удалено</string>
+    <string name="ui_quick_menu_favorites_played">Сыграно</string>
+    <string name="ui_quick_menu_favorites_last_played">Последняя игра</string>
+    <string name="ui_quick_menu_row_not_downloaded_cd">Не загружена</string>
+    <string name="ui_quick_menu_recent_row_meta">%1$s · %2$s</string>
+    <string name="ui_quick_menu_recent_hero_saved_synced">Сохранено, синхронизировано</string>
+    <string name="ui_quick_menu_recent_hero_saved_pending">Сохранено, ожидает синхронизации</string>
+    <string name="ui_quick_menu_recent_hero_saved_local">Сохранено на этом устройстве</string>
+    <string name="ui_quick_menu_random_roll_meta">%1$s · %2$s</string>
+    <plurals name="ui_quick_menu_random_pool_count">
+        <item quantity="one">%1$s игра в выборке</item>
+        <item quantity="few">%1$s игры в выборке</item>
+        <item quantity="many">%1$s игр в выборке</item>
+        <item quantity="other">%1$s игры в выборке</item>
+    </plurals>
+    <string name="ui_quick_menu_random_platform_label">Платформа</string>
+    <string name="ui_quick_menu_random_platform_all">Все платформы</string>
+    <string name="ui_quick_menu_random_platform_picker_title">Платформа</string>
+    <string name="ui_quick_menu_random_installed_only">Только установленные</string>
+    <string name="ui_quick_menu_empty_random_pool">Нет подходящих игр. Отключите «Только установленные» или выберите другую платформу.</string>
+    <string name="ui_quick_menu_most_played_header">Сортировка</string>
+    <string name="ui_quick_menu_most_played_range_all_time">За всё время</string>
+    <string name="ui_quick_menu_most_played_range_last_30">Последние 30 дней</string>
+    <string name="ui_quick_menu_most_played_picker_title">Сортировать по</string>
+    <string name="ui_quick_menu_empty_most_played_last_30">За последние 30 дней ничего не запускалось.</string>
+    <string name="ui_quick_menu_favorites_picker_title">Сортировка избранного</string>
+    <string name="ui_quick_menu_favorites_hint_remove">Убрать</string>
+    <string name="ui_quick_menu_favorites_hint_restore">Вернуть</string>
+    <string name="ui_quick_menu_hint_favorite">В избранное</string>
+    <string name="ui_quick_menu_hint_unfavorite">Убрать из избранного</string>
+    <string name="ui_quick_menu_preview_never_played">Ещё не запускалась</string>
+    <string name="ui_quick_menu_search_field">Поиск по библиотеке</string>
+    <string name="ui_quick_menu_search_recent_heading">Недавние запросы</string>
+    <string name="ui_quick_menu_search_recently_added_heading">Недавно добавленные</string>
+    <plurals name="ui_quick_menu_search_result_count">
+        <item quantity="one">%1$d игра</item>
+        <item quantity="few">%1$d игры</item>
+        <item quantity="many">%1$d игр</item>
+        <item quantity="other">%1$d игры</item>
+    </plurals>
+    <plurals name="ui_quick_menu_search_results_heading">
+        <item quantity="one">%1$d результат по запросу «%2$s»</item>
+        <item quantity="few">%1$d результата по запросу «%2$s»</item>
+        <item quantity="many">%1$d результатов по запросу «%2$s»</item>
+        <item quantity="other">%1$d результата по запросу «%2$s»</item>
+    </plurals>
+    <string name="ui_quick_menu_top_new_reason_top_rated">Лучшие по оценкам в вашей библиотеке</string>
+    <string name="ui_quick_menu_actions_not_interested">Не интересует</string>
 
     <string name="ui_file_browser_title_folder">Выбор папки</string>
     <string name="ui_file_browser_title_file">Выбор файла</string>
@@ -873,6 +963,7 @@
     <string name="ui_file_browser_new_folder_field_label">Имя папки</string>
     <string name="ui_file_browser_new_folder_cancel">Отмена</string>
     <string name="ui_file_browser_new_folder_confirm">Создать</string>
+    <string name="ui_file_browser_new_folder_keyboard_submit">Создать</string>
     <string name="ui_file_browser_new_folder_error_empty">Имя папки не может быть пустым</string>
     <string name="ui_file_browser_new_folder_error_invalid">Недопустимое имя папки</string>
     <string name="ui_file_browser_new_folder_error_exists">Такая папка уже существует</string>
@@ -1048,13 +1139,14 @@
     <string name="media_library_viewmodel_refresh_label">Обновление</string>
 
     <string name="gamedetail_action_buttons_play">ИГРАТЬ</string>
-    <string name="gamedetail_action_buttons_autosave">Автосохранение</string>
     <string name="gamedetail_action_buttons_download">СКАЧАТЬ</string>
     <string name="gamedetail_action_buttons_install">УСТАНОВИТЬ</string>
     <string name="gamedetail_action_buttons_queued">В ОЧЕРЕДИ...</string>
     <string name="gamedetail_action_buttons_no_space">НЕТ МЕСТА</string>
     <string name="gamedetail_action_buttons_downloading_percent">%1$d%%</string>
     <string name="gamedetail_action_buttons_waiting_for_server">Ожидание сервера…</string>
+    <string name="gamedetail_action_buttons_retrying">Повторная попытка…</string>
+    <string name="gamedetail_action_buttons_waiting_for_network">Ожидание сети…</string>
     <string name="gamedetail_action_buttons_extracting">РАСПАКОВКА...</string>
     <string name="gamedetail_action_buttons_resume_percent">ПРОДОЛЖИТЬ %1$d%%</string>
     <string name="gamedetail_action_buttons_retry">ПОВТОРИТЬ</string>
@@ -1066,7 +1158,6 @@
     <string name="home_grid_local_video_row_subtitle">Воспроизводится прямо из хранилища</string>
     <string name="ui_quick_settings_swap_displays">Поменять экраны</string>
     <string name="ui_quick_settings_page_connections">Подключения</string>
-    <string name="ui_quick_connections_unsupported">Это устройство не позволяет напрямую управлять Wi-Fi и Bluetooth</string>
     <string name="ui_quick_connections_tab_wifi">Wi-Fi</string>
     <string name="ui_quick_connections_tab_bluetooth">Bluetooth</string>
     <string name="ui_quick_connections_wifi_off">Wi-Fi выключен</string>
@@ -1074,13 +1165,20 @@
     <string name="ui_quick_connections_nearby">Сети поблизости</string>
     <string name="ui_quick_connections_saved">Сохранённые сети</string>
     <string name="ui_quick_connections_paired">Сопряжённые устройства</string>
-    <string name="ui_quick_connections_scanning">Поиск сетей</string>
     <string name="ui_quick_connections_no_networks">Сети не найдены</string>
     <string name="ui_quick_connections_no_paired">Нет сопряжённых устройств</string>
     <string name="ui_quick_connections_row_joining">Подключение</string>
     <string name="ui_quick_connections_row_failed">Ошибка</string>
     <string name="ui_quick_connections_secured">Защищена</string>
     <string name="ui_quick_connections_forget">Забыть</string>
+    <string name="ui_quick_connections_forget_device">Забыть</string>
+    <string name="ui_quick_connections_pair_controller">Подключить контроллер</string>
+    <string name="ui_quick_connections_pair_stop">Стоп</string>
+    <string name="ui_quick_connections_nearby_controllers">Найдено рядом</string>
+    <string name="ui_quick_connections_controllers_searching">Удерживайте кнопку сопряжения на контроллере</string>
+    <string name="ui_quick_connections_no_controllers">Контроллеры не найдены</string>
+    <string name="ui_quick_connections_row_pairing">Сопряжение</string>
+    <string name="ui_quick_connections_row_pair_failed">Не удалось</string>
     <string name="ui_quick_connections_bluetooth_permission">Argosy нужно разрешение, чтобы показать сопряжённые устройства.</string>
     <string name="ui_quick_connections_bluetooth_permission_allow">Разрешить</string>
     <string name="ui_quick_connections_device_connected">Подключено</string>
@@ -1095,10 +1193,39 @@
     <string name="ui_quick_connections_join_busy">Подключение</string>
     <string name="ui_quick_connections_join_cancel">Отмена</string>
     <string name="ui_quick_connections_join_failed">Устройству не удалось подключиться к этой сети.</string>
+    <string name="ui_quick_connections_bluetooth_status_one">%1$s подключено</string>
+    <plurals name="ui_quick_connections_bluetooth_status_many">
+        <item quantity="one">Подключено %1$d устройство</item>
+        <item quantity="few">Подключено %1$d устройства</item>
+        <item quantity="many">Подключено %1$d устройств</item>
+        <item quantity="other">Подключено %1$d устройства</item>
+    </plurals>
+    <string name="ui_quick_connections_bluetooth_status_none">Нет подключённых устройств</string>
+    <string name="ui_quick_connections_wifi_status_network">%1$s · %2$s</string>
+    <string name="ui_quick_connections_searching_controllers">Поиск</string>
+    <string name="ui_quick_connections_found_pair">Подключить</string>
+    <string name="ui_quick_connections_retry_pair">Повторить</string>
+    <string name="ui_quick_connections_retry_join">Повторить</string>
+    <string name="ui_quick_connections_scan_running">Поиск сетей</string>
+    <string name="ui_quick_connections_scan_again">Искать снова</string>
+    <string name="ui_quick_connections_saved_out_of_range">Вне зоны действия</string>
+    <string name="ui_quick_connections_saved_connected">Подключено</string>
+    <string name="ui_quick_connections_nearby_join">Подключиться</string>
+    <string name="ui_quick_connections_nearby_join_outside">Подключиться в настройках Wi-Fi</string>
+    <string name="ui_quick_connections_bluetooth_off_hint">Включите его, чтобы подключать контроллеры</string>
+    <string name="ui_quick_connections_wifi_off_hint">Включите его, чтобы видеть сети рядом</string>
+    <string name="ui_quick_connections_bluetooth_toggle_standard">Выключите его в настройках Bluetooth</string>
+    <string name="ui_quick_connections_forget_device_hint">Удаляйте устройства в настройках Bluetooth Android</string>
+    <string name="ui_quick_connections_wifi_toggle_standard">Включайте и выключайте Wi-Fi на панели Wi-Fi</string>
+    <string name="ui_quick_connections_wifi_permission">Разрешите доступ к местоположению, чтобы видеть названия сетей и сети рядом</string>
+    <string name="ui_quick_connections_wifi_permission_allow">Разрешить</string>
+    <string name="ui_quick_connections_wifi_permission_denied">Доступ к местоположению для Argosy отключён</string>
+    <string name="ui_quick_connections_wifi_permission_settings">Открыть разрешения приложения</string>
+    <string name="ui_quick_connections_bluetooth_permission_denied">Разрешение на доступ к устройствам рядом для Argosy отключено</string>
+    <string name="ui_quick_connections_bluetooth_permission_settings">Открыть разрешения приложения</string>
     <string name="ui_quick_settings_wifi">Wi-Fi</string>
     <string name="ui_quick_settings_bluetooth">Bluetooth</string>
     <string name="ui_quick_settings_radio_on">Вкл.</string>
-    <string name="ui_quick_settings_radio_off">Выкл.</string>
     <string name="ui_quick_settings_wifi_connected">Подключено</string>
     <string name="ui_quick_settings_wifi_not_connected">Не подключено</string>
     <string name="ui_sibling_choice_title_download">ВАРИАНТ ДЛЯ ЗАГРУЗКИ</string>
@@ -1137,15 +1264,179 @@
     <string name="common_game_confirm_hide_title">Скрыть %1$s?</string>
     <string name="common_game_confirm_hide_message">Скрытые игры можно снова показать в Библиотеке, выбрав в фильтре Источник значение Скрытые.</string>
     <string name="common_game_confirm_hide_confirm">Скрыть</string>
-    <string name="ui_launch_overlay_running_newer_save_title">На сервере есть более новое сохранение</string>
-    <string name="ui_launch_overlay_running_newer_save_message">Игра %1$s всё ещё запущена, но другое устройство сохранило более новую копию. Загрузите её или продолжайте играть с того места, где остановились.</string>
-    <string name="ui_launch_overlay_running_load_newer_label">Загрузить новое сохранение</string>
-    <string name="ui_launch_overlay_running_load_newer_subtitle">Закрывает запущенную игру. Несохранённый прогресс будет потерян.</string>
-    <string name="ui_launch_overlay_running_keep_playing_label">Продолжить игру</string>
-    <string name="ui_launch_overlay_running_keep_playing_subtitle">Следующее сохранение будет конфликтовать с копией на сервере</string>
     <string name="ui_launch_overlay_running_busy_title">%1$s работает</string>
     <string name="ui_launch_overlay_running_busy_message_game">%1$s всё ещё выполняет %2$s в фоне.</string>
     <string name="ui_launch_overlay_running_busy_message">%1$s всё ещё работает в фоне.</string>
+    <string name="ui_launch_overlay_makeroom_title">Освободите место для «%1$s»</string>
+    <string name="ui_launch_overlay_makeroom_subtitle">Выберите игру, которую нужно закрыть. Сначала она сохранится.</string>
+    <string name="ui_launch_overlay_makeroom_saved">Сохранено: %1$s</string>
+    <string name="ui_launch_overlay_makeroom_close">Закрыть</string>
+    <string name="ui_launch_overlay_makeroom_saving">Сохранение</string>
+    <string name="ui_launch_overlay_makeroom_closed">Закрыто</string>
     <string name="ui_launch_overlay_running_close_label">Закрыть и запустить</string>
     <string name="ui_launch_overlay_running_close_subtitle">Несохранённый прогресс в запущенной игре будет потерян</string>
+    <string name="ui_game_card_running">Запущена</string>
+    <string name="ui_game_card_saving">Сохранение</string>
+    <string name="ui_running_duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="ui_running_duration_minutes">%1$dm</string>
+    <string name="ui_status_bar_running_desc">Запущенные игры</string>    <string name="ui_quick_menu_random_action_resume_game">Продолжить</string>
+    <string name="gamelist_row_running">Запущена</string>
+    <string name="gamelist_row_running_in">Запущена в %1$s</string>
+    <string name="gamelist_row_saving">Сохранение</string>
+    <string name="ui_client_cert_password_title">Пароль сертификата</string>
+    <string name="ui_client_cert_password_label">Пароль</string>
+    <string name="ui_client_cert_password_message">Введите пароль для %1$s. Оставьте поле пустым, если пароля нет.</string>
+    <string name="ui_client_cert_password_import">Импорт</string>
+    <string name="ui_client_cert_password_import_busy">Импорт…</string>
+    <string name="ui_client_cert_password_cancel">Отмена</string>
+    <string name="ui_client_cert_password_status_importing">Импорт сертификата…</string>
+    <string name="ui_client_cert_password_error_not_a_file">Не удалось открыть файл.</string>
+    <string name="ui_client_cert_password_error_wrong_password">Неверный пароль для этого файла сертификата.</string>
+    <string name="ui_client_cert_password_error_no_private_key">В файле нет закрытого ключа. Экспортируйте сертификат вместе с ключом.</string>
+    <string name="ui_client_cert_password_error_unreadable">Файл не является читаемым сертификатом .p12 или .pfx.</string>
+    <string name="ui_client_cert_password_error_expired">Срок действия сертификата истёк.</string>
+    <string name="ui_client_cert_password_error_unsupported_key">Устройство не может сохранить ключ этого типа. Используйте ключ RSA или EC.</string>
+
+    <!-- Quick panel Power page (ui/components/QuickPowerRows.kt) -->
+    <string name="ui_quick_settings_page_power">Питание</string>
+    <string name="ui_quick_settings_group_power_actions">Питание</string>
+    <string name="ui_quick_settings_group_open_games">Открытые игры</string>
+    <string name="ui_quick_settings_power_sleep">Сон</string>
+    <string name="ui_quick_settings_power_restart">Перезагрузить</string>
+    <string name="ui_quick_settings_power_off">Выключить</string>
+    <string name="ui_quick_settings_power_menu">Перезагрузить или выключить</string>
+    <string name="ui_quick_settings_power_menu_open">Меню питания</string>
+    <string name="ui_quick_settings_power_access_notice">Argosy нужна служба специальных возможностей, чтобы переводить это устройство в сон, перезагружать или выключать его.</string>
+    <string name="ui_quick_settings_power_access_allow">Включить</string>
+    <string name="ui_quick_settings_power_open_games_empty">Нет открытых игр</string>
+    <string name="ui_quick_settings_power_open_game_builtin">Встроенный</string>
+    <string name="ui_quick_settings_power_restart_title">Перезагрузить устройство?</string>
+    <string name="ui_quick_settings_power_restart_message">Открытые игры заранее не сохраняются и не закрываются. Несохранённый прогресс в открытой игре будет потерян.</string>
+    <string name="ui_quick_settings_power_restart_confirm">Перезагрузить</string>
+    <string name="ui_quick_settings_power_off_title">Выключить устройство?</string>
+    <string name="ui_quick_settings_power_off_message">Открытые игры заранее не сохраняются и не закрываются. Несохранённый прогресс в открытой игре будет потерян.</string>
+    <string name="ui_quick_settings_power_restart_message_idle">Устройство выключится и включится снова.</string>
+    <string name="ui_quick_settings_power_off_message_idle">Устройство выключится.</string>
+    <string name="ui_quick_settings_power_off_confirm">Выключить</string>
+    <string name="ui_quick_settings_power_working_restart">Загрузка сохранений, затем перезагрузка</string>
+    <string name="ui_quick_settings_power_working_off">Загрузка сохранений, затем выключение</string>
+    <string name="ui_quick_settings_power_failed_sleep">Устройство не перешло в сон</string>
+    <string name="ui_quick_settings_power_failed_restart">Устройство не перезагрузилось</string>
+    <string name="ui_quick_settings_power_failed_off">Устройство не выключилось</string>
+    <string name="ui_quick_settings_power_failed_menu">Меню питания не открылось</string>
+
+    <!-- Quick panel Activity page (ui/components/QuickActivityRows.kt) -->
+    <string name="ui_quick_settings_page_activity">Активность</string>
+    <string name="ui_quick_settings_group_activity_now">Сейчас</string>
+    <string name="ui_quick_settings_group_activity_recent">Недавнее</string>
+    <string name="ui_quick_settings_activity_idle">Ничего не выполняется</string>
+    <string name="ui_quick_settings_activity_syncing">Синхронизация сохранений</string>
+    <string name="ui_quick_settings_activity_recent_empty">Недавней активности нет</string>
+    <plurals name="ui_quick_settings_activity_downloads_queued">
+        <item quantity="one">Ещё %d в очереди</item>
+        <item quantity="few">Ещё %d в очереди</item>
+        <item quantity="many">Ещё %d в очереди</item>
+        <item quantity="other">Ещё %d в очереди</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_sync_remaining">
+        <item quantity="one">Осталось: %d</item>
+        <item quantity="few">Осталось: %d</item>
+        <item quantity="many">Осталось: %d</item>
+        <item quantity="other">Осталось: %d</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_saves_synced">
+        <item quantity="one">%d сохранение синхронизировано</item>
+        <item quantity="few">%d сохранения синхронизировано</item>
+        <item quantity="many">%d сохранений синхронизировано</item>
+        <item quantity="other">%d сохранения синхронизировано</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_saves_synced_latest">
+        <item quantity="one">%1$d сохранение синхронизировано, последнее: %2$s</item>
+        <item quantity="few">%1$d сохранения синхронизировано, последнее: %2$s</item>
+        <item quantity="many">%1$d сохранений синхронизировано, последнее: %2$s</item>
+        <item quantity="other">%1$d сохранения синхронизировано, последнее: %2$s</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_downloads_finished">
+        <item quantity="one">%d загрузка завершена</item>
+        <item quantity="few">%d загрузки завершены</item>
+        <item quantity="many">%d загрузок завершено</item>
+        <item quantity="other">%d загрузки завершены</item>
+    </plurals>
+    <string name="ui_status_bar_activity_unseen_desc">Новая активность</string>
+    <string name="ui_folder_default_name">Папка</string>
+    <string name="ui_folder_overlay_hint_remove">Убрать из папки</string>
+    <string name="ui_folder_appearance_title">Оформление папки</string>
+    <string name="ui_folder_appearance_cover">Обложка</string>
+    <string name="ui_folder_appearance_cover_mosaic">Мозаика</string>
+    <string name="ui_folder_appearance_cover_image">Изображение</string>
+    <string name="ui_folder_appearance_cover_sticker">Стикер</string>
+    <string name="ui_folder_appearance_cover_picture">Изображение обложки</string>
+    <string name="ui_folder_appearance_picture_none">Не выбрано</string>
+    <string name="ui_folder_appearance_picture_chosen">Изображение выбрано</string>
+    <string name="ui_folder_appearance_outline">Контур</string>
+    <string name="ui_folder_appearance_outline_off">Выкл.</string>
+    <string name="ui_folder_appearance_outline_white">Белый</string>
+    <string name="ui_folder_appearance_outline_black">Чёрный</string>
+    <string name="ui_folder_appearance_outline_accent">Акцент</string>
+    <string name="ui_folder_appearance_show_name">Показывать название</string>
+    <string name="ui_folder_appearance_backdrop">Фон</string>
+    <string name="ui_folder_appearance_backdrop_none">Нет</string>
+    <string name="ui_folder_appearance_backdrop_cover">Размытая обложка</string>
+    <string name="ui_folder_appearance_backdrop_image">Изображение</string>
+    <string name="ui_folder_appearance_backdrop_picture">Изображение фона</string>
+    <string name="ui_folder_appearance_accent">Цвет акцента</string>
+    <string name="ui_folder_appearance_accent_theme">Тема</string>
+    <string name="ui_folder_appearance_accent_rose">Розовый</string>
+    <string name="ui_folder_appearance_accent_amber">Янтарный</string>
+    <string name="ui_folder_appearance_accent_lime">Лаймовый</string>
+    <string name="ui_folder_appearance_accent_sky">Небесный</string>
+    <string name="ui_folder_appearance_accent_violet">Фиолетовый</string>
+    <string name="ui_folder_appearance_member_size">Размер плиток</string>
+    <string name="ui_folder_appearance_size_small">Маленький</string>
+    <string name="ui_folder_appearance_size_medium">Средний</string>
+    <string name="ui_folder_appearance_size_large">Большой</string>
+    <string name="ui_folder_overlay_loading">Поиск игр</string>
+    <string name="ui_folder_overlay_empty">Эта папка пуста</string>
+    <string name="ui_folder_overlay_empty_auto">Ни одна игра не подходит под эту папку</string>
+    <string name="ui_folder_chooser_title">Переместить в папку</string>
+    <string name="ui_folder_chooser_new">Новая папка</string>
+    <string name="ui_folder_name_title_new">Новая папка</string>
+    <string name="ui_folder_name_title_rename">Переименовать папку</string>
+    <string name="ui_folder_name_label">Название папки</string>
+    <string name="ui_folder_name_confirm">Сохранить</string>
+    <string name="ui_folder_name_cancel">Отмена</string>
+    <string name="ui_feature_setup_title_auto_folder">Автопапка</string>
+    <string name="ui_feature_setup_step_auto_folder">Какие игры попадают в эту папку</string>
+    <string name="ui_feature_setup_step_developers">Разработчики</string>
+    <string name="ui_feature_setup_step_release_year">Год выпуска</string>
+    <string name="ui_feature_setup_step_play_status">Статус прохождения</string>
+    <string name="ui_feature_setup_developers">Разработчики</string>
+    <string name="ui_feature_setup_release_year">Год выпуска</string>
+    <string name="ui_feature_setup_play_status">Статус прохождения</string>
+    <string name="ui_feature_setup_recently_added">Недавно добавленные</string>
+    <string name="ui_feature_setup_ra_progress">Прогресс достижений</string>
+    <plurals name="ui_feature_setup_recently_added_days">
+        <item quantity="one">За последний %d день</item>
+        <item quantity="few">За последние %d дня</item>
+        <item quantity="many">За последние %d дней</item>
+        <item quantity="other">За последние %d дня</item>
+    </plurals>
+    <string name="ui_feature_setup_year_any">Любой год</string>
+    <string name="ui_feature_setup_year_before_1990">До 1990</string>
+    <string name="ui_feature_setup_year_1990s">1990-е</string>
+    <string name="ui_feature_setup_year_2000s">2000-е</string>
+    <string name="ui_feature_setup_year_2010s">2010-е</string>
+    <string name="ui_feature_setup_year_since_2020">С 2020</string>
+    <string name="ui_feature_setup_ra_progress_not_started">Не начато</string>
+    <string name="ui_feature_setup_ra_progress_in_progress">В процессе</string>
+    <string name="ui_feature_setup_ra_progress_mastered">Освоено</string>
+    <string name="ui_page_chooser_title_decor">Картинка</string>
+    <string name="ui_page_chooser_subtitle_decor">Откуда взять картинку</string>
+    <string name="ui_page_chooser_decor_source_game_art">Арт игры</string>
+    <string name="ui_page_chooser_decor_source_game_art_subtitle">Логотип, обложка или фон, которые уже есть в Argosy</string>
+    <string name="ui_page_chooser_decor_source_file">Файл изображения</string>
+    <string name="ui_page_chooser_decor_source_file_subtitle">PNG или WebP на этом устройстве, прозрачность сохраняется</string>
+    <string name="ui_page_chooser_art_logo">Логотип</string>
+    <string name="ui_page_chooser_decor_art_cover">Обложка</string>
+    <string name="ui_page_chooser_decor_art_background">Фон</string>
 </resources>

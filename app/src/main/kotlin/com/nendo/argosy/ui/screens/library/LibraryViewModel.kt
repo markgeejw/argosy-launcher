@@ -86,12 +86,17 @@ import com.nendo.argosy.ui.screens.home.HomePlatformUi
 import com.nendo.argosy.ui.screens.home.toHomePlatformUi
 import com.nendo.argosy.ui.util.GridUtils
 import com.nendo.argosy.ui.util.heldWhile
+import com.nendo.argosy.ui.util.settlingNulls
 import com.nendo.argosy.DualScreenManagerHolder
 import com.nendo.argosy.ui.ModalResetSignal
 import com.nendo.argosy.ui.dualscreen.CompanionFact
 import com.nendo.argosy.ui.dualscreen.PresentationSlot
 import com.nendo.argosy.ui.dualscreen.SlotOwner
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -279,6 +284,9 @@ data class LibraryUiState(
     val showQuickMenu: Boolean = false,
     val quickMenuFocusIndex: Int = 0,
     val quickMenuHasSiblingGroup: Boolean = false,
+    val quickMenuRunning: com.nendo.argosy.ui.common.RunningGameUi? = null,
+    val quickMenuMoveTargets: List<com.nendo.argosy.ui.screens.running.RunningMoveTarget> = emptyList(),
+    val quickMenuStream: com.nendo.argosy.ui.screens.stream.StreamOffer? = null,
     val isCustomGridHome: Boolean = false,
     val gridDensity: GridDensity = GridDensity.NORMAL,
     val libraryLayout: LibraryLayout = LibraryLayout.GRID,
@@ -377,6 +385,12 @@ data class LibraryUiState(
     val currentFilterCategory: FilterCategory
         get() = FilterCategory.entries.getOrElse(filterCategoryIndex) { FilterCategory.SOURCE }
 
+    val filterLeadingStops: Int
+        get() = if (currentFilterCategory == FilterCategory.SEARCH) 1 else 0
+
+    val isFilterSearchFieldFocused: Boolean
+        get() = currentFilterCategory == FilterCategory.SEARCH && filterOptionIndex == 0
+
     fun currentCategoryOptions(context: Context): List<String> =
         when (currentFilterCategory) {
             FilterCategory.SORT -> SortOption.entries.map { option ->
@@ -452,6 +466,7 @@ data class LibraryUiState(
 private const val TAG = "LibraryVM"
 private const val MIN_SECTION_RAIL_LABELS = 3
 private const val FILTER_OPTION_PAGE = 5
+private const val COMPANION_EMPTY_FOCUS_SETTLE_MS = 150L
 
 sealed class LibraryEvent {
     data class LaunchIntent(val intent: Intent) : LibraryEvent()
@@ -494,7 +509,10 @@ class LibraryViewModel @Inject constructor(
     private val showcaseSource: com.nendo.argosy.ui.common.PresentationShowcaseSource,
     private val reorderPlatforms: com.nendo.argosy.domain.usecase.platform.ReorderPlatformsUseCase,
     private val quickNavigation: com.nendo.argosy.data.preferences.QuickNavigationSource,
-    private val launchProgressTracker: com.nendo.argosy.data.emulator.LaunchProgressTracker
+    private val launchProgressTracker: com.nendo.argosy.data.emulator.LaunchProgressTracker,
+    val runningGameMenu: com.nendo.argosy.ui.screens.running.RunningGameMenu,
+    streamLaunch: com.nendo.argosy.ui.screens.stream.StreamLaunchController.Factory,
+    private val filterMemory: LibraryFilterMemory
 ) : ViewModel() {
 
     val siblingChoiceState = siblingChoice.state
@@ -502,6 +520,8 @@ class LibraryViewModel @Inject constructor(
     val gameConfirm = com.nendo.argosy.ui.common.GameConfirmController(
         gameActions::deleteDownloadConfirm, gameActions::hideConfirm, viewModelScope
     )
+
+    val streamLauncher = streamLaunch.create(viewModelScope)
 
     private val companionOwner = SlotOwner.of("library", this)
     private val platformShowcaseOwner = SlotOwner.of("library.platforms", this)
@@ -527,6 +547,7 @@ class LibraryViewModel @Inject constructor(
     private var explicitTileFiltersRequested = false
     private var explicitDestinationRequested = false
     private var cachedPlatformDisplayNames: Map<Long, String> = emptyMap()
+    internal var listDispatcher: CoroutineDispatcher = Dispatchers.Default
     private var cachedPlatformEntities: List<PlatformEntity> = emptyList()
     private var platformStatsCache: Map<Long, PlatformShowcaseStats>? = null
     private var cachedMediaLibraries: List<MediaLibraryEntity> = emptyList()
@@ -586,7 +607,9 @@ class LibraryViewModel @Inject constructor(
             val prefs = preferencesRepository.userPreferences.first()
             val option = SortOption.entries.firstOrNull { it.name == prefs.libraryDefaultSort }
                 ?: SortOption.TITLE
-            val source = SourceFilter.entries.firstOrNull { it.name == prefs.libraryDefaultSource }
+            val remembered = filterMemory.filters
+            val source = remembered?.source
+                ?: SourceFilter.entries.firstOrNull { it.name == prefs.libraryDefaultSource }
                 ?: SourceFilter.ALL
             val defaultPlatformId = prefs.libraryDefaultPlatformId
                 ?.takeIf { !explicitDestinationRequested }
@@ -598,10 +621,12 @@ class LibraryViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     view = if (landsOnGames) LibraryView.GAMES else it.view,
-                    activeFilters = if (explicitTileFiltersRequested) {
-                        it.activeFilters
-                    } else {
-                        it.activeFilters.copy(
+                    activeFilters = when {
+                        explicitTileFiltersRequested -> it.activeFilters
+                        remembered != null -> remembered.copy(
+                            source = if (explicitSourceRequested) it.activeFilters.source else remembered.source
+                        )
+                        else -> it.activeFilters.copy(
                             sort = ActiveSort(
                                 option = option,
                                 descending = prefs.libraryDefaultSortDescending
@@ -620,6 +645,15 @@ class LibraryViewModel @Inject constructor(
             }
             if (defaultPlatformId != null) openOnPlatform(defaultPlatformId)
             loadGames()
+            rememberFilterChoices()
+        }
+    }
+
+    private fun rememberFilterChoices() {
+        viewModelScope.launch {
+            _uiState.map { it.activeFilters }.distinctUntilChanged().collect { filters ->
+                if (!explicitSourceRequested && !explicitTileFiltersRequested) filterMemory.filters = filters
+            }
         }
     }
 
@@ -749,16 +783,18 @@ class LibraryViewModel @Inject constructor(
 
     private fun observeGradientChanges() {
         viewModelScope.launch {
-            gradientExtractionDelegate.gradients.collect { gradients ->
-                _uiState.update { state ->
-                    state.copy(
-                        games = state.games.map { game ->
-                            gradients[game.id]
-                                ?.takeIf { it != game.gradientColors }
-                                ?.let { game.copy(gradientColors = it) }
-                                ?: game
-                        }
-                    )
+            withContext(listDispatcher) {
+                gradientExtractionDelegate.gradients.collect { gradients ->
+                    _uiState.update { state ->
+                        state.copy(
+                            games = state.games.map { game ->
+                                gradients[game.id]
+                                    ?.takeIf { it != game.gradientColors }
+                                    ?.let { game.copy(gradientColors = it) }
+                                    ?: game
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -864,7 +900,7 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState
                 .map { if (it.view == LibraryView.PLATFORM_GRID) null else it.focusedGame?.id }
-                .distinctUntilChanged()
+                .settlingNulls(COMPANION_EMPTY_FOCUS_SETTLE_MS)
                 .collectLatest { publishCompanionDetail(it) }
         }
 
@@ -1185,6 +1221,8 @@ class LibraryViewModel @Inject constructor(
             val source = combine(baseFlow, seriesIdsFlow, regionIdsFlow) { games, seriesIds, regionIds ->
                 Triple(games, seriesIds, regionIds)
             }
+                .distinctUntilChanged()
+                .flowOn(listDispatcher)
 
             source
                 .catch { e ->
@@ -1194,39 +1232,39 @@ class LibraryViewModel @Inject constructor(
                 }
                 .heldWhile(launchProgressTracker.launchLive)
                 .collectLatest { (games, seriesIds, regionIds) ->
-                    val normalizedQuery = com.nendo.argosy.util.SearchNormalizer.normalize(filters.searchQuery)
-                    val platformIds = filters.platforms.map { it.id }.toSet()
-                    val filteredGames = games.filter { game ->
-                        val matchesSearch = filters.searchQuery.isEmpty() ||
-                            com.nendo.argosy.util.SearchNormalizer.normalize(game.title).contains(normalizedQuery)
-                        val matchesPlatform = platformIds.isEmpty() ||
-                            game.platformId in platformIds
-                        val matchesGenre = filters.genres.isEmpty() ||
-                            filters.genres.contains(game.genre)
-                        val matchesRegion = regionIds == null || game.id in regionIds
-                        val matchesPlayers = filters.players?.admits(PlayerCount.parse(game.players)) ?: true
-                        val matchesSeries = seriesIds == null || game.id in seriesIds
-                        matchesSearch && matchesPlatform && matchesGenre && matchesRegion &&
-                            matchesPlayers && matchesSeries
-                    }
-
-                    val sections = computeSections(filteredGames, filters.sort, sortPartition)
-                    val sectionLabels = sections.map { it.sidebarLabel }
-
-                    var gameOffset = 0
-                    val gridItems = sections.flatMap { section ->
-                        val header = LibraryGridItem.Header(section.label, section.sidebarLabel)
-                        val gameItems = section.games.mapIndexed { i, game ->
-                            LibraryGridItem.Game(game.toUi(cachedPlatformDisplayNames), gameIndex = gameOffset + i)
+                    val platformDisplayNames = cachedPlatformDisplayNames
+                    val (sections, gridItems) = withContext(listDispatcher) {
+                        val normalizedQuery = com.nendo.argosy.util.SearchNormalizer.normalize(filters.searchQuery)
+                        val platformIds = filters.platforms.map { it.id }.toSet()
+                        val filteredGames = games.filter { game ->
+                            val matchesSearch = filters.searchQuery.isEmpty() ||
+                                com.nendo.argosy.util.SearchNormalizer.normalize(game.title).contains(normalizedQuery)
+                            val matchesPlatform = platformIds.isEmpty() ||
+                                game.platformId in platformIds
+                            val matchesGenre = filters.genres.isEmpty() ||
+                                filters.genres.contains(game.genre)
+                            val matchesRegion = regionIds == null || game.id in regionIds
+                            val matchesPlayers = filters.players?.admits(PlayerCount.parse(game.players)) ?: true
+                            val matchesSeries = seriesIds == null || game.id in seriesIds
+                            matchesSearch && matchesPlatform && matchesGenre && matchesRegion &&
+                                matchesPlayers && matchesSeries
                         }
-                        gameOffset += section.games.size
-                        listOf(header) + gameItems
+                        val sections = computeSections(filteredGames, filters.sort, sortPartition)
+                        var gameOffset = 0
+                        val gridItems = sections.flatMap { section ->
+                            val header = LibraryGridItem.Header(section.label, section.sidebarLabel)
+                            val gameItems = section.games.mapIndexed { i, game ->
+                                LibraryGridItem.Game(game.toUi(platformDisplayNames), gameIndex = gameOffset + i)
+                            }
+                            gameOffset += section.games.size
+                            listOf(header) + gameItems
+                        }
+                        sections to gridItems
                     }
+                    val sectionLabels = sections.map { it.sidebarLabel }
+                    val gamesList = gridItems.mapNotNull { (it as? LibraryGridItem.Game)?.game }
 
-                    val allGamesSorted = sections.flatMap { it.games }
-                    val gamesList = allGamesSorted.map { it.toUi(cachedPlatformDisplayNames) }
-
-                    Log.d(TAG, "loadGames: ${games.size} total, ${filteredGames.size} after filters, ${sections.size} sections")
+                    Log.d(TAG, "loadGames: ${games.size} total, ${gamesList.size} after filters, ${sections.size} sections")
                     val siblingFocusIndex = settleSiblingFocus(gamesList.map { it.id })
                     _uiState.update { uiState ->
                         val shouldResetFocus = uiState.games.isEmpty()
@@ -1831,18 +1869,26 @@ class LibraryViewModel @Inject constructor(
 
     fun moveFilterOptionFocus(delta: Int) {
         _uiState.update { state ->
-            val options = state.currentCategoryOptions(context)
-            if (options.isEmpty()) return@update state
-            val maxIndex = options.size - 1
-            val newIndex = (state.filterOptionIndex + delta).coerceIn(0, maxIndex)
+            val stopCount = state.currentCategoryOptions(context).size + state.filterLeadingStops
+            if (stopCount == 0) return@update state
+            val newIndex = (state.filterOptionIndex + delta).coerceIn(0, stopCount - 1)
             state.copy(filterOptionIndex = newIndex)
         }
+    }
+
+    fun openFilterSearchKeyboard() {
+        _uiState.update { it.copy(filterOptionIndex = 0) }
+        viewModelScope.launch { _events.emit(LibraryEvent.OpenSearchKeyboard) }
     }
 
     fun confirmFilterSelection() {
         val state = _uiState.value
         val category = state.currentFilterCategory
-        val optionIndex = state.filterOptionIndex
+        if (state.isFilterSearchFieldFocused) {
+            openFilterSearchKeyboard()
+            return
+        }
+        val optionIndex = state.filterOptionIndex - state.filterLeadingStops
         val options = state.currentCategoryOptions(context)
 
         val newFilters = when (category) {
@@ -1964,12 +2010,28 @@ class LibraryViewModel @Inject constructor(
             return
         }
         if (quickMenuOpenJob?.isActive == true) return
-        val gameId = _uiState.value.focusedGame?.id ?: return
+        val focused = _uiState.value.focusedGame ?: return
+        val gameId = focused.id
+        val stream = focused
+            .takeIf { it.isRommGame && !it.isDownloaded && !it.needsInstall }
+            ?.let { game ->
+                val partial = downloadIndicators.value[game.id]?.isShown == true
+                streamLauncher.offerFor(game.id, game.platformSlug, isOnDevice = partial)
+            }
         quickMenuOpenJob = viewModelScope.launch {
             val hasChoice = siblingChoice.hasChoice(gameId)
+            val running = runningGameMenu.markFor(gameId)
+            val moveTargets = runningGameMenu.moveTargets(running)
             if (_uiState.value.focusedGame?.id != gameId) return@launch
             _uiState.update {
-                it.copy(showQuickMenu = true, quickMenuFocusIndex = 0, quickMenuHasSiblingGroup = hasChoice)
+                it.copy(
+                    showQuickMenu = true,
+                    quickMenuFocusIndex = 0,
+                    quickMenuHasSiblingGroup = hasChoice,
+                    quickMenuRunning = running,
+                    quickMenuMoveTargets = moveTargets,
+                    quickMenuStream = stream
+                )
             }
             soundManager.play(SoundType.OPEN_MODAL)
         }
@@ -1977,7 +2039,27 @@ class LibraryViewModel @Inject constructor(
 
     private fun quickMenuRows(state: LibraryUiState): List<LibraryQuickMenuRow> {
         val game = state.focusedGame ?: return emptyList()
-        return libraryQuickMenuRows(game, state.isCustomGridHome, state.quickMenuHasSiblingGroup)
+        return libraryQuickMenuRows(
+            game,
+            state.isCustomGridHome,
+            state.quickMenuHasSiblingGroup,
+            isRunning = state.quickMenuRunning != null,
+            moveTargetCount = state.quickMenuMoveTargets.size,
+            streamable = state.quickMenuStream != null,
+            streamLeads = state.quickMenuStream?.leads == true
+        )
+    }
+
+    fun requestCloseRunningGame() {
+        val state = _uiState.value
+        runningGameMenu.requestClose(state.quickMenuRunning, state.focusedGame?.title)
+    }
+
+    fun moveRunningGame(target: com.nendo.argosy.ui.screens.running.RunningMoveTarget) {
+        val state = _uiState.value
+        val running = state.quickMenuRunning ?: return
+        val title = state.focusedGame?.title ?: return
+        runningGameMenu.moveTo(viewModelScope, running, target, title)
     }
 
     fun moveQuickMenuFocus(delta: Int) {
@@ -1992,9 +2074,16 @@ class LibraryViewModel @Inject constructor(
     fun confirmQuickMenuSelection(onGameSelect: (Long) -> Unit): InputResult {
         val state = _uiState.value
         val game = state.focusedGame ?: return InputResult.HANDLED
-        val row = quickMenuRows(state).getOrNull(state.quickMenuFocusIndex) ?: return InputResult.HANDLED
+        val rows = quickMenuRows(state)
+        val row = rows.getOrNull(state.quickMenuFocusIndex) ?: return InputResult.HANDLED
 
         return when (row) {
+            LibraryQuickMenuRow.MOVE_TO_DISPLAY -> {
+                val target = state.quickMenuMoveTargets.getOrNull(rows.moveTargetIndexAt(state.quickMenuFocusIndex))
+                target?.let(::moveRunningGame)
+                toggleQuickMenu()
+                InputResult.HANDLED
+            }
             LibraryQuickMenuRow.PRIMARY -> {
                 when {
                     game.needsInstall -> installApk(game.id)
@@ -2003,6 +2092,11 @@ class LibraryViewModel @Inject constructor(
                     else -> downloadGame(game.id)
                 }
                 toggleQuickMenu()
+                InputResult.HANDLED
+            }
+            LibraryQuickMenuRow.STREAM -> {
+                toggleQuickMenu()
+                streamLauncher.open(game.id)
                 InputResult.HANDLED
             }
             LibraryQuickMenuRow.FAVORITE -> {
@@ -2051,6 +2145,11 @@ class LibraryViewModel @Inject constructor(
             }
             LibraryQuickMenuRow.HIDE -> {
                 if (game.isHidden) unhideGame(game.id) else hideGame(game.id)
+                toggleQuickMenu()
+                InputResult.HANDLED
+            }
+            LibraryQuickMenuRow.CLOSE_GAME -> {
+                requestCloseRunningGame()
                 toggleQuickMenu()
                 InputResult.HANDLED
             }
@@ -2506,12 +2605,9 @@ class LibraryViewModel @Inject constructor(
                 return if (liftPlatformCell()) InputResult.handled(SoundType.SELECT) else InputResult.HANDLED
             }
             if (_uiState.value.isSectionRailFocused) return InputResult.HANDLED
-            if (_uiState.value.showFilterMenu && _uiState.value.currentFilterCategory == FilterCategory.SEARCH) {
-                viewModelScope.launch { _events.emit(LibraryEvent.OpenSearchKeyboard) }
-                return InputResult.HANDLED
-            }
+            if (_uiState.value.showFilterMenu) return InputResult.HANDLED
             val game = _uiState.value.focusedGame ?: return InputResult.UNHANDLED
-            if (_uiState.value.showAddToCollectionModal || _uiState.value.showQuickMenu || _uiState.value.showFilterMenu) return InputResult.HANDLED
+            if (_uiState.value.showAddToCollectionModal || _uiState.value.showQuickMenu) return InputResult.HANDLED
             if (_uiState.value.activeFilters.source == SourceFilter.HIDDEN) {
                 unhideGame(game.id)
             } else {
@@ -2536,6 +2632,7 @@ class LibraryViewModel @Inject constructor(
         override fun onSelect(): InputResult {
             if (isLiftingPlatform) return InputResult.HANDLED
             if (_uiState.value.showAddToCollectionModal) return InputResult.HANDLED
+            if (_uiState.value.showFilterMenu) return InputResult.HANDLED
             if (com.nendo.argosy.ui.dualscreen.selectSwapsRoles()) return InputResult.UNHANDLED
             if (_uiState.value.isPlatformGrid) return InputResult.HANDLED
             if (_uiState.value.isSectionRailFocused) return InputResult.HANDLED

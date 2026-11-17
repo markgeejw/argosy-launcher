@@ -35,6 +35,7 @@
     <string name="dual_dashboard_state_just_now">अभी-अभी</string>
     <string name="dual_dashboard_state_latest">नवीनतम</string>
     <string name="dual_dashboard_total_play">कुल %1$s</string>
+    <string name="dual_dashboard_session_play">इस सत्र में %1$s</string>
     <string name="dual_dashboard_manual_resume">पेज %1$d से जारी रखें</string>
     <string name="dual_dashboard_guide_progress">%1$d%% पढ़ा गया</string>
     <string name="dual_dashboard_document_open">खोलें</string>
@@ -161,6 +162,7 @@
     <string name="dual_media_episodes_empty_title">अभी यहां कोई एपिसोड नहीं</string>
 
     <string name="dual_media_cast_header">कलाकार</string>
+    <string name="dual_media_related_header">इसी तरह के और</string>
     <string name="dual_media_browse_back_description">वापस</string>
     <plurals name="dual_media_browse_episode_count">
         <item quantity="one">%d एपिसोड</item>
@@ -484,6 +486,10 @@
     <string name="dual_detail_option_write_review">समीक्षा लिखें</string>
     <string name="dual_showcase_progress_main">मुख्य कहानी के %2$s में से %1$s</string>
     <string name="dual_showcase_played">%1$s खेला</string>
+    <string name="dual_showcase_running">चल रहा है</string>
+    <string name="dual_showcase_running_in">%1$s में चल रहा है</string>
+    <string name="dual_showcase_saving">सेव हो रहा है</string>
+    <string name="dual_showcase_running_with_time">%1$s से चल रहा है</string>
     <string name="dual_showcase_journey_header">आपकी यात्रा</string>
     <string name="dual_showcase_journey_main">मुख्य कहानी %1$s</string>
     <string name="dual_showcase_completionist">कंप्लीशनिस्ट %1$s</string>

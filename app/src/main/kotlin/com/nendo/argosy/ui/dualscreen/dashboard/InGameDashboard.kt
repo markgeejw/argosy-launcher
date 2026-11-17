@@ -22,10 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material3.Icon
@@ -60,6 +61,8 @@ import com.nendo.argosy.R
 import com.nendo.argosy.core.game.AchievementUi
 import com.nendo.argosy.hardware.CompanionInGameState
 import com.nendo.argosy.hardware.CompanionSessionTimer
+import com.nendo.argosy.ui.components.SystemStatusBar
+import com.nendo.argosy.ui.components.untilRunPlayTimeChanges
 import com.nendo.argosy.ui.common.rememberFileImageModel
 import com.nendo.argosy.ui.dualscreen.COVER_ASPECT
 import com.nendo.argosy.ui.screens.gamedetail.GameDocument
@@ -69,12 +72,13 @@ import com.nendo.argosy.ui.theme.ALauncherColors
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalArgosyTheme
 import com.nendo.argosy.ui.theme.Motion
+import com.nendo.argosy.ui.theme.generated.ComponentDefaults
 import com.nendo.argosy.ui.theme.generated.DimensionTokens
 import com.nendo.argosy.ui.util.touchOnly
 import kotlinx.coroutines.delay
 
 enum class DashboardSection(@StringRes val labelRes: Int, val icon: ImageVector) {
-    SESSION(R.string.dual_dashboard_rail_session, Icons.Filled.Timer),
+    SESSION(R.string.dual_dashboard_rail_session, Icons.Filled.SportsEsports),
     STATES(R.string.dual_dashboard_rail_states, Icons.Filled.Save),
     TROPHIES(R.string.dual_dashboard_rail_trophies, Icons.Filled.EmojiEvents),
     MANUAL(R.string.dual_dashboard_rail_manual, Icons.AutoMirrored.Filled.MenuBook),
@@ -92,7 +96,8 @@ class DashboardActions(
     val onOpenCheats: () -> Unit,
     val onOpenSettings: () -> Unit,
     val onQuit: () -> Unit,
-    val onOpenDocument: (GameDocument) -> Unit
+    val onOpenDocument: (GameDocument) -> Unit,
+    val onNextDisc: () -> Unit
 )
 
 private val RAIL_WIDTH = DimensionTokens.Layout.companionRailWidth.dp
@@ -126,13 +131,14 @@ fun InGameDashboard(
     val readerOpen = readerState != null
     var section by remember(state.gameId) { mutableStateOf(DashboardSection.SESSION) }
     var quitArmedUntil by remember(state.gameId) { mutableLongStateOf(0L) }
+    ClearAt(quitArmedUntil) { quitArmedUntil = 0L }
     var sessionMillis by remember { mutableLongStateOf(sessionTimer?.getActiveMillis() ?: 0L) }
 
     LaunchedEffect(sessionTimer) {
         if (sessionTimer == null) return@LaunchedEffect
         while (true) {
             sessionMillis = sessionTimer.getActiveMillis()
-            delay(1000)
+            delay(untilRunPlayTimeChanges(sessionMillis))
         }
     }
     LaunchedEffect(readerOpen) {
@@ -141,7 +147,7 @@ fun InGameDashboard(
         }
     }
 
-    val statesAllowed = state.quickActionsAvailable && !state.isHardcore
+    val statesAllowed = controls.offersStates(state)
     val selectSection: (DashboardSection) -> Unit = { target ->
         when (target) {
             DashboardSection.MANUAL -> state.manual?.let(actions.onOpenDocument)
@@ -195,6 +201,7 @@ fun InGameDashboard(
                 onSelect = selectSection,
                 onCheats = actions.onOpenCheats,
                 onSettings = actions.onOpenSettings,
+                onNextDisc = actions.onNextDisc,
                 onQuit = {
                     if (android.os.SystemClock.elapsedRealtime() < quitArmedUntil) {
                         quitArmedUntil = 0L
@@ -205,11 +212,24 @@ fun InGameDashboard(
                 }
             )
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                when (section) {
-                    DashboardSection.SESSION -> SessionSection(content, wide)
-                    DashboardSection.STATES -> StatesSection(content, wide)
-                    DashboardSection.TROPHIES -> TrophiesSection(content)
-                    DashboardSection.MANUAL, DashboardSection.GUIDE -> Unit
+                Column(modifier = Modifier.fillMaxSize()) {
+                    SystemStatusBar(
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(
+                                top = Dimens.spacingSm,
+                                end = Dimens.spacingLg - ComponentDefaults.OverlayLegibility.scrimPaddingHorizDp.dp
+                            ),
+                        scrim = false
+                    )
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        when (section) {
+                            DashboardSection.SESSION -> SessionSection(content, wide)
+                            DashboardSection.STATES -> StatesSection(content, wide)
+                            DashboardSection.TROPHIES -> TrophiesSection(content)
+                            DashboardSection.MANUAL, DashboardSection.GUIDE -> Unit
+                        }
+                    }
                 }
                 if (wide && readerOpen) {
                     DashboardReader(reader, Modifier.fillMaxSize().padding(bottom = footerHeight))
@@ -225,6 +245,7 @@ fun InGameDashboard(
     }
 }
 
+
 /**
  * The data and callbacks every section reads, gathered once per composition.
  */
@@ -238,8 +259,7 @@ class DashboardContent(
     val actions: DashboardActions,
     val onOpenSection: (DashboardSection) -> Unit
 ) {
-    val achievementTotal: Int =
-        if (achievements.isNotEmpty()) achievements.size else state.achievementCount
+    val achievementTotal: Int = controls.achievementTotal(state, achievements)
     val achievementEarned: Int =
         if (achievements.isNotEmpty()) achievements.count { it.isUnlocked } else state.earnedAchievementCount
 }
@@ -266,6 +286,7 @@ private fun DashboardRail(
     onSelect: (DashboardSection) -> Unit,
     onCheats: () -> Unit,
     onSettings: () -> Unit,
+    onNextDisc: () -> Unit,
     onQuit: () -> Unit
 ) {
     val theme = LocalArgosyTheme.current
@@ -301,6 +322,16 @@ private fun DashboardRail(
                         label = stringResource(R.string.dual_dashboard_rail_cheats),
                         wide = wide,
                         onTap = onCheats
+                    )
+                }
+            }
+            if (controls.discSwapAvailable) {
+                item(key = "next_disc") {
+                    RailItem(
+                        icon = Icons.Filled.Album,
+                        label = stringResource(R.string.stream_dashboard_rail_next_disc),
+                        wide = wide,
+                        onTap = onNextDisc
                     )
                 }
             }

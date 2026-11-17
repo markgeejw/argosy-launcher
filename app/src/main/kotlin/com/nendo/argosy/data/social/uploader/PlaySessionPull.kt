@@ -13,6 +13,7 @@ import com.nendo.argosy.data.remote.romm.RomMPlaySession
 import com.nendo.argosy.util.Logger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,13 +21,6 @@ import javax.inject.Singleton
 private const val TAG = "PlaySessionPull"
 private const val PAGE_SIZE = 200
 
-/**
- * Copies down the play sessions RomM holds for the account's other devices, so hours played
- * elsewhere count here. This device is skipped: its sessions originate locally, and a row the
- * ingest acknowledged as a duplicate carries no server id to match on. Runs after the
- * first-connect backfill, after each upload, on the [PlaySessionPullScheduler] cadence, and on
- * demand from the Play Time hub.
- */
 @Singleton
 class PlaySessionPull @Inject constructor(
     private val playSessionDao: PlaySessionDao,
@@ -53,6 +47,7 @@ class PlaySessionPull @Inject constructor(
         val ownerUserId = syncPreferencesRepository.getRommUserId() ?: return Summary(0, 0, "No account")
         val thisDeviceId = connectionManager.getDeviceId()
         val cutoffs = playRecordDeletionDao.cutoffsFor(ownerUserId)
+        val previousPull = syncPreferencesRepository.getRommPlaySessionLastPull()
 
         val devices = try {
             val response = api.getDevices()
@@ -94,6 +89,38 @@ class PlaySessionPull @Inject constructor(
                 offset += page.size
             }
             devicesDone++
+        }
+        val streamingSince = streamingFloor(
+            newestStream = playSessionDao.getLatestRommStartForDevice(ROMM_STREAMING_DEVICE_ID, ownerUserId),
+            lastPull = previousPull
+        )
+        var streamingOffset = 0
+        val pullsStreams = connectionManager.getCapabilities().supportsStreaming
+        while (pullsStreams) {
+            val page = try {
+                val response = api.getPlaySessions(
+                    deviceId = null,
+                    startAfter = streamingSince?.toString(),
+                    limit = PAGE_SIZE,
+                    offset = streamingOffset
+                )
+                if (!response.isSuccessful) {
+                    return Summary(added, devicesDone, "Play sessions returned ${response.code()}")
+                }
+                response.body().orEmpty()
+            } catch (e: Exception) {
+                Logger.error(TAG, "run: streaming page failed | offset=$streamingOffset", e)
+                return Summary(added, devicesDone, e.message ?: "Network failure")
+            }
+            if (page.isEmpty()) break
+            val deviceless = page.filter { it.deviceId == null }
+            if (deviceless.isNotEmpty()) {
+                added += insertMissing(deviceless, STREAMING_DEVICE, ownerUserId, cutoffs) { romId ->
+                    romCache.getOrPut(romId) { resolveGame(api, romId) }
+                }
+            }
+            if (page.size < PAGE_SIZE) break
+            streamingOffset += page.size
         }
         syncPreferencesRepository.setRommPlaySessionLastPull(Instant.now())
         Logger.info(TAG, "run: added=$added devices=$devicesDone")
@@ -165,6 +192,29 @@ class PlaySessionPull @Inject constructor(
             igdbId = rom.igdbId,
             title = rom.name,
             platformSlug = rom.platformSlug
+        )
+    }
+
+    companion object {
+        internal val STREAM_PULL_OVERLAP: Duration = Duration.ofDays(1)
+
+        internal fun streamingFloor(newestStream: Instant?, lastPull: Instant?): Instant? {
+            val pullFloor = lastPull?.minus(STREAM_PULL_OVERLAP)
+            return listOfNotNull(newestStream, pullFloor).maxOrNull()
+        }
+
+        /**
+         * The device id stored on sessions RomM records without a device, which is how it logs
+         * emulator streaming. A literal token: the UI maps it to a label and never shows it.
+         */
+        const val ROMM_STREAMING_DEVICE_ID = "romm-streaming"
+
+        private val STREAMING_DEVICE = RomMDevice(
+            id = ROMM_STREAMING_DEVICE_ID,
+            name = null,
+            platform = null,
+            client = null,
+            clientVersion = null
         )
     }
 }

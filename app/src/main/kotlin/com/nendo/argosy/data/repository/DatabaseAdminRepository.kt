@@ -174,6 +174,7 @@ class DatabaseAdminRepository @Inject constructor(
     ) = withContext(Dispatchers.IO) {
         val sourceNames = sources.map { it.name }
 
+        downloadManager.get().discardForGameSources(sourceNames)
         database.withTransaction {
             database.saveSyncDao().deleteByGameSources(sourceNames)
             database.saveCacheDao().deleteByGameSources(sourceNames)
@@ -239,7 +240,7 @@ class DatabaseAdminRepository @Inject constructor(
                     }
                     val removed = if (file.isDirectory) {
                         val platformDir = gameRepository.get().getDownloadDirForPlatformId(target.game.platformId)
-                        !FileNames.isWithin(platformDir, file) && file.deleteRecursively()
+                        platformDir != null && !FileNames.isWithin(platformDir, file) && file.deleteRecursively()
                     } else {
                         file.delete()
                     }

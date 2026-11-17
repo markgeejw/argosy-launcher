@@ -30,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
@@ -44,17 +43,25 @@ import com.nendo.argosy.R
 import com.nendo.argosy.data.social.FriendActivity
 import com.nendo.argosy.domain.model.SaveListState
 import com.nendo.argosy.ui.common.GameListDetails
+import com.nendo.argosy.ui.common.RunningGameUi
 import com.nendo.argosy.ui.common.rememberFileImageModel
 import com.nendo.argosy.ui.components.GameTitle
+import com.nendo.argosy.ui.components.RunningLineLabels
+import com.nendo.argosy.ui.components.RunningSubLine
 import com.nendo.argosy.ui.components.platformBadgeLabel
 import com.nendo.argosy.ui.components.friends.SocialAvatar
 import com.nendo.argosy.ui.screens.home.GameDownloadIndicator
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalBoxArtStyle
 import com.nendo.argosy.ui.theme.generated.ComponentDefaults
-import com.nendo.argosy.ui.primitives.FocusIndicators
-import com.nendo.argosy.ui.primitives.argosyFocusIndicators
 import com.nendo.argosy.ui.util.clickableNoFocus
+import com.nendo.argosy.ui.util.focusBorder
+
+private val GAME_LIST_RUNNING_LABELS = RunningLineLabels(
+    running = R.string.gamelist_row_running,
+    runningIn = R.string.gamelist_row_running_in,
+    saving = R.string.gamelist_row_saving
+)
 
 private const val PLACEHOLDER_ICON_ALPHA = 0.5f
 private const val PLACEHOLDER_ICON_FILL = 0.5f
@@ -84,7 +91,8 @@ fun GameListRow(
     downloadIndicator: GameDownloadIndicator = GameDownloadIndicator.NONE,
     friends: List<FriendActivity> = emptyList(),
     saveState: SaveListState? = null,
-    onCoverLoadFailed: ((String) -> Unit)? = null
+    onCoverLoadFailed: ((String) -> Unit)? = null,
+    running: RunningGameUi? = null
 ) {
     val cornerRadius = LocalBoxArtStyle.current.cornerRadiusDp
     val focusWidth = ComponentDefaults.GameListRow.focusBorderWidth.dp
@@ -108,7 +116,13 @@ fun GameListRow(
                         needsInstall = needsInstall
                     )
                 },
-                progress = { ProgressStats(details = details) },
+                progress = {
+                    if (running != null) {
+                        RunningSubLine(running = running, labels = GAME_LIST_RUNNING_LABELS)
+                    } else {
+                        ProgressStats(details = details)
+                    }
+                },
                 friends = { FriendStack(friends = friends) },
                 tabs = {
                     GameListRowTabs(
@@ -141,7 +155,7 @@ internal fun CompactGameListRow(
         isFocused = isFocused,
         onClick = onClick,
         onLongClick = onLongClick,
-        containerColor = Color.Transparent,
+        containerColor = if (isFocused) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
         modifier = modifier
     ) {
         Box(
@@ -175,11 +189,11 @@ private fun GameListRowCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .argosyFocusIndicators(
-                focused = isFocused,
-                indicators = FocusIndicators.NavRow,
-                shape = shape
+            .focusBorder(
+                isFocused,
+                MaterialTheme.colorScheme.primary,
+                ComponentDefaults.GameListRow.focusBorderWidth.dp,
+                shape
             )
             .clickableNoFocus(onClick = onClick, onLongClick = onLongClick),
         shape = shape,
@@ -346,7 +360,7 @@ private fun SaveStateMark(state: SaveListState) {
 }
 
 @Composable
-private fun DownloadStateMark(
+internal fun DownloadStateMark(
     indicator: GameDownloadIndicator,
     isDownloaded: Boolean,
     needsInstall: Boolean

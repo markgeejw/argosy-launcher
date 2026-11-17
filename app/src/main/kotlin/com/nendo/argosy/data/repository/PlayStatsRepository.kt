@@ -43,6 +43,40 @@ class PlayStatsRepository @Inject constructor(
     suspend fun getSessionsSince(since: Instant): List<PlaySessionEntity> =
         playSessionDao.getSessionsSince(since)
 
+    /**
+     * Active play time this device recorded for [gameId] in sessions that started at or after
+     * [since].
+     */
+    suspend fun activePlayMsSince(gameId: Long, since: Instant): Long = withContext(Dispatchers.IO) {
+        val device = localDeviceId()
+        playSessionDao.getSessionsSince(since)
+            .filter { it.gameId == gameId && it.deviceId == device }
+            .sumOf { it.activePlayMs }
+    }
+
+    /**
+     * The signed-in account's active play time per game id over sessions that started at or after
+     * [since], private games excluded.
+     */
+    suspend fun activeMsPerGameSince(since: Instant): Map<Long, Long> = withContext(Dispatchers.IO) {
+        val ownerUserId = syncPreferencesRepository.getRommUserId()
+        val hidden = syncPreferencesRepository.privateIgdbIds()
+        playSessionDao.getActiveMsPerGame(ownerUserId, since, MIN_DISPLAY_MS, GAME_TOTALS_LIMIT, hidden)
+            .associate { it.gameId to it.activeMs }
+    }
+
+    /**
+     * Active play time of each game's most recent session for the signed-in account, keyed by
+     * game id. Sessions under [MIN_DISPLAY_MS] and games with no session are left out.
+     */
+    suspend fun lastSessionActiveMs(gameIds: Collection<Long>): Map<Long, Long> = withContext(Dispatchers.IO) {
+        val ownerUserId = syncPreferencesRepository.getRommUserId()
+        gameIds.mapNotNull { gameId ->
+            val activeMs = playSessionDao.getLatestForGameAndOwner(gameId, ownerUserId)?.activePlayMs
+            activeMs?.takeIf { it >= MIN_DISPLAY_MS }?.let { gameId to it }
+        }.toMap()
+    }
+
     suspend fun getSessionsInRange(start: Instant, end: Instant): List<PlaySessionEntity> =
         playSessionDao.getSessionsInRange(start, end)
 

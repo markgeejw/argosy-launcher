@@ -13,6 +13,23 @@ private const val BYTES_PER_MB = 1024L * 1024L
  * untranslated: it did not come from this app.
  */
 fun DownloadFailureReason.toNotificationText(): NotificationText = when (this) {
+    is DownloadFailureReason.HttpError -> NotificationText.Res(
+        when (code) {
+            401 -> R.string.error_download_http_unauthorized
+            403 -> R.string.error_download_http_forbidden
+            404 -> R.string.error_download_http_not_found
+            else -> R.string.error_download_http
+        },
+        listOf(code)
+    )
+    DownloadFailureReason.IntegrityCheckFailed ->
+        NotificationText.Res(R.string.error_download_integrity_check_failed)
+    DownloadFailureReason.InvalidResponse ->
+        NotificationText.Res(R.string.error_download_invalid_response)
+    DownloadFailureReason.StorageAccessFailed ->
+        NotificationText.Res(R.string.error_download_storage_access_failed)
+    DownloadFailureReason.TlsVerificationFailed ->
+        NotificationText.Res(R.string.error_download_tls_verification_failed)
     is DownloadFailureReason.InvalidContentType ->
         NotificationText.Res(R.string.error_download_invalid_content_type, listOf(contentType))
     DownloadFailureReason.FileTooSmall ->
@@ -54,5 +71,7 @@ fun DownloadFailureReason.toNotificationText(): NotificationText = when (this) {
         NotificationText.Res(R.string.error_download_no_longer_exists)
     is DownloadFailureReason.ExtractionFailed ->
         message?.let { NotificationText.Raw(it) } ?: NotificationText.Res(R.string.error_download_extraction_failed)
+    DownloadFailureReason.NoRomFolder ->
+        NotificationText.Res(R.string.error_download_no_rom_folder)
     is DownloadFailureReason.LegacyRaw -> NotificationText.Raw(message)
 }

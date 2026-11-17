@@ -96,9 +96,9 @@ fun ScreensSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     val hereNumber = remember(screens, hereDisplayId) {
         screens.find { it.displayId == hereDisplayId }?.number
     }
-    DisposableEffect(Unit) {
+    DisposableEffect(hereDisplayId) {
         val manager = DualScreenManagerHolder.instance
-        manager?.showScreenNumbers()
+        manager?.showScreenNumbers(inContentDisplayId = hereDisplayId)
         onDispose { manager?.hideScreenNumbers() }
     }
 
@@ -117,8 +117,16 @@ fun ScreensSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             val internalSpan =
                 if (attached.isEmpty()) maxWidth else maxWidth * INTERNAL_WIDTH_SHARE
             val externalSpan = maxWidth * (1f - INTERNAL_WIDTH_SHARE) - Dimens.spacingLg
-            val internalPerPixel = internalSpan / widestInternalPx.toFloat()
-            val externalPerPixel = externalSpan / widestExternalPx.toFloat()
+            val internalGaps = Dimens.spacingSm * (builtIn.size - 1).coerceAtLeast(0)
+            val internalPerPixel = minOf(
+                internalSpan / widestInternalPx.toFloat(),
+                (maxHeight - internalGaps) / builtIn.sumOf { it.heightPx }.coerceAtLeast(1).toFloat()
+            )
+            val externalGaps = Dimens.spacingSm * (attached.size - 1).coerceAtLeast(0)
+            val externalPerPixel = minOf(
+                externalSpan / widestExternalPx.toFloat(),
+                (maxHeight - externalGaps) / attached.sumOf { it.heightPx }.coerceAtLeast(1).toFloat()
+            )
 
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -166,6 +174,10 @@ fun ScreensSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
 
     }
 
+    ScreenSetupIdentity(
+        number = hereNumber,
+        modifier = Modifier.align(Alignment.TopEnd).padding(Dimens.spacingLg)
+    )
     }
 
     if (uiState.display.screenRoleModalOpen) {
@@ -179,26 +191,32 @@ fun ScreensSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun ScreenCard(
+internal fun ScreenSetupIdentity(number: Int?, modifier: Modifier = Modifier) {
+    if (number != null) ScreenNumberBadge(number = number, modifier = modifier)
+}
+
+@Composable
+internal fun ScreenCard(
     screen: ScreenAssignment,
     perPixel: Dp,
     isFocused: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    roleLabelRes: Int = screenRoleTitleRes(screen.role)
 ) {
     val dimmed = screen.role == ScreenRole.OFF
     Box(
         modifier = Modifier
             .width(perPixel * screen.widthPx.toFloat())
             .height(perPixel * screen.heightPx.toFloat())
-            .argosyFocusIndicators(
-                focused = isFocused,
-                indicators = FocusIndicators.ListRow,
-                shape = RoundedCornerShape(Dimens.radiusSm)
-            )
             .clip(RoundedCornerShape(Dimens.radiusSm))
             .background(
                 if (dimmed) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                 else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .argosyFocusIndicators(
+                focused = isFocused,
+                indicators = FocusIndicators.ListRow,
+                shape = RoundedCornerShape(Dimens.radiusSm)
             )
             .clickableNoFocus(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -212,7 +230,7 @@ private fun ScreenCard(
                 .padding(Dimens.spacingSm)
         )
         Text(
-            text = stringResource(screenRoleTitleRes(screen.role)),
+            text = stringResource(roleLabelRes),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,

@@ -1,6 +1,7 @@
 package com.nendo.argosy.data.repository
 
 import android.view.KeyEvent
+import com.nendo.argosy.core.input.HomeKeys
 import com.nendo.argosy.core.input.DetectedLayout
 import com.nendo.argosy.data.platform.PlatformDefinitions
 
@@ -1187,11 +1188,8 @@ object InputPresets {
         KeyEvent.KEYCODE_DPAD_RIGHT
     ) + (KeyEvent.KEYCODE_BUTTON_1..KeyEvent.KEYCODE_BUTTON_16)
 
-    private val RESERVED_KEYCODES: Set<Int> = setOf(
-        KeyEvent.KEYCODE_UNKNOWN,
-        KeyEvent.KEYCODE_HOME,
-        KeyEvent.KEYCODE_BACK
-    )
+    private val RESERVED_KEYCODES: Set<Int> =
+        HomeKeys.SYSTEM + setOf(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.KEYCODE_BACK)
 
     /**
      * Whether a key may be recorded as a binding or a hotkey. Every key a physical device sends is
@@ -1258,6 +1256,22 @@ object InputPresets {
 
     fun getPresetByName(name: String): InputPreset? =
         PRESETS.find { it.name.equals(name, ignoreCase = true) }
+
+    /**
+     * The retro button a six-button pad's C or Z press stands for on [platformSlug]: the one that
+     * platform labels C or Z, the way its core reads a six-button pad (Genesis Plus GX reads C from
+     * A and Z from R; Beetle Saturn reads C from R and Z from L). Null for other keys and for
+     * platforms with no such button.
+     */
+    fun sixButtonTarget(keyCode: Int, platformSlug: String?): Int? {
+        val label = when (keyCode) {
+            KeyEvent.KEYCODE_BUTTON_C -> "C"
+            KeyEvent.KEYCODE_BUTTON_Z -> "Z"
+            else -> return null
+        }
+        val slug = platformSlug ?: return null
+        return MappingPlatforms.profileForSlug(slug).buttonLabels.entries.firstOrNull { it.value == label }?.key
+    }
 
     fun getDefaultMappingForLayout(layout: DetectedLayout): Map<Int, Int> {
         return when (layout) {

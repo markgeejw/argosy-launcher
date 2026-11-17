@@ -28,14 +28,12 @@ data class EmulatorDef(
     val releaseSource: ReleaseSource? = null,
     val packagePatterns: List<String> = emptyList(),
     /**
-     * Set when the emulator draws its own second screen: the display its game opens on, leaving the
-     * other to the emulator. [BothScreensHost.DEFAULT_DISPLAY] is for an emulator that only puts its
-     * second screen on a display other than the default one.
+     * Set when the emulator draws its own second screen. Its game always opens on the default
+     * display, the panel that hosts DS mode, whatever the screen roles or display target say, and
+     * the emulator takes the other display for its second screen.
      */
-    val bothScreensHost: BothScreensHost? = null
+    val drawsBothScreens: Boolean = false
 )
-
-enum class BothScreensHost { LARGEST_DISPLAY, DEFAULT_DISPLAY }
 
 data class EmulatorFamily(
     val baseId: String,
@@ -46,7 +44,7 @@ data class EmulatorFamily(
     val launchConfig: LaunchConfig = LaunchConfig.FileUri,
     val defaultLaunchMethod: LaunchMethod = LaunchMethod.INTENT,
     val downloadUrl: String? = null,
-    val bothScreensHost: BothScreensHost? = null
+    val drawsBothScreens: Boolean = false
 )
 
 /**
@@ -192,6 +190,7 @@ sealed class LaunchConfig {
                     val hasDocUri = intentExtras.values.any { it is ExtraValue.DocumentUri }
                     val hasFileUri = intentExtras.values.any { it is ExtraValue.FileUri }
                     val hasFileUriString = intentExtras.values.any { it is ExtraValue.FileUriString }
+                    val hasPathFromBuild = intentExtras.values.any { it is ExtraValue.PathFromBuild }
                     val hasFilePath = intentExtras.values.any { it is ExtraValue.FilePath }
                     val hasAbsPath = useAbsolutePath
 
@@ -199,6 +198,7 @@ sealed class LaunchConfig {
                         hasDocUri -> "Document URI (SAF)"
                         hasFileUri -> "FileProvider URI"
                         hasFileUriString -> "FileProvider URI (string)"
+                        hasPathFromBuild -> "Absolute path (FileProvider URI on older builds)"
                         hasFilePath || hasAbsPath -> "Absolute path"
                         else -> "None"
                     }
@@ -207,6 +207,7 @@ sealed class LaunchConfig {
                             it.value is ExtraValue.FilePath ||
                                 it.value is ExtraValue.FileUri ||
                                 it.value is ExtraValue.FileUriString ||
+                                it.value is ExtraValue.PathFromBuild ||
                                 it.value is ExtraValue.DocumentUri
                         }
                         .map { it.key }
@@ -317,7 +318,20 @@ sealed class ExtraValue {
     object Platform : ExtraValue()
     data class Literal(val value: String) : ExtraValue()
     data class BooleanLiteral(val value: Boolean) : ExtraValue()
+
+    /**
+     * A ROM path extra that is the plain absolute path when the installed build number is at least
+     * [minBuild], and a FileProvider URI string below it or when the build cannot be read.
+     */
+    data class PathFromBuild(val minBuild: Int) : ExtraValue()
 }
+
+private val BUILD_NUMBER = Regex("""^\d+\.\d+-(\d+)""")
+
+fun buildNumberOf(versionName: String?): Int? =
+    versionName?.let { BUILD_NUMBER.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+
+const val DUCKSTATION_PLAIN_PATH_MIN_BUILD = 10_000
 
 data class RetroArchCore(
     val id: String,
@@ -470,6 +484,18 @@ object EmulatorRegistry {
             ),
             downloadUrl = "https://play.google.com/store/apps/details?id=com.sa_moo_rai.picpic"
         ),
+        EmulatorDef(
+            id = "pico8_android",
+            packageName = "io.wip.pico8",
+            displayName = "PICO-8 for Android",
+            supportedPlatforms = setOf("pico8"),
+            launchAction = Intent.ACTION_VIEW,
+            launchConfig = LaunchConfig.Custom(
+                activityClass = "com.godot.game.GodotAppLauncher"
+            ),
+            downloadUrl = "https://github.com/Macs75/pico8-android/releases",
+            releaseSource = ReleaseSource.GitHub("Macs75/pico8-android")
+        ),
 
         EmulatorDef(
             id = "dolphin",
@@ -570,7 +596,7 @@ object EmulatorRegistry {
             defaultLaunchMethod = LaunchMethod.SHELL,
             downloadUrl = "https://github.com/azahar-emu/azahar/releases",
             releaseSource = ReleaseSource.GitHub("azahar-emu/azahar"),
-            bothScreensHost = BothScreensHost.DEFAULT_DISPLAY
+            drawsBothScreens = true
         ),
         EmulatorDef(
             id = "borked3ds",
@@ -615,6 +641,17 @@ object EmulatorRegistry {
             defaultLaunchMethod = LaunchMethod.SHELL,
             downloadUrl = "https://git.eden-emu.dev/eden-emu/eden/releases",
             releaseSource = ReleaseSource.Gitea("https://git.eden-emu.dev", "eden-emu/eden")
+        ),
+        EmulatorDef(
+            id = "eden_nx2",
+            packageName = "dev.eden.nx2",
+            displayName = "Eden NX2",
+            supportedPlatforms = setOf("switch2"),
+            launchConfig = LaunchConfig.Custom(
+                activityClass = "org.yuzu.yuzu_emu.activities.EmulationActivity",
+            ),
+            defaultLaunchMethod = LaunchMethod.SHELL,
+            downloadUrl = "https://github.com/JaviiDeveloper/eden-nx2-android/releases"
         ),
         EmulatorDef(
             id = "eden_duo",
@@ -711,7 +748,7 @@ object EmulatorRegistry {
             ),
             downloadUrl = "https://github.com/SapphireRhodonite/melonDS-android/releases",
             releaseSource = ReleaseSource.GitHub("SapphireRhodonite/melonDS-android"),
-            bothScreensHost = BothScreensHost.LARGEST_DISPLAY
+            drawsBothScreens = true
         ),
         EmulatorDef(
             id = "seedlessds",
@@ -737,7 +774,7 @@ object EmulatorRegistry {
             ),
             downloadUrl = "https://github.com/lidor30/pokedaisy/releases",
             releaseSource = ReleaseSource.GitHub("lidor30/pokedaisy"),
-            bothScreensHost = BothScreensHost.LARGEST_DISPLAY
+            drawsBothScreens = true
         ),
         EmulatorDef(
             id = "pizza_boy_gba",
@@ -806,7 +843,7 @@ object EmulatorRegistry {
             launchConfig = LaunchConfig.Custom(
                 activityClass = "com.github.stenzek.duckstation.EmulationActivity",
                 intentExtras = mapOf(
-                    "bootPath" to ExtraValue.FileUriString,
+                    "bootPath" to ExtraValue.PathFromBuild(DUCKSTATION_PLAIN_PATH_MIN_BUILD),
                     "resumeState" to ExtraValue.BooleanLiteral(false)
                 )
             ),
@@ -1254,13 +1291,14 @@ object EmulatorRegistry {
         ),
         "nds" to listOf(BUILTIN_ID, "drastic", "seedlessds", "melonds", "melondualds", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
         "3ds" to listOf(
-            "azahar", "citra_mmj", "borked3ds", "citra", BUILTIN_ID,
+            BUILTIN_ID, "azahar", "citra_mmj", "borked3ds", "citra",
             "retroarch", "retroarch_64", "retroarch_32"
         ),
-        "gc" to listOf("dolphin", "dolphin_handheld", "dolphin_cs", "retroarch", "retroarch_64", "retroarch_32"),
-        "wii" to listOf("dolphin", "dolphin_handheld", "dolphin_cs", "retroarch", "retroarch_64", "retroarch_32"),
+        "gc" to listOf(BUILTIN_ID, "dolphin", "dolphin_handheld", "dolphin_cs", "retroarch", "retroarch_64", "retroarch_32"),
+        "wii" to listOf(BUILTIN_ID, "dolphin", "dolphin_handheld", "dolphin_cs", "retroarch", "retroarch_64", "retroarch_32"),
         "wiiu" to listOf("cemu", "cemu_dualscreen"),
         "switch" to listOf("eden", "eden_duo", "lemon", "citron", "sudachi", "ryujinx", "yuzu", "strato", "skyline"),
+        "switch2" to listOf("eden_nx2"),
         "gba" to listOf(BUILTIN_ID, "pizza_boy_gba_pro", "pizza_boy_gba", "linkboy", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
         "gb" to listOf(BUILTIN_ID, "pizza_boy_gb_pro", "pizza_boy_gb", "linkboy", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
         "gbc" to listOf(BUILTIN_ID, "pizza_boy_gb_pro", "pizza_boy_gb", "linkboy", "retroarch", "retroarch_64", "retroarch_32", "pokedaisy"),
@@ -1272,30 +1310,30 @@ object EmulatorRegistry {
         "gg" to listOf(BUILTIN_ID, "md_emu", "retroarch", "retroarch_64", "retroarch_32"),
         "scd" to listOf(BUILTIN_ID, "md_emu", "retroarch", "retroarch_64", "retroarch_32"),
         "32x" to listOf(BUILTIN_ID, "md_emu", "retroarch", "retroarch_64", "retroarch_32"),
-        "dreamcast" to listOf("redream", "flycast"),
+        "dreamcast" to listOf(BUILTIN_ID, "redream", "flycast"),
         "saturn" to listOf(
             BUILTIN_ID, "yabasanshiro", "yabasanshiro_pro", "saturn_emu", "retroarch", "retroarch_64", "retroarch_32"
         ),
-        "arcade" to listOf("flycast", "mame4droid", "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
-        "fbneo" to listOf("fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
-        "mame" to listOf("mame4droid", "retroarch", "retroarch_64", "retroarch_32"),
-        "cps1" to listOf("fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
-        "cps2" to listOf("fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
-        "cps3" to listOf("fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
-        "neogeo" to listOf("fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
-        "dos" to listOf("magic_dosbox", "dosbox_turbo"),
-        "scummvm" to listOf("scummvm", "retroarch", "retroarch_64", "retroarch_32"),
+        "arcade" to listOf(BUILTIN_ID, "flycast", "mame4droid", "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
+        "fbneo" to listOf(BUILTIN_ID, "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
+        "mame" to listOf(BUILTIN_ID, "mame4droid", "retroarch", "retroarch_64", "retroarch_32"),
+        "cps1" to listOf(BUILTIN_ID, "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
+        "cps2" to listOf(BUILTIN_ID, "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
+        "cps3" to listOf(BUILTIN_ID, "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
+        "neogeo" to listOf(BUILTIN_ID, "fbalpha", "retroarch", "retroarch_64", "retroarch_32"),
+        "dos" to listOf(BUILTIN_ID, "magic_dosbox", "dosbox_turbo"),
+        "scummvm" to listOf(BUILTIN_ID, "scummvm", "retroarch", "retroarch_64", "retroarch_32"),
         "ps3" to listOf("armsx3", "armsx3_play", "aps3e"),
         "atari2600" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
-        "lynx" to listOf("retroarch", "retroarch_64", "retroarch_32"),
+        "lynx" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "tg16" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
-        "tgcd" to listOf("retroarch", "retroarch_64", "retroarch_32"),
+        "tgcd" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "pcfx" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "cdi" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "jaguar" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "3do" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
-        "ngp" to listOf("retroarch", "retroarch_64", "retroarch_32"),
-        "ngpc" to listOf("retroarch", "retroarch_64", "retroarch_32"),
+        "ngp" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
+        "ngpc" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "wonderswan" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "wsc" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "pokemini" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
@@ -1305,11 +1343,11 @@ object EmulatorRegistry {
         "steam" to listOf("gamehub", "gamehub_lite", "gamenative"),
         "windows" to listOf("gamenative"),
         "pc" to listOf("gamenative"),
-        "c64" to listOf("retroarch", "retroarch_64", "retroarch_32"),
+        "c64" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
         "vic20" to listOf("retroarch", "retroarch_64", "retroarch_32"),
         "amiga" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
-        "pc9800" to listOf("retroarch", "retroarch_64", "retroarch_32"),
-        "pico8" to listOf(BUILTIN_ID, "picpic", "retroarch", "retroarch_64", "retroarch_32")
+        "pc9800" to listOf(BUILTIN_ID, "retroarch", "retroarch_64", "retroarch_32"),
+        "pico8" to listOf(BUILTIN_ID, "picpic", "pico8_android", "retroarch", "retroarch_64", "retroarch_32")
     )
 
     fun getPreferredCore(platformId: String): String? {
@@ -1380,9 +1418,9 @@ object EmulatorRegistry {
         "gc" to listOf("dolphin"),
         "ngc" to listOf("dolphin"),
         "wii" to listOf("dolphin"),
-        "gb" to listOf("gambatte", "mgba", "sameboy", "gearboy", "tgbdual"),
-        "gbc" to listOf("gambatte", "mgba", "sameboy", "gearboy", "tgbdual"),
-        "gba" to listOf("mgba", "vbam", "gpsp"),
+        "gb" to listOf("gambatte", "mgba", "sameboy", "gearboy", "tgbdual", "armgba"),
+        "gbc" to listOf("gambatte", "mgba", "sameboy", "gearboy", "tgbdual", "armgba"),
+        "gba" to listOf("mgba", "vbam", "gpsp", "armgba"),
         "nds" to listOf("melondsds", "melonds", "desmume"),
         "3ds" to listOf("citra"),
         "genesis" to listOf("genesis_plus_gx", "picodrive"),
@@ -1468,20 +1506,23 @@ object EmulatorRegistry {
             RetroArchCore("mgba", "mGBA"),
             RetroArchCore("sameboy", "SameBoy"),
             RetroArchCore("gearboy", "Gearboy"),
-            RetroArchCore("tgbdual", "TGB Dual")
+            RetroArchCore("tgbdual", "TGB Dual"),
+            RetroArchCore("armgba", "armGBA")
         ),
         "gbc" to listOf(
             RetroArchCore("gambatte", "Gambatte"),
             RetroArchCore("mgba", "mGBA"),
             RetroArchCore("sameboy", "SameBoy"),
             RetroArchCore("gearboy", "Gearboy"),
-            RetroArchCore("tgbdual", "TGB Dual")
+            RetroArchCore("tgbdual", "TGB Dual"),
+            RetroArchCore("armgba", "armGBA")
         ),
         "gba" to listOf(
             RetroArchCore("mgba", "mGBA"),
             RetroArchCore("vba_next", "VBA Next"),
             RetroArchCore("vbam", "VBA-M"),
-            RetroArchCore("gpsp", "gpSP")
+            RetroArchCore("gpsp", "gpSP"),
+            RetroArchCore("armgba", "armGBA")
         ),
         "nds" to listOf(
             RetroArchCore("melondsds", "melonDS DS"),
@@ -1760,6 +1801,7 @@ object EmulatorRegistry {
         "mupen64plus_next_gles2" to "Mupen64Plus-Next",
         "parallel_n64" to "ParaLLEl N64",
         "tgbdual" to "TGB Dual",
+        "armgba" to "armGBA",
         "vba_next" to "VBA Next",
         "vbam" to "VBA-M",
         "desmume2015" to "DeSmuME 2015",
@@ -1867,7 +1909,7 @@ object EmulatorRegistry {
                 intentExtras = mapOf("SelectedGame" to ExtraValue.FilePath)
             ),
             downloadUrl = "https://github.com/azahar-emu/azahar/releases",
-            bothScreensHost = BothScreensHost.DEFAULT_DISPLAY
+            drawsBothScreens = true
         ),
         EmulatorFamily(
             baseId = "borked3ds",
@@ -1986,7 +2028,7 @@ object EmulatorRegistry {
             launchConfig = LaunchConfig.Custom(
                 activityClass = "com.github.stenzek.duckstation.EmulationActivity",
                 intentExtras = mapOf(
-                    "bootPath" to ExtraValue.FileUriString,
+                    "bootPath" to ExtraValue.PathFromBuild(DUCKSTATION_PLAIN_PATH_MIN_BUILD),
                     "resumeState" to ExtraValue.BooleanLiteral(false)
                 )
             ),
@@ -2132,7 +2174,7 @@ object EmulatorRegistry {
             launchConfig = family.launchConfig,
             defaultLaunchMethod = family.defaultLaunchMethod,
             downloadUrl = family.downloadUrl,
-            bothScreensHost = family.bothScreensHost
+            drawsBothScreens = family.drawsBothScreens
         )
     }
 }

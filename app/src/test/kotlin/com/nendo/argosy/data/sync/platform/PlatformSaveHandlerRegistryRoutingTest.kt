@@ -45,6 +45,7 @@ class PlatformSaveHandlerRegistryRoutingTest {
             defaultSaveHandler = defaultHandler,
             unitSaveHandler = unitHandler,
             sigilSaveHandler = sigilHandler,
+            emulatorSaveConfigRepository = mockk(relaxed = true),
         )
     }
 
@@ -102,6 +103,17 @@ class PlatformSaveHandlerRegistryRoutingTest {
         val handler = registry.getHandler(config, "ngc", "retroarch_64")
 
         assertSame(gciHandler, handler)
+    }
+
+    @Test
+    fun `retroarch + dolphin libretro on Wii routes to the Wii folder handler`() {
+        val config = SavePathRegistry.getConfigForPlatform("retroarch_64", "wii")
+        assertNotNull("retroarch_64_wii config must exist", config)
+        assertTrue(config!!.usesFolderBasedSaves)
+
+        val handler = registry.getHandler(config, "wii", "retroarch_64")
+
+        assertSame(registry.getFolderHandler("wii"), handler)
     }
 
     @Test

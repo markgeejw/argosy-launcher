@@ -107,6 +107,7 @@
     <string name="settings_shell_header_storage_games">STOCKAGE DES JEUX</string>
     <string name="settings_shell_header_storage_media">STOCKAGE MULTIMÉDIA</string>
     <string name="settings_shell_header_storage_platform_games_fallback">JEUX DE LA PLATEFORME</string>
+    <string name="settings_shell_header_storage_local_only">JEUX LOCAUX UNIQUEMENT</string>
     <string name="settings_shell_header_storage_caches">CACHES ET SYSTÈME</string>
     <string name="settings_shell_header_theme">THÈME</string>
     <string name="settings_shell_header_audio">AUDIO</string>
@@ -139,6 +140,7 @@
     <string name="settings_shell_header_drivers">PILOTES GPU</string>
     <string name="settings_shell_header_about">À PROPOS</string>
     <string name="settings_shell_header_social">SOCIAL</string>
+    <string name="settings_shell_header_network">RÉSEAU ET BLUETOOTH</string>
     <string name="settings_shell_header_context_global">Global</string>
 
     <string name="settings_shell_context_previous_desc">Contexte précédent</string>
@@ -353,6 +355,8 @@
     <string name="settings_shell_footer_reset_platformdetail">Réinitialiser</string>
     <string name="settings_shell_footer_launch_targets_screen">Écran</string>
     <string name="settings_shell_footer_launch_targets_reset">Réinitialiser</string>
+    <string name="settings_shell_footer_network_forget">Maintenir pour oublier</string>
+    <string name="settings_shell_footer_network_group">Section</string>
     <string name="settings_shell_footer_toggle_label">Activer/désactiver</string>
     <string name="settings_shell_footer_open_label">Ouvrir</string>
     <string name="settings_shell_footer_select_label">Sélectionner</string>
@@ -367,7 +371,9 @@
     <string name="settings_shell_footer_reset_builtincontrols_override">Réinitialiser</string>
     <string name="settings_shell_footer_reset_builtinsaves_override">Réinitialiser</string>
     <string name="settings_shell_footer_back">Retour</string>
+    <string name="settings_shell_footer_local_only_location">Emplacement</string>
     <string name="settings_shell_footer_unassign_shortcut">Retirer</string>
+    <string name="settings_shell_footer_reset_system_combo">Réinitialiser</string>
 
     <!-- ===== SettingsScreen: cache clear confirm modals ===== -->
 

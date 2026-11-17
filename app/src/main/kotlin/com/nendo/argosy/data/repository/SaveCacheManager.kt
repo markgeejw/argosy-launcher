@@ -664,13 +664,13 @@ class SaveCacheManager @Inject constructor(
     suspend fun restoreThroughSigil(entity: SaveCacheEntity): SigilRestore = withContext(Dispatchers.IO) {
         val cacheFile = File(cacheBaseDir, entity.cachePath)
         if (!cacheFile.exists()) return@withContext SigilRestore.NotRouted
-        restoreWithSigil(entity, cacheFile, entity.emulatorId)
+        restoreUnlessNative(entity, cacheFile, entity.emulatorId)
     }
 
     private fun formatOf(sigil: SigilCollect.Found?): String =
         if (sigil != null) SaveCacheEntity.FORMAT_NEUTRAL else SaveCacheEntity.FORMAT_NATIVE
 
-    private suspend fun restoreWithSigil(
+    private suspend fun restoreUnlessNative(
         entity: SaveCacheEntity,
         cacheFile: File,
         emulatorId: String?,
@@ -746,9 +746,16 @@ class SaveCacheManager @Inject constructor(
         fal.prepareSaveAccess(targetPath)
         var placedGciMembers: List<String>? = null
         try {
-            when (val sigilRestore = restoreWithSigil(entity, cacheFile, targetEmulatorId, targetPath)) {
+            val sigilRestore = restoreUnlessNative(entity, cacheFile, targetEmulatorId, targetPath).let { routed ->
+                if (routed == SigilRestore.NotRouted && isSigilRouteRoot(entity.gameId, targetEmulatorId, targetPath)) {
+                    sigilSaveHandler.restore(entity.gameId, cacheFile, targetEmulatorId)
+                } else {
+                    routed
+                }
+            }
+            when (sigilRestore) {
                 SigilRestore.NotRouted -> if (isSigilRouteRoot(entity.gameId, targetEmulatorId, targetPath)) {
-                    Logger.warn(TAG, "Restore of cache $cacheId refused: $targetPath is the Sigil save root of $targetEmulatorId and the cache holds native files")
+                    Logger.warn(TAG, "Restore of cache $cacheId refused: $targetPath is the Sigil save root of $targetEmulatorId and no Sigil layout takes the cached files")
                     return@withContext false
                 }
                 is SigilRestore.Refused -> {

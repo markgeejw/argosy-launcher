@@ -5,9 +5,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29"
         tools:ignore="ScopedStorage" />
@@ -35,9 +35,12 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- QuayPass BLE peer exchange -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
@@ -50,9 +53,6 @@
         android:required="false" />
     <uses-feature
         android:name="android.hardware.touchscreen"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.camera"
         android:required="false" />
     <uses-feature
         android:name="android.hardware.gamepad"
@@ -134,6 +134,7 @@
 
         <activity-alias
             android:name=".MainActivity"
+            android:enabled="false"
             android:exported="true"
             android:targetActivity=".ArgosyActivity">
             <intent-filter android:priority="1000">
@@ -153,6 +154,13 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <provider
             android:name="com.nendo.argosy.data.storage.ArgosyFileProvider"
@@ -271,12 +279,66 @@
             android:exported="false" />
 
         <activity
+            android:name=".libretro.slot.LibretroSlot1Activity"
+            android:process=":game1"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Argosy.Game"
+            android:taskAffinity=""
+            android:exported="false" />
+        <activity
+            android:name=".libretro.slot.LibretroSlot2Activity"
+            android:process=":game2"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Argosy.Game"
+            android:taskAffinity=""
+            android:exported="false" />
+        <activity
+            android:name=".libretro.slot.LibretroSlot3Activity"
+            android:process=":game3"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Argosy.Game"
+            android:taskAffinity=""
+            android:exported="false" />
+        <activity
+            android:name=".libretro.slot.LibretroSlot4Activity"
+            android:process=":game4"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Argosy.Game"
+            android:taskAffinity=""
+            android:exported="false" />
+        <activity
+            android:name=".libretro.slot.LibretroSlot5Activity"
+            android:process=":game5"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Argosy.Game"
+            android:taskAffinity=""
+            android:exported="false" />
+
+        <service
+            android:name=".libretro.slot.SlotHostService"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.screens.player.PlayerActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment"
             android:launchMode="singleTop"
             android:theme="@style/Theme.Argosy"
             android:taskAffinity=""
             android:excludeFromRecents="true"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.screens.stream.StreamPlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|colorMode|keyboard|keyboardHidden|navigation|touchscreen|fontScale|fontWeightAdjustment|layoutDirection|locale|mcc|mnc"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Argosy.Game"
+            android:taskAffinity=".stream"
             android:exported="false" />
 
         <activity android:name=".hardware.FocusDirectorActivity"
@@ -296,7 +358,7 @@
         </service>
 
         <service
-            android:name=".data.social.SocialOverlayService"
+            android:name=".core.notification.NoticeRelayService"
             android:exported="false" />
     </application>
 </manifest>

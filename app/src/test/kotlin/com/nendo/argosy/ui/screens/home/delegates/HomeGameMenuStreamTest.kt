@@ -18,55 +18,94 @@ class HomeGameMenuStreamTest {
 
     private val game = HomeGameUi(
         id = 1,
-        title = "The Legend of Zelda: Tears of the Kingdom",
-        platformId = 12,
-        platformSlug = "switch",
-        platformDisplayName = "Switch",
+        title = "Game",
+        platformId = 7,
+        platformSlug = "psx",
+        platformDisplayName = "PlayStation",
         coverPath = null,
         backgroundPath = null,
         developer = null,
         releaseYear = null,
         genre = null,
         isFavorite = false,
+        isDownloaded = false,
+        isRommGame = true
+    )
+
+    private val moonlightGame = game.copy(
+        title = "The Legend of Zelda: Tears of the Kingdom",
+        platformId = 12,
+        platformSlug = "switch",
+        platformDisplayName = "Switch",
         isDownloaded = true,
-        isRommGame = true,
         rommId = 29
     )
 
     @Test
-    fun `the stream row is hidden when the game cannot stream`() {
-        val actions = (0 until 12).map { delegate.resolveMenuAction(it, game, isPlatformRow = false) }
-
-        assertFalse(actions.any { it is GameMenuAction.Stream })
+    fun `the stream row sits right after download`() {
+        assertEquals(GameMenuAction.Play(1, false, false), delegate.resolveMenuAction(0, game, false, streamable = true))
+        assertEquals(GameMenuAction.Stream(1), delegate.resolveMenuAction(1, game, false, streamable = true))
+        assertEquals(GameMenuAction.ToggleFavorite(1), delegate.resolveMenuAction(2, game, false, streamable = true))
     }
 
     @Test
-    fun `the stream row follows play`() {
+    fun `a moonlight row takes the same position as a container row`() {
+        assertEquals(GameMenuAction.Play(1, false, true), delegate.resolveMenuAction(0, moonlightGame, false, streamable = true))
+        assertEquals(GameMenuAction.Stream(1), delegate.resolveMenuAction(1, moonlightGame, false, streamable = true))
+        assertEquals(GameMenuAction.ToggleFavorite(1), delegate.resolveMenuAction(2, moonlightGame, false, streamable = true))
+    }
+
+    @Test
+    fun `stream mode puts stream on top and download second`() {
         assertEquals(
             GameMenuAction.Stream(1),
-            delegate.resolveMenuAction(1, game, isPlatformRow = false, hasStream = true)
+            delegate.resolveMenuAction(0, game, false, streamable = true, streamLeads = true)
+        )
+        assertEquals(
+            GameMenuAction.Download(1),
+            delegate.resolveMenuAction(1, game, false, streamable = true, streamLeads = true)
         )
         assertEquals(
             GameMenuAction.ToggleFavorite(1),
-            delegate.resolveMenuAction(2, game, isPlatformRow = false, hasStream = true)
+            delegate.resolveMenuAction(2, game, false, streamable = true, streamLeads = true)
         )
     }
 
     @Test
-    fun `the stream row follows the play on screen rows`() {
+    fun `stream mode without an offer keeps the download row on top`() {
         assertEquals(
-            GameMenuAction.Stream(1),
-            delegate.resolveMenuAction(3, game, isPlatformRow = false, playDisplays = listOf(0, 1), hasStream = true)
+            GameMenuAction.Play(1, false, false),
+            delegate.resolveMenuAction(0, game, false, streamable = false, streamLeads = true)
+        )
+        assertEquals(
+            GameMenuAction.ToggleFavorite(1),
+            delegate.resolveMenuAction(1, game, false, streamable = false, streamLeads = true)
         )
     }
 
     @Test
-    fun `focus reaches the last row once the stream row is added`() {
-        delegate.moveGameMenuFocus(20, game, isPlatformRow = false, hasStream = true)
+    fun `focus reaches the last row in stream mode`() {
+        delegate.moveGameMenuFocus(20, game, isPlatformRow = false, streamable = true)
+        val lastIndex = delegate.state.value.gameMenuFocusIndex
 
         assertEquals(
             GameMenuAction.Hide(1),
-            delegate.resolveMenuAction(delegate.state.value.gameMenuFocusIndex, game, isPlatformRow = false, hasStream = true)
+            delegate.resolveMenuAction(lastIndex, game, false, streamable = true, streamLeads = true)
         )
+    }
+
+    @Test
+    fun `no stream row without an offer`() {
+        val actions = (0 until 12).map { delegate.resolveMenuAction(it, game, isPlatformRow = false) }
+        assertFalse(actions.any { it is GameMenuAction.Stream })
+        assertEquals(GameMenuAction.ToggleFavorite(1), delegate.resolveMenuAction(1, game, false))
+    }
+
+    @Test
+    fun `focus reaches the last row with the stream row added`() {
+        delegate.moveGameMenuFocus(20, game, isPlatformRow = false, streamable = true)
+        val lastIndex = delegate.state.value.gameMenuFocusIndex
+
+        assertEquals(GameMenuAction.Hide(1), delegate.resolveMenuAction(lastIndex, game, false, streamable = true))
     }
 }

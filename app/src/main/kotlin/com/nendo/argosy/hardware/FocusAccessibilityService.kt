@@ -3,6 +3,7 @@ package com.nendo.argosy.hardware
 import android.annotation.SuppressLint
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.KeyguardManager
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
@@ -15,11 +16,22 @@ import android.util.Log
 import android.view.Display
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import com.nendo.argosy.ArgosyActivity
+import com.nendo.argosy.ArgosyHomeIntent
 import com.nendo.argosy.DualScreenManagerHolder
+import com.nendo.argosy.core.input.HomeKeys
 import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.PlaySessionTracker
+import com.nendo.argosy.data.emulator.background.BackgroundGames
+import com.nendo.argosy.libretro.slot.ResumedGameRouter
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
+import com.nendo.argosy.libretro.LibretroActivity
 import com.nendo.argosy.ui.quickpanel.QuickPanelOverlay
+import com.nendo.argosy.ui.screens.running.ResumeOverlay
+import com.nendo.argosy.ui.screens.player.PlayerActivity
+import com.nendo.argosy.util.Logger
+import com.nendo.argosy.util.RootShell
+import com.nendo.argosy.util.SecondaryHomeComponent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,24 +51,74 @@ class FocusAccessibilityService : AccessibilityService() {
     @Inject lateinit var playSessionTracker: PlaySessionTracker
     @Inject lateinit var preferencesRepository: UserPreferencesRepository
     @Inject lateinit var quickPanelOverlay: QuickPanelOverlay
+    @Inject lateinit var resumeOverlay: ResumeOverlay
+    @Inject lateinit var backgroundGames: BackgroundGames
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var quickPanelEnabled = false
-    private var foregroundPackage: String? = null
-    private val backGate = BackHoldGate(
-        filtering = ::filtersBack,
-        scheduleHold = { handler.postDelayed(it, BACK_HOLD_MS) },
-        cancelHold = handler::removeCallbacks,
-        onTap = { performGlobalAction(GLOBAL_ACTION_BACK) },
-        onHold = { quickPanelOverlay.show(gameDisplayId(), resultOwner = null) }
+    @Volatile private var homeButtonInGames = true
+    @Volatile private var systemHotkeys = SystemHotkeyConfig.DISABLED
+    private var homeRoutedToGame = false
+    private var homeClosedResume = false
+    private var homeTakenFromGame = false
+    private var homeHoldFired = false
+    private val homeHold = Runnable {
+        homeHoldFired = true
+        openRunningScreen()
+    }
+    private var homeTakenFromArgosy = false
+    private var argosyHomeHoldFired = false
+    private val argosyHomeHold = Runnable {
+        argosyHomeHoldFired = true
+        scope.launch {
+            val running = runCatching { backgroundGames.refresh() }.getOrDefault(emptyList())
+            if (running.isEmpty() || !startArgosy(openRunning = true)) performGlobalAction(GLOBAL_ACTION_HOME)
+        }
+    }
+    private val foreground by lazy {
+        ForegroundAppTracker(
+            ownPackage = packageName,
+            inputSurfaces = ARGOSY_INPUT_SURFACES,
+            imePackage = ::currentImePackage
+        )
+    }
+    private val keyFilter = SystemKeyFilter(
+        backGate = BackHoldGate(
+            filtering = ::filtersBack,
+            scheduleHold = { handler.postDelayed(it, BACK_HOLD_MS) },
+            cancelHold = handler::removeCallbacks,
+            onTap = { performGlobalAction(GLOBAL_ACTION_BACK) },
+            onHold = { quickPanelOverlay.show(gameDisplayId(), resultOwner = null) }
+        ),
+        hotkeys = SystemHotkeyDetector(
+            config = { systemHotkeys },
+            foreignAppInFront = {
+                foreground.otherAppInFront && !quickPanelOverlay.isOpen.value && !resumeOverlay.isOpen.value
+            },
+            scheduleHold = { task, delayMs -> handler.postDelayed(task, delayMs) },
+            cancelHold = handler::removeCallbacks,
+            perform = ::performSystemHotkey,
+            quickPanelAvailable = ::filtersBack,
+            openQuickPanel = { quickPanelOverlay.show(gameDisplayId(), resultOwner = null) },
+            openRunning = ::openRunningScreen
+        )
     )
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val source = event.packageName?.toString() ?: return
-        if (source != packageName) foregroundPackage = source
+        foreground.onWindowStateChanged(source, event.className?.toString())
+        Logger.info(
+            TAG,
+            "window $source/${event.className} foreground=${foreground.foregroundPackage} " +
+                "otherAppInFront=${foreground.otherAppInFront}"
+        )
     }
+
+    private fun currentImePackage(): String? =
+        Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+            ?.substringBefore('/')
 
     override fun onInterrupt() {}
 
@@ -69,31 +131,193 @@ class FocusAccessibilityService : AccessibilityService() {
                 .distinctUntilChanged()
                 .collect { quickPanelEnabled = it }
         }
-        Log.d(TAG, "Accessibility service connected")
+        scope.launch {
+            preferencesRepository.userPreferences
+                .map { it.homeButtonInGames }
+                .distinctUntilChanged()
+                .collect { homeButtonInGames = it }
+        }
+        scope.launch {
+            preferencesRepository.userPreferences
+                .map { prefs ->
+                    SystemHotkeyConfig.resolve(
+                        enabled = prefs.systemHotkeysEnabled,
+                        customHome = prefs.systemHomeCombo,
+                        customBack = prefs.systemBackCombo,
+                        swapAB = prefs.swapAB,
+                        swapStartSelect = prefs.swapStartSelect
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { systemHotkeys = it }
+        }
+        Logger.info(TAG, "Accessibility service connected in $packageName")
     }
 
     override fun onDestroy() {
         instance = null
-        backGate.reset()
+        handler.removeCallbacks(homeHold)
+        handler.removeCallbacks(argosyHomeHold)
+        keyFilter.reset()
         scope.cancel()
-        Log.d(TAG, "Accessibility service destroyed")
+        Logger.info(TAG, "Accessibility service destroyed in $packageName")
         super.onDestroy()
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode != KeyEvent.KEYCODE_BACK) return false
-        return when (event.action) {
-            KeyEvent.ACTION_DOWN -> backGate.onDown(isRepeat = event.repeatCount > 0)
-            KeyEvent.ACTION_UP -> backGate.onUp()
-            else -> false
+        val systemHome = HomeKeys.isSystemHome(event)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+            (systemHome || event.keyCode == KeyEvent.KEYCODE_BACK)
+        ) {
+            Logger.info(TAG, "gates ${gateSnapshot()}")
+        }
+        val consumedBy = when {
+            systemHome && closesResumeOverlay(event) -> "resumeOverlay"
+            systemHome && routesHomeToGame(event) -> "builtInGame"
+            systemHome && takesHomeFromExternalGame(event) -> "externalGame"
+            systemHome && takesHomeFromArgosy(event) -> "argosy"
+            keyFilter.onKey(event.keyCode, event.action, event.repeatCount) -> "keyFilter"
+            else -> null
+        }
+        if (event.repeatCount == 0 && logsKey(event, systemHome, consumedBy)) {
+            Logger.info(
+                TAG,
+                "key ${KeyEvent.keyCodeToString(event.keyCode)} " +
+                    "${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"} " +
+                    "device=${event.device?.name} systemHome=$systemHome consumedBy=${consumedBy ?: "none"}"
+            )
+        }
+        return consumedBy != null
+    }
+
+    private fun logsKey(event: KeyEvent, systemHome: Boolean, consumedBy: String?): Boolean =
+        systemHome || consumedBy != null || event.keyCode == KeyEvent.KEYCODE_BACK ||
+            KeyEvent.isGamepadButton(event.keyCode)
+
+    private fun gateSnapshot(): String {
+        val session = playSessionTracker.activeSession.value
+        return "package=$packageName root=${RootShell.isAvailable} " +
+            "defaultHome=${SecondaryHomeComponent.isDefaultHome(this)} " +
+            "otherAppInFront=${foreground.otherAppInFront} foreground=${foreground.foregroundPackage} " +
+            "session=${session?.emulatorPackage} sessionInFront=${externalSessionInFront()} " +
+            "gameDisplay=${gameDisplayId()} " +
+            "keyguard=${getSystemService(KeyguardManager::class.java)?.isKeyguardLocked} " +
+            "quickPanelInEmulators=$quickPanelEnabled homeButtonInGames=$homeButtonInGames quickPanelOpen=${quickPanelOverlay.isOpen.value} " +
+            "resumeOpen=${resumeOverlay.isOpen.value} systemHotkeys=$systemHotkeys"
+    }
+
+    private fun takesHomeFromExternalGame(event: KeyEvent): Boolean = when (event.action) {
+        KeyEvent.ACTION_DOWN -> {
+            if (event.repeatCount == 0) {
+                homeTakenFromGame = externalGameHoldsHome()
+                homeHoldFired = false
+                handler.removeCallbacks(homeHold)
+                if (homeTakenFromGame) {
+                    handler.postDelayed(homeHold, SystemHotkeyDetector.GUIDE_HOLD_MS)
+                    scope.launch { backgroundGames.withTransitionsOff {} }
+                }
+            }
+            homeTakenFromGame
+        }
+        KeyEvent.ACTION_UP -> (homeTakenFromGame && homeHoldFired).also {
+            homeTakenFromGame = false
+            handler.removeCallbacks(homeHold)
+            homeHoldFired = false
+        }
+        else -> false
+    }
+
+    private fun takesHomeFromArgosy(event: KeyEvent): Boolean = when (event.action) {
+        KeyEvent.ACTION_DOWN -> {
+            if (event.repeatCount == 0) {
+                homeTakenFromArgosy = argosyHoldsHome()
+                argosyHomeHoldFired = false
+                handler.removeCallbacks(argosyHomeHold)
+                if (homeTakenFromArgosy) handler.postDelayed(argosyHomeHold, SystemHotkeyDetector.GUIDE_HOLD_MS)
+            }
+            homeTakenFromArgosy
+        }
+        KeyEvent.ACTION_UP -> homeTakenFromArgosy.also { taken ->
+            handler.removeCallbacks(argosyHomeHold)
+            if (taken && !argosyHomeHoldFired) performGlobalAction(GLOBAL_ACTION_HOME)
+            homeTakenFromArgosy = false
+            argosyHomeHoldFired = false
+        }
+        else -> false
+    }
+
+    private fun argosyHoldsHome(): Boolean {
+        if (foreground.otherAppInFront) return false
+        if (getSystemService(KeyguardManager::class.java)?.isKeyguardLocked != false) return false
+        return SecondaryHomeComponent.isDefaultHome(this)
+    }
+
+    private fun externalGameHoldsHome(): Boolean {
+        if (!homeButtonInGames || !RootShell.isAvailable) return false
+        if (!foreground.otherAppInFront || !externalSessionInFront()) return false
+        if (getSystemService(KeyguardManager::class.java)?.isKeyguardLocked != false) return false
+        return SecondaryHomeComponent.isDefaultHome(this)
+    }
+
+    private fun showArgosyWithoutTransition() {
+        scope.launch {
+            val shown = backgroundGames.withTransitionsOff { startArgosy(openRunning = false) }
+            if (!shown) performGlobalAction(GLOBAL_ACTION_HOME)
         }
     }
 
-    private fun filtersBack(): Boolean {
-        if (!quickPanelEnabled || quickPanelOverlay.isOpen.value) return false
+    private fun startArgosy(openRunning: Boolean): Boolean =
+        runCatching { startActivity(ArgosyHomeIntent.create(this, openRunning)) }
+            .onFailure { Log.w(TAG, "Argosy could not be shown: ${it.message}") }
+            .isSuccess
+
+    private fun closesResumeOverlay(event: KeyEvent): Boolean = when (event.action) {
+        KeyEvent.ACTION_DOWN -> {
+            if (event.repeatCount == 0 && resumeOverlay.isOpen.value) {
+                homeClosedResume = true
+                resumeOverlay.hide()
+            }
+            homeClosedResume || (resumeOverlay.isOpen.value && !homeRoutedToGame)
+        }
+        KeyEvent.ACTION_UP -> homeClosedResume.also { homeClosedResume = false }
+        else -> false
+    }
+
+    private fun routesHomeToGame(event: KeyEvent): Boolean = when (event.action) {
+        KeyEvent.ACTION_DOWN -> {
+            if (event.repeatCount == 0) {
+                homeRoutedToGame = ResumedGameRouter.deliverGuideKey(pressed = true)
+            }
+            homeRoutedToGame
+        }
+        KeyEvent.ACTION_UP -> homeRoutedToGame.also { routed ->
+            homeRoutedToGame = false
+            if (routed) ResumedGameRouter.deliverGuideKey(pressed = false)
+        }
+        else -> false
+    }
+
+    private fun performSystemHotkey(action: SystemHotkeyAction) {
+        Logger.info(TAG, "system hotkey $action")
+        when (action) {
+            SystemHotkeyAction.HOME ->
+                if (externalGameHoldsHome()) showArgosyWithoutTransition() else performGlobalAction(GLOBAL_ACTION_HOME)
+            SystemHotkeyAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
+        }
+    }
+
+    private fun openRunningScreen() {
+        if (resumeOverlay.show(gameDisplayId())) return
+        scope.launch { backgroundGames.withTransitionsOff { startArgosy(openRunning = true) } }
+    }
+
+    private fun filtersBack(): Boolean = quickPanelEnabled && externalSessionInFront()
+
+    private fun externalSessionInFront(): Boolean {
+        if (quickPanelOverlay.isOpen.value || resumeOverlay.isOpen.value) return false
         val session = playSessionTracker.activeSession.value ?: return false
         if (session.emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE) return false
-        return foregroundPackage == session.emulatorPackage
+        return foreground.foregroundPackage == session.emulatorPackage
     }
 
     private fun gameDisplayId(): Int =
@@ -148,6 +372,12 @@ class FocusAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "FocusA11y"
         private const val BACK_HOLD_MS = 500L
+
+        private val ARGOSY_INPUT_SURFACES = setOf(
+            ArgosyActivity::class.java.name,
+            LibretroActivity::class.java.name,
+            PlayerActivity::class.java.name
+        )
 
         var instance: FocusAccessibilityService? = null
             private set

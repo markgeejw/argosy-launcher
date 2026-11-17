@@ -11,6 +11,11 @@ package com.nendo.argosy.data.download
  * everything else is a fixed condition the UI layer labels from a string resource.
  */
 sealed class DownloadFailureReason {
+    data class HttpError(val code: Int) : DownloadFailureReason()
+    data object IntegrityCheckFailed : DownloadFailureReason()
+    data object InvalidResponse : DownloadFailureReason()
+    data object StorageAccessFailed : DownloadFailureReason()
+    data object TlsVerificationFailed : DownloadFailureReason()
     data class InvalidContentType(val contentType: String) : DownloadFailureReason()
     data object FileTooSmall : DownloadFailureReason()
     data class ServerError(val message: String) : DownloadFailureReason()
@@ -29,6 +34,7 @@ sealed class DownloadFailureReason {
     data object NoDownloadEntryFound : DownloadFailureReason()
     data object DownloadedFileNoLongerExists : DownloadFailureReason()
     data class ExtractionFailed(val message: String?) : DownloadFailureReason()
+    data object NoRomFolder : DownloadFailureReason()
 
     /**
      * A row written before this reason existed, or one this codec otherwise failed to parse. The
@@ -48,6 +54,11 @@ sealed class DownloadFailureReason {
  * mistaken for a field boundary.
  */
 object DownloadFailureReasonCodec {
+    private const val TOKEN_HTTP_ERROR = "HTTP_ERROR"
+    private const val TOKEN_INTEGRITY_CHECK_FAILED = "INTEGRITY_CHECK_FAILED"
+    private const val TOKEN_INVALID_RESPONSE = "INVALID_RESPONSE"
+    private const val TOKEN_STORAGE_ACCESS_FAILED = "STORAGE_ACCESS_FAILED"
+    private const val TOKEN_TLS_VERIFICATION_FAILED = "TLS_VERIFICATION_FAILED"
     private const val SEP = ":"
 
     private const val TOKEN_INVALID_CONTENT_TYPE = "INVALID_CONTENT_TYPE"
@@ -64,8 +75,14 @@ object DownloadFailureReasonCodec {
     private const val TOKEN_NO_DOWNLOAD_ENTRY = "NO_DOWNLOAD_ENTRY"
     private const val TOKEN_DOWNLOADED_FILE_NO_LONGER_EXISTS = "DOWNLOADED_FILE_NO_LONGER_EXISTS"
     private const val TOKEN_EXTRACTION_FAILED = "EXTRACTION_FAILED"
+    private const val TOKEN_NO_ROM_FOLDER = "NO_ROM_FOLDER"
 
     fun encode(reason: DownloadFailureReason): String = when (reason) {
+        is DownloadFailureReason.HttpError -> "$TOKEN_HTTP_ERROR$SEP${reason.code}"
+        DownloadFailureReason.IntegrityCheckFailed -> TOKEN_INTEGRITY_CHECK_FAILED
+        DownloadFailureReason.InvalidResponse -> TOKEN_INVALID_RESPONSE
+        DownloadFailureReason.StorageAccessFailed -> TOKEN_STORAGE_ACCESS_FAILED
+        DownloadFailureReason.TlsVerificationFailed -> TOKEN_TLS_VERIFICATION_FAILED
         is DownloadFailureReason.InvalidContentType ->
             "$TOKEN_INVALID_CONTENT_TYPE$SEP${reason.contentType}"
         DownloadFailureReason.FileTooSmall -> TOKEN_FILE_TOO_SMALL
@@ -86,6 +103,7 @@ object DownloadFailureReasonCodec {
         DownloadFailureReason.DownloadedFileNoLongerExists -> TOKEN_DOWNLOADED_FILE_NO_LONGER_EXISTS
         is DownloadFailureReason.ExtractionFailed ->
             "$TOKEN_EXTRACTION_FAILED$SEP${reason.message.orEmpty()}"
+        DownloadFailureReason.NoRomFolder -> TOKEN_NO_ROM_FOLDER
         is DownloadFailureReason.LegacyRaw -> reason.message
     }
 
@@ -94,6 +112,13 @@ object DownloadFailureReasonCodec {
         val token = raw.substringBefore(SEP)
         fun rest(limit: Int): List<String> = raw.split(SEP, limit = limit)
         return when (token) {
+            TOKEN_HTTP_ERROR -> rest(2).getOrNull(1)?.takeIf { it.matches(Regex("[0-9]{3}")) }
+                ?.toIntOrNull()?.takeIf { it in 100..599 }?.let { DownloadFailureReason.HttpError(it) }
+                ?: DownloadFailureReason.LegacyRaw(raw)
+            TOKEN_INTEGRITY_CHECK_FAILED -> DownloadFailureReason.IntegrityCheckFailed
+            TOKEN_INVALID_RESPONSE -> DownloadFailureReason.InvalidResponse
+            TOKEN_STORAGE_ACCESS_FAILED -> DownloadFailureReason.StorageAccessFailed
+            TOKEN_TLS_VERIFICATION_FAILED -> DownloadFailureReason.TlsVerificationFailed
             TOKEN_INVALID_CONTENT_TYPE -> DownloadFailureReason.InvalidContentType(rest(2).getOrElse(1) { "" })
             TOKEN_FILE_TOO_SMALL -> DownloadFailureReason.FileTooSmall
             TOKEN_SERVER_ERROR -> DownloadFailureReason.ServerError(rest(2).getOrElse(1) { "" })
@@ -124,6 +149,7 @@ object DownloadFailureReasonCodec {
             TOKEN_DOWNLOADED_FILE_NO_LONGER_EXISTS -> DownloadFailureReason.DownloadedFileNoLongerExists
             TOKEN_EXTRACTION_FAILED ->
                 DownloadFailureReason.ExtractionFailed(rest(2).getOrNull(1)?.takeIf { it.isNotEmpty() })
+            TOKEN_NO_ROM_FOLDER -> DownloadFailureReason.NoRomFolder
             else -> decodeLegacy(raw)
         }
     }

@@ -79,6 +79,7 @@
     <string name="home_quick_actions_play_on_screen">在屏幕 %1$d 上开始</string>
     <string name="home_quick_actions_download">下载</string>
     <string name="home_quick_actions_resume_download">继续</string>
+    <string name="home_quick_actions_resume_game">继续游戏</string>
     <string name="home_quick_actions_favorite">收藏</string>
     <string name="home_quick_actions_unfavorite">取消收藏</string>
     <string name="home_quick_actions_details">详情</string>
@@ -90,6 +91,8 @@
     <string name="home_quick_actions_remove_from_home">从主页移除</string>
     <string name="home_quick_actions_remove_from_library">从游戏库中移除</string>
     <string name="home_quick_actions_hide">隐藏</string>
+    <string name="home_quick_actions_move_to_display">移到显示器 %1$d</string>
+    <string name="home_quick_actions_close_game">关闭游戏</string>
 
     <string name="home_media_empty_next_up_title">暂无接下来的内容</string>
     <string name="home_media_empty_next_up_message">看完一集后，下一集会显示在这里。</string>
@@ -181,4 +184,23 @@
 
     <string name="home_grid_tile_ra_points_label">点数</string>
     <string name="home_grid_tile_ra_unlocks_label">成就</string>
+    <string name="home_footer_game_resume_game">继续游戏</string>
+    <string name="home_title_running">运行中</string>
+    <string name="home_title_running_in">正在 %1$s 中运行</string>
+    <string name="home_title_saving">正在保存</string>
+    <string name="home_title_running_with_time">已运行 %1$s</string>
+    <string name="home_grid_picker_folder_title">文件夹</string>
+    <string name="home_grid_picker_folder_subtitle">把任意类型的磁贴收进一个磁贴</string>
+    <string name="home_grid_picker_auto_folder_title">自动文件夹</string>
+    <string name="home_grid_picker_auto_folder_subtitle">自动收录符合规则的游戏</string>
+    <string name="home_grid_picker_image_title">图片</string>
+    <string name="home_grid_picker_image_subtitle">铺满所在格子的图片</string>
+    <string name="home_grid_picker_sticker_title">贴纸</string>
+    <string name="home_grid_picker_sticker_subtitle">抠图图片，可加描边</string>
+    <string name="home_grid_tile_image_label">图片</string>
+    <string name="home_grid_tile_sticker_label">贴纸</string>
+    <plurals name="home_grid_tile_folder_count">
+        <item quantity="other">%d 项</item>
+    </plurals>
+    <string name="home_tile_file_browser_decor_title">选择图片</string>
 </resources>

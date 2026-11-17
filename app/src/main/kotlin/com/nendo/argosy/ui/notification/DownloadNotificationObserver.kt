@@ -75,7 +75,7 @@ class DownloadNotificationObserver @Inject constructor(
             DownloadState.QUEUED -> return
             DownloadState.WAITING_FOR_STORAGE ->
                 Triple(R.string.ui_download_notice_no_space, NotificationType.WARNING, true)
-            DownloadState.DOWNLOADING -> return
+            DownloadState.DOWNLOADING, DownloadState.RETRYING, DownloadState.WAITING_FOR_NETWORK -> return
             DownloadState.EXTRACTING ->
                 Triple(R.string.ui_download_notice_extracting, NotificationType.INFO, false)
             DownloadState.MOVING ->
@@ -110,7 +110,12 @@ class DownloadNotificationObserver @Inject constructor(
             imagePath = progress.coverPath,
             duration = if (immediate) NotificationDuration.MEDIUM else NotificationDuration.SHORT,
             key = "download-${progress.gameId}",
-            immediate = immediate
+            immediate = immediate,
+            category = if (progress.state == DownloadState.COMPLETED) {
+                NotificationCategory.DOWNLOAD
+            } else {
+                NotificationCategory.GENERAL
+            }
         )
     }
 

@@ -91,7 +91,8 @@ class N3dsSigilRestorePathsTest {
             context = context, fal = fal, saveArchiver = archiver,
             switchSaveHandler = mockk(relaxed = true), gciSaveHandler = mockk(relaxed = true),
             retroArchSaveHandler = mockk(relaxed = true), dreamcastSaveHandler = mockk(relaxed = true),
-            defaultSaveHandler = mockk(relaxed = true), unitSaveHandler = mockk(relaxed = true), sigilSaveHandler = sigil
+            defaultSaveHandler = mockk(relaxed = true), unitSaveHandler = mockk(relaxed = true), sigilSaveHandler = sigil,
+            emulatorSaveConfigRepository = mockk(relaxed = true)
         )
         val userPrefs = mockk<UserPreferencesRepository>(relaxed = true)
         every { userPrefs.userPreferences } returns flowOf(UserPreferences())

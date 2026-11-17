@@ -40,10 +40,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -101,6 +107,7 @@ data class MemcardPickerState(
 )
 
 class GameLaunchDelegate @Inject constructor(
+    private val slotRegistry: com.nendo.argosy.libretro.slot.SlotRegistry,
     private val application: Application,
     private val gameRepository: GameRepository,
     private val emulatorResolver: EmulatorResolver,
@@ -124,7 +131,8 @@ class GameLaunchDelegate @Inject constructor(
     private val resolveSnapshotConflict: com.nendo.argosy.domain.usecase.savechannel.ResolveSnapshotConflictUseCase,
     private val connectedControllerTracker: com.nendo.argosy.core.input.ConnectedControllerTracker,
     private val preLaunchRecapStep: PreLaunchRecapStep,
-    private val backgroundGameLaunch: BackgroundGameLaunch
+    private val backgroundGameLaunch: BackgroundGameLaunch,
+    private val permissionWatch: com.nendo.argosy.data.permissions.PermissionWatch
 ) {
     companion object {
         private const val EMULATOR_KILL_DELAY_MS = 500L
@@ -185,6 +193,11 @@ class GameLaunchDelegate @Inject constructor(
 
     val syncOverlayState: StateFlow<SyncOverlayState?> = sessionEndCoordinator.syncOverlayState
 
+    val sessionEndRunning: Flow<Boolean> = combine(
+        sessionEndCoordinator.sessionEndRunning,
+        playSessionTracker.sessionEnding
+    ) { coordinating, ending -> coordinating || ending }
+
     private val _discPickerState = MutableStateFlow<DiscPickerState?>(null)
     val discPickerState: StateFlow<DiscPickerState?> = _discPickerState.asStateFlow()
 
@@ -197,16 +210,25 @@ class GameLaunchDelegate @Inject constructor(
 
     val isSyncing: Boolean get() = syncOverlayState.value != null
 
+    private val isSessionEnding: Boolean
+        get() = sessionEndCoordinator.sessionEndRunning.value || playSessionTracker.sessionEnding.value
+
+    val isSessionEndBusy: Boolean get() = isSyncing || isSessionEnding
+
     private var _onLaunchFailed: (() -> Unit)? = null
 
     private suspend fun emulatorClearedForLaunch(
         ticket: LaunchProgressTracker.Ticket,
         emulatorPackage: String?,
         alreadyStopped: String?,
-        noTrackedSession: Boolean
+        noTrackedSession: Boolean,
+        platformSlug: String?
     ): Boolean {
         if (emulatorPackage == null || emulatorPackage == alreadyStopped) return true
-        if (emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE || emulatorPackage == application.packageName) return true
+        if (emulatorPackage == application.packageName) return true
+        if (emulatorPackage == EmulatorRegistry.BUILTIN_PACKAGE) {
+            return backgroundGameLaunch.makeRoomForBuiltIn(ticket, platformSlug)
+        }
         val requiresKill = noTrackedSession && emulatorResolver.resolveEmulatorId(emulatorPackage)
             ?.let { EmulatorRegistry.getById(it) }?.launchConfig?.requiresEmulatorKill == true
         if (!requiresKill && !withContext(Dispatchers.IO) { RootShell.isAvailable }) return true
@@ -226,7 +248,19 @@ class GameLaunchDelegate @Inject constructor(
         return true
     }
 
-    private suspend fun evictSessionReturningStopped(session: com.nendo.argosy.data.emulator.ActiveSession): String? {
+    private suspend fun evictSessionReturningStopped(
+        session: com.nendo.argosy.data.emulator.ActiveSession,
+        endBehindSwitch: Boolean = false
+    ): String? {
+        if (session.isStream) {
+            playSessionTracker.endSession()
+            return null
+        }
+        if (endBehindSwitch && backgroundGameLaunch.keepsAlive(session.emulatorPackage)) {
+            endSessionBehindSwitch(session)
+            backgroundGameLaunch.remember(session)
+            return null
+        }
         endSessionAndAwaitConflictAnswer()
         if (backgroundGameLaunch.keepsAlive(session.emulatorPackage)) {
             backgroundGameLaunch.remember(session)
@@ -235,6 +269,14 @@ class GameLaunchDelegate @Inject constructor(
         gameLauncher.forceStopEmulator(session.emulatorPackage)
         delay(EMULATOR_KILL_DELAY_MS)
         return session.emulatorPackage
+    }
+
+    private suspend fun endSessionBehindSwitch(session: com.nendo.argosy.data.emulator.ActiveSession) {
+        val ending = playSessionTracker.endSessionInBackground()
+        merge(
+            playSessionTracker.activeSession.filter { it == null || it.startTime != session.startTime }.map { },
+            flow { ending.join(); emit(Unit) }
+        ).first()
     }
 
     private suspend fun endSessionAndAwaitConflictAnswer(): SessionEndResult {
@@ -274,6 +316,25 @@ class GameLaunchDelegate @Inject constructor(
                 return@launch
             }
             try {
+                if (!permissionWatch.clearForLaunch()) {
+                    onLaunchFailed()
+                    return@launch
+                }
+                if (isSessionEnding || playSessionTracker.pendingSessionConflict.value != null) {
+                    ticket.step(LaunchStep.Save(SyncProgress.PreLaunch.CheckingSave(channelName)))
+                    combine(
+                        sessionEndRunning,
+                        playSessionTracker.pendingSessionConflict,
+                        launchProgressTracker.progress
+                    ) { running, conflict, shown ->
+                        (!running && conflict == null) || shown == null
+                    }.first { it }
+                    if (ticket.isCancelled || isSyncing) {
+                        onLaunchFailed()
+                        return@launch
+                    }
+                }
+
                 val activeSession = playSessionTracker.activeSession.value
                 val sessionRequiresKill = activeSession?.let { session ->
                     val emuId = emulatorResolver.resolveEmulatorId(session.emulatorPackage)
@@ -306,7 +367,7 @@ class GameLaunchDelegate @Inject constructor(
                 var stoppedPackage: String? = null
                 if (!canResume && activeSession != null && !sessionRequiresKill) {
                     android.util.Log.d("GameLaunchDelegate", "Evicting stale session for game ${activeSession.gameId} in ${activeSession.emulatorPackage}")
-                    stoppedPackage = evictSessionReturningStopped(activeSession)
+                    stoppedPackage = evictSessionReturningStopped(activeSession, endBehindSwitch = liveInBackground != null)
                 }
                 if (evictsOwnSessionAlive) {
                     liveInBackground = backgroundGameLaunch.findLive(gameId, resolvedVariantId, emulatorPackage)
@@ -319,7 +380,7 @@ class GameLaunchDelegate @Inject constructor(
                 }
 
                 if (liveInBackground != null) {
-                    when (backgroundGameLaunch.resume(ticket, game, liveInBackground, channelName, origin)) {
+                    when (backgroundGameLaunch.resume(ticket, game, liveInBackground, origin)) {
                         BackgroundGameLaunch.Resume.RESUMED -> return@launch
                         BackgroundGameLaunch.Resume.CANCELLED -> {
                             onLaunchFailed()
@@ -330,7 +391,14 @@ class GameLaunchDelegate @Inject constructor(
                 }
 
                 val emulatorId = emulatorPackage?.let { emulatorResolver.resolveEmulatorId(it) }
-                if (!emulatorClearedForLaunch(ticket, emulatorPackage, stoppedPackage, noTrackedSession = activeSession == null)) {
+                if (!emulatorClearedForLaunch(
+                        ticket,
+                        emulatorPackage,
+                        stoppedPackage,
+                        noTrackedSession = activeSession == null || activeSession.isStream,
+                        platformSlug = game?.platformSlug
+                    )
+                ) {
                     onLaunchFailed()
                     return@launch
                 }
@@ -577,7 +645,20 @@ class GameLaunchDelegate @Inject constructor(
                 )
             }
             is LaunchResult.MissingBios -> notificationManager.showError(
-                NotificationText.Res(R.string.notif_gamelaunch_missing_bios, listOf(result.platformSlug))
+                if (result.missingFileGroups.isNotEmpty()) {
+                    NotificationText.Res(
+                        R.string.notif_gamelaunch_missing_bios_files,
+                        listOf(
+                            result.platformName,
+                            result.missingFileGroups.joinToString(", ") { it.joinToString(" / ") }
+                        )
+                    )
+                } else {
+                    NotificationText.Res(
+                        R.string.notif_gamelaunch_missing_bios_folder,
+                        listOf(result.platformName, result.missingFolder.orEmpty())
+                    )
+                }
             )
             is LaunchResult.NoScummVMGameId -> notificationManager.showError(
                 NotificationText.Res(R.string.notif_gamelaunch_no_scummvm_id, listOf(result.gameName))
@@ -600,8 +681,17 @@ class GameLaunchDelegate @Inject constructor(
                 ?.let { pad ->
                     intent.putExtra(LibretroActivity.EXTRA_LAUNCH_CONTROLLER_ID, controllerIdOf(pad))
                 }
+            if (launchMode?.isHardcore != true) placeInSlot(intent)
         }
         return intent
+    }
+
+    private fun placeInSlot(intent: Intent) {
+        val platformSlug = intent.getStringExtra(LibretroActivity.EXTRA_PLATFORM_SLUG)
+        val slot = slotRegistry.freeSlotFor(platformSlug) ?: return
+        val activity = com.nendo.argosy.libretro.slot.GameSlots.activities[slot - 1]
+        intent.setClass(application, activity)
+        android.util.Log.d("GameLaunchDelegate", "Built-in game goes to slot $slot (${activity.simpleName})")
     }
 
     fun selectDisc(scope: CoroutineScope, discPath: String) {
@@ -736,6 +826,10 @@ class GameLaunchDelegate @Inject constructor(
                 return@launch
             }
             try {
+                if (!permissionWatch.clearForLaunch()) {
+                    callbacks.onLaunchFailed()
+                    return@launch
+                }
                 val continuesPickedLaunch = selectedDiscPath != null || variantFileId != null || skipVariantPrompt
                 if (game != null && !continuesPickedLaunch && !preLaunchRecapStep.run(ticket, gameId, game.title)) {
                     callbacks.onLaunchFailed()
@@ -750,7 +844,8 @@ class GameLaunchDelegate @Inject constructor(
                     ticket,
                     emulatorResolver.getEmulatorPackageForGame(game.id, game.platformId, game.platformSlug),
                     stoppedPackage,
-                    noTrackedSession = activeSession == null
+                    noTrackedSession = activeSession == null || activeSession.isStream,
+                    platformSlug = game.platformSlug
                 )
                 if (!cleared) {
                     callbacks.onLaunchFailed()

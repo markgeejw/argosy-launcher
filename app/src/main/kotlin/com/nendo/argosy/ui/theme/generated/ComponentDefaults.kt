@@ -47,6 +47,8 @@ object ComponentDefaults {
         const val floatTravelDp = 6
         const val floatSlideMs = 2400
         const val floatHoldMs = 1600
+        const val videoLogoHeightDp = 72
+        const val videoLogoRiseDp = 24
     }
 
     object BoxArt {
@@ -224,7 +226,7 @@ object ComponentDefaults {
         const val gradientAdvanced = false
         const val videoWallpaperEnabled = false
         const val videoWallpaperDelaySeconds = 3
-        const val videoWallpaperMuted = false
+        const val videoWallpaperMuted = true
     }
 
     object ScreenDimmer {
@@ -252,6 +254,8 @@ object ComponentDefaults {
         const val newBadgeWidthDp = 44
         const val newBadgeHeightDp = 30
         const val newBadgeRotationDegrees = 15
+        const val newBadgeCornerShiftDp = 8
+        const val newBadgeCornerDropDp = 3
         const val companionCardWidth = 140
         const val companionCardWidthFocused = 200
         const val companionCardGap = 16
@@ -316,6 +320,13 @@ object ComponentDefaults {
 
     object CustomGrid {
         const val swipePageThresholdDp = 48
+        const val folderColumns = 4
+        const val folderColumnsSmall = 6
+        const val folderColumnsLarge = 3
+        const val folderMosaicCount = 4
+        const val stickerOutlineThinRatio = 0.015f
+        const val stickerOutlineMediumRatio = 0.03f
+        const val stickerOutlineThickRatio = 0.05f
     }
 
     object CollectionShowcase {
@@ -362,11 +373,52 @@ object ComponentDefaults {
         const val artHeightDp = 240
         const val artHeightRatio = 0.4f
         const val titleMaxLines = 2
-        const val breathMs = 4000
         const val breathPeakAlpha = 0.18f
         const val breathFloorAlpha = 0f
         const val breathSpreadDp = 28
         const val breathBlurDp = 24
+        const val makeRoomCardWidthDp = 240
+        const val makeRoomClosedHoldMs = 600
+        const val makeRoomDeepScrimAlpha = 0.6f
+        const val makeRoomClosedScale = 0.85f
+        const val makeRoomClosedAlpha = 0.55f
+        const val makeRoomClosedSaturation = 0f
+    }
+
+    object RunningLine {
+        const val heightDp = 3
+        const val edgeGapDp = 1
+        const val minEndInsetDp = 8
+        const val glowHeightDp = 16
+        const val glowSpreadRatio = 0.12f
+        const val lineTroughAlpha = 0.7f
+        const val linePeakAlpha = 1f
+        const val glowTroughAlpha = 0.45f
+        const val glowPeakAlpha = 0.85f
+        const val badgeGapDp = 4
+        const val savingDashDp = 4
+        const val savingGapDp = 3
+        const val savingGlowAlpha = 0.35f
+    }
+
+    object ResumeOverlay {
+        const val backdropDownscale = 8f
+    }
+
+    object RunningStrip {
+        const val unitWidthDp = 7
+        const val unitHeightDp = 11
+        const val unitGapDp = 2
+        const val unitRadiusDp = 2
+        const val externalGapDp = 4
+        const val loadedAlpha = 0.7f
+        const val externalAlpha = 0.45f
+        const val closingStripeDp = 2
+    }
+
+    object RunningFrame {
+        const val panelMaxWidthDp = 320
+        const val statsScrimAlpha = 0.7f
     }
 
     object UnlockRecap {
@@ -459,16 +511,54 @@ object ComponentDefaults {
         const val offlineAvatarAlpha = 0.6f
         const val disabledContentAlpha = 0.38f
         const val sectionLabelTrackingSp = 1.5f
+        const val statsSparklineHeightDp = 20
+        const val statsSparklineStrokeDp = 1.5f
+        const val statsSparklineAlpha = 0.55f
+        const val statsTileFillAlpha = 0.5f
+        const val statsTempWarmC = 70
+        const val statsTempHotC = 85
+    }
+
+    object Connections {
+        const val forgetHoldMs = 3000
+        const val pulseRingScale = 1.5f
+        const val pulseRingAlpha = 0.45f
+        const val pairArcDegrees = 90
+        const val reducedRingAlpha = 0.5f
+        const val foundRiseDp = 12
+        const val successTintAlpha = 0.15f
+        const val successHoldMs = 600
     }
 
     object QuickMenuRandom {
-        const val coverHeightRatio = 0.66f
         const val coverWidthMaxRatio = 0.4f
+        const val portraitCoverWidthRatio = 0.5f
         const val coverAspectRatio = 0.75f
         const val backdropBlurDp = 32
         const val backdropScrimStartAlpha = 0.55f
         const val backdropScrimEndAlpha = 0.85f
         const val descriptionMaxLines = 3
+    }
+
+    object QuickMenu {
+        const val sheetHeightRatio = 0.82f
+        const val sheetScrimAlpha = 0.6f
+        const val listPaneRatio = 0.52f
+        const val dimmedTileAlpha = 0.35f
+        const val previewCoverWidthRatio = 0.26f
+        const val playStripHeightDp = 44
+        const val playStripRestAlpha = 0.45f
+        const val chipTintAlpha = 0.22f
+        const val historyTileAlpha = 0.5f
+        const val gridColumnsDualScreen = 5
+        const val gridColumnsLandscape = 8
+        const val gridColumnsPortrait = 3
+        const val swipeCommitRatio = 0.3f
+        const val dismissDragRatio = 0.25f
+        const val flingVelocityDp = 1200
+        const val dragHandleWidthDp = 36
+        const val dragHandleHeightDp = 4
+        const val groupLabelHeightDp = 24
     }
 
     object FrostedSurface {
@@ -484,6 +574,50 @@ object ComponentDefaults {
         const val statusBatteryFontSizeRatio = 0.75f
         const val statusPaddingHorizontalDp = 24
         const val footerLabelFontSizeSp = 14
+    }
+
+    object Notification {
+        const val surfaceAlpha = 0.92f
+        const val tintAlpha = 0.15f
+        const val bodyAlpha = 0.7f
+        const val badgeHeightDp = 16
+        const val badgeMinWidthDp = 22
+        const val badgeFontSizeSp = 10
+        const val badgeFillAlpha = 0.3f
+        const val bodyGlyphSizeRatio = 1.1f
+    }
+
+    object ControllerKeyboard {
+        const val sheetTargetHeightPercent = 45f
+        const val sheetMaxHeightPercent = 50f
+        const val keyHeightMinDp = 32
+        const val compactMaxWindowHeightDp = 480
+        const val sizingRowCount = 5
+        const val echoFullExtraLineDp = 30
+        const val echoFullMaxLines = 3
+        const val counterNearLimitPercent = 10f
+    }
+
+    object PairingCode {
+        const val cellWidthDp = 36
+        const val cellHeightDp = 44
+    }
+
+    object Setup {
+        const val railSegmentHeightDp = 4
+        const val railSegmentGapDp = 4
+        const val railDoneAlpha = 0.45f
+        const val faceButtonDp = 56
+        const val miniFaceButtonDp = 24
+        const val menuPillWidthDp = 64
+        const val menuPillHeightDp = 24
+        const val chipHeightDp = 24
+        const val chipGrantedFillAlpha = 0.15f
+        const val permissionRecheckMs = 1000
+        const val qrSizeDp = 180
+        const val checkExitHoldMs = 1500
+        const val checkTestingRowAlpha = 0.38f
+        const val padArtWidthDp = 576
     }
 
 }

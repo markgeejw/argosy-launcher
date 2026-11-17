@@ -46,22 +46,6 @@ interface StateCacheDao {
         SELECT * FROM state_cache
         WHERE gameId = :gameId AND emulatorId = :emulatorId AND slotNumber = :slotNumber
         AND (channelName = :channelName OR (channelName IS NULL AND :channelName IS NULL))
-        AND (ownerUserId IS NULL OR ownerUserId IS :ownerUserId)
-        ORDER BY (ownerUserId IS NULL) ASC, id DESC
-        LIMIT 1
-    """)
-    suspend fun getBySlot(
-        gameId: Long,
-        emulatorId: String,
-        slotNumber: Int,
-        channelName: String?,
-        ownerUserId: Long?
-    ): StateCacheEntity?
-
-    @Query("""
-        SELECT * FROM state_cache
-        WHERE gameId = :gameId AND emulatorId = :emulatorId AND slotNumber = :slotNumber
-        AND (channelName = :channelName OR (channelName IS NULL AND :channelName IS NULL))
         AND (coreId = :coreId OR (coreId IS NULL AND :coreId IS NULL))
         AND (ownerUserId IS NULL OR ownerUserId IS :ownerUserId)
         ORDER BY (ownerUserId IS NULL) ASC, id DESC
@@ -285,4 +269,11 @@ interface StateCacheDao {
 
     @Query("UPDATE OR IGNORE state_cache SET gameId = :gameId, channelName = :channelName WHERE id = :id")
     suspend fun moveToGame(id: Long, gameId: Long, channelName: String?): Int
+
+    /**
+     * Takes a row off its game without deleting it or its file. The negated game id matches no
+     * game-scoped read and keeps the original game recoverable from the row.
+     */
+    @Query("UPDATE OR IGNORE state_cache SET gameId = -gameId WHERE id = :id AND gameId > 0")
+    suspend fun detachFromGame(id: Long): Int
 }

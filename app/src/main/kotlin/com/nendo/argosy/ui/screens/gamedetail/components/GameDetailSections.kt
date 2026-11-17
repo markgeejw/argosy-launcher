@@ -76,9 +76,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.nendo.argosy.R
+import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.ui.common.ScreenshotImage
 import com.nendo.argosy.ui.common.rememberFileImageModel
 import com.nendo.argosy.ui.common.supersedesCommunityRating
+import com.nendo.argosy.ui.screens.gamedetail.DownloadWaitStatus
 import com.nendo.argosy.ui.screens.gamedetail.GameDetailUi
 import com.nendo.argosy.ui.screens.gamedetail.GameDetailUiState
 import com.nendo.argosy.ui.screens.gamedetail.GameDetailViewModel
@@ -88,7 +90,9 @@ import com.nendo.argosy.core.game.AchievementUi
 import com.nendo.argosy.ui.theme.ALauncherColors
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalBoxArtStyle
+import com.nendo.argosy.ui.theme.Motion
 import com.nendo.argosy.ui.components.GameCard
+import com.nendo.argosy.ui.components.animateScrollToItemCentered
 import com.nendo.argosy.ui.screens.home.HomeGameUi
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -273,7 +277,7 @@ fun ActionButtons(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
+            animation = tween(Motion.durationShimmer, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
@@ -348,8 +352,7 @@ fun ActionButtons(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(stringResource(R.string.gamedetail_action_buttons_play))
                                 Text(
-                                    text = saveInfo.channelName
-                                        ?: stringResource(R.string.gamedetail_action_buttons_autosave),
+                                    text = SaveSyncApiClient.syncKeyOf(saveInfo.channelName),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                                 )
@@ -400,10 +403,14 @@ fun ActionButtons(
                     GameDownloadStatus.QUEUED -> Text(stringResource(R.string.gamedetail_action_buttons_queued))
                     GameDownloadStatus.WAITING_FOR_STORAGE -> Text(stringResource(R.string.gamedetail_action_buttons_no_space))
                     GameDownloadStatus.DOWNLOADING -> Text(
-                        if (uiState.isAwaitingServer) {
-                            stringResource(R.string.gamedetail_action_buttons_waiting_for_server)
-                        } else {
-                            stringResource(
+                        when (uiState.downloadWaitStatus) {
+                            DownloadWaitStatus.WAITING_FOR_SERVER ->
+                                stringResource(R.string.gamedetail_action_buttons_waiting_for_server)
+                            DownloadWaitStatus.RETRYING ->
+                                stringResource(R.string.gamedetail_action_buttons_retrying)
+                            DownloadWaitStatus.WAITING_FOR_NETWORK ->
+                                stringResource(R.string.gamedetail_action_buttons_waiting_for_network)
+                            null -> stringResource(
                                 R.string.gamedetail_action_buttons_downloading_percent,
                                 (downloadProgress * 100).toInt()
                             )
@@ -602,7 +609,7 @@ fun RelatedGamesSection(
 
     LaunchedEffect(focusedIndex, isActive) {
         if (isActive && games.isNotEmpty()) {
-            listState.animateScrollToItem(focusedIndex.coerceIn(0, games.size - 1))
+            listState.animateScrollToItemCentered(focusedIndex.coerceIn(0, games.size - 1))
         }
     }
 
@@ -742,4 +749,3 @@ fun AchievementsSection(
         }
     }
 }
-

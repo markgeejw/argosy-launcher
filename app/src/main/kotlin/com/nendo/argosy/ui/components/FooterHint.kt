@@ -36,9 +36,12 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nendo.argosy.ui.icons.InputIcons
+import com.nendo.argosy.ui.input.ButtonGlyphSwaps
+import com.nendo.argosy.ui.input.ControllerPosition
 import com.nendo.argosy.ui.input.LocalABIconsSwapped
 import com.nendo.argosy.ui.input.LocalXYIconsSwapped
 import com.nendo.argosy.ui.input.LocalSwapStartSelect
+import com.nendo.argosy.ui.input.positionUnder
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -73,7 +76,7 @@ enum class InputButton {
     A, B, X, Y,
     DPAD, DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT, DPAD_HORIZONTAL, DPAD_VERTICAL,
     LB, RB, LB_RB, LT, RT, LT_RT,
-    RIGHT_STICK_VERTICAL,
+    RIGHT_STICK_VERTICAL, LEFT_STICK_CLICK, RIGHT_STICK_CLICK,
     START, SELECT
 }
 
@@ -85,6 +88,7 @@ private fun InputButton.category(): HintCategory = when (this) {
     InputButton.DPAD_HORIZONTAL, InputButton.DPAD_VERTICAL -> HintCategory.DPAD
     InputButton.LB, InputButton.RB, InputButton.LB_RB -> HintCategory.BUMPER
     InputButton.LT, InputButton.RT, InputButton.LT_RT, InputButton.RIGHT_STICK_VERTICAL,
+    InputButton.LEFT_STICK_CLICK, InputButton.RIGHT_STICK_CLICK,
     InputButton.START, InputButton.SELECT -> HintCategory.SHOULDER_MENU
     InputButton.A, InputButton.B, InputButton.X, InputButton.Y -> HintCategory.FACE
 }
@@ -95,14 +99,15 @@ private fun InputButton.category(): HintCategory = when (this) {
  */
 @Composable
 fun InputButton.toPainter(): Painter? {
-    val abIconsSwapped = LocalABIconsSwapped.current
-    val xyIconsSwapped = LocalXYIconsSwapped.current
-    val swapStartSelect = LocalSwapStartSelect.current
+    val swaps = ButtonGlyphSwaps(
+        ab = LocalABIconsSwapped.current,
+        xy = LocalXYIconsSwapped.current,
+        startSelect = LocalSwapStartSelect.current
+    )
+    positionUnder(swaps)?.let { return it.glyph() }
     return when (this) {
-        InputButton.A -> if (abIconsSwapped) InputIcons.FaceRight else InputIcons.FaceBottom
-        InputButton.B -> if (abIconsSwapped) InputIcons.FaceBottom else InputIcons.FaceRight
-        InputButton.X -> if (xyIconsSwapped) InputIcons.FaceTop else InputIcons.FaceLeft
-        InputButton.Y -> if (xyIconsSwapped) InputIcons.FaceLeft else InputIcons.FaceTop
+        InputButton.A, InputButton.B, InputButton.X, InputButton.Y,
+        InputButton.START, InputButton.SELECT -> null
         InputButton.DPAD -> InputIcons.Dpad
         InputButton.DPAD_UP -> InputIcons.DpadUp
         InputButton.DPAD_DOWN -> InputIcons.DpadDown
@@ -117,9 +122,19 @@ fun InputButton.toPainter(): Painter? {
         InputButton.RT -> InputIcons.TriggerRight
         InputButton.LT_RT -> null
         InputButton.RIGHT_STICK_VERTICAL -> InputIcons.RightStickVertical
-        InputButton.START -> if (swapStartSelect) InputIcons.Options else InputIcons.Menu
-        InputButton.SELECT -> if (swapStartSelect) InputIcons.Menu else InputIcons.Options
+        InputButton.LEFT_STICK_CLICK -> InputIcons.LeftStickPress
+        InputButton.RIGHT_STICK_CLICK -> InputIcons.RightStickPress
     }
+}
+
+@Composable
+private fun ControllerPosition.glyph(): Painter = when (this) {
+    ControllerPosition.TOP -> InputIcons.FaceTop
+    ControllerPosition.LEFT -> InputIcons.FaceLeft
+    ControllerPosition.RIGHT -> InputIcons.FaceRight
+    ControllerPosition.BOTTOM -> InputIcons.FaceBottom
+    ControllerPosition.MENU_LEFT -> InputIcons.Options
+    ControllerPosition.MENU_RIGHT -> InputIcons.Menu
 }
 
 private fun InputButton.isComposite(): Boolean = this == InputButton.LB_RB || this == InputButton.LT_RT
@@ -295,7 +310,8 @@ private fun InputButton.faceButtonPriority(): Int = when (this) {
 private fun InputButton.hidePriority(): Int = when (this) {
     InputButton.X, InputButton.Y -> 4
     InputButton.LB, InputButton.RB, InputButton.LB_RB,
-    InputButton.LT, InputButton.RT, InputButton.LT_RT, InputButton.RIGHT_STICK_VERTICAL -> 3
+    InputButton.LT, InputButton.RT, InputButton.LT_RT, InputButton.RIGHT_STICK_VERTICAL,
+    InputButton.LEFT_STICK_CLICK, InputButton.RIGHT_STICK_CLICK -> 3
     InputButton.START, InputButton.SELECT -> 2
     InputButton.A, InputButton.B -> 1
     else -> 0
@@ -417,13 +433,15 @@ fun FooterBarWithState(
     modifier: Modifier = Modifier,
     onHintClick: ((InputButton) -> Unit)? = null,
     trailingContent: @Composable (() -> Unit)? = null,
+    leadingContent: @Composable (() -> Unit)? = null,
     forceVisible: Boolean = false
 ) {
     val backgroundColor = footerSurfaceColor()
     var measuredWidth by remember { mutableIntStateOf(0) }
     var trailingWidth by remember { mutableIntStateOf(0) }
+    var leadingWidth by remember { mutableIntStateOf(0) }
 
-    val quiet = !forceVisible && hints.all { isObviousHint(it.button) }
+    val quiet = !forceVisible && leadingContent == null && hints.all { isObviousHint(it.button) }
     var displayHints by remember { mutableStateOf(hints) }
     if (!quiet) displayHints = hints
     val collapseProgress = footerCollapseProgress(quiet)
@@ -431,7 +449,8 @@ fun FooterBarWithState(
     val filteredHints = filterHintsByWidth(
         displayHints,
         measuredWidth = measuredWidth,
-        trailingWidth = if (trailingContent != null) trailingWidth else 0,
+        trailingWidth = (if (trailingContent != null) trailingWidth else 0) +
+            (if (leadingContent != null) leadingWidth else 0),
         tappable = onHintClick != null,
         buttonOf = { it.button },
         labelOf = { it.action },
@@ -457,7 +476,13 @@ fun FooterBarWithState(
             .padding(horizontal = Dimens.spacingMd),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingLg)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingLg),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (leadingContent != null) {
+                Box(Modifier.onSizeChanged { leadingWidth = it.width }) { leadingContent() }
+            }
             dpadHints.forEach { hint ->
                 TappableFooterHint(hint.button, hint.action, onHintClick, hint.enabled)
             }

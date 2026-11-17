@@ -35,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import com.nendo.argosy.data.local.entity.GameDiscEntity
+import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.data.platform.PlatformFolderResolver
 import com.nendo.argosy.data.local.entity.GameEntity
 import com.nendo.argosy.data.model.GameSource
@@ -94,7 +95,18 @@ sealed class LaunchResult {
     data class NoAndroidApp(val packageName: String) : LaunchResult()
     data class NoCore(val platformSlug: String, val reason: String? = null) : LaunchResult()
     data class MissingDiscs(val missingDiscNumbers: List<Int>) : LaunchResult()
-    data class MissingBios(val platformSlug: String) : LaunchResult()
+    /**
+     * The built-in core cannot start without firmware the system directory lacks. [missingFileGroups]
+     * lists each unmet requirement as the file names that would satisfy it, any one of a group
+     * being enough; [missingFolder] names a folder under the system directory that holds no file
+     * when the core accepts any file name there.
+     */
+    data class MissingBios(
+        val platformSlug: String,
+        val platformName: String,
+        val missingFileGroups: List<List<String>>,
+        val missingFolder: String?
+    ) : LaunchResult()
     data class NoScummVMGameId(val gameName: String) : LaunchResult()
     data class Error(val message: String) : LaunchResult()
     data object Cancelled : LaunchResult()
@@ -886,11 +898,9 @@ class GameLauncher @Inject constructor(
         ) ?: return null
         val userConfig = emulatorSaveConfigRepository.getByEmulator(emulatorId)
         if (userConfig?.selectedMemcardPath != null) return null
-        val basePathOverride = emulatorSaveConfigRepository.resolveEffectiveSavePath(emulatorId, game.platformSlug)
         val cards = saveHandlerRegistry.listPs2FolderMemcardsForEmulator(
             emulatorId = emulatorId,
-            emulatorPackage = emulator.packageName,
-            basePathOverride = basePathOverride
+            emulatorPackage = emulator.packageName
         )
         if (cards.size <= 1) return null
         Logger.info(TAG, "[Launch] PS2 memcard gate triggered | gameId=$gameId, cards=${cards.size}")
@@ -914,24 +924,28 @@ class GameLauncher @Inject constructor(
         "tgcd" to listOf(listOf("syscard3.pce")),
         "pcfx" to listOf(listOf("pcfx.rom")),
         "cdi" to listOf(listOf("same_cdi/bios/cdimono1.zip")),
-        "scd" to listOf(listOf("bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin")),
-        "segacd" to listOf(listOf("bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"))
+        "scd" to listOf(listOf("bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"))
     )
 
     private suspend fun biosGate(game: GameEntity, emulator: EmulatorDef): LaunchResult? {
         if (!emulator.launchConfig.isInProcess) return null
-        val requirements = mandatoryBios[game.platformSlug.lowercase()]
+        val requirements = mandatoryBios[PlatformDefinitions.getCanonicalSlug(game.platformSlug)]
         val biosDir = BiosPathRegistry.getBuiltinPlatformBiosDir(game.platformSlug)
         if (requirements == null && biosDir == null) return null
         return try {
             biosRepository.distributeBiosToEmulator(game.platformSlug, EmulatorRegistry.BUILTIN_PACKAGE)
             val systemDir = biosRepository.getLibretroSystemDir()
-            val unmetFiles = requirements.orEmpty().any { group -> group.none { File(systemDir, it).exists() } }
-            val unmetDir = biosDir != null && File(systemDir, biosDir).listFiles()?.any { it.isFile } != true
-            val unmet = unmetFiles || unmetDir
-            if (unmet) {
-                Logger.warn(TAG, "[Launch] BIOS gate: ${game.platformSlug} missing required firmware")
-                LaunchResult.MissingBios(game.platformSlug)
+            val unmetGroups = requirements.orEmpty().filter { group -> group.none { File(systemDir, it).exists() } }
+            val unmetDir = biosDir?.takeIf { File(systemDir, it).listFiles()?.any { file -> file.isFile } != true }
+            if (unmetGroups.isNotEmpty() || unmetDir != null) {
+                Logger.warn(
+                    TAG,
+                    "[Launch] BIOS gate: ${game.platformSlug} missing required firmware | " +
+                        "files=$unmetGroups folder=$unmetDir systemDir=${systemDir.absolutePath}"
+                )
+                val platformName = platformDao.getById(game.platformId)?.name?.takeIf { it.isNotBlank() }
+                    ?: game.platformSlug
+                LaunchResult.MissingBios(game.platformSlug, platformName, unmetGroups, unmetDir)
             } else {
                 null
             }
@@ -1124,18 +1138,6 @@ class GameLauncher @Inject constructor(
     private fun parseBindingFormat(name: String): RomBindingFormat? =
         runCatching { RomBindingFormat.valueOf(name) }.getOrNull()
 
-    private val primaryRootSlash: String by lazy { "${StoragePathUtils.primaryExternalRoot}/" }
-
-    private fun isPathOpaqueToOtherApps(path: String): Boolean {
-        if (!path.startsWith("/storage/")) return false
-        val canonical = StoragePathUtils.canonicalize(path)
-        if (canonical.startsWith(primaryRootSlash)) {
-            val rel = canonical.removePrefix(primaryRootSlash)
-            return rel.startsWith("Android/data/") || rel.startsWith("Android/obb/")
-        }
-        return true
-    }
-
     private fun rewriteBindings(
         command: EffectiveLaunchCommand,
         romFile: File,
@@ -1145,17 +1147,7 @@ class GameLauncher @Inject constructor(
     ): EffectiveLaunchCommand {
         val absolutePath = romFile.absolutePath
         val grantUris = command.grantReadUriTo.toMutableList()
-
-        val needsContentUri = isPathOpaqueToOtherApps(absolutePath)
-        fun upgradeIfOpaque(b: RomBindingFormat?): RomBindingFormat? =
-            if (b == RomBindingFormat.ABSOLUTE_PATH && needsContentUri) {
-                Logger.warn(TAG, "ROM at $absolutePath is opaque to other apps; upgrading ABSOLUTE_PATH → FILE_PROVIDER")
-                RomBindingFormat.FILE_PROVIDER
-            } else b
-
-        @Suppress("NAME_SHADOWING") val dataBinding = upgradeIfOpaque(dataBinding)
-        @Suppress("NAME_SHADOWING") val extraBinding = upgradeIfOpaque(extraBinding)
-        @Suppress("NAME_SHADOWING") val clipDataBinding = upgradeIfOpaque(clipDataBinding)
+        val fileUriString = runCatching { getFileUri(romFile).toString() }.getOrNull()
 
         fun targetUriFor(format: RomBindingFormat): Uri? = when (format) {
             RomBindingFormat.NONE -> null
@@ -1185,7 +1177,7 @@ class GameLauncher @Inject constructor(
 
         fun isPathExtra(extra: ResolvedExtra): Boolean = when (extra) {
             is ResolvedExtra.UriExtra -> true
-            is ResolvedExtra.StringExtra -> extra.value == absolutePath
+            is ResolvedExtra.StringExtra -> extra.value == absolutePath || extra.value == fileUriString
             else -> false
         }
         val newExtras: List<ResolvedExtra> = when (extraBinding) {
@@ -1488,6 +1480,16 @@ class GameLauncher @Inject constructor(
                     }
                     resolvedExtras += ResolvedExtra.StringExtra(key, value)
                 }
+                is ExtraValue.PathFromBuild -> {
+                    val plainPath = romFile.extension.equals("m3u", ignoreCase = true) ||
+                        (installedBuildNumber(emulator.packageName) ?: 0) >= extraValue.minBuild
+                    val value = if (plainPath) {
+                        romFile.absolutePath
+                    } else {
+                        getFileUri(romFile).also { fileUri = it }.toString()
+                    }
+                    resolvedExtras += ResolvedExtra.StringExtra(key, value)
+                }
                 is ExtraValue.Platform -> resolvedExtras += ResolvedExtra.StringExtra(key, platformSlug)
                 is ExtraValue.Literal -> resolvedExtras += ResolvedExtra.StringExtra(key, extraValue.value)
                 is ExtraValue.BooleanLiteral -> resolvedExtras += ResolvedExtra.BoolExtra(key, extraValue.value)
@@ -1599,13 +1601,7 @@ class GameLauncher @Inject constructor(
     }
 
     private fun launchViaShell(command: EffectiveLaunchCommand): ShellLaunchOutcome {
-        command.grantReadUriTo.forEach { uri ->
-            try {
-                context.grantUriPermission(command.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (e: Exception) {
-                Logger.warn(TAG, "Failed to grant URI permission to ${command.packageName} for $uri", e)
-            }
-        }
+        command.grantLaunchReads(context)
 
         val argv = command.toShellArgv()
         Logger.debug(TAG, "Shell command: ${argv.last()}")
@@ -1731,7 +1727,7 @@ class GameLauncher @Inject constructor(
             action = Intent.ACTION_MAIN,
             packageName = emulator.packageName,
             activityClass = "org.scummvm.scummvm.SplashActivity",
-            categories = listOf(Intent.CATEGORY_LAUNCHER),
+            categories = emptyList(),
             dataUri = Uri.fromParts("scummvm", gameId, null),
             intentFlags = if (forResume) {
                 Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1859,6 +1855,10 @@ class GameLauncher @Inject constructor(
             throw e
         }
     }
+
+    private fun installedBuildNumber(packageName: String): Int? = runCatching {
+        buildNumberOf(context.packageManager.getPackageInfo(packageName, 0).versionName)
+    }.getOrNull()
 
     private fun getDocumentUri(file: File): Uri? {
         val (volumeId, relativePath) = StoragePathUtils.extractVolumeAndPath(file.absolutePath)
@@ -2163,6 +2163,7 @@ class GameLauncher @Inject constructor(
     private suspend fun consolidateExtContent(game: GameEntity, emulator: EmulatorDef): File? {
         if (!extContentOrganizer.isExtcontentEmulator(emulator.id, game.platformSlug)) return null
         val platformDir = platformFolderResolver.downloadDirForPlatform(game.platformId, game.platformSlug)
+            ?: return null
         if (extContentOrganizer.usesCombinedLayout(game.platformId, game.platformSlug)) {
             extContentOrganizer.enforceCombinedLayout(game, platformDir)?.let { return it }
         }

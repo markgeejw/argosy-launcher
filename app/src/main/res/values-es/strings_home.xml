@@ -79,6 +79,7 @@
     <string name="home_quick_actions_play_on_screen">Jugar en la pantalla %1$d</string>
     <string name="home_quick_actions_download">Descargar</string>
     <string name="home_quick_actions_resume_download">Reanudar</string>
+    <string name="home_quick_actions_resume_game">Reanudar</string>
     <string name="home_quick_actions_favorite">Agregar a favoritos</string>
     <string name="home_quick_actions_unfavorite">Quitar de favoritos</string>
     <string name="home_quick_actions_details">Detalles</string>
@@ -90,6 +91,8 @@
     <string name="home_quick_actions_remove_from_home">Quitar del inicio</string>
     <string name="home_quick_actions_remove_from_library">Quitar de la biblioteca</string>
     <string name="home_quick_actions_hide">Ocultar</string>
+    <string name="home_quick_actions_move_to_display">Mover a la pantalla %1$d</string>
+    <string name="home_quick_actions_close_game">Cerrar juego</string>
 
     <string name="home_media_empty_next_up_title">Nada a continuación</string>
     <string name="home_media_empty_next_up_message">Termina un episodio y el siguiente aparecerá aquí.</string>
@@ -189,4 +192,25 @@
 
     <string name="home_grid_tile_ra_points_label">Puntos</string>
     <string name="home_grid_tile_ra_unlocks_label">Logros</string>
+    <string name="home_footer_game_resume_game">Reanudar</string>
+    <string name="home_title_running">En ejecución</string>
+    <string name="home_title_running_in">En ejecución en %1$s</string>
+    <string name="home_title_saving">Guardando</string>
+    <string name="home_title_running_with_time">En ejecución desde hace %1$s</string>
+    <string name="home_grid_picker_folder_title">Carpeta</string>
+    <string name="home_grid_picker_folder_subtitle">Agrupa mosaicos de cualquier tipo bajo uno solo</string>
+    <string name="home_grid_picker_auto_folder_title">Carpeta automática</string>
+    <string name="home_grid_picker_auto_folder_subtitle">Se llena con los juegos que cumplen una regla</string>
+    <string name="home_grid_picker_image_title">Imagen</string>
+    <string name="home_grid_picker_image_subtitle">Una imagen que llena sus celdas</string>
+    <string name="home_grid_picker_sticker_title">Pegatina</string>
+    <string name="home_grid_picker_sticker_subtitle">Una imagen recortada con contorno opcional</string>
+    <string name="home_grid_tile_image_label">Imagen</string>
+    <string name="home_grid_tile_sticker_label">Pegatina</string>
+    <plurals name="home_grid_tile_folder_count">
+        <item quantity="one">%d elemento</item>
+        <item quantity="many">%d elementos</item>
+        <item quantity="other">%d elementos</item>
+    </plurals>
+    <string name="home_tile_file_browser_decor_title">Elige una imagen</string>
 </resources>

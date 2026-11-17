@@ -58,6 +58,8 @@
     <string name="error_download_no_discs_queued">Failed to queue any disc downloads</string>
     <string name="error_download_game_not_found_for_repair">Game not found</string>
     <string name="error_download_not_multi_disc">Not a multi-disc game</string>
+    <!-- Shown when a download is asked for before a folder for game files has been chosen. -->
+    <string name="error_download_game_no_rom_folder">Choose a game folder before downloading</string>
 
     <!-- DownloadManager / DownloadFailureReason (queue-level failures, persisted as a
          stable token via DownloadFailureReasonCodec, never as this English text). -->
@@ -75,10 +77,20 @@
     <string name="error_download_downloaded_file_missing">Downloaded file not found</string>
     <string name="error_download_no_download_entry">No download entry found</string>
     <string name="error_download_no_longer_exists">Downloaded file no longer exists</string>
+    <!-- Reason a queued download stopped: no folder for game files has been chosen. -->
+    <string name="error_download_no_rom_folder">Choose a game folder before downloading</string>
     <string name="error_download_extraction_failed">Extraction failed</string>
 
     <!-- FilePickerFlowUseCase (a DownloadResult.AlreadyDownloaded surfaced as an issue
          in the cherry-pick file list, distinct from the success-notice wording used
          elsewhere for the same underlying case). -->
     <string name="error_filepicker_already_downloaded">Game already downloaded</string>
+    <string name="error_download_http">Download failed (HTTP %1$d)</string>
+    <string name="error_download_http_unauthorized">RomM sign-in expired or is required (HTTP %1$d)</string>
+    <string name="error_download_http_forbidden">RomM denied access to this download (HTTP %1$d)</string>
+    <string name="error_download_http_not_found">Download not found on RomM (HTTP %1$d)</string>
+    <string name="error_download_integrity_check_failed">Download integrity check failed. Retry the download.</string>
+    <string name="error_download_invalid_response">RomM returned an invalid download response.</string>
+    <string name="error_download_storage_access_failed">Could not access download storage. Check free space and permissions.</string>
+    <string name="error_download_tls_verification_failed">Could not verify the server certificate. Check the server and certificate settings.</string>
 </resources>

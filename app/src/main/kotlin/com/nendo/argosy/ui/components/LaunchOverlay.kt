@@ -46,9 +46,11 @@ import com.nendo.argosy.ui.components.launch.LaunchHostSignal
 import com.nendo.argosy.ui.components.launch.LaunchQuestionCard
 import com.nendo.argosy.ui.components.launch.LaunchQuestionChoice
 import com.nendo.argosy.ui.components.launch.LaunchVeil
+import com.nendo.argosy.ui.components.launch.MakeRoomContent
 import com.nendo.argosy.ui.components.launch.darkensForLaunch
 import com.nendo.argosy.ui.components.launch.mirrorsToPresentation
 import com.nendo.argosy.ui.components.launch.opensOnSurface
+import com.nendo.argosy.ui.components.launch.showsCancelHint
 import com.nendo.argosy.ui.components.launch.veilsDisplay
 import com.nendo.argosy.ui.components.recap.LaunchRecapCard
 import com.nendo.argosy.ui.components.recap.LaunchRecapCompactCard
@@ -88,6 +90,7 @@ private fun launchProgressEntryPoint(context: Context): LaunchProgressEntryPoint
 @Composable
 fun LaunchOverlay(
     modifier: Modifier = Modifier,
+    appPromptShowing: Boolean = false,
     viewModel: LaunchOverlayViewModel = hiltViewModel()
 ) {
     val progress by viewModel.progress.collectAsState()
@@ -119,9 +122,8 @@ fun LaunchOverlay(
     ModalInputEffect(active = progress != null, handler = viewModel.inputHandler)
     progress?.step?.let { step ->
         val cancelHint = stringResource(R.string.ui_launch_overlay_hint_cancel)
-        val showsCancelHint = step !is LaunchStep.Recap && step != LaunchStep.Launching
         FooterHints(
-            hints = if (showsCancelHint) listOf(InputButton.B to cancelHint) else emptyList(),
+            hints = if (step.showsCancelHint(appPromptShowing)) listOf(InputButton.B to cancelHint) else emptyList(),
             reservesSpace = false
         )
     }
@@ -135,6 +137,8 @@ fun LaunchOverlay(
         onAnswer = viewModel::answer,
         onCancel = { viewModel.cancel() },
         onRecapCurrent = viewModel::recapCurrent,
+        onMakeRoomTap = viewModel::tapMakeRoomCard,
+        onMakeRoomClose = viewModel::closeFocusedToMakeRoom,
         modifier = modifier
     )
 }
@@ -159,6 +163,8 @@ fun LaunchOverlayMirror(modifier: Modifier = Modifier) {
             val count = (tracker.progress.value?.step as? LaunchStep.Recap)?.recap?.unlocks?.size
             if (count != null) cursorStore.centered(index, count)
         },
+        onMakeRoomTap = {},
+        onMakeRoomClose = {},
         modifier = modifier
     )
 }
@@ -225,6 +231,8 @@ private fun LaunchOverlayContent(
     onAnswer: (LaunchPromptOption) -> Unit,
     onCancel: () -> Unit,
     onRecapCurrent: (Int) -> Unit,
+    onMakeRoomTap: (Int) -> Unit,
+    onMakeRoomClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var lastShown by remember { mutableStateOf<LaunchProgress?>(null) }
@@ -268,10 +276,16 @@ private fun LaunchOverlayContent(
                     onCancel = onCancel
                 )
                 is LaunchStep.RunningGame -> RunningGameContent(
-                    gameTitle = shown.gameTitle ?: stringResource(R.string.ui_sync_overlay_unknown_game),
                     question = step,
                     focusIndex = promptFocus,
                     onAnswer = onAnswer,
+                    onCancel = onCancel
+                )
+                is LaunchStep.MakeRoom -> MakeRoomContent(
+                    step = step,
+                    focusIndex = promptFocus,
+                    onTapCard = onMakeRoomTap,
+                    onClose = onMakeRoomClose,
                     onCancel = onCancel
                 )
                 is LaunchStep.Recap -> if (rememberRecapFullCardSurface() == surface) {
@@ -365,7 +379,6 @@ private fun PromptContent(
 
 @Composable
 private fun RunningGameContent(
-    gameTitle: String,
     question: LaunchStep.RunningGame,
     focusIndex: Int,
     onAnswer: (LaunchPromptOption) -> Unit,
@@ -373,9 +386,6 @@ private fun RunningGameContent(
 ) {
     val runningTitle = question.runningGameTitle
     val (title, message) = when (question.kind) {
-        RunningGameQuestion.NEWER_SAVE ->
-            stringResource(R.string.ui_launch_overlay_running_newer_save_title) to
-                stringResource(R.string.ui_launch_overlay_running_newer_save_message, gameTitle)
         RunningGameQuestion.EMULATOR_BUSY ->
             stringResource(R.string.ui_launch_overlay_running_busy_title, question.emulatorName) to
                 if (runningTitle != null) {
@@ -389,10 +399,6 @@ private fun RunningGameContent(
         message = message,
         choices = question.options.mapNotNull { option ->
             val (label, description) = when (option) {
-                LaunchPromptOption.LOAD_NEWER_SAVE ->
-                    R.string.ui_launch_overlay_running_load_newer_label to R.string.ui_launch_overlay_running_load_newer_subtitle
-                LaunchPromptOption.KEEP_PLAYING ->
-                    R.string.ui_launch_overlay_running_keep_playing_label to R.string.ui_launch_overlay_running_keep_playing_subtitle
                 LaunchPromptOption.CLOSE_AND_LAUNCH ->
                     R.string.ui_launch_overlay_running_close_label to R.string.ui_launch_overlay_running_close_subtitle
                 else -> return@mapNotNull null

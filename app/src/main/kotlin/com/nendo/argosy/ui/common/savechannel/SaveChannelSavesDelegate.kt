@@ -25,10 +25,14 @@ import com.nendo.argosy.core.notification.NotificationText
 import com.nendo.argosy.core.notification.showError
 import com.nendo.argosy.core.notification.showSuccess
 import com.nendo.argosy.ui.common.toNotificationText
+import com.nendo.argosy.ui.components.TEXT_ENTRY_CANCEL_BUTTON
+import com.nendo.argosy.ui.components.TextEntryFocus
+import com.nendo.argosy.ui.components.TextEntryRow
 import com.nendo.argosy.ui.screens.gamedetail.components.SaveStatusEvent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -77,7 +81,7 @@ class SaveChannelSavesDelegate @Inject constructor(
         slotItems.add(
             SaveSlotItem(
                 channelName = SaveSyncApiClient.AUTOSAVE_SLOT_NAME,
-                displayName = context.getString(R.string.ui_save_channel_slot_autosave),
+                displayName = SaveSyncApiClient.AUTOSAVE_SLOT_NAME,
                 isActive = SaveSlotClassifier.isActiveSlot(SaveSyncApiClient.AUTOSAVE_SLOT_NAME, activeChannel),
                 saveCount = autosaveSaves.size,
                 latestTimestamp = autosaveSaves.maxByOrNull { it.timestamp }?.timestamp?.toEpochMilli()
@@ -300,7 +304,8 @@ class SaveChannelSavesDelegate @Inject constructor(
                             showRenameDialog = true,
                             renameEntry = null,
                             renameText = "",
-                            renameMode = RenameMode.NEW_SLOT
+                            renameMode = RenameMode.NEW_SLOT,
+                            renameFocus = TextEntryFocus()
                         )
                     }
                     return
@@ -479,17 +484,17 @@ class SaveChannelSavesDelegate @Inject constructor(
                 coreId = state.currentCoreId
             )
 
-            _state.update {
+            val restored = _state.updateAndGet {
                 it.copy(
                     showRestoreConfirmation = false,
-                    activeChannel = targetChannel,
+                    activeChannel = targetChannel ?: it.activeChannel,
                     activeSaveTimestamp = targetTimestamp,
                     activeSaveCacheId = entry.localCacheId,
                     activeSaveServerId = entry.serverSaveId
                 )
             }
             onSaveStatusChanged(
-                SaveStatusEvent(channelName = targetChannel, timestamp = targetTimestamp)
+                SaveStatusEvent(channelName = restored.activeChannel, timestamp = targetTimestamp)
             )
 
             titleIdDownloadObserver.extractTitleIdForGame(currentGameId)
@@ -640,7 +645,8 @@ class SaveChannelSavesDelegate @Inject constructor(
                     showRenameDialog = true,
                     renameEntry = entry,
                     renameText = "",
-                    renameMode = RenameMode.SAVE_AS
+                    renameMode = RenameMode.SAVE_AS,
+                    renameFocus = TextEntryFocus()
                 )
             }
             return
@@ -696,8 +702,33 @@ class SaveChannelSavesDelegate @Inject constructor(
                 showRenameDialog = true,
                 renameEntry = entry,
                 renameText = slot.channelName,
-                renameMode = RenameMode.RENAME
+                renameMode = RenameMode.RENAME,
+                renameFocus = TextEntryFocus()
             )
+        }
+    }
+
+    fun moveRenameRow(row: TextEntryRow) {
+        _state.update { it.copy(renameFocus = it.renameFocus.copy(row = row)) }
+    }
+
+    fun moveRenameButton(buttonIndex: Int) {
+        _state.update { state ->
+            if (state.renameFocus.row != TextEntryRow.BUTTONS) state
+            else state.copy(renameFocus = state.renameFocus.copy(buttonIndex = buttonIndex))
+        }
+    }
+
+    /**
+     * The A press inside the name editor: on the field it reopens the keyboard, on Cancel it
+     * closes the editor, on the confirm button it commits the name.
+     */
+    fun confirmRenameFocus(scope: CoroutineScope) {
+        val focus = _state.value.renameFocus
+        when {
+            focus.row == TextEntryRow.FIELD -> _state.update { it.copy(renameFocus = it.renameFocus.requestKeyboard()) }
+            focus.buttonIndex == TEXT_ENTRY_CANCEL_BUTTON -> dismissRenameDialog()
+            else -> confirmRename(scope)
         }
     }
 

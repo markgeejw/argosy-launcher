@@ -178,6 +178,11 @@
     <!-- Second line of that row, listing what the hub shows. -->
     <string name="settings_main_play_time_subtitle">Patterns, top games, devices</string>
 
+    <!-- Row opening the Wi-Fi and Bluetooth settings. Wi-Fi and Bluetooth are radio names,
+         usually kept as is. -->
+    <string name="settings_main_network_title">Network and Bluetooth</string>
+    <!-- Second line of that row. Lists what the screen holds. -->
+    <string name="settings_main_network_subtitle">Wi-Fi networks and Bluetooth controllers</string>
     <!-- Row opening the RomM game server settings. Proper name of the server software Argosy
          talks to, never translated. -->
     <string name="settings_main_romm_title" translatable="false">RomM</string>
@@ -318,6 +323,11 @@
     <string name="settings_interface_hide_system_status_bar_title">Hide System Status Bar</string>
     <!-- Second line of that row. Says what is hidden and how to bring it back for a moment. -->
     <string name="settings_interface_hide_system_status_bar_subtitle">Hide Android\'s status bar and notification icons. Swipe down from the top to show it</string>
+    <string name="settings_interface_screen_orientation_title">Screen orientation</string>
+    <string name="settings_interface_screen_orientation_subtitle">Keeps Argosy and built-in games in one orientation, whatever the device\'s rotation lock says</string>
+    <string name="settings_interface_screen_orientation_auto">Auto</string>
+    <string name="settings_interface_screen_orientation_landscape">Landscape</string>
+    <string name="settings_interface_screen_orientation_portrait">Portrait</string>
     <!-- Toggle row title. "Quick Panel" is Argosy's side panel of game settings; "Other Emulators"
          means standalone emulator apps, as opposed to the emulators built into Argosy. -->
     <string name="settings_interface_quick_panel_in_emulators_title">Quick Panel in Other Emulators</string>
@@ -362,6 +372,32 @@
     <string name="settings_interface_monthly_recap_title">Monthly Recap</string>
     <!-- Second line of that row. -->
     <string name="settings_interface_monthly_recap_subtitle">At the start of each month, show a summary of last month on Home</string>
+    <!-- Group header above the notification toggles in the Interface settings section. -->
+    <string name="settings_interface_section_notifications">Notifications</string>
+    <!-- Master toggle for every notice card Argosy shows, in the launcher and over games. -->
+    <string name="settings_interface_notifications_title">Notifications</string>
+    <!-- Second line of the master toggle. Battery warnings are the one kind of notice that keeps
+         showing with this toggle off; they have their own toggle below. -->
+    <string name="settings_interface_notifications_subtitle">Show Argosy notices in the launcher and over games. Battery notices still show</string>
+    <!-- Toggle for the notice shown when a game download completes. -->
+    <string name="settings_interface_notify_downloads_finished_title">Downloads finished</string>
+    <string name="settings_interface_notify_downloads_finished_subtitle">Show a notice when a download completes</string>
+    <!-- Toggle for the low battery (15%) and critical battery (5%) notices. "Battery" is the
+         device's battery, a noun. -->
+    <string name="settings_interface_notify_battery_title">Battery</string>
+    <!-- Second line of that row. Built-in games are the emulators inside Argosy; they write their
+         save to storage at 5% battery whether or not this notice is on. "Save" is a verb here. -->
+    <string name="settings_interface_notify_battery_subtitle" formatted="false">Warn at 15% and 5%. Built-in games still save at 5%</string>
+    <!-- Toggle for the notices shown when the charger is plugged in or pulled out while a game
+         runs. "Charging" is the state of the battery taking power. -->
+    <string name="settings_interface_notify_charging_title">Charging</string>
+    <!-- Second line of that row. -->
+    <string name="settings_interface_notify_charging_subtitle">Show a notice when the charger is plugged in or out during play</string>
+    <!-- Toggle for the notices shown when a game controller connects, disconnects, joins a game
+         or runs low on battery. "Controllers" is a noun, the gamepads. -->
+    <string name="settings_interface_notify_controllers_title">Controllers</string>
+    <!-- Second line of that row. -->
+    <string name="settings_interface_notify_controllers_subtitle">Show a notice when a controller connects, disconnects or runs low</string>
     <!-- Row opening the settings for handhelds with a clip-on grip. Noun phrase. -->
     <string name="settings_interface_controller_grip_title">Controller Grip</string>
     <!-- Second line of that row. -->
@@ -524,6 +560,32 @@
     <string name="settings_navigation_shortcut_capture_reserved">%1$s moves through the menus and can\'t be assigned</string>
     <!-- Button hint that closes that dialog without assigning. Verb. -->
     <string name="settings_navigation_shortcut_capture_hint_cancel">Cancel</string>
+    <!-- Section header for controller combos that act as the Android Home and Back buttons. Noun phrase. -->
+    <string name="settings_navigation_section_system_buttons">Global Hotkeys</string>
+    <!-- Switch title. On, held button combos act as the Android Home and Back buttons while another app is open. -->
+    <string name="settings_navigation_system_hotkeys_title">Home and Back Combos</string>
+    <!-- Second line of that switch. -->
+    <string name="settings_navigation_system_hotkeys_subtitle">Controller combos that work as Home and Back while another app is open</string>
+    <string name="settings_navigation_home_button_in_games_title">Hold Home for game switcher</string>
+    <string name="settings_navigation_home_button_in_games_subtitle">Hold the device\'s Home button in a game Argosy launched to open the game switcher. Turn off to leave Home to the device. Needs root</string>
+    <!-- Row title. Noun phrase: the Android accessibility service Argosy uses to read buttons in other apps. -->
+    <string name="settings_navigation_system_hotkeys_access_title">Accessibility Service</string>
+    <!-- Second line of that row. Selecting the row opens the system accessibility settings. -->
+    <string name="settings_navigation_system_hotkeys_access_subtitle">The combos reach other apps through Argosy\'s accessibility service</string>
+    <!-- Value of that row when the service is switched on. Adjective. -->
+    <string name="settings_navigation_system_hotkeys_access_on">On</string>
+    <!-- Value of that row when the service is off and the combos cannot work. Short phrase. -->
+    <string name="settings_navigation_system_hotkeys_access_needed">Needs accessibility</string>
+    <!-- Row title: the combo that acts as the Android Home button. Noun. -->
+    <string name="settings_navigation_system_home_title">Home</string>
+    <!-- Second line of that row. The guide button is the logo button in the middle of the controller. -->
+    <string name="settings_navigation_system_home_subtitle">Hold together for 2 seconds. Tapping the guide button also goes Home</string>
+    <!-- Row title: the combo that acts as the Android Back button. Noun. -->
+    <string name="settings_navigation_system_back_title">Back</string>
+    <!-- Second line of that row. The guide button is the logo button in the middle of the controller. -->
+    <string name="settings_navigation_system_back_subtitle">Hold the first buttons, then press the last. In a game, holding the combo for 3 seconds opens the quick panel instead</string>
+    <!-- Main line of the dialog that records a new combo, before any button is held. Imperative. -->
+    <string name="settings_navigation_system_combo_capture_prompt">Hold 2 or 3 buttons in order...</string>
 
     <!-- ===== Displays section ===== -->
 
@@ -860,6 +922,17 @@
         <item quantity="other">Up to %d</item>
     </plurals>
 
+    <!-- Row title. Noun: the badge marking a game as new on home cards. -->
+    <string name="settings_home_screen_new_badge_title">NEW Badge</string>
+    <!-- Second line of that row. -->
+    <string name="settings_home_screen_new_badge_subtitle">Where the NEW badge sits on home cards, or hide it</string>
+    <!-- Home new badge option: top-right corner (historical default). Keep short; shown in a segmented control. -->
+    <string name="settings_home_screen_new_badge_option_right">Right</string>
+    <!-- Home new badge option: top-left corner. Keep short; shown in a segmented control. -->
+    <string name="settings_home_screen_new_badge_option_left">Left</string>
+    <!-- Home new badge option: not drawn at all. Keep short; shown in a segmented control. -->
+    <string name="settings_home_screen_new_badge_option_hidden">Hidden</string>
+
     <!-- ===== Saves section ===== -->
 
     <!-- Heading over the rows about copying saves to and from the server. Noun, short for
@@ -981,9 +1054,6 @@
     <!-- Second line of that row when the server is too old. "RomM 5.0" is a version of that
          software. -->
     <string name="settings_sync_upload_screenshots_subtitle_unsupported">Requires RomM 5.0 or newer</string>
-    <!-- Second line of that row when Android's usage-access permission is missing. "Usage access"
-         is that permission's name in Android's own settings. -->
-    <string name="settings_sync_upload_screenshots_subtitle_needs_usage">Grant usage access for exact game matching</string>
 
     <!-- Row title. Noun phrase: the folder where downloaded pictures are kept. -->
     <string name="settings_sync_image_cache_title">Image Cache Location</string>
@@ -1205,6 +1275,15 @@
     </plurals>
     <!-- Button that closes that panel. The usual short word for agreeing. -->
     <string name="settings_bios_distribute_result_dismiss">OK</string>
+    <!-- Shown in that panel in place of a file count when a console's files could not be
+         installed, because the keys or firmware are not downloaded yet. -->
+    <string name="settings_bios_distribute_failure_files_missing">Keys or firmware not downloaded</string>
+    <!-- Same place. The console keys do not work with the downloaded system firmware version. -->
+    <string name="settings_bios_distribute_failure_keys_mismatch">Keys don\'t match this firmware</string>
+    <!-- Same place. The emulator that needs these files is not installed. -->
+    <string name="settings_bios_distribute_failure_emulator_missing">Emulator not installed</string>
+    <!-- Same place. Copying the files into the emulator's folder failed. -->
+    <string name="settings_bios_distribute_failure_install_failed">Couldn\'t install</string>
 
     <!-- Heading shown when a BIOS download run finished with some files missing. -->
     <string name="settings_bios_download_failed_title">Some Files Did Not Download</string>
@@ -1224,9 +1303,9 @@
     <string name="settings_bios_gpu_prompt_message">A custom GPU driver can improve Switch emulation performance on Snapdragon 8 devices.</string>
     <!-- Line shown while the driver is being put in place. -->
     <string name="settings_bios_gpu_prompt_installing">Installing driver...</string>
-    <!-- Button taking the suggested driver. Verb phrase. %1$s is the driver's version. -->
-    <string name="settings_bios_gpu_prompt_install_versioned">Install Recommended (%1$s)</string>
-    <!-- The same button when the version is unknown. Verb phrase. -->
+    <!-- Line naming the suggested driver. %1$s is the driver package's name, left untranslated. -->
+    <string name="settings_bios_gpu_prompt_recommended">Recommended driver: %1$s</string>
+    <!-- Button taking the suggested driver. Verb phrase. -->
     <string name="settings_bios_gpu_prompt_install">Install Recommended</string>
     <!-- Button that takes a driver the user supplies. Verb phrase. -->
     <string name="settings_bios_gpu_prompt_install_from_file">Install from File</string>
@@ -1256,47 +1335,18 @@
 
     <!-- ===== Permissions section ===== -->
 
-    <!-- Paragraph at the top of the permissions list. "Argosy" is this app's name. -->
-    <string name="settings_permissions_intro">Argosy requires certain permissions to provide full functionality. Tap each permission to grant access.</string>
-    <!-- Card title. Noun phrase naming the permission to read and write files. -->
-    <string name="settings_permissions_storage_title">Storage Access</string>
-    <!-- Body of that card. "ROM" is the usual term for a game file dumped from a cartridge or
-         disc; leave it untranslated. -->
-    <string name="settings_permissions_storage_description">Required for downloading games, syncing save files, and accessing ROM files on your device.</string>
-    <!-- Card title. Noun phrase naming Android's permission to see which app is in front. -->
-    <string name="settings_permissions_usage_stats_title">Usage Stats Access</string>
-    <!-- Body of that card. -->
-    <string name="settings_permissions_usage_stats_description">Enables accurate play time tracking and seamless game session resume when switching between apps.</string>
-    <!-- Card title. Noun, plural, naming the permission to post notifications. -->
-    <string name="settings_permissions_notifications_title">Notifications</string>
-    <!-- Body of that card. -->
-    <string name="settings_permissions_notifications_description">Shows download progress when downloading games in the background.</string>
-    <!-- Card title. Noun phrase naming the permission to change device settings. -->
-    <string name="settings_permissions_write_settings_title">System Settings Access</string>
-    <!-- Body of that card. "Quick Settings panel" is Argosy's own small settings overlay. -->
-    <string name="settings_permissions_write_settings_description">Allows control of device performance mode and fan settings from the Quick Settings panel.</string>
-    <!-- Card title. Noun phrase naming the permission to read what is on screen. -->
-    <string name="settings_permissions_screen_capture_title">Screen Capture</string>
-    <!-- Body of that card. "LED" is the light strip on some handhelds. -->
-    <string name="settings_permissions_screen_capture_description">Enables ambient LED lighting to sample screen colors while playing games.</string>
-    <!-- Card title. Noun phrase naming Android's permission to draw on top of other apps. -->
-    <string name="settings_permissions_display_overlay_title">Display Over Other Apps</string>
-    <!-- Body of that card. -->
-    <string name="settings_permissions_display_overlay_description">Shows save detection notifications while playing games in external emulators.</string>
-    <!-- Card title. Names Android's accessibility service setting for Argosy. -->
-    <string name="settings_permissions_accessibility_title">Accessibility Service</string>
-    <!-- Body of that card. "Silent" means taken without a sound or visible capture prompt. -->
-    <string name="settings_permissions_accessibility_description">Lets the quick panel open over other emulators, and silent save screenshots</string>
-    <!-- Card title. Noun phrase naming Argosy's animated wallpaper, which Android asks the user to apply once. -->
-    <string name="settings_permissions_live_wallpaper_title">Animated Lock Screen</string>
-    <!-- Body of that card. -->
-    <string name="settings_permissions_live_wallpaper_description">Allow Argosy to apply an animated lock screen.</string>
+    <!-- %1$s is a root or system-access app name, such as Magisk or Shizuku -->
+    <string name="settings_permissions_privileged_title">%1$s access</string>
+    <string name="settings_permissions_privileged_description_off">Let Argosy reach emulator save folders in Android/data.</string>
+    <string name="settings_permissions_privileged_description_checking">Checking access...</string>
+    <string name="settings_permissions_privileged_description_root">Save folders and root features are available.</string>
+    <string name="settings_permissions_privileged_description_app_data">Save folders are available. Keeping games running needs root.</string>
+    <string name="settings_permissions_privileged_description_unreachable">Can\'t reach save folders on this device.</string>
+    <string name="settings_permissions_privileged_description_refused">Access was not granted. Select to ask again.</string>
     <!-- Name of Argosy's live wallpaper in Android's wallpaper picker. -->
     <string name="settings_lock_screen_wallpaper_label">Argosy Library</string>
     <!-- Description of that wallpaper in Android's wallpaper picker, which Argosy opens on startup while Lock Screen Art is on. -->
     <string name="settings_lock_screen_wallpaper_description">Allow Argosy to apply an animated lock screen.</string>
-    <!-- Line under the list. %1$d is how many permissions were given, %2$d how many there are. -->
-    <string name="settings_permissions_status_footer">Status: %1$d/%2$d permissions granted</string>
 
     <!-- ===== About section ===== -->
 
@@ -1337,8 +1387,8 @@
     <string name="settings_about_update_subtitle_on_prerelease">Running pre-release build</string>
     <!-- Second line of that row before any check has run. Verb phrase. -->
     <string name="settings_about_update_subtitle_idle">Check for new versions</string>
-    <!-- Button that fetches the new version. Verb. -->
-    <string name="settings_about_update_action_download">Download</string>
+    <!-- Button that installs the new version, fetching it first when it is not stored yet. Verb. -->
+    <string name="settings_about_update_action_install">Install</string>
     <!-- Button that asks the update server. Verb. -->
     <string name="settings_about_update_action_check">Check</string>
     <!-- Button that opens the list of what changed. Noun. -->
@@ -1877,14 +1927,44 @@
     <!-- Second line of that row. -->
     <string name="settings_storage_games_integrity_subtitle">Verifies downloaded game files at startup once a week</string>
 
-    <!-- Row title. Games whose file was copied to the device by hand rather than downloaded
-         through the app. "RomM" is a service name, never translated. -->
-    <string name="settings_storage_games_not_from_romm_title">Not from RomM</string>
-    <!-- Second line of that row. %1$d is the number of such games. -->
-    <plurals name="settings_storage_games_not_from_romm_subtitle">
-        <item quantity="one">%1$d game file was added by hand and is kept through a hard reset</item>
-        <item quantity="other">%1$d game files were added by hand and are kept through a hard reset</item>
+    <!-- Row title that opens the list of games on the device that the RomM server does not
+         have. "Local-only" is the app's term for content that is not synced. -->
+    <string name="settings_storage_games_local_only_title">Local-only</string>
+    <!-- Second line of that row. %1$d is the number of such games. "RomM" is a service name,
+         never translated. -->
+    <plurals name="settings_storage_games_local_only_subtitle">
+        <item quantity="one">%1$d game on this device that RomM does not have</item>
+        <item quantity="other">%1$d games on this device that RomM does not have</item>
     </plurals>
+    <!-- Shown in the local-only game list when it is empty. -->
+    <string name="settings_storage_local_only_empty_message">Games on this device that RomM does not have appear here with their size and location.</string>
+    <!-- Label on a game's storage card naming where its game data came from. Service name,
+         never translated. -->
+    <string name="settings_storage_game_source_romm" translatable="false">RomM</string>
+    <!-- Label on a game's storage card for a game the RomM server does not have. Same term as
+         the Local-only row. -->
+    <string name="settings_storage_game_source_local_only">Local-only</string>
+    <!-- Label on a game's storage card: its files are on the device's built-in storage. -->
+    <string name="settings_storage_location_internal">Internal</string>
+    <!-- Label on a game's storage card: its files are on a removable SD card or USB drive. -->
+    <string name="settings_storage_location_removable">SD card</string>
+    <!-- Label on a game's storage card: its files are split between built-in storage and an
+         SD card. -->
+    <string name="settings_storage_location_mixed">Internal + SD card</string>
+    <!-- Label on a game's storage card: a file sits on no storage the device reports, so its
+         location cannot be shown. -->
+    <string name="settings_storage_location_unknown">Unknown location</string>
+    <!-- Tab above the local-only game list that shows every game. -->
+    <string name="settings_storage_local_only_tab_all">All</string>
+    <!-- Tab above the local-only game list: games with files on built-in storage. -->
+    <string name="settings_storage_local_only_tab_internal">Internal</string>
+    <!-- Tab above the local-only game list: games with files on an SD card or USB drive. -->
+    <string name="settings_storage_local_only_tab_sd_card">SD card</string>
+    <!-- Tab above the local-only game list: games with a file on storage the device does not
+         report. Short, it shares the row with three other tabs. -->
+    <string name="settings_storage_local_only_tab_unknown">Unknown</string>
+    <!-- Shown in the local-only game list when the selected location tab has no games. -->
+    <string name="settings_storage_local_only_tab_empty_message">No local-only games are stored here.</string>
 
     <!-- Total at the top, counting the games on the device. Adjective describing them. -->
     <plurals name="settings_storage_games_totals_count">
@@ -1999,6 +2079,34 @@
     <string name="settings_storage_platform_games_empty_title">No downloaded games</string>
     <!-- Body under that heading. %1$s is the console's name. -->
     <string name="settings_storage_platform_games_empty_message">Downloaded games for %1$s appear here with a per-category breakdown.</string>
+    <!-- Body shown when the selected location tab holds none of this console's games. %1$s is
+         the console's name. -->
+    <string name="settings_storage_platform_games_tab_empty_message">No %1$s games are stored here.</string>
+    <!-- Line above the game list. %1$d is how many games the list shows, %2$s their combined
+         size, already formatted. -->
+    <plurals name="settings_storage_platform_games_summary">
+        <item quantity="one">%1$d game, %2$s</item>
+        <item quantity="other">%1$d games, %2$s</item>
+    </plurals>
+    <!-- Current order of the game list: the biggest first. Adjective phrase. -->
+    <string name="settings_storage_platform_games_sort_size">Largest first</string>
+    <!-- Current order of the game list: alphabetical by title. -->
+    <string name="settings_storage_platform_games_sort_title">A to Z</string>
+    <!-- Current order of the game list: games not played for the longest time first, never
+         played games at the top. -->
+    <string name="settings_storage_platform_games_sort_least_played">Least recently played</string>
+    <!-- On a game's storage card. %1$s is a relative date such as "Yesterday" or "Mar 4". -->
+    <string name="settings_storage_platform_games_last_played">Last played: %1$s</string>
+    <!-- On a game's storage card for a game that has never been launched. -->
+    <string name="settings_storage_platform_games_never_played">Never played</string>
+    <!-- On a game's storage card. %1$s is a total play time such as "12h 30m". -->
+    <string name="settings_storage_platform_games_play_time">%1$s played</string>
+    <!-- Warning tag on a game's storage card: saves on the device RomM does not have yet, lost
+         if the game is deleted. -->
+    <plurals name="settings_storage_platform_games_unsynced_saves">
+        <item quantity="one">%d unsynced save</item>
+        <item quantity="other">%d unsynced saves</item>
+    </plurals>
 
     <!-- Group of a game's files holding the game itself, before any add-ons. Adjective used as a
          noun. -->
@@ -2052,6 +2160,8 @@
     <string name="settings_caches_pending_uploads_subtitle_online">Sync now before clearing sync caches</string>
     <!-- Second line of that row while it cannot. -->
     <string name="settings_caches_pending_uploads_subtitle_offline">Reconnect to the server to sync</string>
+    <!-- Settings search result for that row, without the count. "Saves" are game save files. -->
+    <string name="settings_caches_pending_uploads_search_label">Saves waiting to upload</string>
 
     <!-- Row that empties the stored save copies. Verb phrase. -->
     <string name="settings_caches_save_cache_title">Reset Save Cache</string>
@@ -2902,6 +3012,10 @@
     <string name="settings_builtin_controls_limit_hotkeys_title">Limit Hotkeys to Player 1</string>
     <!-- Second line of that row. -->
     <string name="settings_builtin_controls_limit_hotkeys_subtitle">Only player 1 controller can trigger hotkeys</string>
+    <!-- Row title. When on, pressing Home in a game asks before leaving it. -->
+    <string name="settings_builtin_controls_confirm_return_title">Confirm Return to Argosy</string>
+    <!-- Second line of that row. -->
+    <string name="settings_builtin_controls_confirm_return_subtitle">Ask before Home leaves the game</string>
     <!-- Row title. Noun phrase: the controller's Select button reaching the app as Back. "Select"
          and "Back" are button names. -->
     <string name="settings_builtin_controls_select_as_back_title">Select as Back</string>
@@ -3201,13 +3315,17 @@
     <!-- Entry for the active group in the list beside the pane. Noun, plural. -->
     <string name="settings_emulators_rail_platforms">Platforms</string>
 
-    <!-- Toggle row. "Session" is one play session of a game; the emulator is the external emulator app, not Argosy's built-in one. -->
-    <string name="settings_emulators_close_on_session_end_title">Close Emulator When Returning to Argosy</string>
+    <!-- Toggle row. Covers games in external emulator apps and in Argosy's built-in emulator. Off,
+         a game left for another app stays open and resumes where it was. -->
+    <string name="settings_emulators_close_on_session_end_title">Close Games When Returning to Argosy</string>
     <!-- Second line of that row while it is on. "Synced" is save sync to the server; the second
          sentence warns that progress not saved inside the game is lost. -->
-    <string name="settings_emulators_close_on_session_end_subtitle_on">Closes the emulator once its save has synced. Unsaved progress is lost.</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_on">Closes the game once its save has synced. Unsaved progress is lost.</string>
     <!-- Second line of that row while it is off. -->
-    <string name="settings_emulators_close_on_session_end_subtitle_off">The emulator app stays open in the background</string>
+    <string name="settings_emulators_close_on_session_end_subtitle_off">Games stay open in the background</string>
+    <!-- Second line of that row while it is off on a device without root access. "Root" is the
+         Android superuser access some handhelds ship with; keep the common term. -->
+    <string name="settings_emulators_close_on_session_end_subtitle_built_in_only">Built-in games stay open. Other emulators stay open only on rooted devices.</string>
     <!-- Row that asks whether newer emulator apps exist. Verb phrase. -->
     <string name="settings_emulators_check_updates_title">Check for Updates</string>
     <!-- Second line of that row before it runs. -->
@@ -3935,7 +4053,26 @@
     <string name="settings_romm_config_server_url_label">Server URL</string>
     <!-- Placeholder text illustrating the expected URL format. Not a real address. -->
     <string name="settings_romm_config_server_url_placeholder">https://romm.example.com</string>
-    <!-- Row title choosing how this device authenticates with the server. Noun phrase. -->
+    <!-- Enter key of the on-screen controller keyboard while typing the server URL. Finishes typing. -->
+    <string name="settings_romm_config_url_keyboard_submit">Done</string>
+    <!-- Label shown on the on-screen controller keyboard while typing the 8-character pairing code. Noun phrase. -->
+    <string name="settings_romm_config_pairing_code_keyboard_label">Pairing code</string>
+    <!-- Enter key of the on-screen controller keyboard while typing the pairing code. Finishes typing. -->
+    <string name="settings_romm_config_pairing_code_keyboard_submit">Done</string>
+    <!-- Enter key of the on-screen controller keyboard on the Jellyfin server address field. Verb: save the address. -->
+    <string name="settings_jellyfin_config_keyboard_submit">Save</string>
+    <!-- Enter key of the on-screen controller keyboard on the Jellyfin username field. Finishes typing. -->
+    <string name="settings_jellyfin_signin_username_keyboard_submit">Done</string>
+    <!-- Enter key of the on-screen controller keyboard on the Jellyfin password field. Verb phrase: sign in now. -->
+    <string name="settings_jellyfin_signin_password_keyboard_submit">Sign in</string>
+    <!-- Enter key of the on-screen controller keyboard on the RetroAchievements username field. Finishes typing. -->
+    <string name="settings_ra_login_username_keyboard_submit">Done</string>
+    <!-- Enter key of the on-screen controller keyboard on the RetroAchievements password field. Finishes typing. -->
+    <string name="settings_ra_login_password_keyboard_submit">Done</string>
+    <!-- Enter key of the on-screen controller keyboard on the offline proxy address field. Finishes typing. -->
+    <string name="settings_ra_proxy_address_keyboard_submit">Done</string>
+    <!-- Enter key of the on-screen controller keyboard on the Steam app ID field. Verb: add the game. -->
+    <string name="settings_steam_add_game_keyboard_submit">Add</string>    <!-- Row title choosing how this device authenticates with the server. Noun phrase. -->
     <string name="settings_romm_config_auth_method_title">Auth Method</string>
     <!-- Auth method value: pairs by scanning a QR code with another device. -->
     <string name="settings_romm_config_auth_method_device">Device Pairing</string>
@@ -3957,10 +4094,6 @@
     <string name="settings_romm_config_connect_device_subtitle">Generate a pairing QR code</string>
     <!-- Second line of the connect button while Pairing Code is selected. -->
     <string name="settings_romm_config_connect_subtitle">Connect to RomM server</string>
-    <!-- Button title. Verb phrase: open the camera to scan a pairing QR code. -->
-    <string name="settings_romm_config_scan_title">Scan QR Code</string>
-    <!-- Second line of that button. -->
-    <string name="settings_romm_config_scan_subtitle">Scan pairing QR from the RomM web UI</string>
     <!-- Button title. Verb: pick a certificate file for a server whose issuer this device does
          not recognise. -->
     <string name="settings_romm_config_certificate_title">Add Certificate</string>
@@ -4971,6 +5104,7 @@
     <string name="settings_main_language_name_zh_hant" translatable="false">&#32321;&#39636;&#20013;&#25991;</string>
     <string name="settings_main_language_name_ru" translatable="false">&#1056;&#1091;&#1089;&#1089;&#1082;&#1080;&#1081;</string>
     <string name="settings_main_language_name_hi" translatable="false">&#2361;&#2367;&#2344;&#2381;&#2342;&#2368;</string>
+    <string name="settings_main_language_name_pt_br" translatable="false">Portugu&#234;s (Brasil)</string>
 
     <!-- ===== Play Time hub ===== -->
     <!-- Throughout this block "play" and "session" are nouns: a session is one sitting with a
@@ -5233,4 +5367,137 @@
     <string name="settings_builtin_gpu_driver_reason_backend">Applies when Backend is Vulkan</string>
     <!-- Second line of a read-only GPU Driver row on a device that cannot load custom drivers. -->
     <string name="settings_builtin_gpu_driver_reason_device">Custom drivers need an Adreno GPU</string>
+    <!-- Row title. Noun: a TLS client certificate (mTLS) the app presents to a server. -->
+    <string name="settings_client_cert_row_title">Client Certificate</string>
+    <!-- Second line of that row when no client certificate is imported. -->
+    <string name="settings_client_cert_row_subtitle_none">Sign in to servers that require a client certificate (mTLS)</string>
+    <!-- Second line once a certificate is imported. %1$s is the certificate's name, %2$s the date it expires. -->
+    <string name="settings_client_cert_row_subtitle_active">%1$s · valid until %2$s</string>
+    <!-- Header of the client certificate menu. Noun. -->
+    <string name="settings_client_cert_modal_header">Client Certificate</string>
+    <!-- Line under that header when no certificate is imported. -->
+    <string name="settings_client_cert_modal_title_none">No client certificate imported</string>
+    <!-- Line under that header once imported. %1$s is the certificate's name, %2$s the date it expires. -->
+    <string name="settings_client_cert_modal_title_active">%1$s · valid until %2$s</string>
+    <!-- Switch label in the client certificate dialog. -->
+    <string name="settings_client_cert_use_romm_title">Use for RomM</string>
+    <!-- Switch description: the certificate is sent to the RomM server during the TLS handshake. -->
+    <string name="settings_client_cert_use_romm_subtitle">Present this certificate when connecting to your RomM server</string>
+    <!-- Switch label in the client certificate dialog. -->
+    <string name="settings_client_cert_use_jellyfin_title">Use for Jellyfin</string>
+    <!-- Switch description: the certificate is sent to the Jellyfin server during the TLS handshake. -->
+    <string name="settings_client_cert_use_jellyfin_subtitle">Present this certificate when connecting to your Jellyfin server</string>
+    <!-- Action description under Import Certificate. -->
+    <string name="settings_client_cert_import_subtitle">Choose a .p12 or .pfx file that holds the certificate and its private key</string>
+    <!-- Action description under Replace Certificate. -->
+    <string name="settings_client_cert_replace_subtitle">Import a different .p12 or .pfx file in place of this one</string>
+    <!-- Action description under Remove Certificate. -->
+    <string name="settings_client_cert_remove_subtitle">Delete the certificate and its private key from this device</string>
+    <!-- Menu entry. Verb: pick a .p12/.pfx file to import. -->
+    <string name="settings_client_cert_import">Import Certificate…</string>
+    <!-- Menu entry. Verb: import a different file in place of the current certificate. -->
+    <string name="settings_client_cert_replace">Replace Certificate…</string>
+    <!-- Menu entry. Verb: delete the imported certificate and its key from this device. -->
+    <string name="settings_client_cert_remove">Remove Certificate</string>
+    <!-- Confirmation dialog title before deleting the imported client certificate. -->
+    <string name="settings_client_cert_remove_title">Remove client certificate?</string>
+    <!-- Confirmation dialog body before deleting the imported client certificate. -->
+    <string name="settings_client_cert_remove_message">The certificate and its private key are deleted from this device. Servers that require it stop accepting connections until you import the file again.</string>
+    <!-- Confirmation dialog button. Verb: delete the certificate. -->
+    <string name="settings_client_cert_remove_confirm">Remove</string>
+    <!-- File browser title. Verb: choose the .p12/.pfx file. -->
+    <string name="settings_client_cert_filebrowser_title">Choose Client Certificate</string>
+    <!-- Error shown when the server demanded a client certificate the app did not present. Names the remedy, the Client Certificate row. -->
+    <string name="settings_romm_config_error_client_certificate_required">The server requires a client certificate. Import one under Client Certificate, or turn on Use for RomM there.</string>
+    <!-- Error when adding another RomM account: the server rejected the connection for lack of a client certificate. -->
+    <string name="settings_accounts_pairing_error_client_certificate_required">The server requires a client certificate. Import one under Client Certificate, or turn on Use for RomM there.</string>
+    <!-- Sign-in error when the Jellyfin server demanded a client certificate this app did not present. Names the remedy in the Client Certificate menu. -->
+    <string name="settings_jellyfin_error_client_certificate_required">The server requires a client certificate. Turn on Use for Jellyfin under Client Certificate.</string>
+
+    <!-- ===== Settings search ===== -->
+
+    <!-- Top row of the settings list; selecting it opens the keyboard to search every setting. Shown as the placeholder while the query is empty. Verb phrase. -->
+    <string name="settings_search_row_title">Search settings</string>
+    <!-- Heading of the on-screen keyboard while the settings search is being typed. Verb phrase. -->
+    <string name="settings_search_keyboard_label">Search settings</string>
+    <!-- Keyboard key that closes the keyboard and keeps the typed search. -->
+    <string name="settings_search_keyboard_submit">Done</string>
+    <!-- Shown under the search row when nothing matches. %1$s is the typed text. -->
+    <string name="settings_search_no_results">No settings match \"%1$s\"</string>
+    <!-- Path step above a search result, naming the settings screen it lives in. Noun: the screens and monitors. -->
+    <string name="settings_search_crumb_displays">Displays</string>
+    <!-- Path step above a search result, naming the LED settings screen. -->
+    <string name="settings_search_crumb_ambient_led">LED Control</string>
+    <!-- Path step above a search result, naming the sound settings screen. Noun. -->
+    <string name="settings_search_crumb_audio">Audio</string>
+    <!-- Path step above a search result, naming the colour and font settings screen. Noun. -->
+    <string name="settings_search_crumb_theme">Theme</string>
+    <!-- Path step above a search result, naming the list of game platforms. Noun, plural. -->
+    <string name="settings_search_crumb_platforms">Platforms</string>
+    <!-- Path step above a search result, naming the emulator that runs inside Argosy. -->
+    <string name="settings_search_crumb_builtin_emulator">Built-in Emulator</string>
+    <!-- Path step above a search result, naming the per-core options screen. "Core" is an emulator core. -->
+    <string name="settings_search_crumb_core_options">Core Options</string>
+    <!-- Path step above a search result, naming the storage settings screen. Noun: disk space. -->
+    <string name="settings_search_crumb_storage">Storage</string>
+    <!-- Path step above a search result, naming the screen that lists caches and system files. -->
+    <string name="settings_search_crumb_storage_caches">Caches &amp; System</string>
+    <!-- Path step above a search result, naming the BIOS files screen. -->
+    <string name="settings_search_crumb_bios">BIOS Files</string>
+    <!-- Path step above a search result, naming the interface sound effects screen. Noun, plural. -->
+    <string name="settings_search_crumb_sounds">Sounds</string>
+    <!-- Path step above a search result, naming the background music screen. Noun. -->
+    <string name="settings_search_crumb_music">Music</string>
+    <!-- Path step above a search result, naming the typeface settings screen. Noun, plural. -->
+    <string name="settings_search_crumb_fonts">Fonts</string>
+    <!-- Path step above a search result, naming the screen for the pattern drawn behind menus. Noun. -->
+    <string name="settings_search_crumb_backdrop">Backdrop</string>
+    <!-- Path step above a search result, naming the interface settings screen. Noun. -->
+    <string name="settings_search_crumb_interface">Interface</string>
+    <!-- Path step above a search result, naming the game cover styling screen. Noun. -->
+    <string name="settings_search_crumb_box_art">Box Art</string>
+    <!-- Path step above a search result, naming the screen for space kept free for a clip-on controller grip. -->
+    <string name="settings_search_crumb_controller_grip">Controller Grip</string>
+    <!-- Path step above a search result, naming the RomM server settings screen. RomM is a product name. -->
+    <string name="settings_search_crumb_romm" translatable="false">RomM</string>
+    <!-- Path step above a search result, naming the save sync settings screen. Noun: saved game data. -->
+    <string name="settings_search_crumb_saves">Saves</string>
+    <!-- Path step above a search result, naming the RomM library sync settings screen. -->
+    <string name="settings_search_crumb_sync_settings">Sync Settings</string>
+    <!-- Path step above a search result, naming the Jellyfin settings screen. Jellyfin is a product name. -->
+    <string name="settings_search_crumb_jellyfin" translatable="false">Jellyfin</string>
+    <!-- Path step above a search result, naming the RetroAchievements settings screen. Product name. -->
+    <string name="settings_search_crumb_retroachievements" translatable="false">RetroAchievements</string>
+    <!-- Path step above a search result, naming the friends and presence settings screen. -->
+    <string name="settings_search_crumb_social">Social</string>
+    <!-- Path step above a search result, naming the Android permissions screen. Noun, plural. -->
+    <string name="settings_search_crumb_permissions">Permissions</string>
+    <!-- Path step above a search result, naming the version and app information screen. -->
+    <string name="settings_search_crumb_about">About</string>
+    <!-- Search result for the Jellyfin row that signs in to or out of the server. Noun: the user's account. -->
+    <string name="settings_search_label_jellyfin_account">Account</string>
+    <!-- Search result for the card showing the linked social account. Noun: the user's account. -->
+    <string name="settings_search_label_social_account">Account</string>
+    <!-- Search result for the preview of the latest release notes. Noun. -->
+    <string name="settings_search_label_about_changelog">Changelog</string>
+    <!-- Search result for the row granting root or Shizuku access. Both are product names. -->
+    <string name="settings_search_label_privileged_access" translatable="false">Magisk / Shizuku</string>
+    <!-- Path step above a search result, naming the home screen layout settings screen. -->
+    <string name="settings_search_crumb_home_screen">Home Screen</string>
+    <!-- Path step above a search result, naming the second-screen game presentation settings screen. Noun. -->
+    <string name="settings_search_crumb_presentation">Presentation</string>
+    <!-- Path step above a search result, naming the game library view settings screen. Noun. -->
+    <string name="settings_search_crumb_library_view">Library</string>
+    <!-- Path step above a search result, naming the controller and menu navigation settings screen. Noun. -->
+    <string name="settings_search_crumb_navigation">Navigation</string>
+    <!-- Path step above a search result, naming the built-in emulator's audio, video and performance screen. -->
+    <string name="settings_search_crumb_builtin_video">A/V &amp; Performance</string>
+    <!-- Path step above a search result, naming the built-in emulator's controls screen. Noun, plural. -->
+    <string name="settings_search_crumb_builtin_controls">Controls</string>
+    <!-- Path step above a search result, naming the built-in emulator's save files and save states screen. Noun, plural. -->
+    <string name="settings_search_crumb_builtin_saves">Saves</string>
+    <!-- Search result for the row that picks the home screen layout (carousel or grid). Noun. -->
+    <string name="settings_search_label_home_layout_selector">Layout</string>
+    <!-- Search result for the platform row that picks which emulator app launches its games. Noun. -->
+    <string name="settings_search_label_platform_emulator">Emulator</string>
 </resources>

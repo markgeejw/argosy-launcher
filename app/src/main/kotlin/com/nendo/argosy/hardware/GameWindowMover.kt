@@ -13,6 +13,8 @@ interface GameWindowMover {
     suspend fun isAvailable(): Boolean
 
     suspend fun moveGame(displayId: Int): Boolean
+
+    suspend fun moveTask(taskId: Int, displayId: Int): Boolean
 }
 
 class ThorGameWindowMover(
@@ -33,12 +35,21 @@ class ThorGameWindowMover(
         val taskId = builtInGameTask(activityManager)?.taskId ?: return false
         return taskMover.moveTask(taskId, displayId)
     }
+
+    override suspend fun moveTask(taskId: Int, displayId: Int): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return taskMover.moveTask(taskId, displayId)
+    }
 }
 
-internal fun builtInGameTask(activityManager: ActivityManager): ActivityManager.RecentTaskInfo? {
+internal fun builtInGameTask(activityManager: ActivityManager): ActivityManager.RecentTaskInfo? =
+    builtInGameAppTask(activityManager)?.let { runCatching { it.taskInfo }.getOrNull() }
+
+internal fun builtInGameAppTask(activityManager: ActivityManager): ActivityManager.AppTask? {
+    if (!LibretroActivity.isGameAlive) return null
     val gameActivity = LibretroActivity::class.java.name
-    return activityManager.appTasks.firstNotNullOfOrNull { task ->
-        runCatching { task.taskInfo }.getOrNull()
-            ?.takeIf { it.topActivity?.className == gameActivity || it.baseActivity?.className == gameActivity }
+    return activityManager.appTasks.firstOrNull { task ->
+        val info = runCatching { task.taskInfo }.getOrNull() ?: return@firstOrNull false
+        info.topActivity?.className == gameActivity || info.baseActivity?.className == gameActivity
     }
 }

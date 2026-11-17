@@ -32,6 +32,8 @@
     <string name="completion_status_retired">Abandonné</string>
     <string name="completion_status_never_playing">Ne sera jamais joué</string>
 
+    <string name="play_session_device_romm_streaming">Streaming RomM</string>
+
     <!-- Save manager (ui/common/savechannel) -->
 
     <string name="ui_save_channel_title">Gestion des sauvegardes</string>
@@ -43,15 +45,12 @@
     <string name="ui_save_channel_tab_states">États</string>
     <string name="ui_save_channel_states_empty">Aucun emplacement d\'état disponible</string>
     <string name="ui_save_channel_states_heading_named">États dans %1$s</string>
-    <string name="ui_save_channel_states_heading_default">États dans l\'emplacement par défaut</string>
     <string name="ui_save_channel_slot_new">Nouvel emplacement</string>
     <string name="ui_save_channel_slot_legacy_tag">[Ancien]</string>
     <string name="ui_save_channel_history_active_point">Point de restauration actif</string>
     <string name="ui_save_channel_history_latest">Dernière</string>
     <string name="ui_save_channel_history_tag_synced">[Synchronisée]</string>
     <string name="ui_save_channel_history_tag_local">[Locale]</string>
-    <string name="ui_save_channel_active_default">Dernière</string>
-    <string name="ui_save_channel_slot_autosave">Sauvegarde automatique</string>
     <string name="ui_save_channel_slot_archived">Archivé</string>
 
     <string name="ui_save_channel_footer_migrate">Migrer</string>
@@ -89,8 +88,6 @@
     <string name="ui_save_channel_rename_prompt_save_as">Saisissez un nom pour cet emplacement de sauvegarde</string>
     <string name="ui_save_channel_rename_prompt_new_slot">Saisissez un nom pour cet emplacement de sauvegarde</string>
     <string name="ui_save_channel_rename_prompt_rename">Saisissez un nouveau nom</string>
-    <string name="ui_save_channel_rename_footer_confirm">Confirmer</string>
-    <string name="ui_save_channel_rename_footer_cancel">Annuler</string>
     <string name="ui_save_channel_rename_placeholder">Nom de l\'emplacement</string>
     <string name="ui_save_channel_rename_cancel_button">Annuler</string>
 
@@ -122,12 +119,14 @@
     <string name="ui_save_channel_delete_archived_title">SUPPRIMER LES SAUVEGARDES ARCHIVÉES</string>
     <plurals name="ui_save_channel_delete_archived_message">
         <item quantity="one">Supprimer %1$d sauvegarde archivée ?</item>
+        <item quantity="many">Supprimer %1$d sauvegardes archivées ?</item>
         <item quantity="other">Supprimer %1$d sauvegardes archivées ?</item>
     </plurals>
     <string name="ui_save_channel_delete_local_note">Cela supprime la copie sur cet appareil. La copie sur le serveur est conservée. Cette action est irréversible.</string>
     <string name="ui_save_channel_delete_only_copy_note">Cet appareil détient la seule copie. Elle sera perdue définitivement.</string>
     <plurals name="ui_save_channel_notice_versions_deleted">
         <item quantity="one">%1$d sauvegarde supprimée</item>
+        <item quantity="many">%1$d sauvegardes supprimées</item>
         <item quantity="other">%1$d sauvegardes supprimées</item>
     </plurals>
 
@@ -163,6 +162,7 @@
     <string name="ui_save_channel_notice_restored_state">%1$s restauré</string>
     <string name="ui_save_channel_notice_state_not_cached">État introuvable dans le cache</string>
     <string name="ui_save_channel_notice_state_no_config">Aucune configuration d\'état pour cet émulateur</string>
+    <string name="ui_save_channel_notice_state_other_core">Cet état a été sauvegardé par un autre cœur et ne peut pas être chargé ici</string>
     <string name="ui_save_channel_notice_delete_target_auto">état auto</string>
     <string name="ui_save_channel_notice_delete_target_slot">emplacement d\'état %1$d</string>
     <string name="ui_save_channel_notice_deleted_state">%1$s supprimé</string>
@@ -213,6 +213,22 @@
     <string name="ui_pushed_apk_not_now">Plus tard</string>
 
     <string name="ui_modal_search_placeholder">Rechercher...</string>
+    <string name="ui_modal_search_keyboard_submit">Rechercher</string>
+
+    <string name="ui_keyboard_key_shift">Maj</string>
+    <string name="ui_keyboard_key_caps_lock">Verr. Maj</string>
+    <string name="ui_keyboard_key_backspace">Retour arrière</string>
+    <string name="ui_keyboard_key_space">Espace</string>
+    <string name="ui_keyboard_key_symbols">Symboles</string>
+    <string name="ui_keyboard_key_letters">Lettres</string>
+    <string name="ui_keyboard_key_layout">Changer de disposition</string>
+    <string name="ui_keyboard_paste">Coller</string>
+    <string name="ui_keyboard_key_enter_default">OK</string>
+    <plurals name="ui_keyboard_password_announce">
+        <item quantity="one">%d caractère</item>
+        <item quantity="many">%d caractères</item>
+        <item quantity="other">%d caractères</item>
+    </plurals>
 
     <string name="ui_disc_picker_title">SÉLECTIONNER LE DISQUE</string>
     <string name="ui_disc_picker_subtitle">Choisissez le disque à lancer</string>
@@ -314,7 +330,6 @@
     <string name="ui_expandable_preference_collapse">Réduire</string>
     <string name="ui_expandable_preference_expand">Développer</string>
 
-    <string name="ui_permission_card_granted">Accordée</string>
 
     <string name="ui_game_card_favorite">Favori</string>
     <string name="ui_game_card_downloaded">Téléchargé</string>
@@ -326,7 +341,6 @@
     <string name="ui_section_breadcrumb_next">Section suivante</string>
 
     <string name="ui_qr_code_description">Code QR pour %1$s</string>
-    <string name="ui_qr_scanner_hint">Visez le code QR d\'appairage RomM</string>
 
     <string name="ui_custom_tile_menu_header">TUILE</string>
 
@@ -379,7 +393,6 @@
 
     <string name="ui_tile_picker_title">AJOUTER À LA GRILLE</string>
     <string name="ui_tile_picker_title_track_game">SUIVRE UN JEU</string>
-    <string name="ui_tile_picker_subtitle_matching">Correspond à \"%1$s\"</string>
     <string name="ui_tile_picker_empty_games">Aucun jeu installé à ajouter</string>
     <string name="ui_tile_picker_empty_collections">Aucune collection pour l\'instant</string>
     <string name="ui_tile_picker_empty_apps">Aucune application trouvée</string>
@@ -500,6 +513,7 @@
     <string name="ui_platform_filter_sort_most_games">Plus de jeux</string>
     <string name="ui_platform_filter_sort_least_games">Moins de jeux</string>
     <string name="ui_platform_filter_search_placeholder">Rechercher des plateformes...</string>
+    <string name="ui_platform_filter_keyboard_submit">Terminé</string>
     <string name="ui_platform_filter_search_clear">Effacer</string>
     <plurals name="ui_platform_filter_count">
         <item quantity="one">%d plateforme</item>
@@ -527,6 +541,7 @@
     <!-- Storage meter, preference rows, home layout rows (ui/components) -->
 
     <string name="ui_volume_meter_other">Autres applis et fichiers</string>
+    <string name="ui_volume_meter_unknown_location">%1$s de jeux se trouvent à un emplacement inconnu</string>
     <string name="ui_volume_meter_free">%1$s libres</string>
 
     <string name="ui_cycle_preference_reset_to_global">Réinitialiser au réglage global</string>
@@ -604,12 +619,18 @@
     <string name="ui_quick_settings_hud_description">Dans les jeux intégrés</string>
     <string name="ui_quick_settings_device_access_notice">Argosy a besoin d\'une autorisation pour modifier ces réglages.</string>
     <string name="ui_quick_settings_device_access_allow">Autoriser</string>
+    <string name="ui_quick_settings_root_access_notice">Argosy a besoin d\'un accès root pour modifier ces réglages. Autorisez-le dans votre gestionnaire root lorsqu\'il vous le demande.</string>
+    <string name="ui_quick_settings_root_access_request">Demander</string>
     <string name="ui_quick_settings_theme">Thème</string>
     <string name="ui_quick_settings_accent">Couleur d\'accent</string>
     <string name="ui_quick_settings_accent_default">Par défaut</string>
     <string name="ui_quick_settings_theme_light">Clair</string>
     <string name="ui_quick_settings_theme_dark">Sombre</string>
     <string name="ui_quick_settings_theme_system">Auto</string>
+    <string name="ui_quick_settings_orientation">Orientation</string>
+    <string name="ui_quick_settings_orientation_auto">Auto</string>
+    <string name="ui_quick_settings_orientation_landscape">Paysage</string>
+    <string name="ui_quick_settings_orientation_portrait">Portrait</string>
     <string name="ui_quick_settings_haptics">Vibrations</string>
     <string name="ui_quick_settings_ui_sounds">Sons de l\'interface</string>
     <string name="ui_quick_settings_swap_ab">Inverser A/B</string>
@@ -631,6 +652,8 @@
     <string name="ui_quick_settings_group_performance">Performances</string>
     <string name="ui_quick_settings_group_fan">Ventilateur</string>
     <string name="ui_quick_settings_group_overlay">Surimpression</string>
+    <string name="ui_quick_settings_stats_fan">Ventilateur</string>
+    <string name="ui_quick_settings_stats_battery">Batterie</string>
     <string name="ui_quick_settings_music_nothing_playing">Aucune lecture</string>
     <string name="ui_quick_settings_music_source_launcher">Musique du launcher</string>
     <string name="ui_quick_settings_music_track_position">%1$d sur %2$d</string>
@@ -705,7 +728,6 @@
 
     <string name="ui_sync_overlay_unknown_game">Jeu</string>
     <string name="ui_sync_overlay_slot_prefix">"Emplacement : "</string>
-    <string name="ui_sync_overlay_slot_default">Dernière</string>
     <string name="ui_sync_overlay_blocked_grant">Autoriser l\'accès</string>
     <string name="ui_sync_overlay_blocked_configure_path">Configurer le chemin de sauvegarde</string>
     <string name="ui_sync_overlay_blocked_disable">Désactiver la synchro</string>
@@ -816,17 +838,6 @@
     <string name="ui_sync_overlay_snapshot_conflict_branch_subtitle">Déplacer la sauvegarde de cet appareil vers un nouveau canal</string>
     <string name="ui_sync_overlay_snapshot_conflict_revert">Revenir en arrière</string>
     <string name="ui_sync_overlay_snapshot_conflict_revert_subtitle">Revenir à la dernière sauvegarde synchronisée par cet appareil (une copie de sauvegarde est créée)</string>
-    <string name="ui_sync_overlay_post_session_title">Conflit de sauvegarde</string>
-    <string name="ui_sync_overlay_post_session_subject">\"%1$s\" -- %2$s</string>
-    <string name="ui_sync_overlay_post_session_default_slot">Sauvegarde par défaut</string>
-    <string name="ui_sync_overlay_post_session_message">Le serveur possède une sauvegarde plus récente. L\'envoi fait de votre sauvegarde locale la plus récente, et la copie du serveur est conservée.</string>
-    <string name="ui_sync_overlay_post_session_local">Locale</string>
-    <string name="ui_sync_overlay_post_session_server">Serveur</string>
-    <string name="ui_sync_overlay_post_session_server_named">Serveur (%1$s)</string>
-    <string name="ui_sync_overlay_post_session_skip">Ignorer la synchro</string>
-    <string name="ui_sync_overlay_post_session_skip_subtitle">Conserver votre sauvegarde locale, ne pas envoyer</string>
-    <string name="ui_sync_overlay_post_session_overwrite">Envoyer la sauvegarde locale</string>
-    <string name="ui_sync_overlay_post_session_overwrite_subtitle">Votre sauvegarde locale devient la plus récente. La copie du serveur est conservée.</string>
     <string name="ui_sync_overlay_legacy_status">Synchronisation...</string>
 
     <!-- Quick menu (ui/quickmenu) -->
@@ -837,17 +848,11 @@
     <string name="ui_quick_menu_orb_top_unplayed">À découvrir</string>
     <string name="ui_quick_menu_orb_recent">Récents</string>
     <string name="ui_quick_menu_orb_favorites">Favoris</string>
-    <string name="ui_quick_menu_empty_most_played">Aucun jeu joué pour l\'instant</string>
-    <string name="ui_quick_menu_empty_top_unplayed">Aucun jeu noté trouvé</string>
-    <string name="ui_quick_menu_empty_recent">Aucun jeu récent</string>
-    <string name="ui_quick_menu_empty_favorites">Aucun favori pour l\'instant</string>
-    <string name="ui_quick_menu_empty_random">Aucun jeu disponible</string>
-    <string name="ui_quick_menu_search_placeholder">Rechercher des jeux...</string>
-    <string name="ui_quick_menu_search_prompt">Saisissez au moins 2 caractères pour rechercher</string>
-    <string name="ui_quick_menu_search_no_results">Aucun jeu trouvé pour \"%1$s\"</string>
-    <string name="ui_quick_menu_recent_searches_heading">Recherches récentes</string>
-    <string name="ui_quick_menu_row_platform_unknown">Inconnue</string>
-    <string name="ui_quick_menu_row_downloaded">Téléchargé</string>
+    <string name="ui_quick_menu_empty_most_played">Les jeux auxquels vous jouez apparaissent ici, classés par temps de jeu.</string>
+    <string name="ui_quick_menu_empty_top_unplayed">Vous avez lancé tous les jeux de votre bibliothèque.</string>
+    <string name="ui_quick_menu_empty_recent">Les jeux que vous lancez apparaissent ici.</string>
+    <string name="ui_quick_menu_empty_favorites">Ajoutez des jeux aux favoris pour les retrouver ici.</string>
+    <string name="ui_quick_menu_empty_random">Rien à tirer pour l\'instant. Synchronisez une plateforme pour remplir votre bibliothèque.</string>    <string name="ui_quick_menu_row_platform_unknown">Inconnue</string>
     <string name="ui_quick_menu_random_platform_unknown">Inconnue</string>
     <string name="ui_quick_menu_random_downloaded">Téléchargé</string>
     <string name="ui_quick_menu_random_action_reroll">Relancer</string>
@@ -856,8 +861,90 @@
     <string name="ui_quick_menu_random_action_install">Installer</string>
     <string name="ui_quick_menu_random_action_details">Détails</string>
     <string name="ui_quick_menu_random_action_favorite">Ajouter aux favoris</string>
-    <string name="ui_quick_menu_random_action_unfavorite">Retirer des favoris</string>
-    <string name="ui_quick_menu_random_loading">Choix d\'un jeu...</string>
+    <string name="ui_quick_menu_random_action_favorited">Dans les favoris</string>
+    <string name="ui_quick_menu_random_eyebrow">Tirage au sort</string>
+    <string name="ui_quick_menu_random_roll">Tirage %1$d</string>
+    <string name="ui_quick_menu_random_history">Tirages de la session</string>
+    <string name="ui_quick_menu_most_played_rank_short">%1$d</string>
+    <string name="ui_quick_menu_most_played_eyebrow">Les plus joués, n° %1$d</string>    <string name="ui_quick_menu_preview_total">Total</string>
+    <string name="ui_quick_menu_preview_sessions">Sessions</string>
+    <string name="ui_quick_menu_preview_last_played">Dernière partie</string>
+    <string name="ui_quick_menu_preview_busiest_week">Semaine la plus active %1$s, %2$s</string>
+    <string name="ui_quick_menu_preview_installed">Installé</string>
+    <string name="ui_quick_menu_preview_not_downloaded">Non téléchargé</string>
+    <string name="ui_quick_menu_preview_rating">%1$d %%</string>
+    <string name="ui_quick_menu_top_new_eyebrow">Jamais joué</string>
+    <string name="ui_quick_menu_top_new_reason_both">Parce que vous jouez à des jeux %1$s sur %2$s</string>
+    <string name="ui_quick_menu_top_new_reason_genre">Parce que vous jouez à des jeux %1$s</string>
+    <string name="ui_quick_menu_top_new_reason_platform">Parce que vous jouez à des jeux %1$s</string>
+    <string name="ui_quick_menu_top_new_hint_not_interested">Pas intéressé</string>
+    <string name="ui_quick_menu_top_new_hint_restore">Rétablir</string>
+    <string name="ui_quick_menu_top_new_dismissed">Pas intéressé</string>
+    <string name="ui_quick_menu_recent_group_today">Aujourd\'hui</string>
+    <string name="ui_quick_menu_recent_group_yesterday">Hier</string>
+    <string name="ui_quick_menu_recent_group_this_week">Cette semaine</string>
+    <string name="ui_quick_menu_recent_group_earlier">Plus tôt</string>
+    <string name="ui_quick_menu_recent_running_chip">En cours</string>
+    <string name="ui_quick_menu_recent_eyebrow">Là où vous vous êtes arrêté</string>
+    <string name="ui_quick_menu_recent_last_played">Dernière partie %1$s</string>
+    <string name="ui_quick_menu_recent_saved_synced">Sauvegardé %1$s, synchronisé</string>
+    <string name="ui_quick_menu_recent_saved_pending">Sauvegardé %1$s, en attente de synchronisation</string>
+    <string name="ui_quick_menu_recent_saved_local">Sauvegardé %1$s sur cet appareil</string>
+    <string name="ui_quick_menu_recent_action_resume">Reprendre</string>
+    <string name="ui_quick_menu_recent_action_play">Jouer</string>
+    <string name="ui_quick_menu_recent_hint_details">Détails</string>
+    <string name="ui_quick_menu_favorites_sort_recently_added">Ajoutés récemment</string>
+    <string name="ui_quick_menu_favorites_sort_title">De A à Z</string>
+    <string name="ui_quick_menu_favorites_sort_platform">Plateforme</string>
+    <string name="ui_quick_menu_favorites_sort_last_played">Joués récemment</string>    <plurals name="ui_quick_menu_favorites_header_count">
+        <item quantity="one">%1$d favori</item>
+        <item quantity="many">%1$d favoris</item>
+        <item quantity="other">%1$d favoris</item>
+    </plurals>    <string name="ui_quick_menu_favorites_removed">Retiré</string>
+    <string name="ui_quick_menu_favorites_played">Temps de jeu</string>
+    <string name="ui_quick_menu_favorites_last_played">Dernière partie</string>
+    <string name="ui_quick_menu_row_not_downloaded_cd">Non téléchargé</string>
+    <string name="ui_quick_menu_recent_row_meta">%1$s · %2$s</string>
+    <string name="ui_quick_menu_recent_hero_saved_synced">Sauvegardé, synchronisé</string>
+    <string name="ui_quick_menu_recent_hero_saved_pending">Sauvegardé, en attente de synchronisation</string>
+    <string name="ui_quick_menu_recent_hero_saved_local">Sauvegardé sur cet appareil</string>
+    <string name="ui_quick_menu_random_roll_meta">%1$s · %2$s</string>
+    <plurals name="ui_quick_menu_random_pool_count">
+        <item quantity="one">%1$s jeu dans la sélection</item>
+        <item quantity="many">%1$s jeux dans la sélection</item>
+        <item quantity="other">%1$s jeux dans la sélection</item>
+    </plurals>
+    <string name="ui_quick_menu_random_platform_label">Plateforme</string>
+    <string name="ui_quick_menu_random_platform_all">Toutes les plateformes</string>
+    <string name="ui_quick_menu_random_platform_picker_title">Plateforme</string>
+    <string name="ui_quick_menu_random_installed_only">Installés uniquement</string>
+    <string name="ui_quick_menu_empty_random_pool">Aucun jeu ne correspond. Désactivez Installés uniquement ou choisissez une autre plateforme.</string>
+    <string name="ui_quick_menu_most_played_header">Classés par</string>
+    <string name="ui_quick_menu_most_played_range_all_time">Depuis toujours</string>
+    <string name="ui_quick_menu_most_played_range_last_30">30 derniers jours</string>
+    <string name="ui_quick_menu_most_played_picker_title">Classer par</string>
+    <string name="ui_quick_menu_empty_most_played_last_30">Aucune partie ces 30 derniers jours.</string>
+    <string name="ui_quick_menu_favorites_picker_title">Trier les favoris</string>
+    <string name="ui_quick_menu_favorites_hint_remove">Retirer</string>
+    <string name="ui_quick_menu_favorites_hint_restore">Restaurer</string>
+    <string name="ui_quick_menu_hint_favorite">Favori</string>
+    <string name="ui_quick_menu_hint_unfavorite">Retirer des favoris</string>
+    <string name="ui_quick_menu_preview_never_played">Jamais joué</string>
+    <string name="ui_quick_menu_search_field">Rechercher dans la bibliothèque</string>
+    <string name="ui_quick_menu_search_recent_heading">Recherches récentes</string>
+    <string name="ui_quick_menu_search_recently_added_heading">Ajoutés récemment</string>
+    <plurals name="ui_quick_menu_search_result_count">
+        <item quantity="one">%1$d jeu</item>
+        <item quantity="many">%1$d jeux</item>
+        <item quantity="other">%1$d jeux</item>
+    </plurals>
+    <plurals name="ui_quick_menu_search_results_heading">
+        <item quantity="one">%1$d résultat pour « %2$s »</item>
+        <item quantity="many">%1$d résultats pour « %2$s »</item>
+        <item quantity="other">%1$d résultats pour « %2$s »</item>
+    </plurals>
+    <string name="ui_quick_menu_top_new_reason_top_rated">Les mieux notés de votre bibliothèque</string>
+    <string name="ui_quick_menu_actions_not_interested">Pas intéressé</string>
 
     <!-- File browser (ui/filebrowser) -->
 
@@ -879,6 +966,7 @@
     <string name="ui_file_browser_new_folder_field_label">Nom du dossier</string>
     <string name="ui_file_browser_new_folder_cancel">Annuler</string>
     <string name="ui_file_browser_new_folder_confirm">Créer</string>
+    <string name="ui_file_browser_new_folder_keyboard_submit">Créer</string>
     <string name="ui_file_browser_new_folder_error_empty">Le nom du dossier ne peut pas être vide</string>
     <string name="ui_file_browser_new_folder_error_invalid">Nom de dossier invalide</string>
     <string name="ui_file_browser_new_folder_error_exists">Ce dossier existe déjà</string>
@@ -1044,13 +1132,14 @@
     <string name="media_library_viewmodel_refresh_label">Actualisation</string>
 
     <string name="gamedetail_action_buttons_play">JOUER</string>
-    <string name="gamedetail_action_buttons_autosave">Sauvegarde auto</string>
     <string name="gamedetail_action_buttons_download">TÉLÉCHARGER</string>
     <string name="gamedetail_action_buttons_install">INSTALLER</string>
     <string name="gamedetail_action_buttons_queued">EN ATTENTE...</string>
     <string name="gamedetail_action_buttons_no_space">ESPACE INSUFFISANT</string>
     <string name="gamedetail_action_buttons_downloading_percent">%1$d%%</string>
     <string name="gamedetail_action_buttons_waiting_for_server">En attente du serveur…</string>
+    <string name="gamedetail_action_buttons_retrying">Nouvelle tentative…</string>
+    <string name="gamedetail_action_buttons_waiting_for_network">En attente du réseau…</string>
     <string name="gamedetail_action_buttons_extracting">EXTRACTION...</string>
     <string name="gamedetail_action_buttons_resume_percent">REPRENDRE %1$d%%</string>
     <string name="gamedetail_action_buttons_retry">RÉESSAYER</string>
@@ -1062,7 +1151,6 @@
     <string name="home_grid_local_video_row_subtitle">Lit directement depuis votre stockage</string>
     <string name="ui_quick_settings_swap_displays">Permuter les écrans</string>
     <string name="ui_quick_settings_page_connections">Connexions</string>
-    <string name="ui_quick_connections_unsupported">Cet appareil n\'autorise pas le contrôle direct du Wi-Fi et du Bluetooth</string>
     <string name="ui_quick_connections_tab_wifi">Wi-Fi</string>
     <string name="ui_quick_connections_tab_bluetooth">Bluetooth</string>
     <string name="ui_quick_connections_wifi_off">Le Wi-Fi est désactivé</string>
@@ -1070,13 +1158,20 @@
     <string name="ui_quick_connections_nearby">Réseaux à proximité</string>
     <string name="ui_quick_connections_saved">Réseaux enregistrés</string>
     <string name="ui_quick_connections_paired">Appareils associés</string>
-    <string name="ui_quick_connections_scanning">Recherche de réseaux</string>
     <string name="ui_quick_connections_no_networks">Aucun réseau trouvé</string>
     <string name="ui_quick_connections_no_paired">Aucun appareil associé</string>
     <string name="ui_quick_connections_row_joining">Connexion</string>
     <string name="ui_quick_connections_row_failed">Échec</string>
     <string name="ui_quick_connections_secured">Sécurisé</string>
     <string name="ui_quick_connections_forget">Oublier</string>
+    <string name="ui_quick_connections_forget_device">Oublier</string>
+    <string name="ui_quick_connections_pair_controller">Associer une manette</string>
+    <string name="ui_quick_connections_pair_stop">Arrêter</string>
+    <string name="ui_quick_connections_nearby_controllers">Trouvées à proximité</string>
+    <string name="ui_quick_connections_controllers_searching">Maintenez le bouton d\'association de la manette</string>
+    <string name="ui_quick_connections_no_controllers">Aucune manette trouvée</string>
+    <string name="ui_quick_connections_row_pairing">Association</string>
+    <string name="ui_quick_connections_row_pair_failed">Échec de l\'association</string>
     <string name="ui_quick_connections_bluetooth_permission">Argosy a besoin d\'une autorisation pour afficher les appareils associés.</string>
     <string name="ui_quick_connections_bluetooth_permission_allow">Autoriser</string>
     <string name="ui_quick_connections_device_connected">Connecté</string>
@@ -1091,10 +1186,38 @@
     <string name="ui_quick_connections_join_busy">Connexion</string>
     <string name="ui_quick_connections_join_cancel">Annuler</string>
     <string name="ui_quick_connections_join_failed">L\'appareil n\'a pas pu rejoindre ce réseau.</string>
+    <string name="ui_quick_connections_bluetooth_status_one">%1$s connecté</string>
+    <plurals name="ui_quick_connections_bluetooth_status_many">
+        <item quantity="one">%1$d appareil connecté</item>
+        <item quantity="many">%1$d appareils connectés</item>
+        <item quantity="other">%1$d appareils connectés</item>
+    </plurals>
+    <string name="ui_quick_connections_bluetooth_status_none">Aucun appareil connecté</string>
+    <string name="ui_quick_connections_wifi_status_network">%1$s · %2$s</string>
+    <string name="ui_quick_connections_searching_controllers">Recherche</string>
+    <string name="ui_quick_connections_found_pair">Associer</string>
+    <string name="ui_quick_connections_retry_pair">Réessayer</string>
+    <string name="ui_quick_connections_retry_join">Réessayer</string>
+    <string name="ui_quick_connections_scan_running">Recherche de réseaux</string>
+    <string name="ui_quick_connections_scan_again">Relancer la recherche</string>
+    <string name="ui_quick_connections_saved_out_of_range">Hors de portée</string>
+    <string name="ui_quick_connections_saved_connected">Connecté</string>
+    <string name="ui_quick_connections_nearby_join">Rejoindre</string>
+    <string name="ui_quick_connections_nearby_join_outside">Rejoindre dans les paramètres Wi-Fi</string>
+    <string name="ui_quick_connections_bluetooth_off_hint">Activez-le pour associer des manettes</string>
+    <string name="ui_quick_connections_wifi_off_hint">Activez-le pour voir les réseaux à proximité</string>
+    <string name="ui_quick_connections_bluetooth_toggle_standard">Désactivez-le dans les paramètres Bluetooth</string>
+    <string name="ui_quick_connections_forget_device_hint">Oubliez les appareils dans les paramètres Bluetooth d\'Android</string>
+    <string name="ui_quick_connections_wifi_toggle_standard">Activez ou désactivez le Wi-Fi dans le panneau Wi-Fi</string>
+    <string name="ui_quick_connections_wifi_permission">Autorisez l\'accès à la position pour voir les noms des réseaux et les réseaux à proximité</string>
+    <string name="ui_quick_connections_wifi_permission_allow">Autoriser</string>
+    <string name="ui_quick_connections_wifi_permission_denied">L\'accès à la position est désactivé pour Argosy</string>
+    <string name="ui_quick_connections_wifi_permission_settings">Ouvrir les autorisations de l\'appli</string>
+    <string name="ui_quick_connections_bluetooth_permission_denied">L\'autorisation Appareils à proximité est désactivée pour Argosy</string>
+    <string name="ui_quick_connections_bluetooth_permission_settings">Ouvrir les autorisations de l\'appli</string>
     <string name="ui_quick_settings_wifi">Wi-Fi</string>
     <string name="ui_quick_settings_bluetooth">Bluetooth</string>
     <string name="ui_quick_settings_radio_on">Activé</string>
-    <string name="ui_quick_settings_radio_off">Désactivé</string>
     <string name="ui_quick_settings_wifi_connected">Connecté</string>
     <string name="ui_quick_settings_wifi_not_connected">Non connecté</string>
     <string name="ui_sibling_choice_title_download">CHOISIR UNE VARIANTE</string>
@@ -1133,15 +1256,173 @@
     <string name="common_game_confirm_hide_title">Masquer %1$s ?</string>
     <string name="common_game_confirm_hide_message">Les jeux masqués peuvent être réaffichés dans la Bibliothèque en filtrant Source sur Masqués.</string>
     <string name="common_game_confirm_hide_confirm">Masquer</string>
-    <string name="ui_launch_overlay_running_newer_save_title">Sauvegarde plus récente sur le serveur</string>
-    <string name="ui_launch_overlay_running_newer_save_message">%1$s est toujours en cours, mais un autre appareil a enregistré une copie plus récente. Chargez-la ou continuez là où vous en étiez.</string>
-    <string name="ui_launch_overlay_running_load_newer_label">Charger la sauvegarde plus récente</string>
-    <string name="ui_launch_overlay_running_load_newer_subtitle">Ferme le jeu en cours. La progression non sauvegardée sera perdue.</string>
-    <string name="ui_launch_overlay_running_keep_playing_label">Continuer à jouer</string>
-    <string name="ui_launch_overlay_running_keep_playing_subtitle">Votre prochaine sauvegarde entrera en conflit avec la copie du serveur</string>
     <string name="ui_launch_overlay_running_busy_title">%1$s est en cours</string>
     <string name="ui_launch_overlay_running_busy_message_game">%1$s exécute toujours %2$s en arrière-plan.</string>
     <string name="ui_launch_overlay_running_busy_message">%1$s est toujours ouvert en arrière-plan.</string>
+    <string name="ui_launch_overlay_makeroom_title">Faire de la place pour %1$s</string>
+    <string name="ui_launch_overlay_makeroom_subtitle">Choisissez un jeu à fermer. Il sauvegarde d\'abord.</string>
+    <string name="ui_launch_overlay_makeroom_saved">Sauvegardé %1$s</string>
+    <string name="ui_launch_overlay_makeroom_close">Fermer</string>
+    <string name="ui_launch_overlay_makeroom_saving">Sauvegarde en cours</string>
+    <string name="ui_launch_overlay_makeroom_closed">Fermé</string>
     <string name="ui_launch_overlay_running_close_label">Fermer et lancer</string>
     <string name="ui_launch_overlay_running_close_subtitle">La progression non sauvegardée du jeu en cours sera perdue</string>
+    <string name="ui_game_card_running">En cours</string>
+    <string name="ui_game_card_saving">Sauvegarde en cours</string>
+    <string name="ui_running_duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="ui_running_duration_minutes">%1$dm</string>
+    <string name="ui_status_bar_running_desc">Jeux en cours</string>    <string name="ui_quick_menu_random_action_resume_game">Reprendre</string>
+    <string name="gamelist_row_running">En cours</string>
+    <string name="gamelist_row_running_in">En cours dans %1$s</string>
+    <string name="gamelist_row_saving">Sauvegarde en cours</string>
+    <string name="ui_client_cert_password_title">Mot de passe du certificat</string>
+    <string name="ui_client_cert_password_label">Mot de passe</string>
+    <string name="ui_client_cert_password_message">Saisissez le mot de passe de %1$s. Laissez vide si le fichier n\'en a pas.</string>
+    <string name="ui_client_cert_password_import">Importer</string>
+    <string name="ui_client_cert_password_import_busy">Importation…</string>
+    <string name="ui_client_cert_password_cancel">Annuler</string>
+    <string name="ui_client_cert_password_status_importing">Importation du certificat…</string>
+    <string name="ui_client_cert_password_error_not_a_file">Impossible d\'ouvrir ce fichier.</string>
+    <string name="ui_client_cert_password_error_wrong_password">Mot de passe incorrect pour ce fichier de certificat.</string>
+    <string name="ui_client_cert_password_error_no_private_key">Ce fichier ne contient pas de clé privée. Exportez le certificat avec sa clé.</string>
+    <string name="ui_client_cert_password_error_unreadable">Ce fichier n\'est pas un certificat .p12 ou .pfx lisible.</string>
+    <string name="ui_client_cert_password_error_expired">Ce certificat a expiré.</string>
+    <string name="ui_client_cert_password_error_unsupported_key">Cet appareil ne peut pas stocker ce type de clé. Utilisez une clé RSA ou EC.</string>
+
+    <!-- Quick panel Power page (ui/components/QuickPowerRows.kt) -->
+    <string name="ui_quick_settings_page_power">Alimentation</string>
+    <string name="ui_quick_settings_group_power_actions">Alimentation</string>
+    <string name="ui_quick_settings_group_open_games">Jeux ouverts</string>
+    <string name="ui_quick_settings_power_sleep">Veille</string>
+    <string name="ui_quick_settings_power_restart">Redémarrer</string>
+    <string name="ui_quick_settings_power_off">Éteindre</string>
+    <string name="ui_quick_settings_power_menu">Redémarrer ou éteindre</string>
+    <string name="ui_quick_settings_power_menu_open">Menu d\'alimentation</string>
+    <string name="ui_quick_settings_power_access_notice">Argosy a besoin de son service d\'accessibilité pour mettre en veille, redémarrer ou éteindre cet appareil.</string>
+    <string name="ui_quick_settings_power_access_allow">Activer</string>
+    <string name="ui_quick_settings_power_open_games_empty">Aucun jeu ouvert</string>
+    <string name="ui_quick_settings_power_open_game_builtin">Intégré</string>
+    <string name="ui_quick_settings_power_restart_title">Redémarrer cet appareil ?</string>
+    <string name="ui_quick_settings_power_restart_message">Les jeux ouverts ne sont ni sauvegardés ni fermés avant. La progression non sauvegardée dans un jeu ouvert est perdue.</string>
+    <string name="ui_quick_settings_power_restart_confirm">Redémarrer</string>
+    <string name="ui_quick_settings_power_off_title">Éteindre cet appareil ?</string>
+    <string name="ui_quick_settings_power_off_message">Les jeux ouverts ne sont ni sauvegardés ni fermés avant. La progression non sauvegardée dans un jeu ouvert est perdue.</string>
+    <string name="ui_quick_settings_power_restart_message_idle">L\'appareil s\'éteint puis redémarre.</string>
+    <string name="ui_quick_settings_power_off_message_idle">L\'appareil s\'éteint.</string>
+    <string name="ui_quick_settings_power_off_confirm">Éteindre</string>
+    <string name="ui_quick_settings_power_working_restart">Envoi des sauvegardes, puis redémarrage</string>
+    <string name="ui_quick_settings_power_working_off">Envoi des sauvegardes, puis extinction</string>
+    <string name="ui_quick_settings_power_failed_sleep">L\'appareil ne s\'est pas mis en veille</string>
+    <string name="ui_quick_settings_power_failed_restart">L\'appareil n\'a pas redémarré</string>
+    <string name="ui_quick_settings_power_failed_off">L\'appareil ne s\'est pas éteint</string>
+    <string name="ui_quick_settings_power_failed_menu">Le menu d\'alimentation ne s\'est pas ouvert</string>
+
+    <!-- Quick panel Activity page (ui/components/QuickActivityRows.kt) -->
+    <string name="ui_quick_settings_page_activity">Activité</string>
+    <string name="ui_quick_settings_group_activity_now">Maintenant</string>
+    <string name="ui_quick_settings_group_activity_recent">Récent</string>
+    <string name="ui_quick_settings_activity_idle">Rien en cours</string>
+    <string name="ui_quick_settings_activity_syncing">Synchronisation des sauvegardes</string>
+    <string name="ui_quick_settings_activity_recent_empty">Aucune activité récente</string>
+    <plurals name="ui_quick_settings_activity_downloads_queued">
+        <item quantity="one">%d autre en attente</item>
+        <item quantity="many">%d autres en attente</item>
+        <item quantity="other">%d autres en attente</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_sync_remaining">
+        <item quantity="one">%d restante</item>
+        <item quantity="many">%d restantes</item>
+        <item quantity="other">%d restantes</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_saves_synced">
+        <item quantity="one">%d sauvegarde synchronisée</item>
+        <item quantity="many">%d sauvegardes synchronisées</item>
+        <item quantity="other">%d sauvegardes synchronisées</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_saves_synced_latest">
+        <item quantity="one">%1$d sauvegarde synchronisée, dernière : %2$s</item>
+        <item quantity="many">%1$d sauvegardes synchronisées, dernière : %2$s</item>
+        <item quantity="other">%1$d sauvegardes synchronisées, dernière : %2$s</item>
+    </plurals>
+    <plurals name="ui_quick_settings_activity_downloads_finished">
+        <item quantity="one">%d téléchargement terminé</item>
+        <item quantity="many">%d téléchargements terminés</item>
+        <item quantity="other">%d téléchargements terminés</item>
+    </plurals>
+    <string name="ui_status_bar_activity_unseen_desc">Nouvelle activité</string>
+    <string name="ui_folder_default_name">Dossier</string>
+    <string name="ui_folder_overlay_hint_remove">Retirer du dossier</string>
+    <string name="ui_folder_appearance_title">Apparence du dossier</string>
+    <string name="ui_folder_appearance_cover">Couverture</string>
+    <string name="ui_folder_appearance_cover_mosaic">Mosaïque</string>
+    <string name="ui_folder_appearance_cover_image">Image</string>
+    <string name="ui_folder_appearance_cover_sticker">Autocollant</string>
+    <string name="ui_folder_appearance_cover_picture">Image de couverture</string>
+    <string name="ui_folder_appearance_picture_none">Aucune choisie</string>
+    <string name="ui_folder_appearance_picture_chosen">Image choisie</string>
+    <string name="ui_folder_appearance_outline">Contour</string>
+    <string name="ui_folder_appearance_outline_off">Désactivé</string>
+    <string name="ui_folder_appearance_outline_white">Blanc</string>
+    <string name="ui_folder_appearance_outline_black">Noir</string>
+    <string name="ui_folder_appearance_outline_accent">Accent</string>
+    <string name="ui_folder_appearance_show_name">Afficher le nom</string>
+    <string name="ui_folder_appearance_backdrop">Arrière-plan</string>
+    <string name="ui_folder_appearance_backdrop_none">Aucun</string>
+    <string name="ui_folder_appearance_backdrop_cover">Couverture floutée</string>
+    <string name="ui_folder_appearance_backdrop_image">Image</string>
+    <string name="ui_folder_appearance_backdrop_picture">Image d\'arrière-plan</string>
+    <string name="ui_folder_appearance_accent">Couleur d\'accent</string>
+    <string name="ui_folder_appearance_accent_theme">Thème</string>
+    <string name="ui_folder_appearance_accent_rose">Rose</string>
+    <string name="ui_folder_appearance_accent_amber">Ambre</string>
+    <string name="ui_folder_appearance_accent_lime">Citron vert</string>
+    <string name="ui_folder_appearance_accent_sky">Ciel</string>
+    <string name="ui_folder_appearance_accent_violet">Violet</string>
+    <string name="ui_folder_appearance_member_size">Taille des tuiles</string>
+    <string name="ui_folder_appearance_size_small">Petite</string>
+    <string name="ui_folder_appearance_size_medium">Moyenne</string>
+    <string name="ui_folder_appearance_size_large">Grande</string>
+    <string name="ui_folder_overlay_loading">Recherche des jeux</string>
+    <string name="ui_folder_overlay_empty">Ce dossier est vide</string>
+    <string name="ui_folder_overlay_empty_auto">Aucun jeu ne correspond à ce dossier</string>
+    <string name="ui_folder_chooser_title">Déplacer dans un dossier</string>
+    <string name="ui_folder_chooser_new">Nouveau dossier</string>
+    <string name="ui_folder_name_title_new">Nouveau dossier</string>
+    <string name="ui_folder_name_title_rename">Renommer le dossier</string>
+    <string name="ui_folder_name_label">Nom du dossier</string>
+    <string name="ui_folder_name_confirm">Enregistrer</string>
+    <string name="ui_folder_name_cancel">Annuler</string>
+    <string name="ui_feature_setup_title_auto_folder">Dossier automatique</string>
+    <string name="ui_feature_setup_step_auto_folder">Les jeux que contient ce dossier</string>
+    <string name="ui_feature_setup_step_developers">Développeurs</string>
+    <string name="ui_feature_setup_step_release_year">Année de sortie</string>
+    <string name="ui_feature_setup_step_play_status">Statut de jeu</string>
+    <string name="ui_feature_setup_developers">Développeurs</string>
+    <string name="ui_feature_setup_release_year">Année de sortie</string>
+    <string name="ui_feature_setup_play_status">Statut de jeu</string>
+    <string name="ui_feature_setup_recently_added">Ajoutés récemment</string>
+    <string name="ui_feature_setup_ra_progress">Progression des succès</string>
+    <plurals name="ui_feature_setup_recently_added_days">
+        <item quantity="one">Dernier %d jour</item>
+        <item quantity="many">%d derniers jours</item>
+        <item quantity="other">%d derniers jours</item>
+    </plurals>
+    <string name="ui_feature_setup_year_any">Toutes les années</string>
+    <string name="ui_feature_setup_year_before_1990">Avant 1990</string>
+    <string name="ui_feature_setup_year_1990s">Années 1990</string>
+    <string name="ui_feature_setup_year_2000s">Années 2000</string>
+    <string name="ui_feature_setup_year_2010s">Années 2010</string>
+    <string name="ui_feature_setup_year_since_2020">Depuis 2020</string>
+    <string name="ui_feature_setup_ra_progress_not_started">Pas commencé</string>
+    <string name="ui_feature_setup_ra_progress_in_progress">En cours</string>
+    <string name="ui_feature_setup_ra_progress_mastered">Maîtrisé</string>
+    <string name="ui_page_chooser_title_decor">Image</string>
+    <string name="ui_page_chooser_subtitle_decor">D\'où vient l\'image</string>
+    <string name="ui_page_chooser_decor_source_game_art">Illustrations du jeu</string>
+    <string name="ui_page_chooser_decor_source_game_art_subtitle">Un logo, une jaquette ou un fond qu\'Argosy possède déjà</string>
+    <string name="ui_page_chooser_decor_source_file">Fichier image</string>
+    <string name="ui_page_chooser_decor_source_file_subtitle">Un PNG ou WebP sur cet appareil, transparence conservée</string>
+    <string name="ui_page_chooser_art_logo">Logo</string>
+    <string name="ui_page_chooser_decor_art_cover">Jaquette</string>
+    <string name="ui_page_chooser_decor_art_background">Fond</string>
 </resources>

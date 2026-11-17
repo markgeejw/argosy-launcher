@@ -46,7 +46,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import java.io.File
 import java.io.FileOutputStream
-import java.net.URL
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -160,17 +159,20 @@ class ImageCacheManager @Inject constructor(
     private val platformDao: PlatformDao,
     private val achievementDao: AchievementDao,
     private val volumeHealth: StorageVolumeHealth,
-    private val fileAccessLayer: FileAccessLayer
+    private val fileAccessLayer: FileAccessLayer,
+    private val artworkFetcher: ArtworkFetcher
 ) {
     private val artModelScope = SafeCoroutineScope(Dispatchers.IO, "GameArtModel")
 
-    val gameArt: StateFlow<Map<Long, ResolvedGameArt>> = gameArtDao.observeRowCount()
+    val gameArt: StateFlow<GameArtSnapshot> = gameArtDao.observeRowCount()
         .conflate()
         .transform {
             emit(gameArtDao.getAll().toResolvedArtByGame())
             delay(ART_MODEL_RELOAD_INTERVAL_MS)
         }
-        .stateIn(artModelScope, SharingStarted.Lazily, emptyMap())
+        .distinctUntilChanged()
+        .map(::GameArtSnapshot)
+        .stateIn(artModelScope, SharingStarted.Lazily, GameArtSnapshot.EMPTY)
 
     fun artFor(gameId: Long): ResolvedGameArt? = gameArt.value[gameId]
 
@@ -300,7 +302,20 @@ class ImageCacheManager @Inject constructor(
     private val _screenshotProgress = kotlinx.coroutines.flow.MutableStateFlow(ImageCacheProgress())
     val screenshotProgress: kotlinx.coroutines.flow.StateFlow<ImageCacheProgress> = _screenshotProgress
 
-    private var isPaused = false
+    @Volatile private var isPaused = false
+    @Volatile private var heldForPlay = false
+
+    private val isHeld: Boolean get() = isPaused || heldForPlay
+
+    /**
+     * Holds background caching while a game is being played, independent of the pause a screen
+     * takes with [pauseBackgroundCaching].
+     */
+    fun holdForPlay(held: Boolean) {
+        if (heldForPlay == held) return
+        heldForPlay = held
+        Log.d(TAG, "Background caching ${if (held) "held for play" else "released after play"}")
+    }
 
     fun pauseBackgroundCaching() {
         isPaused = true
@@ -346,7 +361,7 @@ class ImageCacheManager @Inject constructor(
             updateProgressFromDb(isProcessing = true)
 
             for (request in queue) {
-                while (isPaused) {
+                while (isHeld) {
                     kotlinx.coroutines.delay(500)
                 }
                 try {
@@ -487,63 +502,67 @@ class ImageCacheManager @Inject constructor(
      */
     private fun downloadAndResize(url: String, maxWidth: Int): Bitmap? {
         return try {
-            val connection = URL(url).openConnection()
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 30_000
-
-            val status = (connection as? java.net.HttpURLConnection)?.responseCode
-            if (status == java.net.HttpURLConnection.HTTP_NOT_FOUND || status == java.net.HttpURLConnection.HTTP_GONE) {
-                missingArt.markMissing(url)
-                Logger.warn(TAG, "Image not on the server ($status), skipping it for a while: $url")
-                return null
-            }
-            val contentType = connection.contentType?.lowercase()
-            if (contentType != null && DOCUMENT_CONTENT_TYPES.any { contentType.contains(it) }) {
-                missingArt.markMissing(url)
-                Logger.warn(TAG, "Served a document, not an image ($contentType), skipping it for a while: $url")
-                return null
-            }
-
-            connection.getInputStream().use { inputStream ->
-                val buffered = java.io.ByteArrayOutputStream(DEFAULT_IMAGE_BUFFER_BYTES)
-                val chunk = ByteArray(DEFAULT_IMAGE_BUFFER_BYTES)
-                while (buffered.size() <= MAX_IN_MEMORY_IMAGE_BYTES) {
-                    val read = inputStream.read(chunk)
-                    if (read == -1) break
-                    buffered.write(chunk, 0, read)
-                }
-
-                if (buffered.size() <= MAX_IN_MEMORY_IMAGE_BYTES) {
-                    val bytes = buffered.toByteArray()
-                    decodeSampled(maxWidth) { options ->
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-                    } ?: run {
-                        Logger.warn(TAG, "Response did not decode as an image: $url")
-                        null
-                    }
-                } else {
-                    val head = buffered.toByteArray()
-                    val headSize = head.size
-                    val tempFile = File.createTempFile("img_", ".tmp", context.cacheDir)
-                    try {
-                        tempFile.outputStream().use { out ->
-                            out.write(head, 0, headSize)
-                            inputStream.copyTo(out)
-                        }
-                        decodeSampled(maxWidth) { options ->
-                            BitmapFactory.decodeFile(tempFile.absolutePath, options)
-                        }
-                    } finally {
-                        tempFile.delete()
-                    }
-                }
-            }
+            artworkFetcher.open(url).use { response -> decodeArtwork(url, response, maxWidth) }
         } catch (e: java.io.FileNotFoundException) {
             Logger.warn(TAG, "Image not found: $url")
             null
         } catch (e: Throwable) {
             Logger.warn(TAG, "Failed to download image from $url: ${e.javaClass.simpleName}: ${e.message}")
             null
+        }
+    }
+
+    private fun decodeArtwork(url: String, response: ArtworkResponse, maxWidth: Int): Bitmap? {
+        val status = response.status
+        if (response.isGone) {
+            missingArt.markMissing(url)
+            Logger.warn(TAG, "Image not on the server ($status), skipping it for a while: $url")
+            return null
+        }
+        if (!response.isSuccess) {
+            Logger.warn(TAG, "Image request failed ($status): $url")
+            return null
+        }
+        val contentType = response.contentType?.lowercase()
+        if (contentType != null && DOCUMENT_CONTENT_TYPES.any { contentType.contains(it) }) {
+            missingArt.markMissing(url)
+            Logger.warn(TAG, "Served a document, not an image ($contentType), skipping it for a while: $url")
+            return null
+        }
+
+        return response.body().use { inputStream ->
+            val buffered = java.io.ByteArrayOutputStream(DEFAULT_IMAGE_BUFFER_BYTES)
+            val chunk = ByteArray(DEFAULT_IMAGE_BUFFER_BYTES)
+            while (buffered.size() <= MAX_IN_MEMORY_IMAGE_BYTES) {
+                val read = inputStream.read(chunk)
+                if (read == -1) break
+                buffered.write(chunk, 0, read)
+            }
+
+            if (buffered.size() <= MAX_IN_MEMORY_IMAGE_BYTES) {
+                val bytes = buffered.toByteArray()
+                decodeSampled(maxWidth) { options ->
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                } ?: run {
+                    Logger.warn(TAG, "Response did not decode as an image: $url")
+                    null
+                }
+            } else {
+                val head = buffered.toByteArray()
+                val headSize = head.size
+                val tempFile = File.createTempFile("img_", ".tmp", context.cacheDir)
+                try {
+                    tempFile.outputStream().use { out ->
+                        out.write(head, 0, headSize)
+                        inputStream.copyTo(out)
+                    }
+                    decodeSampled(maxWidth) { options ->
+                        BitmapFactory.decodeFile(tempFile.absolutePath, options)
+                    }
+                } finally {
+                    tempFile.delete()
+                }
+            }
         }
     }
 
@@ -848,7 +867,7 @@ class ImageCacheManager @Inject constructor(
             val old = row.cachedPath ?: return@forEach
             val moved = relocate(old)
             if (moved != old) {
-                gameScreenshotDao.relocateCachedPath(row.gameId, row.position, old, moved)
+                gameScreenshotDao.relocateCachedPath(row.gameId, row.source, row.position, old, moved)
                 updated++
             }
         }
@@ -1054,7 +1073,7 @@ class ImageCacheManager @Inject constructor(
             updateScreenshotProgressFromDb(isProcessing = true)
 
             for (request in screenshotQueue) {
-                while (isPaused) {
+                while (isHeld) {
                     kotlinx.coroutines.delay(500)
                 }
                 try {
@@ -1096,14 +1115,16 @@ class ImageCacheManager @Inject constructor(
         cacheScreenshotRows(request.gameId, "ss_${request.rommId}", maxWidth = 480, quality = 75)
     }
 
-    suspend fun userScreenshotTargetFile(rommId: Long, screenshotId: Long, version: String): File {
+    suspend fun userScreenshotTargetFile(rommId: Long, screenshotId: Long, version: String, extension: String): File {
         val slug = resolveRommPlatformSlug(rommId)
-        return File(platformDir(slug, "screenshots"), "uss_${rommId}_${screenshotId}_${version.md5Hash()}.png")
+        val name = "${userScreenshotFileStem(rommId, screenshotId, version)}.$extension"
+        return File(platformDir(slug, "screenshots"), name)
     }
 
     fun pruneStaleUserScreenshots(rommId: Long, screenshotId: Long, keep: File) {
+        val idPrefix = userScreenshotIdPrefix(rommId, screenshotId)
         keep.parentFile?.listFiles()?.forEach { file ->
-            if (file.name.startsWith("uss_${rommId}_${screenshotId}_") && file.name != keep.name) file.delete()
+            if (file.name.startsWith(idPrefix) && file.name != keep.name) file.delete()
         }
     }
 
@@ -1143,7 +1164,7 @@ class ImageCacheManager @Inject constructor(
             Log.d(TAG, "Starting platform logo cache processing")
 
             for (request in logoQueue) {
-                while (isPaused) {
+                while (isHeld) {
                     kotlinx.coroutines.delay(500)
                 }
                 try {
@@ -1194,11 +1215,12 @@ class ImageCacheManager @Inject constructor(
 
     private fun downloadBitmap(url: String): Bitmap? {
         return try {
-            val connection = URL(url).openConnection()
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 30_000
-            connection.getInputStream().use { inputStream ->
-                BitmapFactory.decodeStream(inputStream)
+            artworkFetcher.open(url).use { response ->
+                if (!response.isSuccess) {
+                    Log.e(TAG, "Failed to download bitmap from $url: HTTP ${response.status}")
+                    return null
+                }
+                response.body().use { BitmapFactory.decodeStream(it) }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to download bitmap from $url: ${e.javaClass.simpleName}: ${e.message}", e)
@@ -1329,7 +1351,7 @@ class ImageCacheManager @Inject constructor(
             Log.d(TAG, "Starting cover image cache processing")
 
             for (request in coverQueue) {
-                while (isPaused) {
+                while (isHeld) {
                     kotlinx.coroutines.delay(500)
                 }
                 try {
@@ -1519,22 +1541,14 @@ class ImageCacheManager @Inject constructor(
     }
 
     private fun serverHead(url: String): ServerHead = try {
-        val connection = URL(url).openConnection() as java.net.HttpURLConnection
-        try {
-            connection.requestMethod = "HEAD"
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 10_000
-            when (val status = connection.responseCode) {
-                in 200..299 -> ServerHead.Modified(connection.lastModified)
-                java.net.HttpURLConnection.HTTP_NOT_FOUND, java.net.HttpURLConnection.HTTP_GONE -> {
-                    missingArt.markMissing(url)
-                    Logger.warn(TAG, "Image not on the server ($status), skipping it for a while: $url")
-                    ServerHead.Gone
-                }
-                else -> ServerHead.Unknown
+        when (val head = artworkFetcher.head(url)) {
+            is ArtworkHead.Present -> ServerHead.Modified(head.lastModifiedMillis)
+            ArtworkHead.Gone -> {
+                missingArt.markMissing(url)
+                Logger.warn(TAG, "Image not on the server, skipping it for a while: $url")
+                ServerHead.Gone
             }
-        } finally {
-            connection.disconnect()
+            ArtworkHead.Unknown -> ServerHead.Unknown
         }
     } catch (e: Exception) {
         Logger.warn(TAG, "Could not check cached art against the server: ${e.message}")
@@ -1812,7 +1826,7 @@ class ImageCacheManager @Inject constructor(
             Log.d(TAG, "Starting achievement badge cache processing")
 
             for (request in badgeQueue) {
-                while (isPaused) {
+                while (isHeld) {
                     kotlinx.coroutines.delay(500)
                 }
                 try {
@@ -1933,7 +1947,7 @@ class ImageCacheManager @Inject constructor(
             Log.d(TAG, "Starting app icon cache processing")
 
             for (request in appIconQueue) {
-                while (isPaused) {
+                while (isHeld) {
                     kotlinx.coroutines.delay(500)
                 }
                 try {

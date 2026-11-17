@@ -30,6 +30,7 @@
     <string name="dual_dashboard_state_just_now">剛剛</string>
     <string name="dual_dashboard_state_latest">最新</string>
     <string name="dual_dashboard_total_play">共 %1$s</string>
+    <string name="dual_dashboard_session_play">本次 %1$s</string>
     <string name="dual_dashboard_manual_resume">從第 %1$d 頁繼續</string>
     <string name="dual_dashboard_guide_progress">已讀 %1$d%%</string>
     <string name="dual_dashboard_document_open">開啟</string>
@@ -148,6 +149,7 @@
     <string name="dual_media_episodes_empty_title">目前沒有集數</string>
 
     <string name="dual_media_cast_header">演出陣容</string>
+    <string name="dual_media_related_header">更多類似內容</string>
     <string name="dual_media_browse_back_description">返回</string>
     <plurals name="dual_media_browse_episode_count">
         <item quantity="other">%d集</item>
@@ -438,6 +440,10 @@
     <string name="dual_detail_option_write_review">撰寫評論</string>
     <string name="dual_showcase_progress_main">%1$s / 主線 %2$s</string>
     <string name="dual_showcase_played">已遊玩 %1$s</string>
+    <string name="dual_showcase_running">執行中</string>
+    <string name="dual_showcase_running_in">正在 %1$s 中執行</string>
+    <string name="dual_showcase_saving">正在儲存</string>
+    <string name="dual_showcase_running_with_time">已執行 %1$s</string>
     <string name="dual_showcase_journey_header">你的旅程</string>
     <string name="dual_showcase_journey_main">主線 %1$s</string>
     <string name="dual_showcase_completionist">完全攻略 %1$s</string>

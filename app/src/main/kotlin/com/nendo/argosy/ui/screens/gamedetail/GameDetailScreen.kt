@@ -144,7 +144,7 @@ fun GameDetailScreen(
     }
 
     val pendingLaunch by argosyViewModel.pendingLaunch.collectAsState()
-    val sessionEndSyncing = uiState.syncOverlayState != null
+    val sessionEndSyncing = uiState.syncOverlayState != null || uiState.sessionEndRunning
     LaunchedEffect(pendingLaunch, uiState.game?.id, sessionEndSyncing) {
         val pending = pendingLaunch ?: return@LaunchedEffect
         if (pending.gameId == gameId && uiState.game?.id == gameId && !sessionEndSyncing) {
@@ -470,12 +470,14 @@ private fun GameDetailContent(
     val menuDisplayState = GameDetailMenuState(
         focusedIndex = uiState.menuFocusIndex,
         downloadStatus = uiState.downloadStatus,
-        isAwaitingServer = uiState.isAwaitingServer,
+        downloadWaitStatus = uiState.downloadWaitStatus,
         isFavorite = game.isFavorite,
         saveStatus = uiState.saveStatusInfo,
         isSyncingSaves = uiState.isSyncingSaves,
         downloadSizeBytes = uiState.downloadSizeBytes,
-        isPrivate = uiState.isPrivate
+        isPrivate = uiState.isPrivate,
+        running = uiState.running,
+        moveTargets = uiState.runningMoveTargets
     )
 
     val focusedItem = menuLayout.itemAtFocusIndex(uiState.menuFocusIndex, menuLayoutState)
@@ -532,23 +534,30 @@ private fun GameDetailContent(
         Box(modifier = Modifier.fillMaxSize().blur(combinedBlur)) {
             val liveBackgroundPath = com.nendo.argosy.ui.common.rememberResolvedBackgroundPath(game.id, game.backgroundPath)
             val effectiveBackgroundPath = uiState.repairedBackgroundPath ?: liveBackgroundPath
-            if (effectiveBackgroundPath != null) {
+            val runningFrame = com.nendo.argosy.ui.common.rememberTaskSnapshotRequest(
+                uiState.running?.snapshotPath,
+                uiState.running?.snapshotTakenAtMillis ?: 0L
+            )
+            if (runningFrame != null || effectiveBackgroundPath != null) {
                 val backgroundModel = rememberFileImageModel(effectiveBackgroundPath)
                 val backgroundContext = LocalContext.current
+                val artRequest = remember(backgroundModel) {
+                    ImageRequest.Builder(backgroundContext)
+                        .data(backgroundModel)
+                        .stackedScreenshotBackdrop()
+                        .build()
+                }
                 AsyncImage(
-                    model = remember(backgroundModel) {
-                        ImageRequest.Builder(backgroundContext)
-                            .data(backgroundModel)
-                            .stackedScreenshotBackdrop()
-                            .build()
-                    },
+                    model = runningFrame ?: artRequest,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .blur(24.dp),
                     onError = {
-                        if (uiState.repairedBackgroundPath == null && liveBackgroundPath?.startsWith("/") == true) {
+                        if (runningFrame == null && uiState.repairedBackgroundPath == null &&
+                            liveBackgroundPath?.startsWith("/") == true
+                        ) {
                             viewModel.repairBackgroundImage(game.id, liveBackgroundPath)
                         }
                     }
@@ -616,6 +625,7 @@ private fun GameDetailContent(
                                     when (item) {
                                         MenuItem.Play -> viewModel.primaryAction()
                                         MenuItem.Stream -> viewModel.streamGame()
+                                        is MenuItem.MoveToDisplay -> viewModel.moveRunningGame(item.slot)
                                         MenuItem.Saves -> viewModel.syncSavesNow()
                                         MenuItem.Favorite -> viewModel.toggleFavorite()
                                         MenuItem.Privacy -> viewModel.togglePrivacy()
@@ -638,6 +648,7 @@ private fun GameDetailContent(
                                         MenuItem.RelatedGames -> coroutineScope.launch {
                                             scrollState.animateScrollTo(relatedTopY.coerceAtLeast(0))
                                         }
+                                        MenuItem.CloseGame -> viewModel.requestCloseRunningGame()
                                     }
                                 },
                                 onFocusChange = viewModel::setMenuFocusIndex,
@@ -661,6 +672,15 @@ private fun GameDetailContent(
                             ) {
                                 if (!heroOnOtherScreen) {
                                     ExpandedHeader(game = game, friends = uiState.friendsActivity)
+                                    uiState.running?.let { running ->
+                                        com.nendo.argosy.ui.screens.gamedetail.components.RunningFramePanel(
+                                            running = running,
+                                            savedAt = uiState.saveStatusInfo?.displayTime(LocalContext.current),
+                                            raEarned = game.achievements.count { it.isUnlocked },
+                                            raTotal = game.achievements.size,
+                                            modifier = Modifier.padding(top = Dimens.spacingMd)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
                                 }
 
@@ -794,6 +814,9 @@ private fun GameDetailContent(
                 val playDownloadingHint = stringResource(R.string.gamedetail_footer_play_downloading)
                 val playExtractingHint = stringResource(R.string.gamedetail_footer_play_extracting)
                 val playResumeHint = stringResource(R.string.gamedetail_footer_play_resume)
+                val playResumeGameHint = stringResource(R.string.gamedetail_footer_play_resume_game)
+                val playClosingHint = stringResource(R.string.gamedetail_footer_play_closing_game)
+                val closeGameHint = stringResource(R.string.gamedetail_footer_close_game)
                 val playRetryFailedHint =
                     stringResource(R.string.gamedetail_footer_play_retry_failed)
                 val playFallbackHint = stringResource(R.string.gamedetail_footer_play_fallback)
@@ -831,7 +854,10 @@ private fun GameDetailContent(
                             add(InputButton.DPAD_HORIZONTAL to sectionScrollHint)
                         }
                         when (focusedItem) {
-                            MenuItem.Play -> add(InputButton.A to when {
+                            MenuItem.Play -> if (uiState.stream?.leads != true) add(InputButton.A to when {
+                                uiState.running?.isClosing == true -> playClosingHint
+                                uiState.running != null &&
+                                    uiState.downloadStatus == GameDownloadStatus.DOWNLOADED -> playResumeGameHint
                                 isAnySyncing -> playSyncingHint
                                 uiState.downloadStatus == GameDownloadStatus.DOWNLOADED -> playDownloadedHint
                                 uiState.downloadStatus == GameDownloadStatus.NEEDS_INSTALL -> playInstallHint
@@ -851,15 +877,16 @@ private fun GameDetailContent(
                             MenuItem.PerGameSettings -> add(InputButton.A to configureHint)
                             MenuItem.Options -> add(InputButton.A to optionsHint)
                             MenuItem.Screenshots -> add(InputButton.A to viewScreenshotHint)
-                            MenuItem.Documents -> Unit
+                            MenuItem.Documents, MenuItem.Stream, is MenuItem.MoveToDisplay -> Unit
                             MenuItem.Reviews -> add(InputButton.A to viewReviewsHint)
                             MenuItem.Achievements -> add(InputButton.A to viewAllAchievementsHint)
                             MenuItem.RelatedGames -> add(InputButton.A to openRelatedHint)
+                            MenuItem.CloseGame -> add(InputButton.A to closeGameHint)
                             MenuItem.Details, MenuItem.Description, null -> {}
                         }
                         add(InputButton.B to backHint)
                         if (canShowPlayOptions && focusedItem == MenuItem.Play) {
-                            add(InputButton.X to newGameHint)
+                            add(InputButton.X to if (isAnySyncing || uiState.sessionEndRunning) playSyncingHint else newGameHint)
                         } else if (uiState.hasSocialAccount && game.igdbId != null) {
                             add(InputButton.X to if (uiState.isPrivate) shortcutMakePublicHint else shortcutMakePrivateHint)
                         }
@@ -940,6 +967,7 @@ private fun GameDetailModals(
             hasManageableFiles = uiState.hasManageableFiles,
             launchDisplayNumbers = uiState.launchDisplayNumbers,
             launchDisplayIndex = uiState.launchDisplayIndex,
+            offersDownload = uiState.stream?.leads == true,
             onAction = { action -> viewModel.handleMoreOptionAction(action, onBack, onNavigateToPlatformSettings) },
             onDismiss = viewModel::toggleMoreOptions
         )
@@ -1201,7 +1229,11 @@ private fun GameDetailModals(
             errorMessage = pickerState.artPickerError,
             canSearch = pickerState.artPickerCanSearch,
             query = pickerState.artPickerQuery,
+            searchFocused = pickerState.artPickerSearchFocused,
+            keyboardOpen = pickerState.artPickerKeyboardOpen,
             onQueryChange = viewModel::setArtPickerQuery,
+            onOpenKeyboard = viewModel::openArtPickerKeyboard,
+            onCloseKeyboard = viewModel::closeArtPickerKeyboard,
             onSearch = { viewModel.searchArtwork() },
             onChooseFile = viewModel::openArtFileBrowser,
             onSelect = viewModel::selectArtCandidate,
@@ -1358,6 +1390,10 @@ private fun GameDetailModals(
     }
 
     com.nendo.argosy.ui.common.GameConfirmHost(viewModel.gameConfirm)
+
+    com.nendo.argosy.ui.screens.running.RunningGameCloseHost(viewModel.runningGameMenu)
+
+    com.nendo.argosy.ui.screens.stream.StreamLaunchHost(viewModel.streamLauncher)
 
     if (uiState.showCreateCollectionDialog) {
         CreateCollectionDialog(

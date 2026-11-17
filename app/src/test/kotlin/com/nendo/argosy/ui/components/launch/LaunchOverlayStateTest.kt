@@ -6,6 +6,7 @@ import com.nendo.argosy.domain.model.LaunchPromptOption
 import com.nendo.argosy.domain.model.LaunchProgress
 import com.nendo.argosy.domain.model.LaunchRecap
 import com.nendo.argosy.domain.model.LaunchStep
+import com.nendo.argosy.domain.model.MakeRoomStage
 import com.nendo.argosy.domain.model.SyncProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -260,5 +261,42 @@ class LaunchOverlayStateTest {
         assertTrue(ui.cancellable)
         assertNull(ui.line)
         assertEquals(CalmLaunchBar.NONE, ui.bar)
+    }
+
+    @Test
+    fun `the cancel hint shows on a waiting step with no app prompt`() {
+        assertTrue(LaunchStep.FinishingPrevious.showsCancelHint(appPromptShowing = false))
+        assertTrue(save.showsCancelHint(appPromptShowing = false))
+    }
+
+    @Test
+    fun `the cancel hint hides on a waiting step while an app prompt shows`() {
+        assertFalse(LaunchStep.FinishingPrevious.showsCancelHint(appPromptShowing = true))
+        assertFalse(save.showsCancelHint(appPromptShowing = true))
+    }
+
+    @Test
+    fun `the cancel hint hides while a make-room choice shows its own buttons, and returns once it closes`() {
+        fun makeRoom(stage: MakeRoomStage) = LaunchStep.MakeRoom(
+            launchingTitle = "Game",
+            candidates = emptyList(),
+            initialFocus = 0,
+            stage = stage,
+            chosenTaskId = 7
+        )
+        assertFalse(makeRoom(MakeRoomStage.CHOOSE).showsCancelHint(appPromptShowing = false))
+        assertTrue(makeRoom(MakeRoomStage.SAVING).showsCancelHint(appPromptShowing = false))
+        assertTrue(makeRoom(MakeRoomStage.CLOSED).showsCancelHint(appPromptShowing = false))
+        assertFalse(makeRoom(MakeRoomStage.CHOOSE).mirrorsToPresentation)
+    }
+
+    @Test
+    fun `the cancel hint stays hidden on recap and launching whatever the prompt`() {
+        val recap = LaunchStep.Recap(LaunchRecap(gameTitle = "Game", lastSession = null, unlocks = emptyList()))
+        for (step in listOf(recap, LaunchStep.Launching)) {
+            for (prompt in listOf(false, true)) {
+                assertFalse("$step with prompt $prompt", step.showsCancelHint(appPromptShowing = prompt))
+            }
+        }
     }
 }

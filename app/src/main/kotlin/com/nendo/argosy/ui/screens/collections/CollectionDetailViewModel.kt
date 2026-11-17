@@ -38,6 +38,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -87,13 +89,26 @@ data class CollectionDetailUiState(
     val currentSectionLabel: String = "",
     val isSearchActive: Boolean = false,
     val searchQuery: String = "",
-    val overlayLetter: String? = null
+    val isSearchKeyboardOpen: Boolean = false,
+    val isSearchStopFocused: Boolean = false,
+    val overlayLetter: String? = null,
+    val optionsRunning: com.nendo.argosy.ui.common.RunningGameUi? = null,
+    val optionsMoveTargets: List<com.nendo.argosy.ui.screens.running.RunningMoveTarget> = emptyList()
 ) {
     val focusedGame: CollectionGameUi?
-        get() = games.getOrNull(focusedIndex)
+        get() = if (isSearchStopFocused) null else games.getOrNull(focusedIndex)
 
     val downloadableGamesCount: Int
         get() = games.count { !it.isDownloaded && it.rommId != null }
+
+    val optionRows: List<com.nendo.argosy.ui.screens.collections.dialogs.CollectionOptionRow>
+        get() = com.nendo.argosy.ui.screens.collections.dialogs.collectionOptionRows(
+            showDownloadAll = true,
+            downloadableCount = downloadableGamesCount,
+            showRemoveGame = focusedGame != null,
+            moveTargets = optionsMoveTargets.takeIf { optionsRunning != null }.orEmpty(),
+            showCloseGame = optionsRunning != null
+        )
 
     val showSectionSidebar: Boolean
         get() = !isSearchActive && sectionLabels.size > 1
@@ -114,7 +129,8 @@ class CollectionDetailViewModel @Inject constructor(
     private val notificationManager: NotificationManager,
     private val positions: VirtualBrowsePositions,
     private val downloadFileStatusRepository: DownloadFileStatusRepository,
-    showcaseSource: com.nendo.argosy.ui.common.PresentationShowcaseSource
+    showcaseSource: com.nendo.argosy.ui.common.PresentationShowcaseSource,
+    val runningGameMenu: com.nendo.argosy.ui.screens.running.RunningGameMenu
 ) : ViewModel() {
 
     private val presentation = com.nendo.argosy.ui.common.PresentationFocus(
@@ -138,13 +154,18 @@ class CollectionDetailViewModel @Inject constructor(
         val isPinned: Boolean = false,
         val isRefreshing: Boolean = false,
         val searchActive: Boolean = false,
-        val searchQuery: String = ""
+        val searchQuery: String = "",
+        val searchKeyboardOpen: Boolean = false,
+        val searchStopFocused: Boolean = false,
+        val optionsRunning: com.nendo.argosy.ui.common.RunningGameUi? = null,
+        val optionsMoveTargets: List<com.nendo.argosy.ui.screens.running.RunningMoveTarget> = emptyList()
     )
 
     private val _modalState = MutableStateFlow(ModalState(focusedIndex = positions.get(stickyKey)))
     private val _refreshTrigger = MutableStateFlow(0)
     private val _overlayLetter = MutableStateFlow<String?>(null)
     private var preSearchIndex = 0
+    private var preSearchStopFocused = false
     private var lastRefreshTime = 0L
     private var overlayJob: Job? = null
 
@@ -163,14 +184,22 @@ class CollectionDetailViewModel @Inject constructor(
         }
     }
 
+    private class VisibleGames(
+        val collection: CollectionEntity?,
+        val games: List<CollectionGameUi>,
+        val sectionLabelByGame: List<String>
+    ) {
+        val sectionLabels: List<String> = sectionLabelByGame.distinct()
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val core = _refreshTrigger.flatMapLatest {
+    private val visibleGames = _refreshTrigger.flatMapLatest {
         combine(
             collectionRepository.observeCollectionById(collectionId),
             collectionRepository.observeGamesInCollection(collectionId),
             platformRepository.observeAllPlatforms(),
-            _modalState
-        ) { collection, games, platforms, modalState ->
+            _modalState.map { it.searchQuery }.distinctUntilChanged()
+        ) { collection, games, platforms, searchQuery ->
             val platformMap = platforms.associate { it.id to it.getDisplayName() }
             val sorted = games
                 .map { game ->
@@ -181,32 +210,41 @@ class CollectionDetailViewModel @Inject constructor(
                     )
                 }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
-            val visible = if (modalState.searchQuery.isBlank()) {
+            val visible = if (searchQuery.isBlank()) {
                 sorted
             } else {
-                val q = com.nendo.argosy.util.SearchNormalizer.normalize(modalState.searchQuery)
+                val q = com.nendo.argosy.util.SearchNormalizer.normalize(searchQuery)
                 sorted.filter { com.nendo.argosy.util.SearchNormalizer.normalize(it.title).contains(q) }
             }
-            val clamped = modalState.focusedIndex.coerceIn(0, (visible.size - 1).coerceAtLeast(0))
-            CollectionDetailUiState(
-                collection = collection,
-                games = visible,
-                isLoading = false,
-                isRefreshing = modalState.isRefreshing,
-                focusedIndex = clamped,
-                showOptionsModal = modalState.showOptionsModal,
-                optionsModalFocusIndex = modalState.optionsModalFocusIndex,
-                showEditDialog = modalState.showEditDialog,
-                showDeleteDialog = modalState.showDeleteDialog,
-                showRemoveGameDialog = modalState.showRemoveGameDialog,
-                gameToRemove = modalState.gameToRemove,
-                isPinned = modalState.isPinned,
-                sectionLabels = if (modalState.searchActive) emptyList() else visible.map { sectionLabelFor(it.title) }.distinct(),
-                currentSectionLabel = visible.getOrNull(clamped)?.let { sectionLabelFor(it.title) } ?: "",
-                isSearchActive = modalState.searchActive,
-                searchQuery = modalState.searchQuery
-            )
+            VisibleGames(collection, visible, visible.map { sectionLabelFor(it.title) })
         }
+    }.flowOn(Dispatchers.Default)
+
+    private val core = combine(visibleGames, _modalState) { listing, modalState ->
+        val visible = listing.games
+        val clamped = modalState.focusedIndex.coerceIn(0, (visible.size - 1).coerceAtLeast(0))
+        CollectionDetailUiState(
+            collection = listing.collection,
+            games = visible,
+            isLoading = false,
+            isRefreshing = modalState.isRefreshing,
+            focusedIndex = clamped,
+            showOptionsModal = modalState.showOptionsModal,
+            optionsModalFocusIndex = modalState.optionsModalFocusIndex,
+            showEditDialog = modalState.showEditDialog,
+            showDeleteDialog = modalState.showDeleteDialog,
+            showRemoveGameDialog = modalState.showRemoveGameDialog,
+            gameToRemove = modalState.gameToRemove,
+            isPinned = modalState.isPinned,
+            sectionLabels = if (modalState.searchActive) emptyList() else listing.sectionLabels,
+            currentSectionLabel = listing.sectionLabelByGame.getOrNull(clamped) ?: "",
+            isSearchActive = modalState.searchActive,
+            searchQuery = modalState.searchQuery,
+            isSearchKeyboardOpen = modalState.searchKeyboardOpen,
+            isSearchStopFocused = modalState.searchStopFocused,
+            optionsRunning = modalState.optionsRunning,
+            optionsMoveTargets = modalState.optionsMoveTargets
+        )
     }
 
     val uiState: StateFlow<CollectionDetailUiState> = combine(core, _overlayLetter) { state, overlay ->
@@ -248,18 +286,25 @@ class CollectionDetailViewModel @Inject constructor(
         state.showEditDialog || state.showDeleteDialog || state.showRemoveGameDialog
 
     private fun setFocus(index: Int) {
-        _modalState.update { it.copy(focusedIndex = index) }
+        _modalState.update { it.copy(focusedIndex = index, searchStopFocused = false) }
         if (!_modalState.value.searchActive) positions.set(stickyKey, index)
     }
 
     fun moveUp() {
-        val current = uiState.value.focusedIndex
-        if (current > 0) setFocus(current - 1)
+        val state = uiState.value
+        when {
+            state.isSearchStopFocused -> Unit
+            state.focusedIndex > 0 -> setFocus(state.focusedIndex - 1)
+            else -> _modalState.update { it.copy(searchStopFocused = true) }
+        }
     }
 
     fun moveDown() {
-        val current = uiState.value.focusedIndex
-        if (current < uiState.value.games.size - 1) setFocus(current + 1)
+        val state = uiState.value
+        when {
+            state.isSearchStopFocused -> if (state.games.isNotEmpty()) setFocus(0)
+            state.focusedIndex < state.games.size - 1 -> setFocus(state.focusedIndex + 1)
+        }
     }
 
     fun handleGameLongPress(index: Int) {
@@ -304,15 +349,25 @@ class CollectionDetailViewModel @Inject constructor(
     }
 
     fun openSearch() {
-        if (_modalState.value.searchActive) return
+        if (_modalState.value.searchActive) {
+            _modalState.update { it.copy(searchKeyboardOpen = true, searchStopFocused = true) }
+            return
+        }
         preSearchIndex = uiState.value.focusedIndex
+        preSearchStopFocused = uiState.value.isSearchStopFocused
         _modalState.update {
             it.copy(
                 searchActive = true,
                 searchQuery = "",
+                searchKeyboardOpen = true,
+                searchStopFocused = true,
                 focusedIndex = 0
             )
         }
+    }
+
+    fun closeSearchKeyboard() {
+        _modalState.update { it.copy(searchKeyboardOpen = false) }
     }
 
     fun closeSearch() {
@@ -321,6 +376,8 @@ class CollectionDetailViewModel @Inject constructor(
             it.copy(
                 searchActive = false,
                 searchQuery = "",
+                searchKeyboardOpen = false,
+                searchStopFocused = preSearchStopFocused,
                 focusedIndex = preSearchIndex
             )
         }
@@ -330,60 +387,64 @@ class CollectionDetailViewModel @Inject constructor(
         _modalState.update { it.copy(searchQuery = query, focusedIndex = 0) }
     }
 
+    private var optionsOpenJob: Job? = null
+
     fun showOptionsModal() {
-        _modalState.update {
-            it.copy(
-                showOptionsModal = true,
-                optionsModalFocusIndex = 0
-            )
+        if (optionsOpenJob?.isActive == true) return
+        val gameId = uiState.value.games.getOrNull(_modalState.value.focusedIndex)?.id
+        optionsOpenJob = viewModelScope.launch {
+            val running = gameId?.let { runningGameMenu.markFor(it) }
+            val moveTargets = runningGameMenu.moveTargets(running)
+            _modalState.update {
+                it.copy(
+                    showOptionsModal = true,
+                    optionsModalFocusIndex = 0,
+                    optionsRunning = running,
+                    optionsMoveTargets = moveTargets
+                )
+            }
         }
     }
 
     fun hideOptionsModal() {
+        optionsOpenJob?.cancel()
         _modalState.update { it.copy(showOptionsModal = false) }
     }
 
     fun moveOptionsFocus(delta: Int) {
-        val state = uiState.value
-        val hasGame = state.focusedGame != null
-        val hasDownloadable = state.downloadableGamesCount > 0
-        val optionCount = 2 + (if (hasDownloadable) 1 else 0) + (if (hasGame) 1 else 0)
-        val maxIndex = optionCount - 1
+        val maxIndex = (uiState.value.optionRows.size - 1).coerceAtLeast(0)
         val currentIndex = _modalState.value.optionsModalFocusIndex
         val newIndex = (currentIndex + delta).coerceIn(0, maxIndex)
         _modalState.update { it.copy(optionsModalFocusIndex = newIndex) }
     }
 
     fun selectOption(option: CollectionOption) {
+        val state = uiState.value
         hideOptionsModal()
         when (option) {
             CollectionOption.DOWNLOAD_ALL -> downloadAllGames()
             CollectionOption.RENAME -> showEditDialog()
             CollectionOption.DELETE -> showDeleteDialog()
             CollectionOption.REMOVE_GAME -> showRemoveGameDialog()
+            CollectionOption.CLOSE_GAME -> runningGameMenu.requestClose(state.optionsRunning, state.focusedGame?.title)
         }
+    }
+
+    fun moveRunningGame(target: com.nendo.argosy.ui.screens.running.RunningMoveTarget) {
+        val state = uiState.value
+        hideOptionsModal()
+        val running = state.optionsRunning ?: return
+        val title = state.focusedGame?.title ?: return
+        runningGameMenu.moveTo(viewModelScope, running, target, title)
     }
 
     fun confirmOptionSelection() {
         val state = uiState.value
-        val hasDownloadable = state.downloadableGamesCount > 0
-        var idx = _modalState.value.optionsModalFocusIndex
-
-        val option = if (hasDownloadable) {
-            when (idx) {
-                0 -> CollectionOption.DOWNLOAD_ALL
-                1 -> CollectionOption.RENAME
-                2 -> CollectionOption.DELETE
-                else -> CollectionOption.REMOVE_GAME
-            }
-        } else {
-            when (idx) {
-                0 -> CollectionOption.RENAME
-                1 -> CollectionOption.DELETE
-                else -> CollectionOption.REMOVE_GAME
-            }
+        when (val row = state.optionRows.getOrNull(_modalState.value.optionsModalFocusIndex)) {
+            is com.nendo.argosy.ui.screens.collections.dialogs.CollectionOptionRow.Action -> selectOption(row.option)
+            is com.nendo.argosy.ui.screens.collections.dialogs.CollectionOptionRow.MoveTo -> moveRunningGame(row.target)
+            null -> Unit
         }
-        selectOption(option)
     }
 
     fun downloadAllGames() {
@@ -543,6 +604,10 @@ class CollectionDetailViewModel @Inject constructor(
                     confirmOptionSelection()
                     return InputResult.HANDLED
                 }
+                state.isSearchStopFocused -> {
+                    openSearch()
+                    return InputResult.HANDLED
+                }
                 else -> {
                     state.focusedGame?.let { onGameClick(it.id) }
                     return InputResult.HANDLED
@@ -613,6 +678,7 @@ class CollectionDetailViewModel @Inject constructor(
         override fun onSelect(): InputResult {
             val state = uiState.value
             if (hasDialogOpen(state)) return InputResult.UNHANDLED
+            if (state.showOptionsModal) return InputResult.HANDLED
             if (com.nendo.argosy.ui.dualscreen.selectSwapsRoles()) return InputResult.UNHANDLED
             showOptionsModal()
             return InputResult.HANDLED
@@ -632,5 +698,30 @@ class CollectionDetailViewModel @Inject constructor(
             togglePin()
             return InputResult.HANDLED
         }
+
+        private fun heldByOptions(): InputResult =
+            if (uiState.value.showOptionsModal) InputResult.HANDLED else InputResult.UNHANDLED
+
+        override fun onLeft(): InputResult = heldByOptions()
+
+        override fun onRight(): InputResult = heldByOptions()
+
+        override fun onPrevSection(): InputResult = heldByOptions()
+
+        override fun onNextSection(): InputResult = heldByOptions()
+
+        override fun onLongSelect(): InputResult = heldByOptions()
+
+        override fun onLeftStickClick(): InputResult = heldByOptions()
+
+        override fun onRightStickClick(): InputResult = heldByOptions()
+
+        override fun onRightStickUp(): InputResult = heldByOptions()
+
+        override fun onRightStickDown(): InputResult = heldByOptions()
+
+        override fun onRightStickLeft(): InputResult = heldByOptions()
+
+        override fun onRightStickRight(): InputResult = heldByOptions()
     }
 }

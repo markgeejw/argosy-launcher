@@ -79,6 +79,7 @@
     <string name="home_quick_actions_play_on_screen">Играть на экране %1$d</string>
     <string name="home_quick_actions_download">Скачать</string>
     <string name="home_quick_actions_resume_download">Продолжить</string>
+    <string name="home_quick_actions_resume_game">Продолжить</string>
     <string name="home_quick_actions_favorite">В избранное</string>
     <string name="home_quick_actions_unfavorite">Убрать из избранного</string>
     <string name="home_quick_actions_details">Детали</string>
@@ -90,6 +91,8 @@
     <string name="home_quick_actions_remove_from_home">Убрать с главного экрана</string>
     <string name="home_quick_actions_remove_from_library">Удалить из библиотеки</string>
     <string name="home_quick_actions_hide">Скрыть</string>
+    <string name="home_quick_actions_move_to_display">Перенести на дисплей %1$d</string>
+    <string name="home_quick_actions_close_game">Закрыть игру</string>
 
     <string name="home_media_empty_next_up_title">Нечего смотреть далее</string>
     <string name="home_media_empty_next_up_message">Закончите эпизод, и следующий появится здесь.</string>
@@ -193,4 +196,26 @@
 
     <string name="home_grid_tile_ra_points_label">Очки</string>
     <string name="home_grid_tile_ra_unlocks_label">Достижения</string>
+    <string name="home_footer_game_resume_game">Продолжить</string>
+    <string name="home_title_running">Запущена</string>
+    <string name="home_title_running_in">Запущена в %1$s</string>
+    <string name="home_title_saving">Сохранение</string>
+    <string name="home_title_running_with_time">В игре %1$s</string>
+    <string name="home_grid_picker_folder_title">Папка</string>
+    <string name="home_grid_picker_folder_subtitle">Собирает плитки любого типа под одной плиткой</string>
+    <string name="home_grid_picker_auto_folder_title">Автопапка</string>
+    <string name="home_grid_picker_auto_folder_subtitle">Сама наполняется играми, подходящими под правило</string>
+    <string name="home_grid_picker_image_title">Картинка</string>
+    <string name="home_grid_picker_image_subtitle">Изображение, заполняющее свои ячейки</string>
+    <string name="home_grid_picker_sticker_title">Стикер</string>
+    <string name="home_grid_picker_sticker_subtitle">Вырезанное изображение с контуром по желанию</string>
+    <string name="home_grid_tile_image_label">Картинка</string>
+    <string name="home_grid_tile_sticker_label">Стикер</string>
+    <plurals name="home_grid_tile_folder_count">
+        <item quantity="one">%d элемент</item>
+        <item quantity="few">%d элемента</item>
+        <item quantity="many">%d элементов</item>
+        <item quantity="other">%d элемента</item>
+    </plurals>
+    <string name="home_tile_file_browser_decor_title">Выберите картинку</string>
 </resources>

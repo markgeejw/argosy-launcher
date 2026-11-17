@@ -78,6 +78,7 @@ data class RomMRom(
 
     @Json(name = "merged_screenshots") val screenshotPaths: List<String>? = null,
     @Json(name = "user_screenshots") val userScreenshots: List<RomMUserScreenshot>? = null,
+    @Json(name = "all_user_screenshots") val allUserScreenshots: List<RomMUserScreenshot>? = null,
     @Json(name = "rom_user") val romUser: RomMRomUser? = null,
 
     @Json(name = "tags") val tags: List<String>? = null,
@@ -204,11 +205,13 @@ data class RomMUserScreenshot(
     @Json(name = "rom_id") val romId: Long,
     @Json(name = "user_id") val userId: Long? = null,
     @Json(name = "file_name") val fileName: String? = null,
+    @Json(name = "file_extension") val fileExtension: String? = null,
     @Json(name = "download_path") val downloadPath: String? = null,
     @Json(name = "is_gallery") val isGallery: Boolean = false,
     @Json(name = "is_public") val isPublic: Boolean = false,
     @Json(name = "created_at") val createdAt: String? = null,
-    @Json(name = "updated_at") val updatedAt: String? = null
+    @Json(name = "updated_at") val updatedAt: String? = null,
+    @Json(name = "username") val username: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -360,7 +363,8 @@ data class RomMSsMetadata(
     @Json(name = "box2d_side_path") val box2dSidePath: String? = null,
     @Json(name = "logo_path") val logoPath: String? = null,
     @Json(name = "fanart_path") val fanartPath: String? = null,
-    @Json(name = "fanart_url") val fanartUrl: String? = null
+    @Json(name = "fanart_url") val fanartUrl: String? = null,
+    @Json(name = "video_normalized_path") val videoNormalizedPath: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -377,6 +381,7 @@ data class RomMUser(
     @Json(name = "enabled") val enabled: Boolean,
     @Json(name = "role") val role: String,
     @Json(name = "avatar_path") val avatarPath: String? = null,
+    @Json(name = "updated_at") val updatedAt: String? = null,
     @Json(name = "ra_username") val raUsername: String? = null,
     @Json(name = "ra_progression") val raProgression: RomMRAProgression? = null
 )
@@ -441,7 +446,7 @@ data class RomMHeartbeatResponse(
         get() = system?.version
 
     val snapshotsEnabled: Boolean
-        get() = saveSync?.snapshots == true
+        get() = saveSync != null
 
     val libretroApiEnabled: Boolean?
         get() = metadataSources?.libretroApiEnabled
@@ -482,7 +487,7 @@ data class RomMSystem(
 
 @JsonClass(generateAdapter = true)
 data class RomMSaveSyncFeatures(
-    @Json(name = "SNAPSHOTS") val snapshots: Boolean? = null
+    @Json(name = "SNAPSHOT_RETENTION") val snapshotRetention: Int? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -595,7 +600,8 @@ data class RomMPairingExchangeResponse(
  * underlying exception text names neither the cause nor the fix.
  */
 enum class RomMErrorKind {
-    UNTRUSTED_CERTIFICATE
+    UNTRUSTED_CERTIFICATE,
+    CLIENT_CERTIFICATE_REQUIRED
 }
 
 sealed class RomMResult<out T> {

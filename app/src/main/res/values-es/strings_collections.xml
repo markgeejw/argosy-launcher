@@ -26,6 +26,8 @@
     <string name="collections_options_rename">Renombrar colección</string>
     <string name="collections_options_delete">Eliminar colección</string>
     <string name="collections_options_remove_game">Quitar \"%1$s\"</string>
+    <string name="collections_options_move_to_display">Mover a la pantalla %1$d</string>
+    <string name="collections_options_close_game">Cerrar juego</string>
     <string name="collections_options_remove_game_fallback">Juego</string>
 
     <string name="collections_delete_dialog_title">Eliminar colección</string>
@@ -62,6 +64,7 @@
     <string name="collections_detail_loading">Cargando&#8230;</string>
     <string name="collections_detail_hint_search_open">Abrir</string>
     <string name="collections_detail_hint_search_close">Cerrar búsqueda</string>
+    <string name="collections_detail_keyboard_submit">Buscar</string>
     <string name="collections_detail_hint_navigate">Navegar</string>
     <string name="collections_detail_hint_open">Abrir</string>
     <string name="collections_detail_hint_back">Atrás</string>
@@ -91,6 +94,7 @@
     <string name="collections_browser_loading">Cargando&#8230;</string>
     <string name="collections_browser_hint_search_select">Seleccionar</string>
     <string name="collections_browser_hint_search_close">Cerrar búsqueda</string>
+    <string name="collections_browser_keyboard_submit">Buscar</string>
     <string name="collections_browser_hint_navigate">Navegar</string>
     <string name="collections_browser_hint_select">Seleccionar</string>
     <string name="collections_browser_hint_back">Atrás</string>
@@ -121,6 +125,7 @@
     <string name="collections_category_loading">Cargando&#8230;</string>
     <string name="collections_category_hint_search_open">Abrir</string>
     <string name="collections_category_hint_search_close">Cerrar búsqueda</string>
+    <string name="collections_category_keyboard_submit">Buscar</string>
     <string name="collections_category_hint_navigate">Navegar</string>
     <string name="collections_category_hint_open">Abrir</string>
     <string name="collections_category_hint_back">Atrás</string>
@@ -131,9 +136,9 @@
     <string name="collections_category_hint_refreshing">Actualizando&#8230;</string>
     <string name="collections_category_hint_refresh">Actualizar</string>
     <string name="collections_category_hint_swap_screens">Cambiar pantallas</string>
-    <string name="collections_category_hint_open_hold_download_all">Abrir, mantén para descargar todo (%1$d)</string>
-    <string name="collections_category_hint_download_all">Descargar todo (%1$d)</string>
-    <string name="collections_category_hint_download_all_hold_swap_screens">Descargar todo (%1$d), mantén para cambiar pantallas</string>
+    <string name="collections_category_hint_open_hold_options">Abrir, mantén para opciones</string>
+    <string name="collections_category_hint_options">Opciones</string>
+    <string name="collections_category_hint_options_hold_swap_screens">Opciones, mantén para cambiar pantallas</string>
     <string name="collections_category_hint_hold_swap_screens">Mantén para cambiar pantallas</string>
     <string name="collections_category_downloadall_confirm_title">¿Descargar todos los juegos?</string>
     <plurals name="collections_category_downloadall_confirm_message">
@@ -187,6 +192,10 @@
     <string name="downloads_file_state_queued">En cola</string>
     <string name="downloads_file_state_percent">%1$d%%</string>
     <string name="downloads_file_state_waiting_for_server">Esperando al servidor&#8230;</string>
+    <string name="downloads_file_state_retrying">Reintentando&#8230;</string>
+    <string name="downloads_file_state_waiting_for_network">Esperando red&#8230;</string>
+    <string name="downloads_item_status_retrying">Reintentando&#8230;</string>
+    <string name="downloads_item_status_waiting_for_network">Esperando red&#8230;</string>
     <string name="downloads_item_status_moving">Moviendo al almacenamiento de ROM&#8230;</string>
     <string name="downloads_item_status_extracting_fallback">Extrayendo&#8230;</string>
     <string name="downloads_item_status_waiting_for_server">Esperando al servidor&#8230;</string>

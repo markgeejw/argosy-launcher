@@ -53,6 +53,8 @@ object RootScriptRunner {
 
     fun reboot(): Boolean = RootShell.execute("svc power reboot || reboot").isSuccess
 
+    fun shutdown(): Boolean = RootShell.execute("svc power shutdown || reboot -p").isSuccess
+
     private fun unavailable(context: Context, script: RootScript, duringRun: Boolean) = RootScriptResult.Error(
         script,
         context.getString(R.string.settings_root_script_unavailable),

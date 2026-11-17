@@ -66,6 +66,7 @@ class SigilPs2AliasRouteTest {
         every { connectionManager.snapshotsEnabled() } returns false
         every { saveLocator.locate(any(), any(), any()) } returns
             SigilSaveLocation(shared = listOf("memcards/Mcd001.ps2"), own = emptyList())
+        every { saveLocator.accessPaths(any()) } returns emptyList()
         coEvery { gameDao.getById(GAME_ID) } returns GameEntity(
             id = GAME_ID,
             title = "Suikoden III",

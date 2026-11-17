@@ -33,12 +33,12 @@ enum class DisplayBadgeSize { LARGE, SMALL }
 class DisplayBadgeOverlay(private val context: Context) {
 
     private val shown = mutableMapOf<Int, View>()
-    private var owner: BadgeWindowOwner? = null
+    private var owner: ComposeWindowOwner? = null
 
     fun show(numbers: Map<Int, Int>, size: DisplayBadgeSize) {
         hide()
         if (numbers.isEmpty()) return
-        val lifecycleOwner = BadgeWindowOwner().also { owner = it }
+        val lifecycleOwner = ComposeWindowOwner().also { owner = it }
         lifecycleOwner.start()
         numbers.forEach { (displayId, number) ->
             addBadge(displayId, number, size, lifecycleOwner)?.let { shown[displayId] = it }
@@ -58,7 +58,7 @@ class DisplayBadgeOverlay(private val context: Context) {
         displayId: Int,
         number: Int,
         size: DisplayBadgeSize,
-        lifecycleOwner: BadgeWindowOwner
+        lifecycleOwner: ComposeWindowOwner
     ): View? {
         val displayContext = badgeWindowContext(displayId) ?: return null
         val windowManager = displayContext.getSystemService(WindowManager::class.java) ?: return null
@@ -90,12 +90,9 @@ class DisplayBadgeOverlay(private val context: Context) {
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = when (size) {
-                DisplayBadgeSize.LARGE -> Gravity.BOTTOM or Gravity.END
-                DisplayBadgeSize.SMALL -> Gravity.TOP or Gravity.END
-            }
+            gravity = Gravity.TOP or Gravity.END
             x = ((if (size == DisplayBadgeSize.LARGE) LARGE_MARGIN_DP else SMALL_MARGIN_DP) * density).toInt()
-            y = ((if (size == DisplayBadgeSize.LARGE) LARGE_MARGIN_DP else SMALL_TOP_MARGIN_DP) * density).toInt()
+            y = (STATUS_CAPSULE_CLEARANCE_DP * density).toInt()
         }
         return runCatching {
             windowManager.addView(view, params)
@@ -127,7 +124,7 @@ class DisplayBadgeOverlay(private val context: Context) {
     private companion object {
         const val LARGE_MARGIN_DP = 16
         const val SMALL_MARGIN_DP = 12
-        const val SMALL_TOP_MARGIN_DP = 64
+        const val STATUS_CAPSULE_CLEARANCE_DP = 64
         const val LARGE_WIDTH_DP = 96
         const val LARGE_HEIGHT_DP = 88
         const val SMALL_WIDTH_DP = 56
@@ -135,7 +132,7 @@ class DisplayBadgeOverlay(private val context: Context) {
     }
 }
 
-private class BadgeWindowOwner : LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
+internal class ComposeWindowOwner : LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateController = SavedStateRegistryController.create(this)

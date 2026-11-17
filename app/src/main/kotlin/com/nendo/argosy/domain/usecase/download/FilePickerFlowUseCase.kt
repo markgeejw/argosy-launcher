@@ -76,7 +76,7 @@ class FilePickerFlowUseCase @Inject constructor(
      */
     private suspend fun gameFolderOf(game: GameEntity): File? {
         val folder = game.localPath?.let { File(it).parentFile }?.takeIf { it.isDirectory } ?: return null
-        val platformDir = gameRepository.getDownloadDirForPlatformId(game.platformId)
+        val platformDir = gameRepository.getDownloadDirForPlatformId(game.platformId) ?: return null
         val folderCanonical = runCatching { folder.canonicalPath }.getOrNull() ?: return null
         val platformCanonical = runCatching { platformDir.canonicalPath }.getOrNull() ?: return null
         return folder.takeIf { folderCanonical != platformCanonical }
@@ -125,7 +125,7 @@ class FilePickerFlowUseCase @Inject constructor(
                     }
                     val includeDefault = when {
                         isGame -> true
-                        key.startsWith("folder:") -> defaults[DownloadDefaults.OTHER_KEY] ?: false
+                        key.startsWith("folder:") -> DownloadDefaults.includesUncategorised(defaults, game.platformSlug)
                         else -> defaults[key] ?: false
                     }
                     files.sortedBy { it.fileName }.forEach { f ->
@@ -217,7 +217,6 @@ class FilePickerFlowUseCase @Inject constructor(
         return FilePickerSetup(rows, preselected)
     }
 
-    /** Checked-but-missing files get queued; unchecked-but-present files get deleted. Returns added to removed. */
     suspend fun applyManagedSelection(
         gameId: Long,
         rows: List<FilePickerRow>,
@@ -308,6 +307,7 @@ class FilePickerFlowUseCase @Inject constructor(
         val explicit = selectedFileIds.toList().takeIf { it.isNotEmpty() }
         when (val r = downloadGameUseCase(gameId, selectedFileIds = explicit)) {
             is DownloadResult.Queued -> queued++
+            is DownloadResult.MultiDiscQueued -> queued += r.discCount
             is DownloadResult.AlreadyDownloaded -> issues += r
             is DownloadResult.Error -> issues += r
             else -> {}

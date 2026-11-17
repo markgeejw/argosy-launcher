@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.style.TextOverflow
 import com.nendo.argosy.ui.components.InputButton
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalArgosyTheme
@@ -90,6 +91,22 @@ fun ActionButton(
 }
 
 @Composable
+fun actionButtonLabelColor(
+    focused: Boolean,
+    primary: Boolean = false,
+    accentColor: Color? = null,
+    enabled: Boolean = true,
+): Color {
+    val theme = LocalArgosyTheme.current
+    return when {
+        !enabled -> theme.textMute
+        primary -> Color.White
+        focused -> lerp(accentColor ?: theme.focusAccent, Color.White, 0.45f)
+        else -> theme.textPrimary
+    }
+}
+
+@Composable
 fun ActionButton(
     label: String,
     onClick: () -> Unit,
@@ -100,13 +117,7 @@ fun ActionButton(
     enabled: Boolean = true,
     glyph: InputButton? = null,
 ) {
-    val theme = LocalArgosyTheme.current
-    val labelColor = when {
-        !enabled -> theme.textMute
-        primary -> Color.White
-        focused -> lerp(accentColor ?: theme.focusAccent, Color.White, 0.45f)
-        else -> theme.textPrimary
-    }
+    val labelColor = actionButtonLabelColor(focused = focused, primary = primary, accentColor = accentColor, enabled = enabled)
     ActionButton(
         onClick = onClick,
         modifier = modifier,
@@ -119,6 +130,12 @@ fun ActionButton(
             InputGlyph(button = glyph, tint = labelColor)
             Spacer(modifier = Modifier.width(Dimens.spacingSm))
         }
-        Text(text = label, style = MaterialTheme.typography.titleSmall, color = labelColor, maxLines = 1)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = labelColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

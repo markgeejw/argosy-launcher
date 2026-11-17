@@ -51,6 +51,21 @@ internal class StoragePlatformGamesSectionInput(
         }
     }
 
+    override fun onPrevTrigger(): InputResult = cycleLocationFilter(-1)
+
+    override fun onNextTrigger(): InputResult = cycleLocationFilter(1)
+
+    private fun cycleLocationFilter(delta: Int): InputResult {
+        if (!viewModel.uiState.value.storagePlatformGames.showsLocationTabs) return InputResult.UNHANDLED
+        viewModel.cycleStorageLocationFilter(delta)
+        return InputResult.HANDLED
+    }
+
+    override fun onContextMenu(): InputResult {
+        viewModel.cycleStoragePlatformGamesSort()
+        return InputResult.HANDLED
+    }
+
     override fun onSecondaryAction(): InputResult {
         val game = focusedGame() ?: return InputResult.UNHANDLED
         val count = game.buckets.size

@@ -1,7 +1,7 @@
 package com.nendo.argosy.domain.usecase.game
 
+import com.nendo.argosy.data.download.DownloadManager
 import com.nendo.argosy.data.download.ZipExtractor
-import com.nendo.argosy.data.local.dao.DownloadQueueDao
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.local.dao.GameDiscDao
 import com.nendo.argosy.data.local.dao.GameFileDao
@@ -33,7 +33,7 @@ private const val TAG = "DeleteGameUseCase"
 class DeleteGameUseCase @Inject constructor(
     private val gameDao: GameDao,
     private val gameRepository: GameRepository,
-    private val downloadQueueDao: DownloadQueueDao,
+    private val downloadManager: dagger.Lazy<DownloadManager>,
     private val gameFileDao: GameFileDao,
     private val gameDiscDao: GameDiscDao,
     private val saveCacheManager: SaveCacheManager,
@@ -54,10 +54,13 @@ class DeleteGameUseCase @Inject constructor(
         }
 
         val path = game.localPath ?: return false
-        val platformFolder = gameRepository.getDownloadDirForPlatformId(game.platformId)
+        val platformFolder = gameRepository.getDownloadDirForPlatformId(game.platformId) ?: run {
+            Logger.warn(TAG, "Kept game $gameId: no game folder to check its files against")
+            return false
+        }
 
         gameRepository.clearLocalPath(gameId)
-        downloadQueueDao.deleteByGameId(gameId)
+        downloadManager.get().discardForGame(gameId)
         val musicDirPrefix = musicDirectoryManager.resolveMusicDir().absolutePath + File.separator
         val sharedAddonPaths = gameFileDao.getFilesForGame(gameId)
             .mapNotNull { it.localPath }

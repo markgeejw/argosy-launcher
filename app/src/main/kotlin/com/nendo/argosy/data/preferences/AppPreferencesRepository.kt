@@ -5,6 +5,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.nendo.argosy.domain.model.ArgosyPermission
+import com.nendo.argosy.domain.permissions.PermissionRecord
 import com.nendo.argosy.util.LogLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +19,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class AppPreferences(
-    val firstRunComplete: Boolean = false,
+    val defaultHomeDeclined: Boolean = false,
+    val setupFlowFinished: Boolean = false,
+    val setupPagesSeen: Set<String> = emptySet(),
     val betaUpdatesEnabled: Boolean = false,
+    val debugUpdateChecksEnabled: Boolean = false,
     val closeEmulatorOnSessionEnd: Boolean = false,
     val hiddenApps: Set<String> = emptySet(),
     val secondaryHomeApps: List<String> = emptyList(),
@@ -38,7 +43,12 @@ data class AppPreferences(
     val preLaunchRecapsEnabled: Boolean = true,
     val monthlyRecapEnabled: Boolean = true,
     val lastMonthlyRecapShown: YearMonth? = null,
-    val preLaunchRecapBaseline: Instant? = null
+    val preLaunchRecapBaseline: Instant? = null,
+    val notificationsEnabled: Boolean = true,
+    val notifyDownloadsFinished: Boolean = true,
+    val notifyBattery: Boolean = true,
+    val notifyCharging: Boolean = true,
+    val notifyControllers: Boolean = true
 )
 
 @Singleton
@@ -46,8 +56,13 @@ class AppPreferencesRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
     private object Keys {
-        val FIRST_RUN_COMPLETE = booleanPreferencesKey("first_run_complete")
+        val LEGACY_FIRST_RUN_COMPLETE = booleanPreferencesKey("first_run_complete")
+        val LEGACY_SETUP_MIGRATED = booleanPreferencesKey("legacy_setup_migrated")
+        val DEFAULT_HOME_DECLINED = booleanPreferencesKey("default_home_declined")
+        val SETUP_FLOW_FINISHED = booleanPreferencesKey("setup_flow_finished")
+        val SETUP_PAGES_SEEN = stringPreferencesKey("setup_pages_seen")
         val BETA_UPDATES_ENABLED = booleanPreferencesKey("beta_updates_enabled")
+        val DEBUG_UPDATE_CHECKS_ENABLED = booleanPreferencesKey("debug_update_checks_enabled")
         val CLOSE_EMULATOR_ON_SESSION_END = booleanPreferencesKey("close_emulator_on_session_end")
         val HIDDEN_APPS = stringPreferencesKey("hidden_apps")
         val SECONDARY_HOME_APPS = stringPreferencesKey("secondary_home_apps")
@@ -72,12 +87,22 @@ class AppPreferencesRepository @Inject constructor(
         val MONTHLY_RECAP_ENABLED = booleanPreferencesKey("monthly_recap_enabled")
         val LAST_MONTHLY_RECAP_SHOWN = stringPreferencesKey("last_monthly_recap_shown")
         val PRE_LAUNCH_RECAP_BASELINE = stringPreferencesKey("pre_launch_recap_baseline")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val NOTIFY_DOWNLOADS_FINISHED = booleanPreferencesKey("notify_downloads_finished")
+        val NOTIFY_BATTERY = booleanPreferencesKey("notify_battery")
+        val NOTIFY_CHARGING = booleanPreferencesKey("notify_charging")
+        val NOTIFY_CONTROLLERS = booleanPreferencesKey("notify_controllers")
+        val PERMISSIONS_ACKNOWLEDGED = stringPreferencesKey("permissions_acknowledged")
+        val PERMISSIONS_REVOCATIONS_NOTICED = stringPreferencesKey("permissions_revocations_noticed")
     }
 
     val preferences: Flow<AppPreferences> = dataStore.data.map { prefs ->
         AppPreferences(
-            firstRunComplete = prefs[Keys.FIRST_RUN_COMPLETE] ?: false,
+            defaultHomeDeclined = prefs[Keys.DEFAULT_HOME_DECLINED] ?: false,
+            setupFlowFinished = prefs[Keys.SETUP_FLOW_FINISHED] ?: false,
+            setupPagesSeen = parseTokens(prefs[Keys.SETUP_PAGES_SEEN]),
             betaUpdatesEnabled = prefs[Keys.BETA_UPDATES_ENABLED] ?: false,
+            debugUpdateChecksEnabled = prefs[Keys.DEBUG_UPDATE_CHECKS_ENABLED] ?: false,
             closeEmulatorOnSessionEnd = prefs[Keys.CLOSE_EMULATOR_ON_SESSION_END] ?: false,
             hiddenApps = prefs[Keys.HIDDEN_APPS]
                 ?.split(",")
@@ -117,16 +142,92 @@ class AppPreferencesRepository @Inject constructor(
             lastMonthlyRecapShown = prefs[Keys.LAST_MONTHLY_RECAP_SHOWN]
                 ?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
             preLaunchRecapBaseline = prefs[Keys.PRE_LAUNCH_RECAP_BASELINE]
-                ?.let { runCatching { Instant.parse(it) }.getOrNull() }
+                ?.let { runCatching { Instant.parse(it) }.getOrNull() },
+            notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true,
+            notifyDownloadsFinished = prefs[Keys.NOTIFY_DOWNLOADS_FINISHED] ?: true,
+            notifyBattery = prefs[Keys.NOTIFY_BATTERY] ?: true,
+            notifyCharging = prefs[Keys.NOTIFY_CHARGING] ?: true,
+            notifyControllers = prefs[Keys.NOTIFY_CONTROLLERS] ?: true
         )
     }.flowOn(Dispatchers.Default)
 
-    suspend fun setFirstRunComplete() {
-        dataStore.edit { it[Keys.FIRST_RUN_COMPLETE] = true }
+    suspend fun isLegacyFirstRunComplete(): Boolean =
+        dataStore.data.first()[Keys.LEGACY_FIRST_RUN_COMPLETE] ?: false
+
+    suspend fun isLegacySetupMigrated(): Boolean =
+        dataStore.data.first()[Keys.LEGACY_SETUP_MIGRATED] ?: false
+
+    suspend fun finishLegacySetupMigration(finishedBeforeUpdate: Boolean) {
+        dataStore.edit {
+            it.remove(Keys.LEGACY_FIRST_RUN_COMPLETE)
+            it[Keys.LEGACY_SETUP_MIGRATED] = true
+            if (finishedBeforeUpdate) it[Keys.SETUP_FLOW_FINISHED] = true
+        }
     }
+
+    suspend fun declineDefaultHome() {
+        dataStore.edit { it[Keys.DEFAULT_HOME_DECLINED] = true }
+    }
+
+    suspend fun finishSetupFlow() {
+        dataStore.edit { it[Keys.SETUP_FLOW_FINISHED] = true }
+    }
+
+    suspend fun markSetupPagesSeen(tokens: Set<String>) {
+        if (tokens.isEmpty()) return
+        dataStore.edit { prefs ->
+            val seen = parseTokens(prefs[Keys.SETUP_PAGES_SEEN]) + tokens
+            prefs[Keys.SETUP_PAGES_SEEN] = seen.sorted().joinToString(",")
+        }
+    }
+
+    private fun parseTokens(raw: String?): Set<String> =
+        raw?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty()
+
+    suspend fun permissionRecord(): PermissionRecord {
+        val prefs = dataStore.data.first()
+        return PermissionRecord(
+            acknowledged = prefs[Keys.PERMISSIONS_ACKNOWLEDGED]?.let(::parsePermissionTokens),
+            noticed = parsePermissionTokens(prefs[Keys.PERMISSIONS_REVOCATIONS_NOTICED])
+        )
+    }
+
+    suspend fun setPermissionRecord(record: PermissionRecord) {
+        dataStore.edit { prefs ->
+            val acknowledged = record.acknowledged
+            if (acknowledged == null) {
+                prefs.remove(Keys.PERMISSIONS_ACKNOWLEDGED)
+            } else {
+                prefs[Keys.PERMISSIONS_ACKNOWLEDGED] = acknowledged.joinToString(",") { it.token }
+            }
+            if (record.noticed.isEmpty()) {
+                prefs.remove(Keys.PERMISSIONS_REVOCATIONS_NOTICED)
+            } else {
+                prefs[Keys.PERMISSIONS_REVOCATIONS_NOTICED] = record.noticed.joinToString(",") { it.token }
+            }
+        }
+    }
+
+    /**
+     * Forgets the permission revocations already noticed and the last monthly recap shown, so
+     * both notices show again. Acknowledged permissions and every other value are kept.
+     */
+    suspend fun resetOneTimeNotices() {
+        dataStore.edit { prefs ->
+            prefs.remove(Keys.PERMISSIONS_REVOCATIONS_NOTICED)
+            prefs.remove(Keys.LAST_MONTHLY_RECAP_SHOWN)
+        }
+    }
+
+    private fun parsePermissionTokens(raw: String?): Set<ArgosyPermission> =
+        raw?.split(",")?.mapNotNull { ArgosyPermission.fromToken(it.trim()) }?.toSet().orEmpty()
 
     suspend fun setBetaUpdatesEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.BETA_UPDATES_ENABLED] = enabled }
+    }
+
+    suspend fun setDebugUpdateChecksEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.DEBUG_UPDATE_CHECKS_ENABLED] = enabled }
     }
 
     suspend fun setCloseEmulatorOnSessionEnd(enabled: Boolean) {
@@ -285,6 +386,26 @@ class AppPreferencesRepository @Inject constructor(
 
     suspend fun setMonthlyRecapEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.MONTHLY_RECAP_ENABLED] = enabled }
+    }
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled }
+    }
+
+    suspend fun setNotifyDownloadsFinished(enabled: Boolean) {
+        dataStore.edit { it[Keys.NOTIFY_DOWNLOADS_FINISHED] = enabled }
+    }
+
+    suspend fun setNotifyBattery(enabled: Boolean) {
+        dataStore.edit { it[Keys.NOTIFY_BATTERY] = enabled }
+    }
+
+    suspend fun setNotifyCharging(enabled: Boolean) {
+        dataStore.edit { it[Keys.NOTIFY_CHARGING] = enabled }
+    }
+
+    suspend fun setNotifyControllers(enabled: Boolean) {
+        dataStore.edit { it[Keys.NOTIFY_CONTROLLERS] = enabled }
     }
 
     suspend fun setLastMonthlyRecapShown(month: YearMonth) {

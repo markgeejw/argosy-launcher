@@ -31,6 +31,7 @@
     <string name="dual_dashboard_state_just_now">Только что</string>
     <string name="dual_dashboard_state_latest">Новое</string>
     <string name="dual_dashboard_total_play">всего %1$s</string>
+    <string name="dual_dashboard_session_play">%1$s за этот сеанс</string>
     <string name="dual_dashboard_manual_resume">Продолжить со страницы %1$d</string>
     <string name="dual_dashboard_guide_progress">Прочитано %1$d%%</string>
     <string name="dual_dashboard_document_open">Открыть</string>
@@ -149,6 +150,7 @@
     <string name="dual_media_episodes_empty_title">Здесь пока нет эпизодов</string>
 
     <string name="dual_media_cast_header">В ролях</string>
+    <string name="dual_media_related_header">Похожие</string>
     <string name="dual_media_browse_back_description">Назад</string>
     <plurals name="dual_media_browse_episode_count">
         <item quantity="one">%d эпизод</item>
@@ -466,6 +468,10 @@
     <string name="dual_detail_option_write_review">Написать отзыв</string>
     <string name="dual_showcase_progress_main">%1$s из %2$s основного сюжета</string>
     <string name="dual_showcase_played">Сыграно %1$s</string>
+    <string name="dual_showcase_running">Запущена</string>
+    <string name="dual_showcase_running_in">Запущена в %1$s</string>
+    <string name="dual_showcase_saving">Сохранение</string>
+    <string name="dual_showcase_running_with_time">В игре %1$s</string>
     <string name="dual_showcase_journey_header">Ваш прогресс</string>
     <string name="dual_showcase_journey_main">Основной сюжет %1$s</string>
     <string name="dual_showcase_completionist">Полное прохождение %1$s</string>

@@ -57,6 +57,7 @@ object Dimens {
     val mediaSimilarTileHeight: Dp @Composable get() = DimensionTokens.Layout.mediaSimilarTileHeight.dp * scale
     val mediaMenuRailWidth: Dp @Composable get() = DimensionTokens.Layout.mediaMenuRailWidth.dp * scale
     val searchResultArtwork: Dp @Composable get() = DimensionTokens.Layout.searchResultArtwork.dp * scale
+    val searchPreviewCoverHeight: Dp @Composable get() = DimensionTokens.Layout.searchPreviewCoverHeight.dp * scale
     val saveSyncRowCover: Dp @Composable get() = DimensionTokens.Layout.saveSyncRowCover.dp * scale
     val saveSyncAttentionCover: Dp @Composable get() = DimensionTokens.Layout.saveSyncAttentionCover.dp * scale
     val screenMapCardWidth: Dp @Composable get() =DimensionTokens.Layout.screenMapCardWidth.dp * scale
@@ -76,7 +77,12 @@ object Dimens {
     val saveTimelineFloaterWidth: Dp @Composable get() = DimensionTokens.Layout.saveTimelineFloaterWidth.dp * scale
     val saveTimelineFloaterThumb: Dp @Composable get() = DimensionTokens.Layout.saveTimelineFloaterThumb.dp * scale
     val saveTimelineHeaderCover: Dp @Composable get() = DimensionTokens.Layout.saveTimelineHeaderCover.dp * scale
-    val saveTimelineBackdropBlur: Dp @Composable get() = DimensionTokens.Layout.saveTimelineBackdropBlur.dp
+    val gameArtBackdropBlur: Dp @Composable get() = DimensionTokens.Layout.gameArtBackdropBlur.dp
+    val runningCardCaptionHeight: Dp @Composable get() = DimensionTokens.Layout.runningCardCaptionHeight.dp * scale
+    val runningRaBarWidth: Dp @Composable get() = DimensionTokens.Layout.runningRaBarWidth.dp * scale
+    val runningFriendAvatar: Dp @Composable get() = DimensionTokens.Layout.runningFriendAvatar.dp * scale
+    val runningCartridgeWidth: Dp @Composable get() = DimensionTokens.Layout.runningCartridgeWidth.dp * scale
+    val runningCartridgeHeight: Dp @Composable get() = DimensionTokens.Layout.runningCartridgeHeight.dp * scale
     val dotSm: Dp @Composable get() = DimensionTokens.Dot.sm.dp * scale
     val dotLg: Dp @Composable get() = DimensionTokens.Dot.lg.dp * scale
     val avatarXs: Dp @Composable get() = DimensionTokens.Avatar.xs.dp * scale

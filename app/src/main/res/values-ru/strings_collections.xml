@@ -28,6 +28,8 @@
     <string name="collections_options_rename">Переименовать коллекцию</string>
     <string name="collections_options_delete">Удалить коллекцию</string>
     <string name="collections_options_remove_game">Убрать \"%1$s\"</string>
+    <string name="collections_options_move_to_display">Перенести на дисплей %1$d</string>
+    <string name="collections_options_close_game">Закрыть игру</string>
     <string name="collections_options_remove_game_fallback">Игра</string>
 
     <string name="collections_delete_dialog_title">Удалить коллекцию</string>
@@ -64,6 +66,7 @@
     <string name="collections_detail_loading">Загрузка…</string>
     <string name="collections_detail_hint_search_open">Открыть</string>
     <string name="collections_detail_hint_search_close">Закрыть поиск</string>
+    <string name="collections_detail_keyboard_submit">Найти</string>
     <string name="collections_detail_hint_navigate">Навигация</string>
     <string name="collections_detail_hint_open">Открыть</string>
     <string name="collections_detail_hint_back">Назад</string>
@@ -94,6 +97,7 @@
     <string name="collections_browser_loading">Загрузка…</string>
     <string name="collections_browser_hint_search_select">Выбрать</string>
     <string name="collections_browser_hint_search_close">Закрыть поиск</string>
+    <string name="collections_browser_keyboard_submit">Найти</string>
     <string name="collections_browser_hint_navigate">Навигация</string>
     <string name="collections_browser_hint_select">Выбрать</string>
     <string name="collections_browser_hint_back">Назад</string>
@@ -126,6 +130,7 @@
     <string name="collections_category_loading">Загрузка…</string>
     <string name="collections_category_hint_search_open">Открыть</string>
     <string name="collections_category_hint_search_close">Закрыть поиск</string>
+    <string name="collections_category_keyboard_submit">Найти</string>
     <string name="collections_category_hint_navigate">Навигация</string>
     <string name="collections_category_hint_open">Открыть</string>
     <string name="collections_category_hint_back">Назад</string>
@@ -136,9 +141,9 @@
     <string name="collections_category_hint_refreshing">Обновление…</string>
     <string name="collections_category_hint_refresh">Обновить</string>
     <string name="collections_category_hint_swap_screens">Поменять экраны</string>
-    <string name="collections_category_hint_open_hold_download_all">Открыть, удерживайте, чтобы скачать всё (%1$d)</string>
-    <string name="collections_category_hint_download_all">Скачать всё (%1$d)</string>
-    <string name="collections_category_hint_download_all_hold_swap_screens">Скачать всё (%1$d), удерживайте, чтобы поменять экраны</string>
+    <string name="collections_category_hint_open_hold_options">Открыть, удерживайте для параметров</string>
+    <string name="collections_category_hint_options">Параметры</string>
+    <string name="collections_category_hint_options_hold_swap_screens">Параметры, удерживайте, чтобы поменять экраны</string>
     <string name="collections_category_hint_hold_swap_screens">Удерживайте, чтобы поменять экраны</string>
     <string name="collections_category_downloadall_confirm_title">Скачать все игры?</string>
     <plurals name="collections_category_downloadall_confirm_message">
@@ -195,6 +200,10 @@
     <string name="downloads_file_state_queued">В очереди</string>
     <string name="downloads_file_state_percent">%1$d%%</string>
     <string name="downloads_file_state_waiting_for_server">Ожидание сервера…</string>
+    <string name="downloads_file_state_retrying">Повторная попытка…</string>
+    <string name="downloads_file_state_waiting_for_network">Ожидание сети…</string>
+    <string name="downloads_item_status_retrying">Повторная попытка…</string>
+    <string name="downloads_item_status_waiting_for_network">Ожидание сети…</string>
     <string name="downloads_item_status_moving">Перемещение в хранилище ROM…</string>
     <string name="downloads_item_status_extracting_fallback">Распаковка…</string>
     <string name="downloads_item_status_waiting_for_server">Ожидание сервера…</string>

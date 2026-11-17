@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nendo.argosy.ui.input.ModalPresenceEffect
 import com.nendo.argosy.ui.theme.Dimens
+import com.nendo.argosy.ui.theme.generated.DimensionTokens
 import com.nendo.argosy.ui.theme.LocalLauncherTheme
 import com.nendo.argosy.ui.theme.LocalUiScale
 
@@ -60,7 +62,7 @@ fun Modal(
             .clickableNoFocus(onClick = onDismiss ?: {}),
         contentAlignment = Alignment.Center
     ) {
-        val modalWidth = (baseWidth * scale).coerceIn(280.dp, maxWidth * 0.9f)
+        val modalWidth = modalWidth(baseWidth * scale, maxWidth)
         val modalMaxHeight = maxHeight * 0.85f
 
         Column(
@@ -104,11 +106,13 @@ fun Modal(
                 if (inlineFooterHints) {
                     val shown = footerHints.filterNot { isObviousHint(it.first) }
                     if (shown.isNotEmpty()) {
-                        FooterBarWithState(
-                            hints = shown.map { FooterHintItem(it.first, it.second) },
-                            onHintClick = onFooterHintClick,
-                            forceVisible = true
-                        )
+                        CompositionLocalProvider(LocalFrostedBackdrop provides null) {
+                            FooterBarWithState(
+                                hints = shown.map { FooterHintItem(it.first, it.second) },
+                                onHintClick = onFooterHintClick,
+                                forceVisible = true
+                            )
+                        }
                     }
                 } else {
                     FooterHints(hints = footerHints, onHintClick = onFooterHintClick)
@@ -140,7 +144,7 @@ fun CenteredModal(
             .clickableNoFocus(onClick = onDismiss ?: {}),
         contentAlignment = Alignment.Center
     ) {
-        val modalWidth = (baseWidth * scale).coerceIn(280.dp, maxWidth * 0.9f)
+        val modalWidth = modalWidth(baseWidth * scale, maxWidth)
 
         Column(
             modifier = modifier
@@ -167,6 +171,11 @@ fun CenteredModal(
             }
         }
     }
+}
+
+internal fun modalWidth(scaledWidth: Dp, available: Dp): Dp {
+    val ceiling = available * 0.9f
+    return scaledWidth.coerceIn(minOf(DimensionTokens.Layout.modalWidthMin.dp, ceiling), ceiling)
 }
 
 @Composable
@@ -217,7 +226,7 @@ fun NestedModal(
             .clickableNoFocus(onClick = onDismiss ?: {}),
         contentAlignment = Alignment.Center
     ) {
-        val modalWidth = (baseWidth * scale).coerceIn(280.dp, maxWidth * 0.9f)
+        val modalWidth = modalWidth(baseWidth * scale, maxWidth)
 
         Column(
             modifier = modifier

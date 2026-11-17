@@ -39,6 +39,7 @@ class BuiltinEmulatorPreferencesRepository @Inject constructor(
         val BUILTIN_GYRO_AIM_SENSITIVITY = intPreferencesKey("builtin_gyro_aim_sensitivity")
         val BUILTIN_BLACK_FRAME_INSERTION = booleanPreferencesKey("builtin_black_frame_insertion")
         val BUILTIN_LIMIT_HOTKEYS_TO_PLAYER1 = booleanPreferencesKey("builtin_limit_hotkeys_to_player1")
+        val BUILTIN_CONFIRM_RETURN_HOME = booleanPreferencesKey("builtin_confirm_return_home")
         val BUILTIN_ANALOG_AS_DPAD = booleanPreferencesKey("builtin_analog_as_dpad")
         val BUILTIN_DPAD_AS_ANALOG = booleanPreferencesKey("builtin_dpad_as_analog")
         val BUILTIN_CORE_SELECTIONS = stringPreferencesKey("builtin_core_selections")
@@ -65,6 +66,8 @@ class BuiltinEmulatorPreferencesRepository @Inject constructor(
         val BUILTIN_CUSTOM_STATE_PATH = stringPreferencesKey("builtin_custom_state_path")
         val BUILTIN_MIGRATION_V1 = booleanPreferencesKey("builtin_migration_v2")
         val BUILTIN_PS2_STANDALONE_PIN_DONE = booleanPreferencesKey("builtin_ps2_standalone_pin_done")
+        val BUILTIN_PRIORITY_PIN_DONE = booleanPreferencesKey("builtin_priority_pin_done")
+        val BUILTIN_MIC_PERMISSION_ASKED = booleanPreferencesKey("builtin_mic_permission_asked")
         val BUILTIN_ARCHITECTURE_OVERRIDE = stringPreferencesKey("builtin_architecture_override")
         val BUILTIN_GPU_DRIVER = stringPreferencesKey("builtin_gpu_driver")
         val TOUCH_SHOW_WHEN_NO_GAMEPAD = booleanPreferencesKey("builtin_touch_show_when_no_gamepad")
@@ -114,6 +117,7 @@ class BuiltinEmulatorPreferencesRepository @Inject constructor(
             blackFrameInsertion = prefs[Keys.BUILTIN_BLACK_FRAME_INSERTION] ?: false,
             framesEnabled = prefs[Keys.BUILTIN_FRAMES_ENABLED] ?: false,
             limitHotkeysToPlayer1 = prefs[Keys.BUILTIN_LIMIT_HOTKEYS_TO_PLAYER1] ?: true,
+            confirmReturnHome = prefs[Keys.BUILTIN_CONFIRM_RETURN_HOME] ?: true,
             analogAsDpad = prefs[Keys.BUILTIN_ANALOG_AS_DPAD] ?: false,
             dpadAsAnalog = prefs[Keys.BUILTIN_DPAD_AS_ANALOG] ?: false,
             audioVolume = prefs[Keys.BUILTIN_AUDIO_VOLUME] ?: 100,
@@ -259,6 +263,10 @@ class BuiltinEmulatorPreferencesRepository @Inject constructor(
         dataStore.edit { it[Keys.BUILTIN_LIMIT_HOTKEYS_TO_PLAYER1] = enabled }
     }
 
+    suspend fun setBuiltinConfirmReturnHome(enabled: Boolean) {
+        dataStore.edit { it[Keys.BUILTIN_CONFIRM_RETURN_HOME] = enabled }
+    }
+
     suspend fun setBuiltinAnalogAsDpad(enabled: Boolean) {
         dataStore.edit { it[Keys.BUILTIN_ANALOG_AS_DPAD] = enabled }
     }
@@ -394,6 +402,22 @@ class BuiltinEmulatorPreferencesRepository @Inject constructor(
 
     suspend fun setPs2StandalonePinDone() {
         dataStore.edit { it[Keys.BUILTIN_PS2_STANDALONE_PIN_DONE] = true }
+    }
+
+    fun isBuiltinPriorityPinDone(): Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[Keys.BUILTIN_PRIORITY_PIN_DONE] ?: false
+    }
+
+    suspend fun setBuiltinPriorityPinDone() {
+        dataStore.edit { it[Keys.BUILTIN_PRIORITY_PIN_DONE] = true }
+    }
+
+    fun isBuiltinMicPermissionAsked(): Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[Keys.BUILTIN_MIC_PERMISSION_ASKED] ?: false
+    }
+
+    suspend fun setBuiltinMicPermissionAsked() {
+        dataStore.edit { it[Keys.BUILTIN_MIC_PERMISSION_ASKED] = true }
     }
 
     suspend fun setTouchControlsShowWhenNoGamepad(enabled: Boolean) {

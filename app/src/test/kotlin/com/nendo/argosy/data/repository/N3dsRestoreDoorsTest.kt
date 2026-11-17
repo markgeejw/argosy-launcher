@@ -75,7 +75,8 @@ class N3dsRestoreDoorsTest {
             context = context, fal = fal, saveArchiver = archiver,
             switchSaveHandler = mockk(relaxed = true), gciSaveHandler = mockk(relaxed = true),
             retroArchSaveHandler = mockk(relaxed = true), dreamcastSaveHandler = mockk(relaxed = true),
-            defaultSaveHandler = mockk(relaxed = true), unitSaveHandler = mockk(relaxed = true), sigilSaveHandler = sigil
+            defaultSaveHandler = mockk(relaxed = true), unitSaveHandler = mockk(relaxed = true), sigilSaveHandler = sigil,
+            emulatorSaveConfigRepository = mockk(relaxed = true)
         )
         client = spyk(SaveSyncApiClient(
             saveSyncDao = sync, emulatorConfigDao = mockk(relaxed = true), emulatorResolver = mockk(relaxed = true),

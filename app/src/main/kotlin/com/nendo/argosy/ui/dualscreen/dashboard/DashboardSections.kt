@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
@@ -48,6 +49,8 @@ import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.nendo.argosy.R
 import com.nendo.argosy.ui.common.ScreenshotImage
+import com.nendo.argosy.ui.components.runPlayTimeText
+import com.nendo.argosy.ui.components.showsRunPlayTime
 import com.nendo.argosy.ui.common.rememberFileImageModel
 import com.nendo.argosy.ui.dualscreen.COVER_ASPECT
 import com.nendo.argosy.ui.screens.gamedetail.components.AchievementList
@@ -61,6 +64,7 @@ import com.nendo.argosy.ui.util.verticalEdgeFade
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import java.io.File
+import kotlinx.coroutines.delay
 
 private val SESSION_COVER_WIDTH = DimensionTokens.Layout.companionSessionCoverWidth.dp
 private const val STATE_THUMB_ASPECT = 4f / 3f
@@ -120,6 +124,7 @@ internal fun StatesSection(content: DashboardContent, wide: Boolean) {
             return@Column
         }
         var armed by remember { mutableStateOf(ArmedState()) }
+        ClearAt(armed.until) { armed = ArmedState() }
         val gridState = rememberLazyGridState()
         LazyVerticalGrid(
             state = gridState,
@@ -240,15 +245,23 @@ private fun SessionHeader(content: DashboardContent, showsCover: Boolean) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
-                text = formatClock(content.sessionMillis),
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = theme.textPrimary,
-                maxLines = 1,
-                softWrap = false
-            )
             SessionStatusLine(content)
+            val sessionMinutes = (content.sessionMillis / 60_000).toInt()
+            Text(
+                text = stringResource(
+                    R.string.dual_dashboard_total_play,
+                    playTimeLabel(state.playTimeMinutes + sessionMinutes)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.textDim
+            )
+            if (showsRunPlayTime(content.sessionMillis)) {
+                Text(
+                    text = stringResource(R.string.dual_dashboard_session_play, runPlayTimeText(content.sessionMillis)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textDim
+                )
+            }
         }
         HeaderActions(content, Modifier.weight(HEADER_ACTIONS_WEIGHT))
     }
@@ -295,14 +308,6 @@ private fun SessionStatusLine(content: DashboardContent) {
             style = MaterialTheme.typography.bodySmall,
             color = theme.textDim
         )
-        Text(
-            text = stringResource(
-                R.string.dual_dashboard_total_play,
-                playTimeLabel(state.playTimeMinutes + (content.sessionMillis / 60_000).toInt())
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = theme.textDim
-        )
     }
 }
 
@@ -311,7 +316,7 @@ private fun ActionRow(content: DashboardContent) {
     if (!content.state.quickActionsAvailable) return
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
         if (content.statesAllowed) SaveButton(content, Modifier.weight(1f))
-        ScreenshotButton(content, Modifier.weight(1f))
+        if (content.controls.screenshotAvailable) ScreenshotButton(content, Modifier.weight(1f))
     }
 }
 
@@ -320,7 +325,7 @@ private fun HeaderActions(content: DashboardContent, modifier: Modifier) {
     if (!content.state.quickActionsAvailable) return
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
         if (content.statesAllowed) SaveButton(content, Modifier.fillMaxWidth())
-        ScreenshotButton(content, Modifier.fillMaxWidth())
+        if (content.controls.screenshotAvailable) ScreenshotButton(content, Modifier.fillMaxWidth())
     }
 }
 
@@ -331,6 +336,7 @@ private fun RecentStates(content: DashboardContent) {
     if (recent.isEmpty()) return
     val theme = LocalArgosyTheme.current
     var armed by remember { mutableStateOf(ArmedState()) }
+    ClearAt(armed.until) { armed = ArmedState() }
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
         Row {
             Text(
@@ -677,9 +683,13 @@ private data class ArmedState(val slotNumber: Int = -1, val until: Long = 0L) {
 private fun DashboardContent.achievementFraction(): Float =
     if (achievementTotal > 0) achievementEarned.toFloat() / achievementTotal else 0f
 
-private fun formatClock(millis: Long): String {
-    val totalSeconds = millis / 1000
-    return "%d:%02d:%02d".format(totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60)
-}
-
 private fun now(): Long = android.os.SystemClock.elapsedRealtime()
+
+@Composable
+internal fun ClearAt(until: Long, onExpired: () -> Unit) {
+    LaunchedEffect(until) {
+        if (until <= 0L) return@LaunchedEffect
+        delay((until - now()).coerceAtLeast(0L))
+        onExpired()
+    }
+}

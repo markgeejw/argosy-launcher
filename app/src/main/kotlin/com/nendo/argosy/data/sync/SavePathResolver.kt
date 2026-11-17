@@ -4,6 +4,7 @@ import com.nendo.argosy.data.sync.platform.SaveAccessException
 import android.content.Context
 import com.nendo.argosy.data.emulator.EmulatorRegistry
 import com.nendo.argosy.data.emulator.RetroArchConfigParser
+import com.nendo.argosy.data.emulator.RetroArchPathResolver
 import com.nendo.argosy.data.emulator.SavePathConfig
 import com.nendo.argosy.data.emulator.SavePathRegistry
 import com.nendo.argosy.data.emulator.SwitchTitleIds
@@ -13,6 +14,7 @@ import com.nendo.argosy.data.local.dao.EmulatorSaveConfigDao
 import com.nendo.argosy.data.local.dao.GameDao
 import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.data.storage.FileAccessLayer
+import com.nendo.argosy.data.sync.platform.EmulatorSaveRoots
 import com.nendo.argosy.data.sync.platform.GciSaveHandler
 import com.nendo.argosy.data.sync.platform.PlatformSaveHandlerRegistry
 import com.nendo.argosy.data.sync.platform.SigilCollect
@@ -63,8 +65,15 @@ class SavePathResolver @Inject constructor(
     private val saveHandlerRegistry: PlatformSaveHandlerRegistry,
     private val libretroSavePathResolver: com.nendo.argosy.data.emulator.LibretroSavePathResolver,
     private val saveUnitResolver: SaveUnitResolver,
-    private val builtinSaveBase: com.nendo.argosy.data.emulator.BuiltinSaveBase
+    private val builtinSaveBase: com.nendo.argosy.data.emulator.BuiltinSaveBase,
+    private val duckStationCardFinder: DuckStationCardFinder
 ) {
+    private val pcsx2Cards = Pcsx2LegacyCards(
+        fal,
+        emulatorSaveConfigRepository,
+        EmulatorSaveRoots(context, fal, emulatorSaveConfigRepository)
+    )
+
     suspend fun discoverSavePath(
         emulatorId: String,
         gameTitle: String,
@@ -175,6 +184,7 @@ class SavePathResolver @Inject constructor(
         val candidates = buildList {
             perGameSaveDir(gameId, config, platformSlug)?.let { add(it) }
             besideRomDir(config, romPath, platformSlug)?.let { add(it) }
+            pcsx2Cards.baseFor(config, platformSlug, emulatorPackage)?.let { add(it.cardsDir) }
             userBaseOverride(effectiveEmulatorId, platformSlug)?.let { add(it) }
             gameId?.let { emulatorConfigDao.getSelectedMemcardForGame(it) }?.let { add(it) }
             userConfig?.selectedMemcardPath?.let { add(it) }
@@ -189,7 +199,7 @@ class SavePathResolver @Inject constructor(
                     else retroArchPathResolver.resolveSaveDirectoriesForPlatform(req, platformSlug)
                 )
             } else if (config.usesFolderBasedSaves) {
-                addAll(resolveFolderBasePaths(config, emulatorPackage, gameId))
+                addAll(resolveFolderBasePaths(config, emulatorPackage, gameId, platformSlug, romPath))
             } else {
                 addAll(resolveSavePaths(config, platformSlug, gameId, emulatorPackage))
             }
@@ -290,7 +300,7 @@ class SavePathResolver @Inject constructor(
                 return@withContext null
             }
             onDecision("perGame+title", null, perGameDir)
-            return@withContext findSaveInPath(perGameDir, gameTitle, config.saveExtensions)
+            return@withContext findSaveInPath(perGameDir, gameTitle, config.saveExtensions, allowsFuzzyTitle(platformSlug, emulatorId))
         }
 
         val effectiveEmulatorId = config.emulatorId
@@ -298,7 +308,10 @@ class SavePathResolver @Inject constructor(
         val isRetroArch =
             com.nendo.argosy.data.emulator.RetroArchPathResolver.isRetroArch(effectiveEmulatorId)
         val besideRomBaseDir = besideRomDir(config, romPath, platformSlug)
-        val overrideBaseDir = besideRomBaseDir ?: userBaseOverride(effectiveEmulatorId, platformSlug)
+        val pcsx2Base = if (besideRomBaseDir == null) pcsx2Cards.baseFor(config, platformSlug, emulatorPackage) else null
+        val overrideBaseDir = besideRomBaseDir
+            ?: pcsx2Base?.cardsDir
+            ?: userBaseOverride(effectiveEmulatorId, platformSlug)
         val savePathOverrideForLog = overrideBaseDir
         val effectiveMemcard =
             (gameId?.let { emulatorConfigDao.getSelectedMemcardForGame(it) } ?: userConfig?.selectedMemcardPath)
@@ -316,7 +329,8 @@ class SavePathResolver @Inject constructor(
                     gameId = gameId,
                     gameTitle = gameTitle,
                     basePathOverride = overrideBaseDir,
-                    selectedMemcardPath = effectiveMemcard
+                    selectedMemcardPath = effectiveMemcard,
+                    activeCard = pcsx2Base?.activeCard
                 )
             }
             if (config.usesGciFormat && romPath != null) {
@@ -343,7 +357,7 @@ class SavePathResolver @Inject constructor(
                 return@withContext null
             }
             onDecision("override+title", selectedMemcardForLog, savePathOverrideForLog)
-            return@withContext findSaveInPath(overrideBaseDir, gameTitle, config.saveExtensions)
+            return@withContext findSaveInPath(overrideBaseDir, gameTitle, config.saveExtensions, allowsFuzzyTitle(platformSlug, emulatorId))
         }
 
         if (config.usesFolderBasedSaves && (romPath != null || cachedSaveId != null)) {
@@ -370,7 +384,7 @@ class SavePathResolver @Inject constructor(
         }
 
         if (platformSlug == "psx" && romPath != null && emulatorId == DUCKSTATION_EMULATOR_ID) {
-            val psxSave = discoverPSXSavePath(config, romPath, emulatorPackage)
+            val psxSave = discoverPSXSavePath(config, romPath, emulatorPackage, gameId)
             if (psxSave != null) {
                 Logger.debug(TAG, "discoverSavePath: PSX save found at $psxSave")
                 onDecision("psx", selectedMemcardForLog, savePathOverrideForLog)
@@ -415,7 +429,7 @@ class SavePathResolver @Inject constructor(
         }
 
         for (basePath in paths) {
-            val saveFile = findSaveInPath(basePath, gameTitle, config.saveExtensions)
+            val saveFile = findSaveInPath(basePath, gameTitle, config.saveExtensions, allowsFuzzyTitle(platformSlug, emulatorId))
             if (saveFile != null) {
                 Logger.debug(TAG, "discoverSavePath: found save at $saveFile")
                 onDecision("byTitle", selectedMemcardForLog, savePathOverrideForLog)
@@ -438,6 +452,7 @@ class SavePathResolver @Inject constructor(
         gameTitle: String? = null,
         basePathOverride: String? = null,
         selectedMemcardPath: String? = null,
+        activeCard: String? = null,
         allowCacheRefresh: Boolean = true
     ): String? {
         val romFile = romPath?.let { File(it) }
@@ -455,13 +470,14 @@ class SavePathResolver @Inject constructor(
             }
             listOf(effectivePath)
         } else {
-            resolveFolderBasePaths(config, emulatorPackage, gameId)
+            resolveFolderBasePaths(config, emulatorPackage, gameId, platformSlug, romPath)
         }
-        val resolvedPaths = if (selectedMemcardPath != null && platformSlug == "ps2") {
-            listOf(selectedMemcardPath) + baseList.filterNot { it == selectedMemcardPath }
+        val leadingCards = if (platformSlug == "ps2") {
+            listOfNotNull(selectedMemcardPath, activeCard?.takeIf { directoryExists(it) }).distinct()
         } else {
-            baseList
+            emptyList()
         }
+        val resolvedPaths = leadingCards + baseList.filterNot { it in leadingCards }
         val triedTitleIds = mutableSetOf<String>()
         val isSwitchPlatform = platformSlug == "switch"
 
@@ -596,21 +612,28 @@ class SavePathResolver @Inject constructor(
         return null
     }
 
-    private fun discoverPSXSavePath(
+    private suspend fun discoverPSXSavePath(
         config: SavePathConfig,
         romPath: String,
-        emulatorPackage: String?
+        emulatorPackage: String?,
+        gameId: Long?
     ): String? {
         val romNameNoExt = File(romPath).nameWithoutExtension
         val resolvedPaths = SavePathRegistry.resolvePathWithPackage(config, emulatorPackage, context.filesDir.absolutePath, fal.externalStorageRoots())
+        val existingFolders = resolvedPaths.filter { fal.exists(it) && fal.isDirectory(it) }
 
-        for (basePath in resolvedPaths) {
-            if (!fal.exists(basePath) || !fal.isDirectory(basePath)) continue
+        for (basePath in existingFolders) {
             val mcdPath = "$basePath/${romNameNoExt}_1.mcd"
             if (fal.exists(mcdPath) && fal.isFile(mcdPath)) {
                 Logger.debug(TAG, "[SaveSync] DISCOVER | PSX memcard found | path=$mcdPath")
                 return mcdPath
             }
+        }
+
+        val owned = gameId?.let { duckStationCardFinder.ownedCard(it, existingFolders) }
+        if (owned != null) {
+            Logger.debug(TAG, "[SaveSync] DISCOVER | PSX memcard found by the serial its saves carry | path=$owned")
+            return owned
         }
 
         Logger.debug(TAG, "[SaveSync] DISCOVER | PSX memcard not found | rom=$romNameNoExt")
@@ -826,16 +849,41 @@ class SavePathResolver @Inject constructor(
     private suspend fun resolveFolderBasePaths(
         config: SavePathConfig,
         emulatorPackage: String?,
-        gameId: Long?
-    ): List<String> = SavePathRegistry.resolvePathWithPackage(
-        config,
-        emulatorPackage,
-        context.filesDir.absolutePath,
-        fal.externalStorageRoots(),
-        builtinSavesDir(config, gameId)
-    )
+        gameId: Long?,
+        platformSlug: String,
+        romPath: String?
+    ): List<String> = (
+        retroArchFolderBases(config, platformSlug, romPath) +
+            SavePathRegistry.resolvePathWithPackage(
+                config,
+                emulatorPackage,
+                context.filesDir.absolutePath,
+                fal.externalStorageRoots(),
+                builtinSavesDir(config, gameId)
+            )
+        ).distinct()
 
-    private fun findSaveInPath(basePath: String, gameTitle: String, extensions: List<String>): String? {
+    private suspend fun retroArchFolderBases(
+        config: SavePathConfig,
+        platformSlug: String,
+        romPath: String?
+    ): List<String> {
+        val subpath = config.retroArchCoreSubpath ?: return emptyList()
+        val retroArchId = RetroArchPathResolver.emulatorIdOfConfig(config.emulatorId) ?: return emptyList()
+        val request = RetroArchPathResolver.Request(emulatorId = retroArchId, coreName = null, romPath = romPath)
+        return retroArchPathResolver.resolveSaveDirectoriesForPlatform(request, platformSlug)
+            .map { "${it.trimEnd('/')}/$subpath" }
+    }
+
+    private fun allowsFuzzyTitle(platformSlug: String, emulatorId: String): Boolean =
+        !(platformSlug == "psx" && emulatorId == DUCKSTATION_EMULATOR_ID)
+
+    private fun findSaveInPath(
+        basePath: String,
+        gameTitle: String,
+        extensions: List<String>,
+        fuzzyTitleMatch: Boolean
+    ): String? {
         if (!fal.exists(basePath) || !fal.isDirectory(basePath)) {
             Logger.verbose(TAG) { "findSaveInPath: dir does not exist: $basePath" }
             return null
@@ -868,7 +916,9 @@ class SavePathResolver @Inject constructor(
                 return file.path
             }
 
-            if (normalizedGameTitle.contains(fileBaseName) || fileBaseName.contains(normalizedGameTitle)) {
+            if (fuzzyTitleMatch &&
+                (normalizedGameTitle.contains(fileBaseName) || fileBaseName.contains(normalizedGameTitle))
+            ) {
                 Logger.debug(TAG, "findSaveInPath: fuzzy match ${file.path}")
                 return file.path
             }
@@ -945,6 +995,16 @@ class SavePathResolver @Inject constructor(
         }
 
         val besideRomDir = besideRomDir(config, romPath, platformSlug)
+        val pcsx2Base = if (besideRomDir == null && (folderShaped ?: config.usesFolderBasedSaves) && cachedSaveId != null) {
+            pcsx2Cards.baseFor(config, platformSlug, emulatorPackage)
+        } else {
+            null
+        }
+        if (pcsx2Base != null && cachedSaveId != null) {
+            val selected = selectedMemcard(gameId, config.emulatorId)
+            return pcsx2Cards.targetCard(pcsx2Base, selected, cachedSaveId, saveHandlerRegistry.getFolderHandler(platformSlug))
+                ?.also { saveArchiver.getFileForPath(it).mkdirs() }
+        }
         val overridePath = besideRomDir ?: userBaseOverride(config.emulatorId, platformSlug)
         val baseDir = if (overridePath != null) {
             if (directoryExists(overridePath) || saveArchiver.getFileForPath(overridePath).mkdirs()) {
@@ -1078,17 +1138,21 @@ class SavePathResolver @Inject constructor(
             (emulatorConfigDao.getSelectedMemcardForGame(gameId) ?: userConfig?.selectedMemcardPath)
                 ?.takeIf { directoryExists(it) }
 
-        val baseDir = if (platformSlug == "switch") {
+        val pcsx2Base = if (platformSlug == "switch") null else pcsx2Cards.baseFor(config, platformSlug, emulatorPackage)
+        val baseDir = (if (platformSlug == "switch") {
             switchSaveHandler.resolveBasePath(config, basePathOverride, emulatorPackage)
+        } else if (pcsx2Base != null) {
+            selectedMemcard ?: pcsx2Base.cardsDir
         } else {
-            val packaged = resolveFolderBasePaths(config, emulatorPackage, gameId)
+            val folderHandler = saveHandlerRegistry.getFolderHandler(platformSlug)
+            val packaged = resolveFolderBasePaths(config, emulatorPackage, gameId, platformSlug, romPath)
             selectedMemcard
-                ?: saveHandlerRegistry.getFolderHandler(platformSlug)
-                    ?.resolveBasePath(config, basePathOverride)
-                ?: basePathOverride
+                ?: basePathOverride?.let { folderHandler?.resolveBasePath(config, it) ?: it }
+                ?: retroArchFolderBases(config, platformSlug, romPath).firstOrNull { directoryExists(it) }
+                ?: folderHandler?.resolveBasePath(config, null)
                 ?: packaged.firstOrNull { directoryExists(it) }
                 ?: packaged.firstOrNull()
-        } ?: return null
+        }) ?: return null
 
         if (!directoryExists(baseDir)) {
             Logger.debug(TAG, "[SaveSync] CONSTRUCT | Base dir does not exist | path=$baseDir")
@@ -1109,9 +1173,41 @@ class SavePathResolver @Inject constructor(
         if (platformSlug == "switch") {
             return switchSaveHandler.constructSavePath(baseDir, titleId, emulatorPackage)
         }
-        return saveHandlerRegistry.getFolderHandler(platformSlug)
-            ?.constructSavePath(baseDir, titleId)
+        val folderHandler = saveHandlerRegistry.getFolderHandler(platformSlug)
+        if (pcsx2Base != null) {
+            return pcsx2Cards.targetCard(pcsx2Base, selectedMemcard, titleId, folderHandler)
+        }
+        return folderHandler?.constructSavePath(baseDir, titleId)
     }
+
+    /**
+     * Whether [path], a save path stored for [gameId], lies outside the folder memory cards a
+     * standalone PCSX2-family emulator uses now. False for every other emulator and for a game
+     * whose saves travel as Sigil units.
+     */
+    suspend fun isOffLegacyPcsx2Cards(
+        emulatorId: String,
+        platformSlug: String,
+        emulatorPackage: String?,
+        gameId: Long,
+        path: String
+    ): Boolean {
+        val config = emulatorPackage?.let { SavePathRegistry.getConfigForPlatformByPackage(it, platformSlug) }
+            ?: SavePathRegistry.getConfigForPlatform(emulatorId, platformSlug)
+            ?: return false
+        if (saveHandlerRegistry.isSigilRoutedFor(gameId, config, platformSlug, emulatorId)) return false
+        val base = pcsx2Cards.baseFor(config, platformSlug, emulatorPackage) ?: return false
+        val off = !pcsx2Cards.holds(base, selectedMemcard(gameId, config.emulatorId), path)
+        if (off) {
+            Logger.info(TAG, "[SaveSync] PS2 | stored save path is not on the emulator's cards, re-resolving | path=$path, cards=${base.cardsDir}")
+        }
+        return off
+    }
+
+    private suspend fun selectedMemcard(gameId: Long?, configId: String): String? =
+        (gameId?.let { emulatorConfigDao.getSelectedMemcardForGame(it) }
+            ?: emulatorSaveConfigDao.getByEmulator(configId)?.selectedMemcardPath)
+            ?.takeIf { it.isNotBlank() }
 
     suspend fun resolveSwitchSaveTargetPath(
         zipFile: File,

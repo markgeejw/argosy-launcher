@@ -63,6 +63,7 @@ import com.nendo.argosy.ui.components.Modal
 import com.nendo.argosy.ui.theme.Dimens
 import com.nendo.argosy.ui.theme.LocalArgosyTheme
 import com.nendo.argosy.ui.theme.LocalLauncherTheme
+import com.nendo.argosy.ui.theme.Motion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -637,20 +638,21 @@ private fun HotkeyRow(
 }
 
 @Composable
-private fun RecordingContent(
+internal fun RecordingContent(
     title: String,
     heldKeys: Set<Int>,
     isComplete: Boolean,
     onComplete: (Set<Int>) -> Unit,
     onCancel: () -> Unit,
-    onUpdateComplete: (Boolean) -> Unit
+    onUpdateComplete: (Boolean) -> Unit,
+    prompt: String = stringResource(R.string.settings_hotkeys_recording_prompt)
 ) {
     var holdProgress by remember { mutableFloatStateOf(0f) }
     var savedKeys by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     val animatedProgress by animateFloatAsState(
         targetValue = holdProgress,
-        animationSpec = tween(durationMillis = 100),
+        animationSpec = tween(durationMillis = Motion.durationFast),
         label = "progress"
     )
 
@@ -737,7 +739,7 @@ private fun RecordingContent(
                         text = if (isComplete) {
                             stringResource(R.string.settings_hotkeys_recording_saved)
                         } else if (heldKeys.isEmpty()) {
-                            stringResource(R.string.settings_hotkeys_recording_prompt)
+                            prompt
                         } else {
                             stringResource(R.string.settings_hotkeys_recording_holding)
                         },

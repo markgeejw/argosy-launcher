@@ -48,6 +48,7 @@ class WiiFolderHandlerTest {
             unitSaveHandler = mockk(relaxed = true),
             sigilSaveHandler = mockk(relaxed = true),
             dreamcastSaveHandler = mockk(relaxed = true),
+            emulatorSaveConfigRepository = mockk(relaxed = true),
         )
         handler = registry.getFolderHandler("wii") ?: error("Wii handler not registered")
     }
@@ -80,6 +81,24 @@ class WiiFolderHandlerTest {
 
         assertEquals(channel.path, handler.constructSavePath(base.path, "00010001/48414141"))
         assertEquals(channel.path, handler.findSaveFolderBySaveId(base.path, "00010001/48414141"))
+    }
+
+    @Test
+    fun `an override set above the title folder still finds the save`() {
+        val title = dolphinSave(File(base, lowId))
+
+        assertEquals(title.path, handler.findSaveFolderBySaveId(base.parentFile.path, splitId))
+        assertEquals(title.path, handler.findSaveFolderBySaveId(File(tempDir, "Wii").path, splitId))
+        assertEquals(title.path, handler.findSaveFolderBySaveId(tempDir.path, splitId))
+    }
+
+    @Test
+    fun `an override on the RetroArch User folder finds the dolphin core's save`() {
+        val user = File(tempDir, "RetroArch/saves/dolphin-emu/User")
+        val title = dolphinSave(File(user, "Wii/title/00010000/$lowId"))
+
+        assertEquals(title.path, handler.findSaveFolderBySaveId(user.path, splitId))
+        assertEquals(title.path, handler.findSaveFolderBySaveId(user.parentFile.path, splitId))
     }
 
     @Test

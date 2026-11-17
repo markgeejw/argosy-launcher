@@ -113,6 +113,50 @@ class StateCacheManagerQueueDrainTest {
         coVerify(exactly = 1) { manager.uploadStateToRomM(state, CURRENT_ROM, "blue", api) }
     }
 
+    @Test
+    fun `a queued state detached from its game stays local and is not uploaded`() = runTest {
+        coEvery { stateCacheDao.getById(STATE_ID) } returns state.copy(gameId = -GAME_ID)
+        coEvery { pendingSyncQueueDao.getRetryableBySyncType(SyncType.SAVE_STATE) } returns listOf(row(CURRENT_ROM))
+
+        val uploaded = manager.processPendingStateUploads()
+
+        assertEquals(0, uploaded)
+        coVerify(exactly = 0) { manager.uploadStateToRomM(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { stateCacheDao.deleteById(any()) }
+        coVerify { pendingSyncQueueDao.deleteById(ROW_ID) }
+    }
+
+    private fun unchangedUpload(rommSaveId: Long?) = runTest {
+        val bytes = "same bytes".toByteArray()
+        val cached = kotlin.io.path.createTempFile().toFile().apply { writeBytes(bytes); deleteOnExit() }
+        val hash = java.security.MessageDigest.getInstance("MD5").digest(bytes).joinToString("") { "%02x".format(it) }
+        val unchanged = state.copy(
+            lastUploadedHash = hash,
+            rommSaveId = rommSaveId,
+            syncStatus = StateCacheEntity.STATUS_PENDING_UPLOAD
+        )
+        every { manager.getCacheFile(unchanged) } returns cached
+        coEvery { manager.uploadStateToRomM(any(), any(), any(), any()) } coAnswers { callOriginal() }
+
+        val result = manager.uploadStateToRomM(unchanged, CURRENT_ROM, "blue", api)
+
+        assertEquals(StateCacheManager.StateCloudResult.AlreadySynced, result)
+    }
+
+    @Test
+    fun `an unchanged state already on the server is marked synced instead of staying pending`() {
+        unchangedUpload(rommSaveId = 463L)
+
+        coVerify { stateCacheDao.updateSyncStatus(STATE_ID, StateCacheEntity.STATUS_SYNCED) }
+    }
+
+    @Test
+    fun `an unchanged state with no server copy keeps its status`() {
+        unchangedUpload(rommSaveId = null)
+
+        coVerify(exactly = 0) { stateCacheDao.updateSyncStatus(any(), any()) }
+    }
+
     private fun row(rommId: Long) = PendingSyncQueueEntity(
         id = ROW_ID,
         gameId = GAME_ID,

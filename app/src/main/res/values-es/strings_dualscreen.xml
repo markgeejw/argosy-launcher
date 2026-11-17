@@ -35,6 +35,7 @@
     <string name="dual_dashboard_state_just_now">Ahora mismo</string>
     <string name="dual_dashboard_state_latest">Reciente</string>
     <string name="dual_dashboard_total_play">%1$s en total</string>
+    <string name="dual_dashboard_session_play">%1$s en esta sesión</string>
     <string name="dual_dashboard_manual_resume">Continuar en la página %1$d</string>
     <string name="dual_dashboard_guide_progress">%1$d%% leído</string>
     <string name="dual_dashboard_document_open">Abrir</string>
@@ -161,6 +162,7 @@
     <string name="dual_media_episodes_empty_title">Aún no hay episodios</string>
 
     <string name="dual_media_cast_header">Reparto</string>
+    <string name="dual_media_related_header">Títulos similares</string>
     <string name="dual_media_browse_back_description">Atrás</string>
     <plurals name="dual_media_browse_episode_count">
         <item quantity="one">%d episodio</item>
@@ -493,6 +495,10 @@
     <string name="dual_detail_option_write_review">Escribir una reseña</string>
     <string name="dual_showcase_progress_main">%1$s de %2$s de historia principal</string>
     <string name="dual_showcase_played">%1$s jugadas</string>
+    <string name="dual_showcase_running">En ejecución</string>
+    <string name="dual_showcase_running_in">En ejecución en %1$s</string>
+    <string name="dual_showcase_saving">Guardando</string>
+    <string name="dual_showcase_running_with_time">En ejecución desde hace %1$s</string>
     <string name="dual_showcase_journey_header">Tu progreso</string>
     <string name="dual_showcase_journey_main">Historia principal %1$s</string>
     <string name="dual_showcase_completionist">Completista %1$s</string>
