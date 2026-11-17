@@ -20,6 +20,12 @@ object MoonlightStream {
     fun request(host: String, title: String, rommId: Long): StreamRequest =
         StreamRequest(host = host, appId = appId(appName(title, rommId)).toString(), appName = title)
 
+    fun request(host: String, title: String): StreamRequest =
+        StreamRequest(host = host, appId = appId(title).toString(), appName = title)
+
+    fun platformEnabled(platforms: Set<String>, canonicalSlug: String): Boolean =
+        canonicalSlug in platforms || (canonicalSlug in PC_SLUGS && platforms.any { it in PC_SLUGS })
+
     fun canStream(
         settings: StreamSettings,
         rommId: Long?,
@@ -27,7 +33,9 @@ object MoonlightStream {
         isSteamGame: Boolean,
         isAndroidApp: Boolean
     ): Boolean = rommId != null && !isSteamGame && !isAndroidApp && settings.host.isNotBlank() &&
-        PlatformDefinitions.getCanonicalSlug(platformSlug) in settings.platforms
+        platformEnabled(settings.platforms, PlatformDefinitions.getCanonicalSlug(platformSlug))
+
+    private val PC_SLUGS = setOf("pc", "windows")
 }
 
 fun StreamRequest.toIntent(moonlightPackage: String): Intent = Intent().apply {
