@@ -61,7 +61,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.stream.StreamKind
+import com.nendo.argosy.data.stream.StreamRoute
 import com.nendo.argosy.data.stream.MoonlightStream
 import com.nendo.argosy.data.stream.toIntent
 import kotlinx.coroutines.flow.first
@@ -2261,12 +2262,6 @@ class HomeViewModel @Inject constructor(
         if (gameMenuOpenJob?.isActive == true) return
         val focused = _uiState.value.focusedGame
         val gameId = focused?.id
-        val stream = focused
-            ?.takeIf { it.isRommGame && !it.isDownloaded && !it.needsInstall }
-            ?.let { game ->
-                val indicator = downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE
-                streamLauncher.offerFor(game.id, game.platformSlug, game.isOnDevice(indicator))
-            }
         gameMenuOpenJob = viewModelScope.launch {
             val hasChoice = gameId != null && siblingChoice.hasChoice(gameId)
             val running = gameId?.let { runningGameMenu.markFor(it) }
@@ -2278,12 +2273,20 @@ class HomeViewModel @Inject constructor(
                     com.nendo.argosy.ui.components.AppLaunchTarget(screen.displayId, screen.number)
                 }
                 .orEmpty()
-            val canStream = _uiState.value.focusedGame?.let { canStream(it) } == true
+            val settings = preferencesRepository.userPreferences.first().streamSettings
+            val stream = focused?.let { game ->
+                val indicator = downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE
+                streamLauncher.offerFor(
+                    game.id, game.platformSlug, game.rommId, game.title, game.isSteamGame,
+                    game.isAndroidApp, settings, game.isOnDevice(indicator)
+                )?.takeIf { it.kind == StreamKind.MOONLIGHT ||
+                    (game.isRommGame && !game.isDownloaded && !game.needsInstall) }
+            }
+            if (_uiState.value.focusedGame?.id != gameId) return@launch
             _uiState.update {
                 it.copy(
                     gameMenuDisplays = displays,
                     gameMenuHasSiblingGroup = hasChoice,
-                    gameMenuCanStream = canStream,
                     gameMenuStream = stream,
                     gameMenuRunning = running,
                     gameMenuMoveTargets = moveTargets
@@ -2302,7 +2305,7 @@ class HomeViewModel @Inject constructor(
             isPlatformRow,
             state.gameMenuRunningRows(),
             state.gameMenuHasSiblingGroup,
-            state.gameMenuStream != null || state.gameMenuCanStream
+            state.gameMenuStream
         )
     }
 
@@ -2348,14 +2351,12 @@ class HomeViewModel @Inject constructor(
             isPlatformRow,
             state.gameMenuRunningRows(),
             state.gameMenuHasSiblingGroup,
-            state.gameMenuStream != null || state.gameMenuCanStream,
-            state.gameMenuStream?.leads == true
+            state.gameMenuStream
         )
         when (action) {
             is GameMenuAction.Stream -> {
                 toggleGameMenu()
-                if (state.gameMenuCanStream && state.gameMenuStream == null) streamGame(game)
-                else streamLauncher.open(action.gameId)
+                openGameStream(game, action.kind)
             }
             is GameMenuAction.Download -> {
                 toggleGameMenu()
@@ -2417,19 +2418,19 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun canStream(game: HomeGameUi): Boolean =
-        canStream(game, preferencesRepository.userPreferences.first().streamSettings)
-
-    private fun canStream(game: HomeGameUi, settings: StreamSettings): Boolean =
-        MoonlightStream.canStream(settings, game.rommId, game.platformSlug, game.isSteamGame, game.isAndroidApp)
-
-    fun streamGame(game: HomeGameUi) {
-        val rommId = game.rommId ?: return
+    fun openGameStream(game: HomeGameUi, kind: StreamKind) {
+        if (kind == StreamKind.CONTAINER) {
+            streamLauncher.open(game.id)
+            return
+        }
         viewModelScope.launch {
             val settings = preferencesRepository.userPreferences.first().streamSettings
-            if (!canStream(game, settings)) return@launch
-            val intent = MoonlightStream.request(settings.host, game.title, rommId).toIntent(settings.moonlightPackage)
-            _events.emit(HomeEvent.StreamIntent(intent, settings.moonlightPackage))
+            val route = StreamRoute.resolve(settings, null, game.rommId, game.platformSlug,
+                game.isSteamGame, game.isAndroidApp, game.title)
+            if (route?.kind != StreamKind.MOONLIGHT) return@launch
+            val request = if (game.isSteamGame) MoonlightStream.request(settings.host, game.title)
+                else MoonlightStream.request(settings.host, game.title, game.rommId ?: return@launch)
+            _events.emit(HomeEvent.StreamIntent(request.toIntent(settings.moonlightPackage), settings.moonlightPackage))
         }
     }
 

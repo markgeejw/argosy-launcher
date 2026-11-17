@@ -1532,13 +1532,12 @@ fun HomeScreen(
                     },
                     stream = uiState.gameMenuStream,
                     onStream = {
+                        uiState.gameMenuStream?.let { viewModel.openGameStream(focusedGame, it.kind) }
                         viewModel.toggleGameMenu()
-                        if (uiState.gameMenuCanStream && uiState.gameMenuStream == null) viewModel.streamGame(focusedGame)
-                        else viewModel.streamLauncher.open(focusedGame.id)
                     },
                     playDisplays = uiState.gameMenuDisplays,
                     onPlayOnDisplay = { index ->
-                        viewModel.moveGameMenuFocus(index + 1 - uiState.gameMenuFocusIndex)
+                        viewModel.moveGameMenuFocus(index + 1 + (if (uiState.gameMenuStream != null) 1 else 0) - uiState.gameMenuFocusIndex)
                         viewModel.confirmGameMenuSelection(onGameSelect)
                     },
                     moveTargets = uiState.gameMenuMoveTargets.takeIf { uiState.gameMenuRunning != null }.orEmpty(),
@@ -1561,7 +1560,6 @@ fun HomeScreen(
                         viewModel.showAddToCollectionModal(focusedGame.id)
                     },
                     hasSiblingGroup = uiState.gameMenuHasSiblingGroup,
-                    canStream = uiState.gameMenuCanStream,
                     onActiveVariant = { viewModel.openActiveVariant(focusedGame.id) },
                     onRefresh = { viewModel.refreshGameData(focusedGame.id) },
                     onResyncPlatform = {
@@ -2180,7 +2178,6 @@ private fun GameSelectOverlay(
     onDetails: () -> Unit,
     onAddToCollection: () -> Unit,
     hasSiblingGroup: Boolean,
-    canStream: Boolean,
     onStream: () -> Unit,
     onActiveVariant: () -> Unit,
     onRefresh: () -> Unit,
@@ -2228,7 +2225,9 @@ private fun GameSelectOverlay(
     )
 
     val streamLabel = stream?.let {
-        if (it.isLive) {
+        if (it.kind == com.nendo.argosy.data.stream.StreamKind.MOONLIGHT) {
+            stringResource(R.string.kaegr_home_menu_stream_moonlight)
+        } else if (it.isLive) {
             stringResource(R.string.stream_entry_home_menu_resume)
         } else {
             stringResource(R.string.stream_entry_home_menu, it.containerLabel)
@@ -2237,7 +2236,6 @@ private fun GameSelectOverlay(
     val streamIcon = ImageVector.vectorResource(R.drawable.ic_stream_play_network)
     val options = buildList {
         val streamEntry = streamLabel?.let { MenuEntry(streamIcon, it, onClick = onStream) }
-            ?: if (canStream) MenuEntry(Icons.Default.Cast, stringResource(R.string.kaegr_gamedetail_menu_stream), onClick = onStream) else null
         if (stream?.leads == true && streamEntry != null) add(streamEntry)
         add(MenuEntry(primaryIcon, primaryLabel, onClick = onPrimaryAction))
         if (stream?.leads != true && streamEntry != null) add(streamEntry)
