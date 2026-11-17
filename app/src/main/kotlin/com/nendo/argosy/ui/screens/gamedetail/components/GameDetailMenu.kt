@@ -203,7 +203,9 @@ fun GameDetailMenu(
                     val leadingStream = layoutState.stream?.takeIf { it.leads }
                     if (leadingStream != null) {
                         PlayButtonBody(
-                            label = if (leadingStream.isLive) {
+                            label = if (leadingStream.kind == com.nendo.argosy.data.stream.StreamKind.MOONLIGHT) {
+                                stringResource(R.string.kaegr_home_menu_stream_moonlight)
+                            } else if (leadingStream.isLive) {
                                 stringResource(R.string.stream_entry_gamedetail_primary_resume)
                             } else {
                                 stringResource(R.string.stream_entry_gamedetail_primary, leadingStream.containerLabel)

@@ -24,8 +24,8 @@ fun homeGameActivation(
     game.needsInstall -> HomeGameActivation.INSTALL
     game.isDownloaded -> HomeGameActivation.LAUNCH
     indicator.isPaused || indicator.isQueued -> HomeGameActivation.RESUME_DOWNLOAD
-    game.isSteamGame -> HomeGameActivation.STEAM_LINK_LAUNCHER
     leadsWithStream -> HomeGameActivation.STREAM
+    game.isSteamGame -> HomeGameActivation.STEAM_LINK_LAUNCHER
     exactRow -> HomeGameActivation.DOWNLOAD_EXACT
     else -> HomeGameActivation.DOWNLOAD_WITH_CHOICE
 }

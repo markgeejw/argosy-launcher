@@ -10,7 +10,6 @@ fun noStreamLaunch(): StreamLaunchController.Factory {
         every { offerFor(any(), any(), any()) } returns null
         every { offers } returns emptyFlow()
         every { streamFirst } returns MutableStateFlow(StreamFirstUi())
-        every { leadsWithStream(any(), any(), any()) } returns false
     }
     return mockk { every { create(any()) } returns controller }
 }

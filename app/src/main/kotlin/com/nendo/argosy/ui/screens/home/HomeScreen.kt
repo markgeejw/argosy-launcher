@@ -1290,7 +1290,7 @@ fun HomeScreen(
                                         focusedGame.isRommGame,
                                         focusedGame.isOnDevice(
                                             downloadIndicators.value[focusedGame.id] ?: GameDownloadIndicator.NONE
-                                        )
+                                        ), focusedGame.rommId, focusedGame.title, focusedGame.isSteamGame, focusedGame.isAndroidApp
                                     ) -> stringResource(R.string.stream_home_footer_stream)
                                     else -> stringResource(R.string.home_footer_game_download)
                                 },

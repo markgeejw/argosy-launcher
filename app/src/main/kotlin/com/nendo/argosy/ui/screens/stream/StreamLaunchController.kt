@@ -61,9 +61,9 @@ class StreamLaunchController private constructor(
     val state: StateFlow<StreamLaunchUiState?> = _state.asStateFlow()
 
     val streamFirst: StateFlow<StreamFirstUi> = combine(
-        deps.preferences.userPreferences.map { it.notOnDeviceAction }.distinctUntilChanged(),
+        deps.preferences.userPreferences.map { it.notOnDeviceAction to it.streamSettings }.distinctUntilChanged(),
         deps.configStore.availability
-    ) { action, _ -> StreamFirstUi(action, deps.configStore.streamablePlatforms()) }
+    ) { (action, settings), _ -> StreamFirstUi(action, deps.configStore.streamablePlatforms(), settings) }
         .stateIn(scope, SharingStarted.Eagerly, StreamFirstUi())
 
     val offers: Flow<Unit> =
@@ -97,13 +97,11 @@ class StreamLaunchController private constructor(
     ): StreamOffer? {
         val found = deps.configStore.containerFor(platformSlug)
         val route = StreamRoute.resolve(settings, found, rommId, platformSlug, isSteamGame, isAndroidApp, title)
-        if (route?.kind == StreamKind.MOONLIGHT) return StreamOffer("", isLive = false, kind = route.kind)
+        if (route?.kind == StreamKind.MOONLIGHT) return StreamOffer("", isLive = false,
+            leads = StreamFirstRule.leadsWithStream(streamFirst.value.action, isOnDevice, false, true), kind = route.kind)
         if (settings.host.isBlank() || isAndroidApp || isSteamGame) return null
         return offerFor(gameId, platformSlug, isOnDevice)
     }
-
-    fun leadsWithStream(platformSlug: String?, isRommGame: Boolean, isOnDevice: Boolean): Boolean =
-        streamFirst.value.leads(platformSlug, isRommGame, isOnDevice)
 
     fun open(gameId: Long) {
         if (deps.sessions.isLive(gameId)) {

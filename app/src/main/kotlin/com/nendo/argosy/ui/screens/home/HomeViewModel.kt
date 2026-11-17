@@ -2116,14 +2116,17 @@ class HomeViewModel @Inject constructor(
 
     private fun activate(game: HomeGameUi, exactRow: Boolean, allowStream: Boolean = true) {
         val indicator = downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE
-        val leads = allowStream &&
-            streamLauncher.leadsWithStream(game.platformSlug, game.isRommGame, game.isOnDevice(indicator))
+        val offer = if (allowStream) streamLauncher.offerFor(
+            game.id, game.platformSlug, game.rommId, game.title, game.isSteamGame, game.isAndroidApp,
+            streamLauncher.streamFirst.value.settings, game.isOnDevice(indicator)
+        )?.takeIf { it.kind == StreamKind.MOONLIGHT || game.isRommGame } else null
+        val leads = offer?.leads == true
         when (homeGameActivation(game, indicator, exactRow, leads)) {
             HomeGameActivation.INSTALL -> installApk(game.id)
             HomeGameActivation.LAUNCH -> launchGame(game.id)
             HomeGameActivation.RESUME_DOWNLOAD -> resumeDownload(game.id)
             HomeGameActivation.STEAM_LINK_LAUNCHER -> linkSteamLauncher(game.id)
-            HomeGameActivation.STREAM -> streamLauncher.open(game.id)
+            HomeGameActivation.STREAM -> offer?.let { openGameStream(game, it.kind) }
             HomeGameActivation.DOWNLOAD_EXACT -> downloadDelegate.queueDownload(viewModelScope, game.id)
             HomeGameActivation.DOWNLOAD_WITH_CHOICE -> queueDownload(game.id)
         }

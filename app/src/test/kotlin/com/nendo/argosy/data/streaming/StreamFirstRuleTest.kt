@@ -7,6 +7,13 @@ import org.junit.Test
 class StreamFirstRuleTest {
 
     @Test
+    fun `moonlight without a container leads for a game not on device`() {
+        assertEquals(true, StreamFirstRule.leadsWithStream(NotOnDeviceAction.STREAM, false, false, hasMoonlight = true))
+        assertEquals(false, StreamFirstRule.leadsWithStream(NotOnDeviceAction.STREAM, true, false, hasMoonlight = true))
+        assertEquals(false, StreamFirstRule.leadsWithStream(NotOnDeviceAction.DOWNLOAD, false, false, hasMoonlight = true))
+    }
+
+    @Test
     fun `only stream mode with a container for a game not on the device leads with stream`() {
         val expected = mapOf(
             Triple(NotOnDeviceAction.STREAM, false, true) to true,

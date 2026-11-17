@@ -355,7 +355,8 @@ fun GameCard(
         val showsStreamMark = !isRunning && com.nendo.argosy.ui.screens.stream.LocalStreamFirst.current.leads(
             platformSlug = game.platformSlug,
             isRommGame = game.isRommGame,
-            isOnDevice = game.isDownloaded || game.needsInstall || downloadIndicator.isShown
+            isOnDevice = game.isDownloaded || game.needsInstall || downloadIndicator.isShown,
+            rommId = game.rommId, title = game.title, isSteamGame = game.isSteamGame, isAndroidApp = game.isAndroidApp
         )
 
         if (spineActive) {

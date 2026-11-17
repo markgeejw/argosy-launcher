@@ -83,6 +83,12 @@ class HomeGameActivationTest {
     }
 
     @Test
+    fun `steam stream first precedes the local launcher`() {
+        assertEquals(HomeGameActivation.STREAM,
+            homeGameActivation(game(isSteamGame = true), GameDownloadIndicator.NONE, false, leadsWithStream = true))
+    }
+
+    @Test
     fun `play, install and a paused download win over stream first`() {
         assertEquals(
             HomeGameActivation.LAUNCH,
