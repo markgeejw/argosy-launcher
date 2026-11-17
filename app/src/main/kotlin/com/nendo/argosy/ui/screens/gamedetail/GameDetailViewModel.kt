@@ -281,7 +281,8 @@ class GameDetailViewModel @Inject constructor(
                 game?.let {
                     val offer = streamLauncher.offerFor(
                         it.id, it.platformSlug, it.rommId, it.title, it.isSteamGame, it.isAndroidApp, settings,
-                        isOnDevice = downloadStatus != GameDownloadStatus.NOT_DOWNLOADED
+                        isOnDevice = downloadStatus != GameDownloadStatus.NOT_DOWNLOADED &&
+                            downloadStatus != GameDownloadStatus.NO_FILE
                     )
                     offer?.takeIf { candidate ->
                         candidate.kind == com.nendo.argosy.data.stream.StreamKind.MOONLIGHT ||

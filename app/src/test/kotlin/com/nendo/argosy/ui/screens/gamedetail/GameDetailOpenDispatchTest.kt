@@ -51,6 +51,14 @@ class GameDetailOpenDispatchTest {
         every { variantPickerState } returns MutableStateFlow(null)
         every { isSessionEndBusy } returns false
     }
+    private val downloadState = MutableStateFlow(com.nendo.argosy.ui.screens.gamedetail.delegates.DownloadUiState())
+    private val downloadDelegate = mockk<com.nendo.argosy.ui.screens.gamedetail.delegates.DownloadDelegate>(relaxed = true) {
+        every { state } returns downloadState
+        every { launchEvents } returns MutableSharedFlow()
+        every { updateDownloadStatus(any(), any()) } answers {
+            downloadState.value = downloadState.value.copy(downloadStatus = firstArg())
+        }
+    }
     private val streamController = mockk<StreamLaunchController>(relaxed = true)
     private val streamLaunch = mockk<StreamLaunchController.Factory> {
         every { create(any()) } returns streamController
@@ -115,12 +123,7 @@ class GameDetailOpenDispatchTest {
         achievementDelegate = mockk(relaxed = true) {
             every { achievements } returns MutableStateFlow(emptyList())
         },
-        downloadDelegate = mockk(relaxed = true) {
-            every { state } returns MutableStateFlow(
-                com.nendo.argosy.ui.screens.gamedetail.delegates.DownloadUiState()
-            )
-            every { launchEvents } returns MutableSharedFlow()
-        },
+        downloadDelegate = downloadDelegate,
         saveManagement = mockk(relaxed = true) {
             every { saveChannelDelegate } returns mockk(relaxed = true) {
                 every { state } returns MutableStateFlow(
@@ -246,4 +249,36 @@ class GameDetailOpenDispatchTest {
             verify { launchDelegate wasNot io.mockk.Called }
             verify { tracker wasNot io.mockk.Called }
         }
+    @Test
+    fun `missing server file leads with moonlight and primary action dispatches intent`() = runTest(dispatcher) {
+        coEvery { gameRepository.getById(7L) } returns entity().copy(hasFileOnDisk = false)
+        coEvery { gameRepository.validateAndDiscoverGame(7L) } returns false
+        every { streamController.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any()) } answers {
+            com.nendo.argosy.ui.screens.stream.StreamOffer("", false, leads = !arg<Boolean>(7),
+                kind = com.nendo.argosy.data.stream.StreamKind.MOONLIGHT)
+        }
+        val vm = viewModel()
+        val events = mutableListOf<LaunchEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler), start = CoroutineStart.UNDISPATCHED) {
+            vm.launchEvents.collect { events.add(it) }
+        }
+        vm.loadGame(7L)
+        withContext(Dispatchers.IO) { withTimeout(5_000) { vm.uiState.first { it.game != null && it.downloadStatus == GameDownloadStatus.NO_FILE } } }
+        advanceUntilIdle()
+        assertEquals(true, vm.uiState.value.stream?.leads)
+        clearMocks(launchDelegate, tracker, answers = false)
+        vm.primaryAction()
+        advanceUntilIdle()
+        assertEquals(1, events.filterIsInstance<LaunchEvent.StreamIntent>().size)
+        verify(exactly = 0) { streamController.open(any()) }
+        verify { launchDelegate wasNot io.mockk.Called }
+        verify { tracker wasNot io.mockk.Called }
+        downloadState.value = downloadState.value.copy(downloadStatus = GameDownloadStatus.DOWNLOADED)
+        advanceUntilIdle()
+        assertEquals(false, vm.uiState.value.stream?.leads)
+        downloadState.value = downloadState.value.copy(downloadStatus = GameDownloadStatus.PAUSED)
+        advanceUntilIdle()
+        assertEquals(false, vm.uiState.value.stream?.leads)
+    }
+
 }
