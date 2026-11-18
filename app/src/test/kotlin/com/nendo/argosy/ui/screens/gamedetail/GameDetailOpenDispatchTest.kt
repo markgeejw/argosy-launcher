@@ -12,6 +12,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -230,6 +232,29 @@ class GameDetailOpenDispatchTest {
             verify { launchDelegate wasNot io.mockk.Called }
             verify { tracker wasNot io.mockk.Called }
         }
+
+    @Test
+    fun `container dispatch retains the validated game after navigation`() = runTest(dispatcher) {
+        val inventory = CompletableDeferred<Pair<Boolean, com.nendo.argosy.data.model.stream.InventorySnapshot?>>()
+        coEvery { streamController.inventoryFor(any()) } coAnswers { inventory.await() }
+        val container = com.nendo.argosy.ui.screens.stream.StreamOffer("eden", false)
+        every { streamController.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any()) } returns container
+        every { streamController.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any(), any()) } returns container
+        coEvery { gameRepository.getById(7L) } returns entity()
+        coEvery { gameRepository.getById(8L) } returns entity(title = "Other", rommId = 30).copy(id = 8)
+        val vm = viewModel()
+        vm.loadGame(7L)
+        advanceUntilIdle()
+        assertEquals(com.nendo.argosy.data.stream.StreamKind.CONTAINER, vm.uiState.value.stream?.kind)
+        vm.openStream()
+        runCurrent()
+        vm.loadGame(8L)
+        runCurrent()
+        inventory.complete(true to null)
+        advanceUntilIdle()
+        verify(exactly = 0) { streamController.open(8L) }
+        verify(exactly = 1) { streamController.open(7L) }
+    }
 
     @Test
     fun `dispatch rejects a moonlight offer suppressed after the menu was drawn`() = runTest(dispatcher) {

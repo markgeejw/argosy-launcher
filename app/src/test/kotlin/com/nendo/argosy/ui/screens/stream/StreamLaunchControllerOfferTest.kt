@@ -81,6 +81,34 @@ class StreamLaunchControllerOfferTest {
     }
 
     @Test
+    fun `inventory removal stops stream first without a container`() = runTest {
+        val config = mockk<StreamingConfigStore> {
+            every { availability } returns MutableStateFlow(mockk(relaxed = true))
+            every { containerFor(any()) } returns null
+            every { streamablePlatforms() } returns emptySet()
+        }
+        val sessions = mockk<StreamSessionManager> { every { session } returns MutableStateFlow(null) }
+        val prefs = MutableStateFlow(UserPreferences(notOnDeviceAction = NotOnDeviceAction.STREAM,
+            streamSettings = StreamSettings(host = "gamer")))
+        val inventory = MutableStateFlow<Pair<String, InventorySnapshot>?>(null)
+        val controller = StreamLaunchController.Factory(
+            mockk(), mockk(), config, sessions, mockk(), mockk(), mockk(), mockk(),
+            mockk { every { userPreferences } returns prefs },
+            mockk { every { snapshots() } returns inventory }
+        ).create(backgroundScope)
+        runCurrent()
+        fun leads() = controller.streamFirst.value.leads("switch", true, false, 29, "Hades")
+        assertEquals(true, leads())
+        inventory.value = "gamer" to InventorySnapshot(setOf(InventoryEntry("Other", "1")), System.currentTimeMillis())
+        runCurrent()
+        assertEquals(false, leads())
+        assertNull(controller.offerFor(7, "switch", 29, "Hades", false, false, prefs.value.streamSettings))
+        inventory.value = "gamer" to InventorySnapshot(setOf(InventoryEntry("Hades [29]", "1004913149")), System.currentTimeMillis())
+        runCurrent()
+        assertEquals(true, leads())
+    }
+
+    @Test
     fun `offers react to preference changes and lead with moonlight`() = runTest {
         val config = mockk<StreamingConfigStore> {
             every { availability } returns MutableStateFlow(mockk(relaxed = true))

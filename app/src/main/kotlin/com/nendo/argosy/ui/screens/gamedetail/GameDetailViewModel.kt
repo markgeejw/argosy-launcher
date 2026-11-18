@@ -2335,7 +2335,7 @@ class GameDetailViewModel @Inject constructor(
                     val event = streamLaunchEvent(game, settings) ?: return@launch
                     _launchEvents.emit(event)
                 }
-                com.nendo.argosy.data.stream.StreamKind.CONTAINER -> streamLauncher.open(currentGameId)
+                com.nendo.argosy.data.stream.StreamKind.CONTAINER -> streamLauncher.open(game.id)
             }
         }
     }
