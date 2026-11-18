@@ -90,13 +90,15 @@ class StreamInventoryRepository @Inject constructor(
         return true to snapshot
     }
 
+    fun snapshots() = snapshots(System::currentTimeMillis)
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun snapshots() = dataStore.data.flatMapLatest { prefs ->
+    internal fun snapshots(nowMillis: () -> Long) = dataStore.data.flatMapLatest { prefs ->
         flow {
             val host = prefs[Keys.HOST]
             val fetchedAt = prefs[Keys.FETCHED_AT]
             val entries = prefs[Keys.JSON]?.let(::parse)
-            val remaining = fetchedAt?.let { EXPIRY_MILLIS - (System.currentTimeMillis() - it) } ?: 0L
+            val remaining = fetchedAt?.let { EXPIRY_MILLIS - (nowMillis() - it) } ?: 0L
             if (host != null && entries != null && remaining > 0) {
                 emit(host to InventorySnapshot(entries, fetchedAt!!))
                 delay(remaining)
