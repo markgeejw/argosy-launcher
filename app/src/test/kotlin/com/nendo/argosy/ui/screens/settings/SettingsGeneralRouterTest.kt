@@ -1,5 +1,7 @@
 package com.nendo.argosy.ui.screens.settings
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.test.runTest
 import com.nendo.argosy.data.preferences.DisplayRoleOverride
 import com.nendo.argosy.data.preferences.DisplayRoleOverride.AUTO
 import com.nendo.argosy.data.preferences.DisplayRoleOverride.STANDARD
@@ -41,6 +43,40 @@ class SettingsGeneralRouterTest {
             }
         } finally {
             unmockkStatic(::routeSetDisplayRoleOverride)
+        }
+    }
+    @Test
+    fun `stream first action can be selected with moonlight and requires a transport`() = runTest {
+        val state = MutableStateFlow(SettingsUiState().let {
+            it.copy(streaming = it.streaming.copy(settings = it.streaming.settings.copy(host = "gamer")))
+        })
+        val vm = mockk<SettingsViewModel>(relaxed = true)
+        val sync = mockk<com.nendo.argosy.ui.screens.settings.delegates.SyncSettingsDelegate>()
+        val server = mockk<com.nendo.argosy.ui.screens.settings.delegates.ServerSettingsDelegate>()
+        every { vm._uiState } returns state
+        every { vm.syncDelegate } returns sync
+        every { vm.serverDelegate } returns server
+        every { server.updateState(any()) } answers { state.value = state.value.copy(server = firstArg()) }
+        every { sync.setNotOnDeviceAction(any(), any(), any()) } answers {
+            arg<(com.nendo.argosy.data.preferences.NotOnDeviceAction) -> Unit>(2)(secondArg())
+        }
+        val stream = com.nendo.argosy.data.preferences.NotOnDeviceAction.STREAM
+        val download = com.nendo.argosy.data.preferences.NotOnDeviceAction.DOWNLOAD
+        mockkStatic("androidx.lifecycle.ViewModelKt")
+        try {
+            every { vm.viewModelScope } returns this
+            routeSetNotOnDeviceAction(vm, stream)
+            assertEquals(stream, state.value.server.notOnDeviceAction)
+            routeSetNotOnDeviceAction(vm, download)
+            assertEquals(download, state.value.server.notOnDeviceAction)
+            state.value = state.value.copy(streaming = state.value.streaming.copy(
+                settings = state.value.streaming.settings.copy(host = " ")
+            ))
+            routeSetNotOnDeviceAction(vm, stream)
+            assertEquals(download, state.value.server.notOnDeviceAction)
+            io.mockk.verify(exactly = 2) { sync.setNotOnDeviceAction(any(), any(), any()) }
+        } finally {
+            unmockkStatic("androidx.lifecycle.ViewModelKt")
         }
     }
 }
