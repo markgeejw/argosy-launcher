@@ -1,10 +1,14 @@
 package com.nendo.argosy.data.stream
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import kotlinx.coroutines.flow.first
 import com.nendo.argosy.data.preferences.StreamPreferencesRepository
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -113,6 +117,60 @@ class StreamInventoryFetchTest {
         } finally {
             server.shutdown()
         }
+    }
+
+    private class InstrumentedStore(private val delegate: DataStore<Preferences>) : DataStore<Preferences> {
+        override val data = delegate.data
+        val updates = mutableListOf<Preferences>()
+        var beforeUpdate: (suspend () -> Unit)? = null
+
+        override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+            beforeUpdate?.invoke()
+            return delegate.updateData { transform(it).also(updates::add) }
+        }
+    }
+
+    @Test fun `host replacement clears cache in the host update itself`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        val store = InstrumentedStore(PreferenceDataStoreFactory.create(scope = scope) { temp.newFile("updates.preferences_pb") })
+        val prefs = StreamPreferencesRepository(store)
+        val repo = StreamInventoryRepository(store)
+        prefs.setHost("g")
+        repo.store("g", old, 0)
+        store.updates.clear()
+        prefs.setHost("other")
+        assertEquals(1, store.updates.size)
+        val changed = store.updates.single()
+        assertEquals("other", changed[stringPreferencesKey("stream_host")])
+        assertNull(changed[stringPreferencesKey("stream_inventory_json")])
+        assertNull(changed[stringPreferencesKey("stream_inventory_host")])
+        assertNull(changed[longPreferencesKey("stream_inventory_fetched_at")])
+        scope.cancel()
+    }
+
+    @Test fun `host change between response and cache transform cannot commit old response`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        val backing = PreferenceDataStoreFactory.create(scope = scope) { temp.newFile("race.preferences_pb") }
+        val store = InstrumentedStore(backing)
+        val prefs = StreamPreferencesRepository(store)
+        val repo = StreamInventoryRepository(store)
+        prefs.setHost("g")
+        repo.store("g", old, 0)
+        val waiting = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        store.beforeUpdate = { waiting.complete(Unit); resume.await() }
+        val refresh = SunshineInventoryRefresh(repo, prefs) { fresh }
+        val job = async { refresh.refresh(day) }
+        waiting.await()
+        StreamPreferencesRepository(backing).setHost("other")
+        resume.complete(Unit)
+        job.await()
+        val result = backing.data.first()
+        assertEquals("other", result[stringPreferencesKey("stream_host")])
+        assertNull(result[stringPreferencesKey("stream_inventory_json")])
+        assertNull(result[stringPreferencesKey("stream_inventory_host")])
+        assertNull(result[longPreferencesKey("stream_inventory_fetched_at")])
+        scope.cancel()
     }
 
 }

@@ -18,14 +18,17 @@ import javax.inject.Singleton
 class SunshineInventoryRefresh internal constructor(
     private val repository: StreamInventoryRepository,
     private val preferences: StreamPreferencesRepository,
+    private val clock: () -> Long = System::currentTimeMillis,
     private val fetch: suspend (String) -> String?
 ) {
     @Inject constructor(repository: StreamInventoryRepository, preferences: StreamPreferencesRepository) :
-        this(repository, preferences, { fetchInventory(it) })
+        this(repository, preferences, fetch = { fetchInventory(it) })
 
     private val mutex = Mutex()
 
-    suspend fun refresh(nowMillis: Long = System.currentTimeMillis()) = mutex.withLock {
+    suspend fun refresh() = refresh(clock())
+
+    suspend fun refresh(nowMillis: Long) = mutex.withLock {
         val host = preferences.settings.first().host
         if (host.isBlank()) return@withLock
         val snapshot = repository.snapshot(host, nowMillis)
