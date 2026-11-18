@@ -23,9 +23,10 @@ class ForkReleaseContractTest(unittest.TestCase):
         gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertIn('applicationId = "com.nendo.argosy.kaegr"', gradle)
         self.assertIn('namespace = "com.nendo.argosy"', gradle)
-        self.assertIn('versionName = "2.28.1-kaegr.1"', gradle)
-        self.assertEqual(3_037_001, version_guard.validate(*version_guard.source_version(ROOT / "app/build.gradle.kts"), "v2.28.1-kaegr.1"))
-        self.assertGreater(version_guard.validate(*version_guard.source_version(ROOT / "app/build.gradle.kts"), "v2.28.1-kaegr.1"), 3_036_802)
+        version_name, version_code = version_guard.source_version(ROOT / "app/build.gradle.kts")
+        universal_code = version_guard.validate(version_name, version_code, f"v{version_name}")
+        self.assertEqual(3_000_000 + version_code, universal_code)
+        self.assertGreater(universal_code, 3_036_802)
         main_strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
         self.assertIn('<string name="app_name" translatable="false">Argosy Launcher</string>', main_strings)
         debug_strings = (ROOT / "app/src/debug/res/values/strings.xml").read_text()
@@ -143,7 +144,11 @@ class ForkReleaseContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "APK versionCode 3037002 does not match expected 3037001"):
             version_guard.validate("2.28.1-kaegr.1", 37_001, "v2.28.1-kaegr.1", 3_037_002)
 
-    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version="2.28.1-kaegr.1", code="3037001"):
+    def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version=None, code=None, tag=None):
+        version_name, version_code = version_guard.source_version(ROOT / "app/build.gradle.kts")
+        version = version if version is not None else version_name
+        code = code if code is not None else str(3_000_000 + version_code)
+        tag = tag if tag is not None else f"v{version_name}"
         source = WORKFLOW.read_text()
         match = re.search(
             r"      - name: Verify signed APK identity\n.*?        run: \|\n(?P<body>.*?)(?=\n      - name: Upload APK identity reports)",
@@ -182,7 +187,7 @@ class ForkReleaseContractTest(unittest.TestCase):
                 "MOCK_PACKAGE": package,
                 "MOCK_VERSION": version,
                 "MOCK_CODE": code,
-                "RELEASE_TAG": "v2.28.1-kaegr.1",
+                "RELEASE_TAG": tag,
             }
             return subprocess.run(["sh", str(script)], cwd=ROOT, env=env, text=True, capture_output=True)
 
@@ -234,10 +239,12 @@ class ForkReleaseContractTest(unittest.TestCase):
         self.assertIn("verifier-failed", result.stderr)
 
     def test_identity_guard_rejects_wrong_package_version_and_code(self):
+        version_name, version_code = version_guard.source_version(ROOT / "app/build.gradle.kts")
         for values, label in [
             ({"package": "com.example.other"}, "identity-package:"),
-            ({"version": "2.24.0-kaegr.3"}, "identity-version:"),
-            ({"code": "3035803"}, "identity-version:"),
+            ({"version": f"{version_name}-wrong"}, "identity-version:"),
+            ({"code": str(3_000_001 + version_code)}, "identity-version:"),
+            ({"tag": f"v{version_name}-wrong"}, "identity-version:"),
         ]:
             with self.subTest(values=values):
                 result = self.identity_guard_result(**values)
