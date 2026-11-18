@@ -89,15 +89,15 @@ class ForkReleaseContractTest(unittest.TestCase):
 
     def test_version_guard_accepts_the_current_fork_version(self):
         self.assertEqual(
-            3_037_001,
-            version_guard.validate("2.28.1-kaegr.1", 37_001, "v2.28.1-kaegr.1", 3_037_001),
+            3_038_201,
+            version_guard.validate("3.0.0-beta.7-kaegr.1", 38_201, "v3.0.0-beta.7-kaegr.1", 3_038_201),
         )
 
     def test_version_guard_keeps_the_fork_suffix_range(self):
-        self.assertEqual(3_037_099, version_guard.validate("2.28.1-kaegr.99", 37_099, "v2.28.1-kaegr.99"))
+        self.assertEqual(3_038_299, version_guard.validate("3.0.0-beta.7-kaegr.99", 38_299, "v3.0.0-beta.7-kaegr.99"))
         for suffix in ("0", "01", "100"):
             with self.subTest(suffix=suffix), self.assertRaises(ValueError):
-                version_guard.validate(f"2.28.1-kaegr.{suffix}", 37_001, f"v2.28.1-kaegr.{suffix}")
+                version_guard.validate(f"3.0.0-beta.7-kaegr.{suffix}", 38_201, f"v3.0.0-beta.7-kaegr.{suffix}")
 
     def test_native_patch_tests_are_required_before_signing(self):
         source = WORKFLOW.read_text()
@@ -132,17 +132,17 @@ class ForkReleaseContractTest(unittest.TestCase):
                     self.assertEqual(expected, result.returncode, result.stderr)
 
     def test_version_guard_rejects_a_tag_suffix_and_source_code_mismatch(self):
-        with self.assertRaisesRegex(ValueError, "versionCode 37001 does not match expected 37002"):
-            version_guard.validate("2.28.1-kaegr.2", 37_001, "v2.28.1-kaegr.2")
+        with self.assertRaisesRegex(ValueError, "versionCode 38201 does not match expected 38202"):
+            version_guard.validate("3.0.0-beta.7-kaegr.2", 38_201, "v3.0.0-beta.7-kaegr.2")
 
     def test_version_guard_rejects_an_unmapped_upstream_version(self):
-        for upstream in ("2.24.0", "2.24.1", "2.25.0", "2.27.2", "3.0.0"):
+        for upstream in ("2.24.0", "2.24.1", "2.25.0", "2.27.2", "2.28.1", "3.0.0", "3.0.0-beta.6", "3.0.0-beta.8", "3.0.1-beta.7"):
             with self.subTest(upstream=upstream), self.assertRaises(ValueError):
-                version_guard.validate(f"{upstream}-kaegr.1", 37_001, f"v{upstream}-kaegr.1")
+                version_guard.validate(f"{upstream}-kaegr.1", 38_201, f"v{upstream}-kaegr.1")
 
     def test_version_guard_rejects_the_wrong_universal_apk_code(self):
-        with self.assertRaisesRegex(ValueError, "APK versionCode 3037002 does not match expected 3037001"):
-            version_guard.validate("2.28.1-kaegr.1", 37_001, "v2.28.1-kaegr.1", 3_037_002)
+        with self.assertRaisesRegex(ValueError, "APK versionCode 3038202 does not match expected 3038201"):
+            version_guard.validate("3.0.0-beta.7-kaegr.1", 38_201, "v3.0.0-beta.7-kaegr.1", 3_038_202)
 
     def identity_guard_result(self, *, expected="0" * 64, actual="0" * 64, apksigner_mode="ok", report_prefix="", report_decoy="", package="com.nendo.argosy.kaegr", version=None, code=None, tag=None):
         version_name, version_code = version_guard.source_version(ROOT / "app/build.gradle.kts")
