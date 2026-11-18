@@ -193,6 +193,18 @@ class SettingsBackupKeysTest {
     }
 
     @Test
+    fun `streaming target keys retain their types and stay excluded from backups`() {
+        val expected = mapOf(
+            "stream_host" to "string",
+            "stream_moonlight_package" to "string",
+            "stream_platforms" to "stringSet"
+        )
+        assertEquals(expected, declaredKeys().filterKeys { it.startsWith("stream_") })
+        assertEquals(expected.keys, streamingTarget)
+        assertTrue(expected.keys.intersect(SettingsBackupKeys.BY_NAME.keys).isEmpty())
+    }
+
+    @Test
     fun `the retroachievements web api key is held out as a credential`() {
         assertTrue("ra_web_api_key" in credentialsAndIdentity)
         assertTrue("ra_web_api_key" !in SettingsBackupKeys.BY_NAME)
