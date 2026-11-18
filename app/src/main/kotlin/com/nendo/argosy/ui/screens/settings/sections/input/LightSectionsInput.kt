@@ -65,6 +65,8 @@ import com.nendo.argosy.ui.screens.settings.sections.savesSections
 import com.nendo.argosy.ui.screens.settings.sections.homeScreenItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.homeScreenSections
 import com.nendo.argosy.ui.screens.settings.sections.socialSections
+import com.nendo.argosy.ui.screens.settings.sections.StreamingItem
+import com.nendo.argosy.ui.screens.settings.sections.streamingItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.SteamItem
 import com.nendo.argosy.ui.screens.settings.sections.steamItemAtFocusIndex
 import com.nendo.argosy.ui.screens.settings.sections.steamSections
@@ -158,13 +160,17 @@ internal class LightSectionsInput(
 
     private fun handleStreamingLeftRight(direction: Int): InputResult {
         val state = viewModel.uiState.value
-        return if (com.nendo.argosy.ui.screens.settings.sections.streamingItemAtFocusIndex(state.focusedIndex) ==
-            com.nendo.argosy.ui.screens.settings.sections.StreamingItem.Client
-        ) {
-            viewModel.cycleStreamClient(direction)
-            InputResult.HANDLED
-        } else {
-            InputResult.UNHANDLED
+        return when (val item = streamingItemAtFocusIndex(state.focusedIndex)) {
+            StreamingItem.Client -> {
+                viewModel.cycleStreamClient(direction)
+                InputResult.HANDLED
+            }
+            is StreamingItem.Platform -> {
+                val enabled = item.slug in state.streaming.settings.platforms
+                if (enabled != (direction > 0)) viewModel.toggleStreamPlatform(item.slug)
+                InputResult.HANDLED
+            }
+            else -> InputResult.UNHANDLED
         }
     }
 
