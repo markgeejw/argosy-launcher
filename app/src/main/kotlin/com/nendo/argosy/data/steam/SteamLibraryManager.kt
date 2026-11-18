@@ -88,7 +88,8 @@ class SteamLibraryManager @Inject constructor(
     private val preferencesRepository: com.nendo.argosy.data.preferences.UserPreferencesRepository,
     private val syncPreferencesRepository: com.nendo.argosy.data.preferences.SyncPreferencesRepository,
     private val steamLibraryRepair: dagger.Lazy<SteamLibraryRepair>,
-    private val gameArtDao: com.nendo.argosy.data.local.dao.GameArtDao
+    private val gameArtDao: com.nendo.argosy.data.local.dao.GameArtDao,
+    private val inventoryRefresh: com.nendo.argosy.data.stream.SunshineInventoryRefresh
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val syncMutex = Mutex()
@@ -166,6 +167,7 @@ class SteamLibraryManager @Inject constructor(
     }
 
     fun forceSync() {
+        scope.launch { inventoryRefresh.refresh() }
         forceSyncRequested = true
         scope.launch {
             try {
@@ -201,6 +203,7 @@ class SteamLibraryManager @Inject constructor(
     }
 
     private suspend fun handleLicenseList(callback: LicenseListCallback) {
+        scope.launch { inventoryRefresh.refresh() }
         try {
             val licenses = callback.licenseList
             cachedLicenses = licenses.toList()

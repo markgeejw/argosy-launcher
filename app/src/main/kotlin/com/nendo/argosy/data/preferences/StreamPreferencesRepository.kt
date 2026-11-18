@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.stream.StreamInventoryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -30,7 +31,15 @@ class StreamPreferencesRepository @Inject constructor(
     }
 
     suspend fun setHost(host: String) {
-        dataStore.edit { it[Keys.HOST] = host.trim() }
+        dataStore.edit { prefs ->
+            val trimmed = host.trim()
+            if ((prefs[Keys.HOST] ?: StreamSettings.DEFAULT_HOST) != trimmed) {
+                prefs.remove(StreamInventoryRepository.Keys.JSON)
+                prefs.remove(StreamInventoryRepository.Keys.FETCHED_AT)
+                prefs.remove(StreamInventoryRepository.Keys.HOST)
+            }
+            prefs[Keys.HOST] = trimmed
+        }
     }
 
     suspend fun setMoonlightPackage(packageName: String) {

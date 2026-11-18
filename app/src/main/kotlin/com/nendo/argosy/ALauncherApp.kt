@@ -53,6 +53,8 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     private val appScope = SafeCoroutineScope(Dispatchers.IO, "ArgosyApp")
 
+    @Inject lateinit var sunshineInventoryRefresh: com.nendo.argosy.data.stream.SunshineInventoryRefresh
+
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
@@ -242,6 +244,7 @@ class ArgosyApp : Application(), Configuration.Provider, ImageLoaderFactory {
             appScope.launch { applyStoredAbiOverride() }
             return
         }
+        appScope.launch { sunshineInventoryRefresh.refresh() }
         appScope.launch { com.nendo.argosy.util.RootShell.isAvailable }
         appScope.launch { socialSyncCoordinator.discardQueueWithoutSocialAccount() }
         appScope.launch { variantFileCleanup.runOnce() }

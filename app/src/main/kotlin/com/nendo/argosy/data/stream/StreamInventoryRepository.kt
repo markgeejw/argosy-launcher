@@ -17,7 +17,7 @@ import javax.inject.Singleton
 class StreamInventoryRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
-    private object Keys {
+    internal object Keys {
         val JSON = stringPreferencesKey("stream_inventory_json")
         val FETCHED_AT = longPreferencesKey("stream_inventory_fetched_at")
         val HOST = stringPreferencesKey("stream_inventory_host")
@@ -49,6 +49,19 @@ class StreamInventoryRepository @Inject constructor(
             prefs[Keys.JSON] = payload
             prefs[Keys.FETCHED_AT] = fetchedAt
             prefs[Keys.HOST] = host
+        }
+    }
+
+    suspend fun storeIfCurrentHost(host: String, payload: String, fetchedAt: Long) {
+        if (parse(payload) == null) return
+        dataStore.edit { prefs ->
+            val currentHost = prefs[stringPreferencesKey("stream_host")]
+                ?: com.nendo.argosy.data.model.stream.StreamSettings.DEFAULT_HOST
+            if (currentHost == host) {
+                prefs[Keys.JSON] = payload
+                prefs[Keys.FETCHED_AT] = fetchedAt
+                prefs[Keys.HOST] = host
+            }
         }
     }
 

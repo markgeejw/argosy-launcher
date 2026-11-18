@@ -196,7 +196,8 @@ class SteamMetadataLauncherRecoveryTest {
         preferencesRepository = mockk(relaxed = true),
         syncPreferencesRepository = mockk(relaxed = true),
         steamLibraryRepair = mockk(relaxed = true),
-        gameArtDao = mockk(relaxed = true)
+        gameArtDao = mockk(relaxed = true),
+        inventoryRefresh = mockk(relaxed = true)
     )
 
     private fun appInfo() = KeyValue("appinfo").apply {

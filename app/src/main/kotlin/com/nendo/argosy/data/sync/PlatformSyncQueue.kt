@@ -21,13 +21,15 @@ import javax.inject.Singleton
 class PlatformSyncQueue internal constructor(
     private val syncPlatformUseCase: dagger.Lazy<SyncPlatformUseCase>,
     private val syncLibraryUseCase: dagger.Lazy<SyncLibraryUseCase>,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val inventoryRefresh: com.nendo.argosy.data.stream.SunshineInventoryRefresh? = null
 ) {
     @Inject
     constructor(
         syncPlatformUseCase: dagger.Lazy<SyncPlatformUseCase>,
-        syncLibraryUseCase: dagger.Lazy<SyncLibraryUseCase>
-    ) : this(syncPlatformUseCase, syncLibraryUseCase, CoroutineScope(Dispatchers.IO + SupervisorJob()))
+        syncLibraryUseCase: dagger.Lazy<SyncLibraryUseCase>,
+        inventoryRefresh: com.nendo.argosy.data.stream.SunshineInventoryRefresh
+    ) : this(syncPlatformUseCase, syncLibraryUseCase, CoroutineScope(Dispatchers.IO + SupervisorJob()), inventoryRefresh)
 
     sealed interface Job {
         data class Library(val initializeFirst: Boolean, val changesSince: java.time.Instant? = null) : Job
@@ -107,6 +109,7 @@ class PlatformSyncQueue internal constructor(
             pending.addLast(Pending(Job.Library(initializeFirst, changesSince), onComplete))
             _libraryQueued.value = true
         }
+        scope.launch { inventoryRefresh?.refresh() }
         scope.launch { drain() }
         return true
     }

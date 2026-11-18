@@ -39,6 +39,20 @@ class PlatformSyncQueueTest {
     }
 
     @Test
+    fun `library enqueue starts inventory refresh without blocking sync`() = runTest {
+        val refresh = mockk<com.nendo.argosy.data.stream.SunshineInventoryRefresh>()
+        val gate = CompletableDeferred<Unit>()
+        coEvery { refresh.refresh(any()) } coAnswers { gate.await() }
+        val queue = PlatformSyncQueue({ syncPlatform }, { syncLibrary }, backgroundScope, refresh)
+        assertTrue(queue.enqueueLibrary())
+        runCurrent()
+        coVerify(exactly = 1) { refresh.refresh(any()) }
+        coVerify(exactly = 1) { syncLibrary.invoke(any(), any(), any()) }
+        gate.complete(Unit)
+        libraryGate.complete(Unit)
+    }
+
+    @Test
     fun `a platform queued before library busy is published runs once after the library ends`() = runTest {
         val queue = PlatformSyncQueue({ syncPlatform }, { syncLibrary }, backgroundScope)
         assertTrue(queue.enqueueLibrary())
