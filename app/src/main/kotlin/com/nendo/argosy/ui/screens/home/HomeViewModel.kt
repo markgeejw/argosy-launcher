@@ -2435,17 +2435,20 @@ class HomeViewModel @Inject constructor(
     private fun gameMenuOffer(
         game: HomeGameUi,
         settings: com.nendo.argosy.data.model.stream.StreamSettings,
-        indicator: GameDownloadIndicator
+        indicator: GameDownloadIndicator,
+        inventory: com.nendo.argosy.data.model.stream.InventorySnapshot? = streamLauncher.streamFirst.value.inventory.takeIf { streamLauncher.streamFirst.value.settings.host == settings.host }
     ) = streamLauncher.offerFor(
         game.id, game.platformSlug, game.rommId, game.title, game.isSteamGame,
-        game.isAndroidApp, settings, game.isOnDevice(indicator)
+        game.isAndroidApp, settings, game.isOnDevice(indicator), inventory
     )?.takeIf { it.kind == StreamKind.MOONLIGHT ||
         (game.isRommGame && !game.isDownloaded && !game.needsInstall) }
 
     fun openGameStream(game: HomeGameUi, kind: StreamKind) {
         viewModelScope.launch {
             val settings = preferencesRepository.userPreferences.first().streamSettings
-            val offer = gameMenuOffer(game, settings, downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE)
+            val (hostIsCurrent, inventory) = streamLauncher.inventoryFor(settings.host)
+            if (!hostIsCurrent) return@launch
+            val offer = gameMenuOffer(game, settings, downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE, inventory)
             if (offer?.kind != kind) return@launch
             if (kind == StreamKind.CONTAINER) {
                 streamLauncher.open(game.id)

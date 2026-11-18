@@ -51,6 +51,20 @@ class StreamInventoryRepositoryTest {
         scope.cancel()
     }
 
+    @Test fun `dispatch snapshot checks the persisted host and expiry together`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        val store = PreferenceDataStoreFactory.create(scope = scope) { temp.newFile("dispatch.preferences_pb") }
+        val repo = StreamInventoryRepository(store)
+        store.edit { it[stringPreferencesKey("stream_host")] = "gamer" }
+        repo.store("gamer", hades, 0)
+        assertEquals(setOf(InventoryEntry("Hades", "1285314453")), repo.currentHostSnapshot("gamer", week - 1).second?.entries)
+        assertEquals(true to null, repo.currentHostSnapshot("gamer", week))
+        store.edit { it[stringPreferencesKey("stream_host")] = "other" }
+        assertEquals(false to null, repo.currentHostSnapshot("gamer", 1000))
+        assertEquals(true to null, repo.currentHostSnapshot("other", 1000))
+        scope.cancel()
+    }
+
     @Test fun `expiry is inclusive at seven days`() = runTest {
         val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
         val store = PreferenceDataStoreFactory.create(scope = scope) { temp.newFile("three.preferences_pb") }

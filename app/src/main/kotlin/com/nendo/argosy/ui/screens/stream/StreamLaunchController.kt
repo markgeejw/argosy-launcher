@@ -15,6 +15,8 @@ import com.nendo.argosy.data.repository.GameRepository
 import com.nendo.argosy.data.repository.SaveSyncApiClient
 import com.nendo.argosy.data.preferences.UserPreferencesRepository
 import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.stream.StreamInventoryRepository
+import com.nendo.argosy.data.model.stream.InventorySnapshot
 import com.nendo.argosy.data.stream.StreamKind
 import com.nendo.argosy.data.stream.StreamRoute
 import com.nendo.argosy.data.streaming.StreamClaimOutcome
@@ -62,8 +64,10 @@ class StreamLaunchController private constructor(
 
     val streamFirst: StateFlow<StreamFirstUi> = combine(
         deps.preferences.userPreferences.map { it.notOnDeviceAction to it.streamSettings }.distinctUntilChanged(),
-        deps.configStore.availability
-    ) { (action, settings), _ -> StreamFirstUi(action, deps.configStore.streamablePlatforms(), settings) }
+        deps.configStore.availability,
+        deps.inventory.snapshots()
+    ) { (action, settings), _, inventory -> StreamFirstUi(action, deps.configStore.streamablePlatforms(), settings,
+        inventory?.takeIf { it.first == settings.host }?.second) }
         .stateIn(scope, SharingStarted.Eagerly, StreamFirstUi())
 
     val offers: Flow<Unit> =
@@ -94,14 +98,24 @@ class StreamLaunchController private constructor(
         gameId: Long, platformSlug: String, rommId: Long?, title: String,
         isSteamGame: Boolean, isAndroidApp: Boolean, settings: StreamSettings,
         isOnDevice: Boolean = false
+    ): StreamOffer? = offerFor(gameId, platformSlug, rommId, title, isSteamGame, isAndroidApp, settings,
+        isOnDevice, streamFirst.value.inventory.takeIf { streamFirst.value.settings.host == settings.host })
+
+    fun offerFor(
+        gameId: Long, platformSlug: String, rommId: Long?, title: String,
+        isSteamGame: Boolean, isAndroidApp: Boolean, settings: StreamSettings,
+        isOnDevice: Boolean, inventory: InventorySnapshot?
     ): StreamOffer? {
         val found = deps.configStore.containerFor(platformSlug)
-        val route = StreamRoute.resolve(settings, found, rommId, platformSlug, isSteamGame, isAndroidApp, title)
+        val route = StreamRoute.resolve(settings, found, rommId, platformSlug, isSteamGame, isAndroidApp, title, inventory?.takeIf { System.currentTimeMillis() - it.fetchedAt < 7 * 24 * 60 * 60 * 1000L }?.entries)
         if (route?.kind == StreamKind.MOONLIGHT) return StreamOffer("", isLive = false,
             leads = StreamFirstRule.leadsWithStream(streamFirst.value.action, isOnDevice, false, true), kind = route.kind)
-        if (settings.host.isBlank() || isAndroidApp || isSteamGame) return null
+        if (settings.host.isBlank() || isAndroidApp || isSteamGame || rommId == null) return null
         return offerFor(gameId, platformSlug, isOnDevice)
     }
+
+    suspend fun inventoryFor(host: String): Pair<Boolean, InventorySnapshot?> =
+        deps.inventory.currentHostSnapshot(host, System.currentTimeMillis())
 
     fun open(gameId: Long) {
         if (deps.sessions.isLive(gameId)) {
@@ -375,7 +389,8 @@ class StreamLaunchController private constructor(
         internal val snapshotChannels: SnapshotChannelService,
         internal val launchTargets: EmulatorLaunchTargetResolver,
         internal val soundManager: SoundFeedbackManager,
-        internal val preferences: UserPreferencesRepository
+        internal val preferences: UserPreferencesRepository,
+        internal val inventory: StreamInventoryRepository
     ) {
         fun create(scope: CoroutineScope): StreamLaunchController = StreamLaunchController(this, scope)
     }

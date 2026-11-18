@@ -59,6 +59,7 @@ class HomeStreamOfferTest {
             every { this@mockk.preferences } returns emptyFlow()
             every { latest } returns null
         }
+        io.mockk.coEvery { controller.inventoryFor(any()) } returns (true to null)
         every { controller.offers } returns prefs.map { Unit }
         every { controller.streamFirst } returns mockk {
             every { value } answers {
@@ -67,12 +68,16 @@ class HomeStreamOfferTest {
                 )
             }
         }
-        every { controller.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any()) } answers {
+        every { controller.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any(), any()) } answers {
             val settings = arg<StreamSettings>(6)
             val route = StreamRoute.resolve(settings, RomMStreamingContainer(platform = "switch", label = "eden"),
-                arg(2), arg(1), arg(4), arg(5), arg(3))
+                arg(2), arg(1), arg(4), arg(5), arg(3),
+                arg<com.nendo.argosy.data.model.stream.InventorySnapshot?>(8)?.entries)
             route?.let { StreamOffer("eden", false,
                 leads = prefs.value.notOnDeviceAction == NotOnDeviceAction.STREAM && !arg<Boolean>(7), kind = it.kind) }
+        }
+        every { controller.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any()) } answers {
+            controller.offerFor(arg(0), arg<String>(1), arg(2), arg(3), arg(4), arg(5), arg(6), arg(7), null)
         }
         val library = mockk<HomeLibraryDelegate>(relaxed = true) {
             every { state } returns MutableStateFlow(LibraryState(recentGames = listOf(game)))
@@ -118,6 +123,21 @@ class HomeStreamOfferTest {
             runningGames = mockk { every { state } returns MutableStateFlow(com.nendo.argosy.data.emulator.background.RunningGamesSnapshot()) },
             runningGameMenu = mockk(relaxed = true), streamLaunch = mockk { every { create(any()) } returns controller }
         ).also { vm = it }
+    }
+
+    @Test fun `dispatch rejects moonlight when a newer inventory suppresses it`() = runTest(dispatcher) {
+        prefs.value = prefs.value.copy(streamSettings = prefs.value.streamSettings.copy(host = "gamer", platforms = setOf("switch")))
+        val model = create()
+        runCurrent()
+        model.toggleGameMenu()
+        runCurrent()
+        assertEquals(StreamKind.MOONLIGHT, model.uiState.value.gameMenuStream?.kind)
+        io.mockk.coEvery { controller.inventoryFor(any()) } returns (true to
+            com.nendo.argosy.data.model.stream.InventorySnapshot(
+                setOf(com.nendo.argosy.data.model.stream.InventoryEntry("Other", "1")), System.currentTimeMillis()))
+        model.openGameStream(game, StreamKind.MOONLIGHT)
+        runCurrent()
+        verify(exactly = 0) { controller.open(any()) }
     }
 
     @Test fun `open menu tracks transport action and availability and rejects stale dispatch`() = runTest(dispatcher) {

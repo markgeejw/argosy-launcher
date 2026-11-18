@@ -10,6 +10,10 @@ import com.nendo.argosy.data.model.stream.InventorySnapshot
 import com.squareup.moshi.JsonDataException
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -72,6 +76,33 @@ class StreamInventoryRepository @Inject constructor(
         if (nowMillis - fetchedAt >= EXPIRY_MILLIS) return null
         val entries = parse(prefs[Keys.JSON] ?: return null) ?: return null
         return InventorySnapshot(entries, fetchedAt)
+    }
+
+    suspend fun currentHostSnapshot(host: String, nowMillis: Long): Pair<Boolean, InventorySnapshot?> {
+        val prefs = dataStore.data.first()
+        val currentHost = prefs[stringPreferencesKey("stream_host")]
+            ?: com.nendo.argosy.data.model.stream.StreamSettings.DEFAULT_HOST
+        if (currentHost != host) return false to null
+        val fetchedAt = prefs[Keys.FETCHED_AT]
+        val entries = prefs[Keys.JSON]?.let(::parse)
+        val snapshot = if (prefs[Keys.HOST] == host && fetchedAt != null && entries != null &&
+            nowMillis - fetchedAt < EXPIRY_MILLIS) InventorySnapshot(entries, fetchedAt) else null
+        return true to snapshot
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun snapshots() = dataStore.data.flatMapLatest { prefs ->
+        flow {
+            val host = prefs[Keys.HOST]
+            val fetchedAt = prefs[Keys.FETCHED_AT]
+            val entries = prefs[Keys.JSON]?.let(::parse)
+            val remaining = fetchedAt?.let { EXPIRY_MILLIS - (System.currentTimeMillis() - it) } ?: 0L
+            if (host != null && entries != null && remaining > 0) {
+                emit(host to InventorySnapshot(entries, fetchedAt!!))
+                delay(remaining)
+            }
+            emit(null)
+        }
     }
 
     suspend fun clear() {

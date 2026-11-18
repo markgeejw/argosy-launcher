@@ -1,6 +1,7 @@
 package com.nendo.argosy.data.stream
 
 import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.model.stream.InventoryEntry
 import com.nendo.argosy.data.platform.PlatformDefinitions
 import com.nendo.argosy.data.remote.romm.RomMStreamingContainer
 
@@ -15,11 +16,12 @@ data class StreamRoute(val kind: StreamKind, val appId: String? = null) {
             platformSlug: String,
             isSteamGame: Boolean,
             isAndroidApp: Boolean,
-            title: String
+            title: String,
+            inventory: Set<InventoryEntry>? = null
         ): StreamRoute? {
             if (isAndroidApp || settings.host.isBlank()) return null
             if (isSteamGame) {
-                if (title.isNotBlank()) {
+                if (title.isNotBlank() && (inventory == null || InventoryEntry(title, MoonlightStream.appId(title).toString()) in inventory)) {
                     return StreamRoute(StreamKind.MOONLIGHT, MoonlightStream.appId(title).toString())
                 }
                 return null
@@ -28,10 +30,11 @@ data class StreamRoute(val kind: StreamKind, val appId: String? = null) {
                     settings.platforms, PlatformDefinitions.getCanonicalSlug(platformSlug)
                 )
             ) {
-                return StreamRoute(
-                    StreamKind.MOONLIGHT,
-                    MoonlightStream.appId(MoonlightStream.appName(title, rommId)).toString()
-                )
+                val name = MoonlightStream.appName(title, rommId)
+                val appId = MoonlightStream.appId(name).toString()
+                if (inventory == null || InventoryEntry(name, appId) in inventory) {
+                    return StreamRoute(StreamKind.MOONLIGHT, appId)
+                }
             }
             return container?.let { StreamRoute(StreamKind.CONTAINER) }
         }

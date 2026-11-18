@@ -2,6 +2,7 @@ package com.nendo.argosy.ui.screens.stream
 
 import androidx.compose.runtime.compositionLocalOf
 import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.model.stream.InventorySnapshot
 import com.nendo.argosy.data.stream.StreamKind
 import com.nendo.argosy.data.stream.StreamRoute
 import com.nendo.argosy.data.preferences.NotOnDeviceAction
@@ -14,7 +15,8 @@ import com.nendo.argosy.data.streaming.StreamFirstRule
 data class StreamFirstUi(
     val action: NotOnDeviceAction = NotOnDeviceAction.DOWNLOAD,
     val platforms: Set<String> = emptySet(),
-    val settings: StreamSettings = StreamSettings()
+    val settings: StreamSettings = StreamSettings(),
+    val inventory: InventorySnapshot? = null
 ) {
     fun leads(platformSlug: String?, isRommGame: Boolean, isOnDevice: Boolean,
               rommId: Long? = null, title: String = "", isSteamGame: Boolean = false,
@@ -22,7 +24,7 @@ data class StreamFirstUi(
         val hasContainer = settings.host.isNotBlank() && !isSteamGame && !isAndroidApp &&
             platformSlug?.lowercase()?.let { it in platforms } == true
         val moonlight = StreamRoute.resolve(settings, null, rommId, platformSlug.orEmpty(),
-            isSteamGame, isAndroidApp, title)?.kind == StreamKind.MOONLIGHT
+            isSteamGame, isAndroidApp, title, inventory?.takeIf { System.currentTimeMillis() - it.fetchedAt < 7 * 24 * 60 * 60 * 1000L }?.entries)?.kind == StreamKind.MOONLIGHT
         return StreamFirstRule.leadsWithStream(action, isOnDevice, isRommGame && hasContainer, moonlight)
     }
 }

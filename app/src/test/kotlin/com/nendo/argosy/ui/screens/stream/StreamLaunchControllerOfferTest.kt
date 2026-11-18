@@ -1,6 +1,8 @@
 package com.nendo.argosy.ui.screens.stream
 
 import com.nendo.argosy.data.model.stream.StreamSettings
+import com.nendo.argosy.data.model.stream.InventoryEntry
+import com.nendo.argosy.data.model.stream.InventorySnapshot
 import com.nendo.argosy.data.preferences.NotOnDeviceAction
 import com.nendo.argosy.data.preferences.UserPreferences
 import com.nendo.argosy.data.remote.romm.RomMStreamingContainer
@@ -33,7 +35,8 @@ class StreamLaunchControllerOfferTest {
             every { userPreferences } returns flowOf(UserPreferences())
         }
         val factory = StreamLaunchController.Factory(
-            mockk(), mockk(), config, sessions, mockk(), mockk(), mockk(), mockk(), preferences
+            mockk(), mockk(), config, sessions, mockk(), mockk(), mockk(), mockk(), preferences,
+            mockk { every { snapshots() } returns flowOf(null) }
         )
         val controller = factory.create(backgroundScope)
         val settings = StreamSettings()
@@ -45,6 +48,38 @@ class StreamLaunchControllerOfferTest {
         assertNull(controller.offerFor(7, "switch", 29, "Zelda", false, false, settings.copy(host = "")))
         assertEquals(StreamKind.MOONLIGHT, controller.offerFor(7, "pc", null, "Hades", true, false, settings)?.kind)
     }
+    @Test
+    fun `inventory changes update offers and stream first and host replacement fails open`() = runTest {
+        val config = mockk<StreamingConfigStore> {
+            every { availability } returns MutableStateFlow(mockk(relaxed = true))
+            every { containerFor(any()) } returns RomMStreamingContainer(platform = "switch", label = "eden")
+            every { streamablePlatforms() } returns setOf("switch")
+        }
+        val sessions = mockk<StreamSessionManager> { every { session } returns MutableStateFlow(null) }
+        val prefs = MutableStateFlow(UserPreferences(notOnDeviceAction = NotOnDeviceAction.STREAM,
+            streamSettings = StreamSettings(host = "gamer")))
+        val inventory = MutableStateFlow<Pair<String, InventorySnapshot>?>(null)
+        val controller = StreamLaunchController.Factory(
+            mockk(), mockk(), config, sessions, mockk(), mockk(), mockk(), mockk(),
+            mockk { every { userPreferences } returns prefs },
+            mockk { every { snapshots() } returns inventory }
+        ).create(backgroundScope)
+        runCurrent()
+        fun offer() = controller.offerFor(7, "switch", 29, "Hades", false, false, prefs.value.streamSettings)
+        assertEquals(StreamKind.MOONLIGHT, offer()?.kind)
+        inventory.value = "gamer" to InventorySnapshot(setOf(InventoryEntry("Other", "1")), System.currentTimeMillis())
+        runCurrent()
+        assertEquals(StreamKind.CONTAINER, offer()?.kind)
+        assertEquals(true, controller.streamFirst.value.leads("switch", true, false, 29, "Hades"))
+        inventory.value = "gamer" to InventorySnapshot(setOf(InventoryEntry("Hades [29]", "1004913149")), System.currentTimeMillis())
+        runCurrent()
+        assertEquals(StreamKind.MOONLIGHT, offer()?.kind)
+        prefs.value = prefs.value.copy(streamSettings = prefs.value.streamSettings.copy(host = "other"))
+        inventory.value = "gamer" to InventorySnapshot(setOf(InventoryEntry("Other", "1")), System.currentTimeMillis())
+        runCurrent()
+        assertEquals(StreamKind.MOONLIGHT, offer()?.kind)
+    }
+
     @Test
     fun `offers react to preference changes and lead with moonlight`() = runTest {
         val config = mockk<StreamingConfigStore> {
@@ -59,7 +94,8 @@ class StreamLaunchControllerOfferTest {
             every { userPreferences } returns prefs
         }
         val controller = StreamLaunchController.Factory(
-            mockk(), mockk(), config, sessions, mockk(), mockk(), mockk(), mockk(), preferences
+            mockk(), mockk(), config, sessions, mockk(), mockk(), mockk(), mockk(), preferences,
+            mockk { every { snapshots() } returns flowOf(null) }
         ).create(backgroundScope)
         runCurrent()
         fun offer() = controller.offerFor(7, "switch", 29, "Zelda", false, false, prefs.value.streamSettings)

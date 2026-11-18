@@ -2256,12 +2256,6 @@ class GameDetailViewModel @Inject constructor(
 
     fun showLaunchError(message: NotificationText) = notificationManager.showError(message)
 
-    fun streamGame() {
-        val state = _uiState.value
-        val event = state.game?.let { streamLaunchEvent(it, state.streamSettings) } ?: return
-        viewModelScope.launch { _launchEvents.emit(event) }
-    }
-
     // --- Navigation ---
 
     fun navigateToPreviousGame() {
@@ -2323,10 +2317,26 @@ class GameDetailViewModel @Inject constructor(
     }
 
     fun openStream() {
-        when (_uiState.value.stream?.kind) {
-            com.nendo.argosy.data.stream.StreamKind.MOONLIGHT -> streamGame()
-            com.nendo.argosy.data.stream.StreamKind.CONTAINER -> streamLauncher.open(currentGameId)
-            null -> Unit
+        val state = _uiState.value
+        val game = state.game ?: return
+        val expected = state.stream?.kind ?: return
+        viewModelScope.launch {
+            val settings = preferencesRepository.userPreferences.first().streamSettings
+            val (hostIsCurrent, inventory) = streamLauncher.inventoryFor(settings.host)
+            if (!hostIsCurrent) return@launch
+            val offer = streamLauncher.offerFor(
+                game.id, game.platformSlug, game.rommId, game.title, game.isSteamGame, game.isAndroidApp,
+                settings, state.downloadStatus != GameDownloadStatus.NOT_DOWNLOADED &&
+                    state.downloadStatus != GameDownloadStatus.NO_FILE, inventory
+            )
+            if (offer?.kind != expected) return@launch
+            when (expected) {
+                com.nendo.argosy.data.stream.StreamKind.MOONLIGHT -> {
+                    val event = streamLaunchEvent(game, settings) ?: return@launch
+                    _launchEvents.emit(event)
+                }
+                com.nendo.argosy.data.stream.StreamKind.CONTAINER -> streamLauncher.open(currentGameId)
+            }
         }
     }
 

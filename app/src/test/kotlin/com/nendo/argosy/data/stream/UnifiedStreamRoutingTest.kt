@@ -1,5 +1,6 @@
 package com.nendo.argosy.data.stream
 
+import com.nendo.argosy.data.model.stream.InventoryEntry
 import com.nendo.argosy.data.model.stream.StreamSettings
 import com.nendo.argosy.data.remote.romm.RomMStreamingContainer
 import org.junit.Assert.assertEquals
@@ -9,6 +10,23 @@ private fun FakeContainer(platform: String) = RomMStreamingContainer(platform = 
 
 class UnifiedStreamRoutingTest {
     private val settings = StreamSettings(host = "arceus", platforms = setOf("switch", "pc"))
+
+    @Test fun `inventory matches the exact romm pair and falls through to container`() {
+        fun route(entries: Set<InventoryEntry>?, container: RomMStreamingContainer? = FakeContainer("eden")) =
+            StreamRoute.resolve(settings, container, 29L, "switch", false, false, "Hades", entries)
+        assertEquals(StreamKind.MOONLIGHT, route(setOf(InventoryEntry("Hades [29]", "1004913149")))?.kind)
+        assertEquals(StreamKind.CONTAINER, route(setOf(InventoryEntry("Hades [29]", "1")))?.kind)
+        assertEquals(StreamKind.CONTAINER, route(setOf(InventoryEntry("Other", "1004913149")))?.kind)
+        assertEquals(null, route(setOf(InventoryEntry("Other", "1004913149")), null))
+        assertEquals(StreamKind.MOONLIGHT, route(null)?.kind)
+    }
+
+    @Test fun `steam inventory matches bare title and id`() {
+        fun route(entries: Set<InventoryEntry>) = StreamRoute.resolve(
+            settings, null, null, "windows", true, false, "Hades", entries)
+        assertEquals(StreamKind.MOONLIGHT, route(setOf(InventoryEntry("Hades", "1285314453")))?.kind)
+        assertEquals(null, route(setOf(InventoryEntry("Hades [29]", "1285314453"))))
+    }
 
     @Test fun `switch romm game routes moonlight with the suffixed id`() {
         val route = StreamRoute.resolve(settings, container = null, rommId = 29L,

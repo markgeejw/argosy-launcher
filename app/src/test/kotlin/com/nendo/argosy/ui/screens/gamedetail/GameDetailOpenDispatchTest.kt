@@ -200,6 +200,10 @@ class GameDetailOpenDispatchTest {
         every { emulatorDetector.installedEmulators } returns
             MutableStateFlow(listOf(mockk<InstalledEmulator>(relaxed = true)))
         every { streamController.offers } returns emptyFlow()
+        coEvery { streamController.inventoryFor(any()) } returns (true to null)
+        every { streamController.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any(), any()) } answers {
+            streamController.offerFor(arg(0), arg<String>(1), arg(2), arg(3), arg(4), arg(5), arg(6), arg(7))
+        }
         every { streamController.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any()) } returns
             com.nendo.argosy.ui.screens.stream.StreamOffer("", false, kind = com.nendo.argosy.data.stream.StreamKind.MOONLIGHT)
     }
@@ -226,6 +230,27 @@ class GameDetailOpenDispatchTest {
             verify { launchDelegate wasNot io.mockk.Called }
             verify { tracker wasNot io.mockk.Called }
         }
+
+    @Test
+    fun `dispatch rejects a moonlight offer suppressed after the menu was drawn`() = runTest(dispatcher) {
+        coEvery { gameRepository.getById(7L) } returns entity()
+        val vm = viewModel()
+        val events = mutableListOf<LaunchEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler), start = CoroutineStart.UNDISPATCHED) {
+            vm.launchEvents.collect { events.add(it) }
+        }
+        vm.loadGame(7L)
+        advanceUntilIdle()
+        assertEquals(com.nendo.argosy.data.stream.StreamKind.MOONLIGHT, vm.uiState.value.stream?.kind)
+        every { streamController.offerFor(any(), any<String>(), any(), any(), any(), any(), any(), any(), any()) } returns null
+        clearMocks(launchDelegate, tracker, answers = false)
+        vm.openStream()
+        advanceUntilIdle()
+        assertEquals(0, events.filterIsInstance<LaunchEvent.StreamIntent>().size)
+        verify(exactly = 0) { streamController.open(any()) }
+        verify { launchDelegate wasNot io.mockk.Called }
+        verify { tracker wasNot io.mockk.Called }
+    }
 
     @Test
     fun `open on a steam game emits the stream intent and never touches the container controller`() =
