@@ -103,7 +103,10 @@ class SettingsBackupKeysTest {
         "debug_update_checks_enabled"
     )
 
-    private val streamingTarget = setOf("stream_host", "stream_moonlight_package", "stream_platforms")
+    private val streamingTarget = setOf(
+        "stream_host", "stream_moonlight_package", "stream_platforms",
+        "stream_inventory_json", "stream_inventory_host", "stream_inventory_fetched_at"
+    )
     private val installPermissions = setOf("allow_remote_installs")
 
     private val setupConfirmations = setOf(
@@ -197,7 +200,10 @@ class SettingsBackupKeysTest {
         val expected = mapOf(
             "stream_host" to "string",
             "stream_moonlight_package" to "string",
-            "stream_platforms" to "stringSet"
+            "stream_platforms" to "stringSet",
+            "stream_inventory_json" to "string",
+            "stream_inventory_host" to "string",
+            "stream_inventory_fetched_at" to "long"
         )
         assertEquals(expected, declaredKeys().filterKeys { it.startsWith("stream_") })
         assertEquals(expected.keys, streamingTarget)
