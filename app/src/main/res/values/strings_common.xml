@@ -2356,6 +2356,7 @@
          ui/screens/settings/delegates/SteamSettingsDelegate.kt). Authored sentences that used
          to reach NotificationText.Raw untranslated; each is its own usage site even where the
          English happens to repeat. -->
+    <string name="notif_steam_sync_error_missing_package_token">Steam library sync could not access some packages</string>
     <string name="notif_steam_sync_error_no_cached_licenses">No cached licenses -- connect to Steam first</string>
     <string name="notif_steam_sync_error_no_active_account">No active account</string>
     <string name="notif_steam_sync_error_not_connected">Not connected to Steam</string>

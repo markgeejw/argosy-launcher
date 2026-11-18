@@ -53,6 +53,9 @@ import javax.inject.Singleton
 private const val TAG = "SteamLibraryManager"
 private const val STEAM_PLATFORM_SLUG = "steam"
 
+internal fun packageRequests(licenses: List<License>): List<PICSRequest> =
+    licenses.filter { it.packageID != 0 }.map { PICSRequest(it.packageID, it.accessToken) }
+
 sealed class LibrarySyncState {
     data object Idle : LibrarySyncState()
     data object SyncingLicenses : LibrarySyncState()
@@ -112,6 +115,7 @@ class SteamLibraryManager @Inject constructor(
 
     private var syncPhase = SyncPhase.IDLE
     private var picsFailures = 0
+    private var missingPackageToken = false
     private var phaseTotal = 0
     private val pendingPackageIds = mutableSetOf<Int>()
     private val pendingAppIds = mutableSetOf<Int>()
@@ -237,7 +241,8 @@ class SteamLibraryManager @Inject constructor(
             }
             currentAccountId = account.id
 
-            val packageIds = licenses.map { it.packageID }.filter { it != 0 }
+            val requests = packageRequests(licenses)
+            val packageIds = requests.map { it.id }
 
             Log.d(TAG, "Processing ${packageIds.size} packages (excluding package 0)")
 
@@ -253,26 +258,28 @@ class SteamLibraryManager @Inject constructor(
             gamesAdded = 0
             gamesUpdated = 0
             picsFailures = 0
+            missingPackageToken = false
             syncPhase = SyncPhase.PACKAGES
 
-            requestPackageInfo(packageIds)
+            requestPackageInfo(requests)
         }
     }
 
-    private suspend fun requestPackageInfo(packageIds: List<Int>) {
+    private suspend fun requestPackageInfo(requests: List<PICSRequest>) {
         val apps = steamApps ?: return endSyncDisconnected()
 
-        phaseTotal = packageIds.size
+        phaseTotal = requests.size
         _syncState.value = LibrarySyncState.FetchingPackages(0, phaseTotal)
 
-        val batches = packageIds.chunked(PACKAGE_BATCH_SIZE)
+        val batches = requests.chunked(PACKAGE_BATCH_SIZE)
         for ((index, batch) in batches.withIndex()) {
             if (steamApps !== apps) return endSyncDisconnected()
-            val responses = fetchProductInfo("package", batch) {
-                apps.picsGetProductInfo(emptyList(), batch.map { PICSRequest(it) })
+            val packageIds = batch.map { it.id }
+            val responses = fetchProductInfo("package", packageIds) {
+                apps.picsGetProductInfo(emptyList(), batch)
             }
             responses.forEach { handlePackageInfo(it) }
-            skipUnresolved("package", batch, responses.flatMap { it.unknownPackages }, pendingPackageIds)
+            skipUnresolved("package", packageIds, responses.flatMap { it.unknownPackages }, pendingPackageIds)
             if (index < batches.lastIndex) delay(BATCH_SPACING_MS)
         }
 
@@ -328,7 +335,7 @@ class SteamLibraryManager @Inject constructor(
         storeLicenses()
         if (pendingAppIds.isEmpty()) {
             syncPhase = SyncPhase.IDLE
-            _syncState.value = LibrarySyncState.Complete(0, 0)
+            completeSyncState(0, 0)
             return
         }
         syncPhase = SyncPhase.APPS
@@ -338,6 +345,14 @@ class SteamLibraryManager @Inject constructor(
     private suspend fun handlePackageInfo(callback: PICSProductInfoCallback) {
         for ((packageId, packageInfo) in callback.packages) {
             try {
+                if (packageInfo.isMissingToken) {
+                    Log.w(TAG, "Missing PICS token for package $packageId")
+                    picsFailures++
+                    missingPackageToken = true
+                    lastFullSyncAt = null
+                    pendingPackageIds.remove(packageId)
+                    continue
+                }
                 val kv = packageInfo.keyValues
                 val appIds = kv["appids"]?.children
                     ?.mapNotNull { it.asInteger() }
@@ -446,7 +461,7 @@ class SteamLibraryManager @Inject constructor(
         } else {
             Log.w(TAG, "$picsFailures PICS batches failed, next license list will sync again")
         }
-        _syncState.value = LibrarySyncState.Complete(gamesAdded, gamesUpdated)
+        completeSyncState(gamesAdded, gamesUpdated)
         Log.d(TAG, "Library sync complete: $gamesAdded added, $gamesUpdated updated")
 
         if (wasForceSync) {
@@ -463,6 +478,17 @@ class SteamLibraryManager @Inject constructor(
                 enrichIncompleteGames()
                 steamIgdbResolver.get().requestResolutionForUnresolved(force = wasForceSync)
             }
+        }
+    }
+
+    private fun completeSyncState(added: Int, updated: Int) {
+        _syncState.value = if (missingPackageToken) {
+            LibrarySyncState.Error(
+                messageRes = R.string.notif_steam_sync_error_missing_package_token,
+                message = context.getString(R.string.notif_steam_sync_error_missing_package_token)
+            )
+        } else {
+            LibrarySyncState.Complete(added, updated)
         }
     }
 
