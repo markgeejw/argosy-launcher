@@ -28,6 +28,7 @@ import com.nendo.argosy.ui.screens.settings.ConnectionStatus
 import com.nendo.argosy.ui.screens.settings.SettingsSection
 import com.nendo.argosy.ui.screens.settings.SettingsUiState
 import com.nendo.argosy.ui.screens.settings.SettingsViewModel
+import com.nendo.argosy.ui.screens.settings.streamFirstAvailable
 import com.nendo.argosy.ui.screens.settings.components.RomMConfigForm
 import com.nendo.argosy.ui.screens.settings.components.SectionHeader
 import com.nendo.argosy.ui.screens.settings.components.SectionPaneLayout
@@ -46,7 +47,7 @@ internal data class RomMLayoutState(
             isConnected = state.server.connectionStatus == ConnectionStatus.ONLINE ||
                 state.server.connectionStatus == ConnectionStatus.OFFLINE,
             isSignedIntoRomM = state.server.rommUrl.isNotBlank(),
-            streamingAvailable = state.server.streamingAvailable
+            streamingAvailable = state.streamFirstAvailable
         )
     }
 }
@@ -153,7 +154,7 @@ private fun RomMContent(uiState: SettingsUiState, viewModel: SettingsViewModel) 
         uiState.server.connectionStatus == ConnectionStatus.OFFLINE
     val isOnline = uiState.server.connectionStatus == ConnectionStatus.ONLINE
     val isSignedIntoRomM = uiState.server.rommUrl.isNotBlank()
-    val streamingAvailable = uiState.server.streamingAvailable
+    val streamingAvailable = uiState.streamFirstAvailable
 
     val layoutState = remember(isConnected, isSignedIntoRomM, streamingAvailable) {
         RomMLayoutState(

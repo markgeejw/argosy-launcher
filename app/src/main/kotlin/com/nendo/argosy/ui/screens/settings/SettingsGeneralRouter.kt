@@ -688,7 +688,7 @@ internal fun routeSetNotOnDeviceAction(
     vm: SettingsViewModel,
     action: com.nendo.argosy.data.preferences.NotOnDeviceAction
 ) {
-    if (!vm._uiState.value.server.streamingAvailable) return
+    if (!vm._uiState.value.streamFirstAvailable) return
     vm.syncDelegate.setNotOnDeviceAction(vm.viewModelScope, action) { stored ->
         vm.serverDelegate.updateState(vm._uiState.value.server.copy(notOnDeviceAction = stored))
     }

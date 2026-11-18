@@ -62,7 +62,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import com.nendo.argosy.data.stream.StreamKind
-import com.nendo.argosy.data.stream.StreamRoute
 import com.nendo.argosy.data.stream.MoonlightStream
 import com.nendo.argosy.data.stream.toIntent
 import kotlinx.coroutines.flow.first
@@ -277,6 +276,23 @@ class HomeViewModel @Inject constructor(
     fun createDockReorderInputHandler(isRtl: Boolean): InputHandler = dockDelegate.createInputHandler(isRtl)
 
     init {
+        viewModelScope.launch {
+            combine(
+                streamLauncher.offers,
+                preferencesRepository.userPreferences.map { it.streamSettings }.distinctUntilChanged(),
+                _uiState.map { it.showGameMenu to it.focusedGame }.distinctUntilChanged(),
+                downloadIndicators
+            ) { _, settings, (shown, game), indicators ->
+                if (shown && game != null) gameMenuOffer(game, settings, indicators[game.id] ?: GameDownloadIndicator.NONE)
+                else null
+            }.distinctUntilChanged().collect { offer ->
+                if (_uiState.value.showGameMenu) {
+                    _uiState.update { it.copy(gameMenuStream = offer) }
+                    moveGameMenuFocus(0)
+                }
+            }
+        }
+
         modalResetSignal.signal.onEach {
             gameMenuOpenJob?.cancel()
             gameMenuDelegate.resetMenu()
@@ -2278,12 +2294,7 @@ class HomeViewModel @Inject constructor(
                 .orEmpty()
             val settings = preferencesRepository.userPreferences.first().streamSettings
             val stream = focused?.let { game ->
-                val indicator = downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE
-                streamLauncher.offerFor(
-                    game.id, game.platformSlug, game.rommId, game.title, game.isSteamGame,
-                    game.isAndroidApp, settings, game.isOnDevice(indicator)
-                )?.takeIf { it.kind == StreamKind.MOONLIGHT ||
-                    (game.isRommGame && !game.isDownloaded && !game.needsInstall) }
+                gameMenuOffer(game, settings, downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE)
             }
             if (_uiState.value.focusedGame?.id != gameId) return@launch
             _uiState.update {
@@ -2421,16 +2432,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun gameMenuOffer(
+        game: HomeGameUi,
+        settings: com.nendo.argosy.data.model.stream.StreamSettings,
+        indicator: GameDownloadIndicator
+    ) = streamLauncher.offerFor(
+        game.id, game.platformSlug, game.rommId, game.title, game.isSteamGame,
+        game.isAndroidApp, settings, game.isOnDevice(indicator)
+    )?.takeIf { it.kind == StreamKind.MOONLIGHT ||
+        (game.isRommGame && !game.isDownloaded && !game.needsInstall) }
+
     fun openGameStream(game: HomeGameUi, kind: StreamKind) {
-        if (kind == StreamKind.CONTAINER) {
-            streamLauncher.open(game.id)
-            return
-        }
         viewModelScope.launch {
             val settings = preferencesRepository.userPreferences.first().streamSettings
-            val route = StreamRoute.resolve(settings, null, game.rommId, game.platformSlug,
-                game.isSteamGame, game.isAndroidApp, game.title)
-            if (route?.kind != StreamKind.MOONLIGHT) return@launch
+            val offer = gameMenuOffer(game, settings, downloadIndicators.value[game.id] ?: GameDownloadIndicator.NONE)
+            if (offer?.kind != kind) return@launch
+            if (kind == StreamKind.CONTAINER) {
+                streamLauncher.open(game.id)
+                return@launch
+            }
             val request = if (game.isSteamGame) MoonlightStream.request(settings.host, game.title)
                 else MoonlightStream.request(settings.host, game.title, game.rommId ?: return@launch)
             _events.emit(HomeEvent.StreamIntent(request.toIntent(settings.moonlightPackage), settings.moonlightPackage))

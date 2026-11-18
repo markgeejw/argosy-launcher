@@ -2061,3 +2061,6 @@ fun GameListItem.toSettingsPreviewGame(coverPath: String?) = SettingsPreviewGame
     isDownloaded = localPath != null,
     coverPath = coverPath
 )
+
+internal val SettingsUiState.streamFirstAvailable: Boolean
+    get() = server.streamingAvailable || streaming.settings.host.isNotBlank()
