@@ -8,9 +8,10 @@ data class StreamSettings(
     companion object {
         const val DEFAULT_HOST = "arceus"
         const val DEFAULT_MOONLIGHT_PACKAGE = "com.limelight"
-        val DEFAULT_PLATFORMS = setOf("switch")
+        val DEFAULT_PLATFORMS = setOf("switch", "pc")
+        val ABSENT_PLATFORMS = setOf("switch")
 
-        val PLATFORMS = listOf("switch", "3ds", "nds", "snes", "psx", "ps2")
+        val PLATFORMS = listOf("switch", "pc", "3ds", "nds", "snes", "psx", "ps2")
 
         val CLIENTS = listOf("com.limelight", "com.limelight.noir")
     }

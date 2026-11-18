@@ -3,6 +3,10 @@ package com.nendo.argosy.data.stream
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import com.nendo.argosy.data.preferences.AppPreferencesRepository
 import com.nendo.argosy.data.model.stream.StreamSettings
 import com.nendo.argosy.data.preferences.StreamPreferencesRepository
 import java.io.File
@@ -92,5 +96,58 @@ class StreamPreferencesRepositoryTest {
         )
 
         reopenedScope.cancel()
+    }
+    @Test
+    fun `model defaults include pc`() {
+        assertEquals(setOf("switch", "pc"), StreamSettings().platforms)
+    }
+
+    @Test
+    fun `pc toggle persists and old stored set remains unchanged`() = runTest {
+        val (store, scope) = store(tempFolder.newFile("stored.preferences_pb"))
+        val key = stringSetPreferencesKey("stream_platforms")
+        store.edit { it[key] = setOf("switch") }
+        val repo = StreamPreferencesRepository(store)
+        assertEquals(setOf("switch"), repo.settings.first().platforms)
+        repo.setPlatformEnabled("pc", true)
+        assertEquals(setOf("switch", "pc"), store.data.first()[key])
+        repo.setPlatformEnabled("pc", false)
+        assertEquals(setOf("switch"), repo.settings.first().platforms)
+        scope.cancel()
+    }
+
+    @Test
+    fun `initial setup writes new defaults and repeat completion preserves absent key`() = runTest {
+        val (store, scope) = store(tempFolder.newFile("setup.preferences_pb"))
+        val key = stringSetPreferencesKey("stream_platforms")
+        val app = AppPreferencesRepository(store)
+        app.finishSetupFlow()
+        assertEquals(setOf("switch", "pc"), store.data.first()[key])
+        store.edit { it.remove(key) }
+        app.finishSetupFlow()
+        assertEquals(null, store.data.first()[key])
+        assertEquals(setOf("switch"), StreamPreferencesRepository(store).settings.first().platforms)
+        scope.cancel()
+    }
+
+    @Test
+    fun `initial setup preserves explicit sets`() = runTest {
+        for ((index, platforms) in listOf(setOf("switch"), emptySet()).withIndex()) {
+            val (store, scope) = store(tempFolder.newFile("explicit$index.preferences_pb"))
+            val key = stringSetPreferencesKey("stream_platforms")
+            store.edit { it[key] = platforms }
+            AppPreferencesRepository(store).finishSetupFlow()
+            assertEquals(platforms, store.data.first()[key])
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `already completed setup with absent set stays switch only`() = runTest {
+        val (store, scope) = store(tempFolder.newFile("completed.preferences_pb"))
+        store.edit { it[booleanPreferencesKey("setup_flow_finished")] = true }
+        AppPreferencesRepository(store).finishSetupFlow()
+        assertEquals(setOf("switch"), StreamPreferencesRepository(store).settings.first().platforms)
+        scope.cancel()
     }
 }

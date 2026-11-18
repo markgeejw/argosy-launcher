@@ -124,6 +124,7 @@ fun StreamingSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             }
             is StreamingItem.Platform -> SwitchPreference(
                 title = PlatformDefinitions.getBySlug(item.slug)?.name ?: item.slug,
+                subtitle = if (item.slug == "pc") stringResource(R.string.kaegr_settings_streaming_pc_subtitle) else null,
                 isEnabled = item.slug in state.settings.platforms,
                 isFocused = isFocused(item),
                 onToggle = { focus(item); viewModel.toggleStreamPlatform(item.slug) }
@@ -142,7 +143,7 @@ fun StreamingSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
             onDismiss = { viewModel.dismissStreamHostModal() },
             onSubmit = { viewModel.submitStreamHost() },
             focus = state.hostFocus,
-            canSubmit = state.hostDraft.isNotBlank(),
+            canSubmit = true,
             keyboardType = KeyboardType.Uri
         )
     }

@@ -25,7 +25,7 @@ class StreamPreferencesRepository @Inject constructor(
         StreamSettings(
             host = prefs[Keys.HOST] ?: StreamSettings.DEFAULT_HOST,
             moonlightPackage = prefs[Keys.MOONLIGHT_PACKAGE] ?: StreamSettings.DEFAULT_MOONLIGHT_PACKAGE,
-            platforms = prefs[Keys.PLATFORMS] ?: StreamSettings.DEFAULT_PLATFORMS
+            platforms = prefs[Keys.PLATFORMS] ?: StreamSettings.ABSENT_PLATFORMS
         )
     }
 
@@ -39,7 +39,7 @@ class StreamPreferencesRepository @Inject constructor(
 
     suspend fun setPlatformEnabled(slug: String, enabled: Boolean) {
         dataStore.edit { prefs ->
-            val current = prefs[Keys.PLATFORMS] ?: StreamSettings.DEFAULT_PLATFORMS
+            val current = prefs[Keys.PLATFORMS] ?: StreamSettings.ABSENT_PLATFORMS
             prefs[Keys.PLATFORMS] = if (enabled) current + slug else current - slug
         }
     }

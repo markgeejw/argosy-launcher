@@ -13,4 +13,5 @@
     <string name="kaegr_settings_streaming_client_title" translatable="false">Streaming app</string>
     <string name="kaegr_stream_client_moonlight" translatable="false">Moonlight</string>
     <string name="kaegr_stream_client_artemis" translatable="false">Artemis (experimental)</string>
+    <string name="kaegr_settings_streaming_pc_subtitle" translatable="false">Includes Windows. Steam games use Moonlight regardless of these switches. Moonlight takes priority over containers for enabled platforms.</string>
 </resources>

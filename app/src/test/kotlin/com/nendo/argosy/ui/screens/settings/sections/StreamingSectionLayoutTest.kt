@@ -13,13 +13,13 @@ class StreamingSectionLayoutTest {
     }
 
     @Test
-    fun `host and client precede the six platform controls`() {
+    fun `host and client precede the seven platform controls`() {
         assertEquals(StreamingItem.Host, streamingItemAtFocusIndex(0))
         assertEquals(StreamingItem.Client, streamingItemAtFocusIndex(1))
-        listOf("switch", "3ds", "nds", "snes", "psx", "ps2").forEachIndexed { index, slug ->
+        listOf("switch", "pc", "3ds", "nds", "snes", "psx", "ps2").forEachIndexed { index, slug ->
             assertEquals(StreamingItem.Platform(slug), streamingItemAtFocusIndex(index + 2))
         }
-        assertEquals(7, streamingMaxFocusIndex())
-        assertNull(streamingItemAtFocusIndex(8))
+        assertEquals(8, streamingMaxFocusIndex())
+        assertNull(streamingItemAtFocusIndex(9))
     }
 }

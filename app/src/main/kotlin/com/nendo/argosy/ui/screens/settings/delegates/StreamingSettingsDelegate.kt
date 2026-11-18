@@ -73,7 +73,6 @@ class StreamingSettingsDelegate @Inject constructor(
 
     fun submitHost(scope: CoroutineScope) {
         val host = _state.value.hostDraft.trim()
-        if (host.isEmpty()) return
         scope.launch { repository.setStreamHost(host) }
         dismissHostModal()
     }

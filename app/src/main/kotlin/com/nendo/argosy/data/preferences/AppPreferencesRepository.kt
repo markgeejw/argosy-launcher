@@ -5,6 +5,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.nendo.argosy.data.model.stream.StreamSettings
 import com.nendo.argosy.domain.model.ArgosyPermission
 import com.nendo.argosy.domain.permissions.PermissionRecord
 import com.nendo.argosy.util.LogLevel
@@ -170,7 +172,13 @@ class AppPreferencesRepository @Inject constructor(
     }
 
     suspend fun finishSetupFlow() {
-        dataStore.edit { it[Keys.SETUP_FLOW_FINISHED] = true }
+        dataStore.edit { prefs ->
+            val platforms = stringSetPreferencesKey("stream_platforms")
+            if (prefs[Keys.SETUP_FLOW_FINISHED] != true && prefs[platforms] == null) {
+                prefs[platforms] = StreamSettings.DEFAULT_PLATFORMS
+            }
+            prefs[Keys.SETUP_FLOW_FINISHED] = true
+        }
     }
 
     suspend fun markSetupPagesSeen(tokens: Set<String>) {

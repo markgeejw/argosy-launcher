@@ -5,4 +5,5 @@
     <string name="kaegr_stream_no_client" translatable="false">Streaming app not installed: %1$s</string>
     <string name="kaegr_gamedetail_menu_stream_moonlight" translatable="false">Stream from gamer</string>
     <string name="kaegr_home_menu_stream_moonlight" translatable="false">Stream from gamer</string>
+    <string name="kaegr_gamedetail_primary_stream_moonlight" translatable="false">Stream from gamer</string>
 </resources>

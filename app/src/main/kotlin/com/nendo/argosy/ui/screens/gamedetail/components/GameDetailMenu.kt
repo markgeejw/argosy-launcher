@@ -204,7 +204,7 @@ fun GameDetailMenu(
                     if (leadingStream != null) {
                         PlayButtonBody(
                             label = if (leadingStream.kind == com.nendo.argosy.data.stream.StreamKind.MOONLIGHT) {
-                                stringResource(R.string.kaegr_home_menu_stream_moonlight)
+                                stringResource(R.string.kaegr_gamedetail_primary_stream_moonlight)
                             } else if (leadingStream.isLive) {
                                 stringResource(R.string.stream_entry_gamedetail_primary_resume)
                             } else {

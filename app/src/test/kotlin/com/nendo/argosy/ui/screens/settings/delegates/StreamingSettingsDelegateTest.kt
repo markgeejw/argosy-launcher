@@ -47,6 +47,12 @@ class StreamingSettingsDelegateTest {
     private suspend fun StreamingSettingsDelegate.settled(done: (StreamingState) -> Boolean) = state.first(done)
 
     @Test
+    fun `pc is exposed as one platform toggle`() {
+        assertEquals(1, com.nendo.argosy.data.model.stream.StreamSettings.PLATFORMS.count { it == "pc" })
+        assertFalse("windows" in com.nendo.argosy.data.model.stream.StreamSettings.PLATFORMS)
+    }
+
+    @Test
     fun `a saved host replaces the default`() = runTest {
         val delegate = delegate()
         delegate.openHostModal()
@@ -58,15 +64,15 @@ class StreamingSettingsDelegateTest {
     }
 
     @Test
-    fun `a blank host is not saved`() = runTest {
+    fun `clearing host disables streaming`() = runTest {
         val delegate = delegate()
         delegate.openHostModal()
         delegate.updateHostDraft("  ")
         delegate.submitHost(this)
         advanceUntilIdle()
 
-        assertEquals("arceus", delegate.state.value.settings.host)
-        assertTrue(delegate.state.value.showHostModal)
+        assertEquals("", delegate.settled { it.settings.host.isEmpty() }.settings.host)
+        assertFalse(delegate.state.value.showHostModal)
     }
 
     @Test
@@ -127,6 +133,6 @@ class StreamingSettingsDelegateTest {
         delegate.togglePlatform(this, "3ds")
         delegate.settled { "3ds" in it.settings.platforms }
         delegate.togglePlatform(this, "switch")
-        assertEquals(setOf("3ds"), delegate.settled { "switch" !in it.settings.platforms }.settings.platforms)
+        assertEquals(setOf("3ds", "pc"), delegate.settled { "switch" !in it.settings.platforms }.settings.platforms)
     }
 }
